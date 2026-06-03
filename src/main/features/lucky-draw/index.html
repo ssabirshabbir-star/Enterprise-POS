@@ -1,0 +1,349 @@
+<section class="epos-lucky-page">
+  <p id="luckyMessage" class="epos-lucky-message hidden"></p>
+
+  <div class="epos-lucky-stats">
+    <article class="epos-lucky-stat epos-lucky-stat-purple">
+      <span class="epos-lucky-stat-icon">👥</span>
+      <div>
+        <small>Total Campaigns</small>
+        <strong id="luckyReportCampaigns">0</strong>
+        <em>Live database</em>
+      </div>
+    </article>
+    <article class="epos-lucky-stat epos-lucky-stat-green">
+      <span class="epos-lucky-stat-icon">🎫</span>
+      <div>
+        <small>Total Coupons</small>
+        <strong id="luckyReportCoupons">0</strong>
+        <em>This campaign</em>
+      </div>
+    </article>
+    <article class="epos-lucky-stat epos-lucky-stat-orange">
+      <span class="epos-lucky-stat-icon">🛒</span>
+      <div>
+        <small>Total Sales</small>
+        <strong id="luckyReportSales">PKR 0.00</strong>
+        <em>This campaign</em>
+      </div>
+    </article>
+    <article class="epos-lucky-stat epos-lucky-stat-blue">
+      <span class="epos-lucky-stat-icon">👥</span>
+      <div>
+        <small>Total Participants</small>
+        <strong id="luckyParticipantsTotal">0</strong>
+        <em>Unique customers</em>
+      </div>
+    </article>
+    <article class="epos-lucky-stat epos-lucky-stat-pink">
+      <span class="epos-lucky-stat-icon">🎁</span>
+      <div>
+        <small>Winners Selected</small>
+        <strong id="luckyReportWinners">0</strong>
+        <em>This campaign</em>
+      </div>
+    </article>
+  </div>
+
+  <div class="epos-lucky-layout">
+    <main class="epos-lucky-main">
+      <div class="epos-lucky-panel">
+        <nav class="epos-lucky-tabs">
+          <button type="button" class="luckyTab epos-btn-primary" data-lucky-tab="campaigns">🎁 Campaigns</button>
+          <button type="button" class="luckyTab epos-btn-outline" data-lucky-tab="entries">🏆 Coupons</button>
+          <button type="button" class="luckyTab epos-btn-outline" data-lucky-tab="verify">👥 Participants</button>
+          <button type="button" class="luckyTab epos-btn-outline" data-lucky-tab="winners">⭐ Winners</button>
+          <button type="button" class="luckyTab epos-btn-outline" data-lucky-tab="reports">📊 Draw History</button>
+          <button type="button" class="luckyTab epos-btn-outline" data-lucky-tab="settings">⚙ Settings</button>
+        </nav>
+
+        <section id="luckyCampaignPanel" class="luckyPanel epos-lucky-workspace">
+          <div class="epos-lucky-filters">
+            <label>
+              <span>Campaign</span>
+              <select id="luckyCampaignVisualFilter">
+                <option value="">All Campaigns</option>
+              </select>
+            </label>
+            <label>
+              <span>Date Range</span>
+              <input id="luckyDateRangeVisual" type="text" value="01/05/2024 - 31/05/2024" />
+            </label>
+            <label>
+              <span>Coupon Status</span>
+              <select id="luckyCouponVisualStatus">
+                <option value="">All Status</option>
+                <option value="PENDING">Pending</option>
+                <option value="VERIFIED">Verified</option>
+              </select>
+            </label>
+            <label>
+              <span>Store</span>
+              <select>
+                <option>All Stores</option>
+                <option>Main Store</option>
+              </select>
+            </label>
+            <label>
+              <span>Purchase From</span>
+              <input id="luckyPurchaseFromVisual" type="text" value="PKR 1,000" />
+            </label>
+            <label>
+              <span>Purchase To</span>
+              <input id="luckyPurchaseToVisual" type="text" value="PKR 100,000" />
+            </label>
+            <label>
+              <span>Participation Status</span>
+              <select id="luckyParticipationVisualStatus">
+                <option value="">All</option>
+                <option value="ELIGIBLE">Eligible</option>
+                <option value="WINNER">Winner</option>
+              </select>
+            </label>
+            <div class="epos-lucky-filter-actions">
+              <button id="luckyFilterButton" type="button" class="epos-lucky-action epos-lucky-action-purple">Filter</button>
+              <button id="luckyResetFilterButton" type="button" class="epos-lucky-action epos-lucky-action-light">Reset</button>
+            </div>
+          </div>
+
+          <div class="epos-lucky-toolbar">
+            <button type="button" class="epos-lucky-action epos-lucky-action-purple" data-lucky-action="new">＋ New Campaign</button>
+            <button type="button" class="epos-lucky-action epos-lucky-action-green" data-lucky-tab="entries">Generate Coupons</button>
+            <button type="button" class="epos-lucky-action epos-lucky-action-blue" data-page-tool="lucky-draw" data-tool-action="excel">Export</button>
+            <button type="button" class="epos-lucky-action epos-lucky-action-orange" data-page-tool="lucky-draw" data-tool-action="print">Print</button>
+            <button type="button" class="epos-lucky-action epos-lucky-action-red" data-lucky-tab="winners">Select Winner</button>
+            <button type="button" class="epos-lucky-action epos-lucky-action-cyan" data-lucky-tab="settings">Send SMS</button>
+            <button type="button" class="epos-lucky-action epos-lucky-action-light" data-lucky-tab="reports">•••</button>
+          </div>
+
+          <div class="epos-lucky-table-card">
+            <table class="epos-lucky-table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" /></th>
+                  <th>#</th>
+                  <th>Campaign Name</th>
+                  <th>Duration</th>
+                  <th>Min. Purchase</th>
+                  <th>Total Coupons</th>
+                  <th>Participants</th>
+                  <th>Winners</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="luckyCampaignList">
+                <tr><td colspan="10">Loading Lucky Draw campaigns...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="luckyEntriesPanel" class="luckyPanel epos-lucky-workspace hidden">
+          <div class="epos-lucky-subgrid">
+            <label>
+              <span>Campaign</span>
+              <select id="luckyEntryCampaignFilter"></select>
+            </label>
+            <label>
+              <span>Search Coupon / Customer</span>
+              <input id="luckyEntrySearch" type="search" placeholder="Coupon no, invoice, customer..." />
+            </label>
+            <label>
+              <span>From</span>
+              <input id="luckyEntryFromDate" type="date" />
+            </label>
+            <label>
+              <span>To</span>
+              <input id="luckyEntryToDate" type="date" />
+            </label>
+          </div>
+          <div class="epos-lucky-table-card">
+            <table class="epos-lucky-table epos-lucky-entries-table">
+              <thead>
+                <tr>
+                  <th>Coupon No</th>
+                  <th>Customer</th>
+                  <th>Invoice</th>
+                  <th>Bill Amount</th>
+                  <th>Campaign</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="luckyEntriesBody">
+                <tr><td colspan="7">No eligible customers yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="luckyVerifyPanel" class="luckyPanel epos-lucky-workspace hidden">
+          <div class="epos-lucky-verify">
+            <label>
+              <span>Scan or Enter Coupon</span>
+              <input id="luckyVerifyInput" type="text" placeholder="LD-2026-000001" />
+            </label>
+            <button id="luckyLookupButton" type="button" class="epos-lucky-action epos-lucky-action-blue">Lookup Coupon</button>
+            <button id="luckyVerifyButton" type="button" class="epos-lucky-action epos-lucky-action-green">Verify Coupon</button>
+          </div>
+          <div id="luckyVerificationResult" class="epos-lucky-result">
+            No coupon scanned yet.
+          </div>
+        </section>
+
+        <section id="luckyWinnersPanel" class="luckyPanel epos-lucky-workspace hidden">
+          <div class="epos-lucky-draw-box">
+            <label>
+              <span>Campaign</span>
+              <select id="luckyDrawCampaignSelect"></select>
+            </label>
+            <label>
+              <span>Number of Winners</span>
+              <input id="luckyDrawCount" type="number" min="1" value="1" />
+            </label>
+            <button id="startLuckyDrawButton" type="button" class="epos-lucky-action epos-lucky-action-purple">🏆 Start Draw</button>
+          </div>
+          <div id="luckyWinnersList" class="epos-lucky-list">No winners selected yet.</div>
+        </section>
+
+        <section id="luckyReportsPanel" class="luckyPanel epos-lucky-workspace hidden">
+          <div class="epos-lucky-report-stats">
+            <article><span>Verified Coupons</span><strong id="luckyReportVerified">0</strong></article>
+            <article><span>Total Coupons</span><strong id="luckyReportCouponsMirror">Live</strong></article>
+          </div>
+          <div id="luckyCampaignReportList" class="epos-lucky-list">No campaign report data.</div>
+        </section>
+
+        <section id="luckySettingsPanel" class="luckyPanel epos-lucky-workspace hidden">
+          <div class="epos-lucky-settings-note">
+            <h3>Lucky Draw Settings</h3>
+            <p>QR, barcode, coupon generation, winner limits, verification, print workflow and notification foundations are handled through the campaign editor and live database services.</p>
+          </div>
+        </section>
+      </div>
+
+      <div class="epos-lucky-bottom">
+        <article>
+          <h3>🏆 Recent Winners</h3>
+          <div id="luckyRecentWinnersList" class="epos-lucky-mini-list">No winners yet.</div>
+          <button type="button" class="epos-lucky-wide-button" data-lucky-tab="winners">View All Winners</button>
+        </article>
+        <article>
+          <h3>🎁 Prize List <small id="luckyPrizeCampaignName"></small></h3>
+          <div id="luckyPrizeList" class="epos-lucky-prize-list">No active campaign prize details.</div>
+          <button type="button" class="epos-lucky-wide-button" data-lucky-action="new">Manage Prizes</button>
+        </article>
+        <article>
+          <h3>ⓘ How It Works</h3>
+          <div class="epos-lucky-how">
+            <span>🛒<small>Shop & reach minimum amount</small></span>
+            <b>→</b>
+            <span>🎟️<small>Get lucky draw coupon</small></span>
+            <b>→</b>
+            <span>🏆<small>Participate in draw</small></span>
+            <b>→</b>
+            <span>🎁<small>Win exciting prizes</small></span>
+          </div>
+        </article>
+      </div>
+    </main>
+
+    <aside class="epos-lucky-side">
+      <section class="epos-lucky-current">
+        <header>Current Campaign</header>
+        <div class="epos-lucky-current-hero">
+          <span class="epos-lucky-star">⭐</span>
+          <span class="epos-lucky-gift">🎁</span>
+          <h2 id="luckyCurrentCampaignName">No Active Campaign</h2>
+          <em id="luckyCurrentCampaignStatus">Inactive</em>
+        </div>
+        <dl>
+          <dt>Duration</dt><dd id="luckyCurrentCampaignDuration">-</dd>
+          <dt>Min. Purchase Amount</dt><dd id="luckyCurrentCampaignMinimum">PKR 0</dd>
+          <dt>Total Coupons</dt><dd id="luckyCurrentCampaignCoupons">0</dd>
+          <dt>Distributed</dt><dd id="luckyCurrentCampaignDistributed">0</dd>
+          <dt>Remaining</dt><dd id="luckyCurrentCampaignRemaining">0</dd>
+          <dt>Winners To Select</dt><dd id="luckyCurrentCampaignWinners">0</dd>
+        </dl>
+        <button type="button" class="epos-lucky-wide-button" data-lucky-tab="winners">🏆 Select Winner Now</button>
+      </section>
+
+      <section class="epos-lucky-quick">
+        <header>Quick Actions</header>
+        <div>
+          <button type="button" data-lucky-action="new">🎁<span>Create Campaign</span></button>
+          <button type="button" data-lucky-tab="entries">🎫<span>Generate Coupons</span></button>
+          <button type="button" data-lucky-tab="entries">👥<span>View Participants</span></button>
+          <button type="button" data-lucky-tab="winners">🏆<span>Select Winner</span></button>
+          <button type="button" data-lucky-tab="reports">📈<span>Campaign Report</span></button>
+          <button type="button" data-lucky-tab="settings">🔔<span>Send Notifications</span></button>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div id="luckyCampaignEditor" class="epos-lucky-modal hidden">
+    <div class="epos-lucky-modal-card">
+      <header>
+        <div>
+          <small>Lucky Draw Campaign</small>
+          <h2>Create / Edit Campaign</h2>
+        </div>
+        <button type="button" data-lucky-editor-close>×</button>
+      </header>
+      <form id="luckyCampaignForm">
+        <input id="luckyCampaignId" type="hidden" />
+        <label>
+          <span>Campaign Name</span>
+          <input id="luckyCampaignName" type="text" required placeholder="Eid Mega Lucky Draw" />
+        </label>
+        <label>
+          <span>Start Date</span>
+          <input id="luckyStartDate" type="date" required />
+        </label>
+        <label>
+          <span>End Date</span>
+          <input id="luckyEndDate" type="date" required />
+        </label>
+        <label>
+          <span>Minimum Purchase</span>
+          <input id="luckyMinimumPurchase" type="number" min="0" step="0.01" required placeholder="1000" />
+        </label>
+        <label>
+          <span>Number of Winners</span>
+          <input id="luckyTotalWinners" type="number" min="1" required />
+        </label>
+        <label>
+          <span>Coupon Generation</span>
+          <select id="luckyCouponType">
+            <option value="AUTO">Auto</option>
+            <option value="MANUAL">Manual</option>
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select id="luckyStatus">
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </label>
+        <label class="epos-lucky-modal-wide">
+          <span>Prize Details</span>
+          <textarea id="luckyPrizeDetails" rows="3" required placeholder="1st Prize PKR 100,000; 2nd Prize PKR 50,000"></textarea>
+        </label>
+        <label class="epos-lucky-modal-wide">
+          <span>Notes</span>
+          <textarea id="luckyNotes" rows="2" placeholder="Campaign notes"></textarea>
+        </label>
+        <div class="epos-lucky-checks">
+          <label><input id="luckyQrEnabled" type="checkbox" checked /> QR Enabled</label>
+          <label><input id="luckyBarcodeEnabled" type="checkbox" checked /> Barcode Enabled</label>
+        </div>
+        <footer>
+          <button id="resetLuckyCampaignButton" type="button" class="epos-lucky-action epos-lucky-action-light">Reset</button>
+          <button id="saveLuckyCampaignButton" type="submit" class="epos-lucky-action epos-lucky-action-purple">Save Campaign</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+</section>

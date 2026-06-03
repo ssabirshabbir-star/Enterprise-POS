@@ -1,0 +1,87 @@
+{
+  "name": "enterprise-pos",
+  "version": "1.0.0",
+  "description": "Offline desktop POS application built with Electron, Tailwind CSS, and PostgreSQL.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "build": "npm run generate && npm run build:css && npm run typecheck",
+    "build:css": "tailwindcss -i ./src/renderer/styles/input.css -o ./src/renderer/styles/output.css --minify",
+    "watch:css": "tailwindcss -i ./src/renderer/styles/input.css -o ./src/renderer/styles/output.css --watch",
+    "typecheck": "node scripts/type-check.js",
+    "generate": "node scripts/generate.js",
+    "db:health": "node scripts/db-health.js",
+    "db:migrate": "node scripts/db-migrate.js",
+    "db:first-run": "node scripts/first-run-setup.js",
+    "seed:admin": "node scripts/seed-admin.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "seed:grocery": "node scripts/seed-grocery.js",
+    "smoke:auth": "node scripts/auth-smoke.js",
+    "prestart": "npm run build:css",
+    "start": "electron .",
+    "dev": "concurrently \"npm:watch:css\" \"wait-on ./src/renderer/styles/output.css && electron .\"",
+    "build:desktop": "npm run build && electron-builder --dir",
+    "package:win": "npm run build && electron-builder --win nsis portable",
+    "predist": "npm run build",
+    "dist": "electron-builder --win nsis portable",
+    "prepack": "npm run build",
+    "pack": "electron-builder --dir"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bin": {
+    "generate": "scripts/generate.js"
+  },
+  "build": {
+    "appId": "com.enterprisepos.desktop",
+    "productName": "Enterprise POS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!src/**/*.map",
+      "!**/*.log"
+    ],
+    "extraResources": [
+      {
+        "from": ".env.production.example",
+        "to": ".env.production.example"
+      },
+      {
+        "from": "docs",
+        "to": "docs"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
+    "concurrently": "^9.2.1",
+    "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
+    "tailwindcss": "^4.3.0",
+    "wait-on": "^9.0.10"
+  }
+}

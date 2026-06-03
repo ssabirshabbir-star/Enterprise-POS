@@ -1,0 +1,91 @@
+<div class="epos-products-page">
+  <section class="epos-products-stats">
+    <article class="blue">
+      <div class="epos-products-stat-icon">□</div>
+      <div><span>Total Products</span><strong id="productTotalCount">0</strong><small>Live database</small></div>
+    </article>
+    <article class="green">
+      <div class="epos-products-stat-icon">✓</div>
+      <div><span>Active Products</span><strong id="productActiveCount">0</strong><small>Ready for billing</small></div>
+    </article>
+    <article class="amber">
+      <div class="epos-products-stat-icon">◇</div>
+      <div><span>Low Stock Items</span><strong id="productLowStockCount">0</strong><small>Needs reorder</small></div>
+    </article>
+    <article class="pink">
+      <div class="epos-products-stat-icon">×</div>
+      <div><span>Out of Stock</span><strong id="productOutOfStockCount">0</strong><small>Unavailable now</small></div>
+    </article>
+    <article class="purple">
+      <div class="epos-products-stat-icon">$</div>
+      <div><span>Total Value</span><strong id="productTotalValue">0</strong><small>Sale value</small></div>
+    </article>
+  </section>
+
+  <section class="epos-products-filterbar">
+    <label class="epos-products-global-search">
+      <input id="productSearch" type="search" placeholder="Search by product name, SKU or barcode..." />
+      <span>⌕</span>
+    </label>
+
+    <div class="epos-products-filter-group">
+      <select id="productCategoryFilter"><option value="">All Categories</option></select>
+      <select id="productBrandFilter"><option value="">All Brands</option></select>
+      <select id="productUnitFilter"><option value="">All Units</option></select>
+      <select id="productStockFilter">
+        <option value="">Stock Status</option>
+        <option value="in">In Stock</option>
+        <option value="low">Low Stock</option>
+        <option value="out">Out of Stock</option>
+      </select>
+      <button id="productResetFiltersButton" type="button">↻ Reset</button>
+    </div>
+
+    <div class="epos-products-top-actions">
+      <button type="button" data-page-tool="products" data-tool-action="import" class="epos-products-btn violet">⇩ Import</button>
+      <button type="button" data-page-tool="products" data-tool-action="excel" class="epos-products-btn orange">⇧ Export</button>
+      <button id="newProductButton" type="button" class="epos-products-btn green">+ Add Product</button>
+    </div>
+  </section>
+
+  <p id="productMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
+
+  <section class="epos-products-catalog">
+    <div class="epos-products-tabs">
+      <div>
+        <button type="button" class="active" data-product-tab="all">All Products</button>
+        <button type="button" data-product-tab="active">Active</button>
+        <button type="button" data-product-tab="low">Low Stock</button>
+        <button type="button" data-product-tab="out">Out of Stock</button>
+        <button type="button" data-product-tab="inactive">Discontinued</button>
+      </div>
+    </div>
+
+    <div class="epos-products-table-wrap">
+      <table class="epos-products-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>SKU</th>
+            <th>Barcode</th>
+            <th>Category</th>
+            <th>Brand</th>
+            <th>Unit</th>
+            <th>Cost Price</th>
+            <th>Sale Price</th>
+            <th>Stock</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="productTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="epos-products-footer">
+      <span id="productResultSummary">Showing 0 products</span>
+      <span>Database Linked</span>
+    </div>
+    <div id="productEmptyState" class="hidden epos-products-empty">No products found in the database.</div>
+  </section>
+</div>

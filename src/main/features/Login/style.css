@@ -1,0 +1,176 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #eef2f7;
+  font-family: Inter, "Segoe UI", sans-serif;
+}
+
+.login-screen {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.login-screen.hidden {
+  display: none;
+}
+
+.login-screen.grid {
+  display: flex;
+}
+
+.login-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  background-image: url("./assets/login-bg.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  overflow: hidden;
+}
+
+#loginScreen .login-stage {
+  background-image: url("../../main/features/Login/assets/login-bg.png");
+}
+
+.overlay-field,
+.hotspot {
+  position: absolute;
+  z-index: 20;
+  box-sizing: border-box;
+}
+
+.overlay-field {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  outline: none;
+  border-radius: 999px;
+  color: #241b4b;
+  font-size: clamp(12px, 0.95vw, 18px);
+  font-weight: 600;
+  padding-left: 4.2%;
+}
+
+.overlay-field:focus {
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(124,58,237,0.6);
+}
+
+.overlay-field::placeholder {
+  color: rgba(70,70,90,0.60);
+}
+
+.hotspot {
+  border: none;
+  outline: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.remember-hotspot input {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.username-field {
+  left: 39.2%;
+  top: 40.9%;
+  width: 26.3%;
+  height: 5.2%;
+}
+
+.password-field {
+  left: 39.2%;
+  top: 49.1%;
+  width: 26.3%;
+  height: 5.2%;
+}
+
+.eye-hotspot {
+  left: 63.1%;
+  top: 49.4%;
+  width: 2.4%;
+  height: 4.5%;
+}
+
+.remember-hotspot {
+  left: 39.0%;
+  top: 57.7%;
+  width: 9.5%;
+  height: 3.6%;
+}
+
+.forgot-hotspot {
+  left: 57.5%;
+  top: 57.7%;
+  width: 7.8%;
+  height: 3.6%;
+}
+
+.login-hotspot {
+  left: 39.1%;
+  top: 62.7%;
+  width: 26.7%;
+  height: 6.0%;
+}
+
+.staff-hotspot {
+  left: 41.0%;
+  top: 77.4%;
+  width: 4.8%;
+  height: 7.8%;
+}
+
+.biometric-hotspot {
+  left: 49.3%;
+  top: 77.4%;
+  width: 4.8%;
+  height: 7.8%;
+}
+
+.qr-hotspot {
+  left: 57.7%;
+  top: 77.4%;
+  width: 4.8%;
+  height: 7.8%;
+}
+
+.login-stage.debug .overlay-field,
+.login-stage.debug .hotspot {
+  background: rgba(255,0,0,0.18) !important;
+  border: 1px dashed rgba(255,0,0,0.75) !important;
+}
+
+.login-message {
+  position: absolute;
+  left: 39.2%;
+  top: 68.95%;
+  z-index: 30;
+  width: 26.3%;
+  min-height: 3.2%;
+  box-sizing: border-box;
+  border-radius: 999px;
+  padding: 0.45% 1%;
+  font-size: clamp(10px, 0.82vw, 14px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.login-message.bg-red-50 {
+  background: rgb(254 242 242 / 0.94) !important;
+}
+
+.login-message.bg-emerald-50 {
+  background: rgb(236 253 245 / 0.94) !important;
+}

@@ -1,0 +1,698 @@
+@layer components {
+  #inventoryModule {
+    max-width: none !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .epos-inventory-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: calc(100vh - 74px);
+    min-height: 0;
+    overflow: hidden;
+    color: #0f172a;
+  }
+
+  .epos-inventory-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 38px;
+    flex: 1 1 340px;
+    max-width: 460px;
+    min-width: 260px;
+    padding: 0 12px;
+    border: 1px solid #dde5f2;
+    border-radius: 11px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .epos-inventory-search span {
+    color: #667085;
+    font-weight: 900;
+  }
+
+  .epos-inventory-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 650;
+    color: #17213b;
+  }
+
+  .epos-inventory-search kbd {
+    border-radius: 6px;
+    border: 1px solid #d9e2f0;
+    background: #f8fafc;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #667085;
+  }
+
+  .epos-inventory-soft-btn,
+  .epos-inventory-action-buttons button,
+  .epos-inventory-pagination button,
+  .epos-inventory-pagination select {
+    height: 38px;
+    border: 1px solid #d9e2f0;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 850;
+    color: #18213a;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+  }
+
+  .epos-inventory-soft-btn:hover,
+  .epos-inventory-action-buttons button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
+  }
+
+  .epos-inventory-soft-btn.success,
+  .epos-inventory-action-buttons .emerald {
+    border: 0;
+    color: #ffffff;
+    background: linear-gradient(135deg, #20c56a, #0ca85a);
+  }
+
+  .epos-inventory-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .epos-inventory-stats article {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 78px;
+    overflow: hidden;
+    border-radius: 14px;
+    padding: 15px 18px;
+    color: #ffffff;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12);
+  }
+
+  .epos-inventory-stats article::after {
+    content: "";
+    position: absolute;
+    right: -18px;
+    top: -20px;
+    width: 90px;
+    height: 90px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .epos-inventory-stats .purple { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+  .epos-inventory-stats .blue { background: linear-gradient(135deg, #0f6eea, #45a3ff); }
+  .epos-inventory-stats .green { background: linear-gradient(135deg, #05a660, #7ad151); }
+  .epos-inventory-stats .orange { background: linear-gradient(135deg, #ff7a00, #ffc247); }
+  .epos-inventory-stats .pink { background: linear-gradient(135deg, #f43f5e, #fb7185); }
+
+  .epos-inventory-stats span {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    opacity: 0.95;
+  }
+
+  .epos-inventory-stats strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 950;
+  }
+
+  .epos-inventory-stats i {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 2px solid rgba(255, 255, 255, 0.62);
+    border-radius: 999px;
+    font-style: normal;
+    font-weight: 950;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .epos-inventory-shell {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid #e4eaf4;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  }
+
+  .epos-inventory-tabs {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 12px 18px 0;
+    border-bottom: 1px solid #e7edf7;
+  }
+
+  .epos-inventory-tabs button {
+    position: relative;
+    height: 38px;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 850;
+    color: #18213a;
+  }
+
+  .epos-inventory-tabs button.active {
+    color: #3b36ff;
+  }
+
+  .epos-inventory-tabs button.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 3px;
+    border-radius: 999px 999px 0 0;
+    background: linear-gradient(90deg, #5b5ff7, #7c3aed);
+  }
+
+  .epos-inventory-filter-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr)) 92px;
+    gap: 10px;
+    padding: 14px 18px 10px;
+  }
+
+  .epos-inventory-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    min-width: 0;
+    border: 1px solid #d9e2f0;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 0 12px;
+  }
+
+  .epos-inventory-field.search {
+    justify-content: space-between;
+  }
+
+  .epos-inventory-field small {
+    display: block;
+    font-size: 10px;
+    color: #758199;
+  }
+
+  .epos-inventory-field input,
+  .epos-inventory-field select {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 750;
+    color: #17213b;
+  }
+
+  .epos-inventory-filter-btn,
+  .epos-inventory-reset-btn {
+    height: 44px;
+    border: 1px solid #d9e2f0;
+    border-radius: 10px;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 850;
+  }
+
+  .epos-inventory-action-row {
+    display: block;
+    padding: 4px 18px 10px;
+  }
+
+  .epos-inventory-action-buttons {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .epos-inventory-action-buttons button {
+    height: 34px;
+    border: 0;
+    color: #ffffff;
+    box-shadow: none;
+  }
+
+  .epos-inventory-action-buttons .violet { background: linear-gradient(135deg, #5637f6, #8038ef); }
+  .epos-inventory-action-buttons .amber { background: linear-gradient(135deg, #ff9b00, #ff7a00); }
+  .epos-inventory-action-buttons .green { background: linear-gradient(135deg, #19b96c, #00a85a); }
+  .epos-inventory-action-buttons .blue { background: linear-gradient(135deg, #0ea5e9, #0876d7); }
+  .epos-inventory-action-buttons .indigo { background: linear-gradient(135deg, #2563eb, #4f46e5); }
+  .epos-inventory-action-buttons .emerald { background: linear-gradient(135deg, #22c55e, #059669); }
+  .epos-inventory-action-buttons .slate { background: linear-gradient(135deg, #64748b, #334155); }
+  .epos-inventory-action-buttons .cyan { background: linear-gradient(135deg, #06b6d4, #0284c7); }
+  .epos-inventory-action-buttons .rose { background: linear-gradient(135deg, #f43f5e, #e11d48); }
+
+  .epos-inventory-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0 18px;
+    border-top: 1px solid #e7edf7;
+    padding: 6px 0;
+    font-size: 12px;
+    font-weight: 650;
+    color: #64748b;
+  }
+
+  .epos-inventory-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .epos-inventory-pagination button,
+  .epos-inventory-pagination select {
+    width: auto;
+    height: 32px;
+    padding: 0 10px;
+    box-shadow: none;
+  }
+
+  .epos-inventory-pagination button.active {
+    border-color: #7067ff;
+    color: #4338ca;
+    background: #f2f0ff;
+  }
+
+  .epos-inventory-table-card {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0 18px;
+    border: 1px solid #e3eaf5;
+    border-radius: 12px;
+  }
+
+  .epos-inventory-table {
+    width: 100%;
+    min-width: 1040px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+
+  .epos-inventory-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: 40px !important;
+    background: linear-gradient(90deg, #7c3aed 0%, #2563eb 28%, #06b6d4 48%, #22c55e 66%, #f59e0b 82%, #ec4899 100%) !important;
+    box-shadow: 0 8px 18px rgb(37 99 235 / 0.16);
+  }
+
+  .epos-inventory-table thead tr {
+    height: 40px !important;
+  }
+
+  .epos-inventory-table th {
+    height: 40px !important;
+    min-height: 40px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #ffffff !important;
+    padding: 0 12px !important;
+    text-align: left;
+    font-size: 12px !important;
+    font-weight: 950;
+    letter-spacing: 0.01em;
+    line-height: 40px !important;
+    white-space: nowrap;
+  }
+
+  .epos-inventory-table th:first-child {
+    border-top-left-radius: 12px;
+  }
+
+  .epos-inventory-table th:last-child {
+    border-top-right-radius: 12px;
+  }
+
+  .epos-inventory-table th,
+  .epos-inventory-table th * {
+    color: #ffffff !important;
+  }
+
+  .epos-inventory-table td {
+    height: 48px;
+    border-bottom: 1px solid #edf2f7;
+    border-right: 1px solid #eef3fa;
+    background: #ffffff;
+    padding: 6px 10px;
+    vertical-align: middle;
+    color: #111a33;
+  }
+
+  .epos-inventory-table th:nth-child(1),
+  .epos-inventory-table td:nth-child(1) {
+    width: 42px;
+    text-align: center;
+  }
+
+  .epos-inventory-table th:nth-child(2),
+  .epos-inventory-table td:nth-child(2) {
+    width: 58px;
+    text-align: center;
+  }
+
+  .epos-inventory-table th:nth-child(3),
+  .epos-inventory-table td:nth-child(3) {
+    width: 190px;
+  }
+
+  .epos-inventory-table th:nth-child(4),
+  .epos-inventory-table td:nth-child(4) {
+    width: 90px;
+  }
+
+  .epos-inventory-table th:nth-child(5),
+  .epos-inventory-table td:nth-child(5) {
+    width: 130px;
+  }
+
+  .epos-inventory-table th:nth-child(6),
+  .epos-inventory-table td:nth-child(6) {
+    width: 92px;
+  }
+
+  .epos-inventory-table th:nth-child(7),
+  .epos-inventory-table td:nth-child(7) {
+    width: 120px;
+  }
+
+  .epos-inventory-table th:nth-child(8),
+  .epos-inventory-table td:nth-child(8),
+  .epos-inventory-table th:nth-child(9),
+  .epos-inventory-table td:nth-child(9) {
+    width: 104px;
+  }
+
+  .epos-inventory-table th:nth-child(10),
+  .epos-inventory-table td:nth-child(10) {
+    width: 86px;
+    text-align: center;
+  }
+
+  .epos-inventory-table th:nth-child(11),
+  .epos-inventory-table td:nth-child(11) {
+    width: 96px;
+    text-align: center;
+  }
+
+  .epos-inventory-table th:nth-child(12),
+  .epos-inventory-table td:nth-child(12) {
+    width: 94px;
+  }
+
+  .epos-inventory-table tbody tr:hover td {
+    background: #fbfcff;
+  }
+
+  .epos-inventory-empty {
+    height: 120px !important;
+    text-align: center;
+    color: #64748b !important;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .epos-inventory-product {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .epos-inventory-product strong {
+    font-size: 12px;
+    font-weight: 950;
+  }
+
+  .epos-inventory-product span {
+    font-size: 11px;
+    color: #64748b;
+  }
+
+  .epos-inventory-image {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #eef6ff, #fff6dd);
+    font-size: 17px;
+  }
+
+  .epos-inventory-badge,
+  .epos-inventory-status,
+  .epos-inventory-stock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .epos-inventory-badge {
+    color: #4338ca;
+    background: #eef2ff;
+  }
+
+  .epos-inventory-status.in,
+  .epos-inventory-stock.in {
+    color: #059669;
+    background: #e7f9ef;
+  }
+
+  .epos-inventory-status.low,
+  .epos-inventory-stock.low {
+    color: #f97316;
+    background: #fff4e6;
+  }
+
+  .epos-inventory-status.out,
+  .epos-inventory-stock.out {
+    color: #ef233c;
+    background: #fff0f3;
+  }
+
+  .epos-inventory-row-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .epos-inventory-row-actions button {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #dbe6f4;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #2563eb;
+    font-weight: 950;
+  }
+
+  .epos-inventory-row-actions button.adjust {
+    color: #f59e0b;
+    border-color: #fed7aa;
+  }
+
+  .epos-inventory-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    background: rgba(15, 23, 42, 0.36);
+  }
+
+  .epos-inventory-modal.hidden {
+    display: none;
+  }
+
+  .epos-inventory-adjustment {
+    width: min(420px, calc(100vw - 32px));
+    border-radius: 16px;
+    background: #ffffff;
+    padding: 18px;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+  }
+
+  .epos-inventory-modal-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .epos-inventory-modal-head h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  .epos-inventory-modal-head p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .epos-inventory-modal-head button {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: #f1f5f9;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .epos-inventory-adjustment select,
+  .epos-inventory-adjustment input {
+    width: 100%;
+    height: 38px;
+    margin-top: 10px;
+    border: 1px solid #d8e2ef;
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 750;
+    outline: 0;
+  }
+
+  .epos-inventory-adjustment button[type="submit"] {
+    width: 100%;
+    height: 40px;
+    margin-top: 12px;
+    border: 0;
+    border-radius: 10px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  @media (max-width: 1400px) {
+    .epos-inventory-page {
+      gap: 9px;
+      height: calc(100vh - 70px);
+    }
+
+    .epos-inventory-stats {
+      gap: 8px;
+    }
+
+    .epos-inventory-stats article {
+      min-height: 66px;
+      padding: 12px 14px;
+    }
+
+    .epos-inventory-stats strong {
+      font-size: 18px;
+    }
+
+    .epos-inventory-search {
+      flex-basis: 300px;
+      min-width: 230px;
+      max-width: 360px;
+    }
+
+    .epos-inventory-tabs {
+      gap: 12px;
+      padding: 10px 14px 0;
+    }
+
+    .epos-inventory-tabs button {
+      font-size: 12px;
+    }
+
+    .epos-inventory-filter-row {
+      grid-template-columns: repeat(4, minmax(118px, 1fr)) 76px;
+      gap: 8px;
+      padding: 10px 14px 8px;
+    }
+
+    .epos-inventory-field,
+    .epos-inventory-filter-btn,
+    .epos-inventory-reset-btn {
+      height: 38px;
+    }
+
+    .epos-inventory-action-row {
+      padding: 2px 14px 8px;
+    }
+
+    .epos-inventory-action-buttons {
+      grid-template-columns: repeat(9, minmax(74px, 1fr));
+      gap: 6px;
+    }
+
+    .epos-inventory-action-buttons button {
+      height: 32px;
+      padding-inline: 7px;
+      font-size: 10px;
+    }
+
+    .epos-inventory-table-card {
+      margin: 0 14px;
+    }
+
+    .epos-inventory-pagination {
+      margin: 0 14px;
+      min-height: 40px;
+      padding: 5px 0;
+    }
+
+    .epos-inventory-table td {
+      height: 42px;
+      padding: 4px 8px;
+    }
+
+    .epos-inventory-table thead,
+    .epos-inventory-table thead tr,
+    .epos-inventory-table th {
+      height: 40px !important;
+      min-height: 40px !important;
+      line-height: 40px !important;
+    }
+
+  }
+}

@@ -1,0 +1,178 @@
+<section class="epos-purchases-page" aria-label="Purchases">
+  <p id="purchaseMessage" class="epos-purchases-message hidden"></p>
+
+  <section class="epos-purchases-stats" aria-label="Purchase summary">
+    <article class="blue">
+      <div>
+        <p>Total Purchases</p>
+        <strong id="purchaseStatCount">0</strong>
+        <small>This Month</small>
+      </div>
+      <span>&#128717;</span>
+    </article>
+    <article class="green">
+      <div>
+        <p>Total Spend</p>
+        <strong id="purchaseStatSpend">Rs. 0.00</strong>
+        <small>This Month</small>
+      </div>
+      <span>$</span>
+    </article>
+    <article class="orange">
+      <div>
+        <p>Pending Bills</p>
+        <strong id="purchaseStatPending">0</strong>
+        <small id="purchaseStatPendingAmount">Rs. 0.00</small>
+      </div>
+      <span>&#128196;</span>
+    </article>
+    <article class="purple">
+      <div>
+        <p>Paid Bills</p>
+        <strong id="purchaseStatPaid">0</strong>
+        <small id="purchaseStatPaidAmount">Rs. 0.00</small>
+      </div>
+      <span>&#10003;</span>
+    </article>
+    <article class="pink">
+      <div>
+        <p>Overdue Bills</p>
+        <strong id="purchaseStatOverdue">0</strong>
+        <small id="purchaseStatOverdueAmount">Rs. 0.00</small>
+      </div>
+      <span>!</span>
+    </article>
+  </section>
+
+  <section class="epos-purchases-panel">
+    <nav class="epos-purchases-tabs" aria-label="Purchase status filters">
+      <button type="button" class="active" data-purchase-status-tab="">All Purchases</button>
+      <button type="button" data-purchase-status-tab="DRAFT">Draft (0)</button>
+      <button type="button" data-purchase-status-tab="PENDING">Pending</button>
+      <button type="button" data-purchase-status-tab="PARTIAL">Partial Paid</button>
+      <button type="button" data-purchase-status-tab="PAID">Paid</button>
+      <button type="button" data-purchase-status-tab="CANCELLED">Cancelled</button>
+      <button type="button" data-purchase-status-tab="RETURN">Purchase Return</button>
+    </nav>
+
+    <div class="epos-purchases-filter-row">
+      <input id="purchaseFilterFrom" type="date" aria-label="From date" />
+      <span>to</span>
+      <input id="purchaseFilterTo" type="date" aria-label="To date" />
+      <select id="purchaseSupplierFilter" aria-label="Supplier"><option value="">All Suppliers</option></select>
+      <select id="purchaseStatusFilter" aria-label="Status"><option value="">All Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial Paid</option><option value="PENDING">Pending</option></select>
+      <select id="purchasePaymentFilter" aria-label="Payment status"><option value="">All Payment Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial</option><option value="UNPAID">Unpaid</option></select>
+      <button type="button" id="purchaseMoreFiltersButton" class="epos-purchases-ghost">&#9661; More Filters</button>
+      <button type="button" id="purchaseSearchButton" class="epos-purchases-search">&#128269; Search</button>
+      <button type="button" id="purchaseClearFiltersButton" class="epos-purchases-ghost">&#8635; Clear</button>
+    </div>
+
+    <div class="epos-purchases-search-row">
+      <label class="epos-purchases-keyword">
+        <span>&#128269;</span>
+        <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
+      </label>
+      <span class="epos-purchases-quick-label">Quick Filters:</span>
+      <button type="button" data-purchase-range="today">Today</button>
+      <button type="button" data-purchase-range="yesterday">Yesterday</button>
+      <button type="button" data-purchase-range="7">Last 7 Days</button>
+      <button type="button" data-purchase-range="30" class="active">Last 30 Days</button>
+      <button type="button" data-purchase-range="month" class="green">This Month</button>
+      <button type="button" data-purchase-range="last-month">Last Month</button>
+      <button type="button" data-purchase-range="year">This Financial Year</button>
+    </div>
+  </section>
+
+  <section class="epos-purchases-toolbar" aria-label="Purchase actions">
+    <button type="button" id="openPurchaseFormButton" class="primary">+ Add Purchase</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="import" class="green">&#8681; Import</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="excel" class="blue">&#8679; Export</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="print" class="orange">&#128424; Print</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="pdf" class="sky">&#9993; Email</button>
+    <button type="button" id="purchasePaymentButton" class="emerald">&#9745; Payment</button>
+    <button type="button" id="purchaseMoreActionsButton" class="pink">&#10035; More Actions</button>
+    <button type="button" id="purchaseColumnsButton" class="ghost">&#9881; Columns</button>
+  </section>
+
+  <section class="epos-purchases-table-card">
+    <div class="epos-purchases-table-wrap">
+      <table class="epos-purchases-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Invoice No.</th>
+            <th>Supplier</th>
+            <th>Invoice Date</th>
+            <th>Due Date</th>
+            <th>Total Amount</th>
+            <th>Paid Amount</th>
+            <th>Due Amount</th>
+            <th>Payment Status</th>
+            <th>Status</th>
+            <th>Payment Method</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="purchaseList"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="epos-purchases-footer">
+    <article><span>Total Purchases</span><strong id="purchaseFooterCount">0</strong></article>
+    <article><span>Total Amount</span><strong id="purchaseFooterTotal">Rs. 0.00</strong></article>
+    <article><span>Paid Amount</span><strong class="green" id="purchaseFooterPaid">Rs. 0.00</strong></article>
+    <article><span>Due Amount</span><strong class="red" id="purchaseFooterDue">Rs. 0.00</strong></article>
+    <div class="epos-purchases-pagination">
+      <label>Rows per page:<select id="purchaseRowsPerPage"><option>10</option><option>25</option><option>50</option></select></label>
+      <span id="purchasePageInfo">0-0 of 0</span>
+      <button type="button" id="purchasePrevPage">&#8249;</button>
+      <strong id="purchaseCurrentPage">1</strong>
+      <button type="button" id="purchaseNextPage">&#8250;</button>
+    </div>
+  </section>
+
+  <div id="purchaseFormModal" class="epos-purchases-modal hidden">
+    <div class="epos-purchases-modal-backdrop" data-close-purchase-modal></div>
+    <div class="epos-purchases-modal-card">
+      <div class="epos-purchases-modal-head">
+        <div>
+          <p>Purchase Entry</p>
+          <h3>Add Purchase</h3>
+        </div>
+        <button type="button" data-close-purchase-modal>x</button>
+      </div>
+
+      <form id="supplierForm" class="epos-purchases-supplier-form">
+        <strong>Quick Supplier</strong>
+        <input name="name" placeholder="Supplier name" required />
+        <input name="phone" placeholder="Phone" />
+        <input name="email" placeholder="Email" />
+        <button type="submit">Add Supplier</button>
+      </form>
+
+      <form id="purchaseForm" class="epos-purchases-form">
+        <div class="epos-purchases-form-grid">
+          <select id="purchaseSupplier"></select>
+          <input id="purchaseInvoice" placeholder="Invoice number" required />
+          <input id="purchaseDate" type="date" required />
+          <input id="purchaseDiscount" type="number" min="0" step="0.01" placeholder="Discount" value="0" />
+          <input id="purchaseTax" type="number" min="0" step="0.01" placeholder="Tax" value="0" />
+          <input id="purchasePaid" type="number" min="0" step="0.01" placeholder="Paid amount" value="0" />
+        </div>
+
+        <div class="epos-purchases-item-row">
+          <select id="purchaseItemProduct"></select>
+          <input id="purchaseItemQty" type="number" min="0.001" step="0.001" placeholder="Qty" />
+          <input id="purchaseItemCost" type="number" min="0" step="0.01" placeholder="Cost" />
+          <input id="purchaseItemSale" type="number" min="0" step="0.01" placeholder="Sale" />
+          <button id="addPurchaseItemButton" type="button">Add Item</button>
+        </div>
+
+        <div id="purchaseItemsList" class="epos-purchases-items-list"></div>
+        <div id="purchaseTotals" class="epos-purchases-totals"></div>
+        <button id="savePurchaseButton" type="submit" class="epos-purchases-save">Save Purchase</button>
+      </form>
+    </div>
+  </div>
+</section>

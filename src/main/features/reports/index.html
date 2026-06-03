@@ -1,0 +1,40 @@
+﻿<div class="space-y-5">
+          <div class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Reports</p>
+              <h2 class="mt-2 text-2xl font-semibold text-zinc-950">Advanced Reports</h2>
+            </div>
+            <div class="flex gap-3">
+              <input id="reportDateFrom" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
+              <input id="reportDateTo" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
+              <button id="loadReportsButton" type="button" class="epos-btn epos-btn-primary">Load</button>
+              <button id="exportPdfButton" type="button" class="epos-btn epos-btn-outline">PDF</button>
+              <button id="exportExcelButton" type="button" class="epos-btn epos-btn-outline">Excel</button>
+            </div>
+          </div>
+          <p id="reportsMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
+          <div class="grid gap-5 md:grid-cols-4">
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><p class="text-sm text-zinc-500">Total Sales</p><p id="reportTotalSales" class="mt-2 text-2xl font-semibold">0</p></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><p class="text-sm text-zinc-500">Total Profit</p><p id="reportTotalProfit" class="mt-2 text-2xl font-semibold">0</p></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><p class="text-sm text-zinc-500">Purchases</p><p id="reportTotalPurchases" class="mt-2 text-2xl font-semibold">0</p></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><p class="text-sm text-zinc-500">Low Stock</p><p id="reportLowStockCount" class="mt-2 text-2xl font-semibold">0</p></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><p class="text-sm text-zinc-500">Expenses</p><p id="reportTotalExpenses" class="mt-2 text-2xl font-semibold">0</p></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><p class="text-sm text-zinc-500">Net Cash</p><p id="reportNetCash" class="mt-2 text-2xl font-semibold">0</p></div>
+          </div>
+          <div class="grid gap-5 xl:grid-cols-2">
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Sales Reports</h3><div id="salesReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Purchase Reports</h3><div id="purchaseReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Purchase Order Reports</h3><div id="purchaseOrderReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Goods Receiving Reports</h3><div id="goodsReceiptReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Low Stock Reports</h3><div id="lowStockReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Cashier Reports</h3><div id="cashierReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Customer Due Report</h3><div id="customerDueReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Credit Sales Report</h3><div id="creditSalesReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Returns Report</h3><div id="returnsReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Refund Summary</h3><div id="refundSummaryList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Supplier Balances</h3><div id="supplierBalanceReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Supplier Payments</h3><div id="supplierPaymentReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Expense Reports</h3><div id="expenseReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+            <div class="rounded-lg border border-zinc-200 bg-white p-5"><h3 class="font-semibold">Expense By Category</h3><div id="expenseCategoryReportList" class="mt-3 max-h-80 overflow-y-auto text-sm"></div></div>
+          </div>
+        </div>

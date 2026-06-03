@@ -1,0 +1,720 @@
+@layer components {
+  #dashboard main:has(#customersModule:not(.hidden)) {
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 12% 0%, rgb(59 130 246 / 0.12), transparent 30%),
+      radial-gradient(circle at 86% 4%, rgb(168 85 247 / 0.11), transparent 32%),
+      #f7f9ff;
+    padding: 10px !important;
+  }
+
+  #customersModule {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .epos-customers-page {
+    --app-table-header-height: 40px;
+    --app-table-header-padding: 0 12px;
+    --app-table-header-line-height: 1.15;
+    --app-table-header-bg: linear-gradient(90deg, #7c3aed 0%, #2563eb 28%, #06b6d4 48%, #22c55e 66%, #f59e0b 82%, #ec4899 100%);
+    --app-table-header-text: #ffffff;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    height: 100%;
+    min-height: 0;
+    gap: 10px;
+    color: #172033;
+  }
+
+  .epos-customers-topbar,
+  .epos-customers-stats article,
+  .epos-customers-card,
+  .epos-customers-filter-card,
+  .epos-customers-bottom-actions button,
+  .epos-customers-modal-card {
+    border: 1px solid rgb(226 232 240 / 0.86);
+    background: rgb(255 255 255 / 0.92);
+    box-shadow: 10px 14px 34px rgb(31 41 55 / 0.08), -8px -8px 22px rgb(255 255 255 / 0.9);
+  }
+
+  .epos-customers-topbar {
+    display: grid;
+    grid-template-columns: 48px minmax(280px, 1fr);
+    gap: 10px;
+    align-items: center;
+    border-radius: 18px;
+    padding: 8px 10px;
+  }
+
+  .epos-customers-menu,
+  .epos-customers-icon-btn {
+    display: grid;
+    min-height: 38px;
+    place-items: center;
+    border: 0;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+    box-shadow: inset 2px 2px 5px rgb(15 23 42 / 0.06), inset -2px -2px 5px #ffffff;
+  }
+
+  .epos-customers-menu {
+    font-size: 24px;
+  }
+
+  .epos-customers-search {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 38px;
+    border-radius: 999px;
+    background: #ffffff;
+    padding: 0 14px;
+    box-shadow: inset 3px 3px 8px rgb(15 23 42 / 0.08), inset -3px -3px 8px #ffffff;
+  }
+
+  .epos-customers-search span {
+    color: #f97316;
+    font-weight: 950;
+  }
+
+  .epos-customers-search input {
+    border: 0;
+    background: transparent;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 750;
+    outline: none;
+  }
+
+  .epos-customers-primary {
+    min-height: 38px;
+    border: 0;
+    border-radius: 11px;
+    background: linear-gradient(135deg, #1d9bf0, #7c3aed);
+    color: #ffffff;
+    padding: 0 18px;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgb(79 70 229 / 0.24);
+  }
+
+  .epos-customers-heading h2 {
+    margin: 0;
+    color: #172033;
+    font-size: 22px;
+    font-weight: 950;
+  }
+
+  .epos-customers-heading p {
+    margin: 2px 0 0;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .epos-customers-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .epos-customers-stats article {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 86px;
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .epos-customers-stats article > span {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border-radius: 14px;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 950;
+    box-shadow: 0 12px 24px rgb(15 23 42 / 0.14);
+  }
+
+  .epos-customers-stats .blue > span { background: linear-gradient(135deg, #4776ff, #175cff); }
+  .epos-customers-stats .green > span { background: linear-gradient(135deg, #3ee08c, #00b86b); }
+  .epos-customers-stats .orange > span { background: linear-gradient(135deg, #ffba47, #ff7038); }
+  .epos-customers-stats .pink > span { background: linear-gradient(135deg, #ff6380, #e92a8f); }
+
+  .epos-customers-stats p {
+    margin: 0;
+    color: #64709d;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-customers-stats strong {
+    display: block;
+    margin-top: 6px;
+    color: #172033;
+    font-size: 21px;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .epos-customers-stats small {
+    display: block;
+    margin-top: 7px;
+    color: #008f5a;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .epos-customers-workspace {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .epos-customers-card,
+  .epos-customers-filter-card {
+    min-width: 0;
+    border-radius: 18px;
+  }
+
+  .epos-customers-card {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .epos-customers-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 8px;
+  }
+
+  .epos-customers-tabs button {
+    min-width: 136px;
+    min-height: 34px;
+    border: 0;
+    border-radius: 14px 14px 0 0;
+    background: #f5f7fb;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .epos-customers-tabs button.active {
+    color: #1455ff;
+    background: #ffffff;
+    box-shadow: inset 0 3px 0 #a855f7;
+  }
+
+  .epos-customers-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(130px, 1fr)) repeat(4, minmax(112px, auto));
+    gap: 8px;
+    border-bottom: 1px solid #edf1f7;
+    padding: 12px;
+  }
+
+  .epos-customers-filters input,
+  .epos-customers-filters select,
+  .epos-customers-filters button,
+  .epos-customers-filter-card input,
+  .epos-customers-filter-card select,
+  .epos-customers-input {
+    min-height: 36px;
+    border: 1px solid #d9e1ee;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #344054;
+    padding: 0 11px;
+    font-size: 12px;
+    font-weight: 750;
+    outline: none;
+  }
+
+  .epos-customers-filters button,
+  .epos-customers-filter-card button {
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .epos-customers-filters .add {
+    border-color: #c7d2fe;
+    background: linear-gradient(135deg, #1d9bf0, #7c3aed);
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgb(79 70 229 / 0.16);
+  }
+
+  .epos-customers-filters .import {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #22c55e, #10b981);
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgb(16 185 129 / 0.14);
+  }
+
+  .epos-customers-filters .export {
+    border-color: #bfdbfe;
+    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgb(37 99 235 / 0.14);
+  }
+
+  .epos-customers-filters .print {
+    border-color: #fed7aa;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgb(249 115 22 / 0.14);
+  }
+
+  .epos-customers-message {
+    margin: 0 12px 8px;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-customers-table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .epos-customers-table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+
+  .epos-customers-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--app-table-header-bg) !important;
+    box-shadow: 0 8px 18px rgb(37 99 235 / 0.16);
+  }
+
+  .epos-customers-table th {
+    height: var(--app-table-header-height);
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--app-table-header-text) !important;
+    padding: var(--app-table-header-padding) !important;
+    text-align: left;
+    font-size: 12px !important;
+    font-weight: 950 !important;
+    letter-spacing: 0.01em;
+    line-height: var(--app-table-header-line-height);
+    white-space: nowrap;
+  }
+
+  .epos-customers-table th:first-child {
+    border-top-left-radius: 12px;
+  }
+
+  .epos-customers-table th:last-child {
+    border-top-right-radius: 12px;
+  }
+
+  .epos-customers-table td {
+    height: 45px;
+    border-bottom: 1px solid #edf1f7;
+    background: #ffffff;
+    color: #172033;
+    padding: 6px 10px !important;
+    vertical-align: middle;
+  }
+
+  .epos-customer-name {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+  }
+
+  .epos-customer-avatar {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fde68a, #7c3aed);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .epos-customer-name strong {
+    display: block;
+    color: #172033;
+    font-weight: 950;
+  }
+
+  .epos-customer-pill,
+  .epos-customer-status {
+    display: inline-flex;
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .epos-customer-pill.vip { background: #f3e8ff; color: #7c3aed; }
+  .epos-customer-pill.regular { background: #dbeafe; color: #2563eb; }
+  .epos-customer-pill.wholesale { background: #ffedd5; color: #f97316; }
+  .epos-customer-status.active { background: #dcfce7; color: #16a34a; }
+  .epos-customer-status.inactive { background: #ffe4e6; color: #e11d48; }
+
+  .epos-customers-row-actions {
+    display: flex;
+    gap: 5px;
+  }
+
+  .epos-customers-row-actions button {
+    display: inline-grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: 0;
+    border-radius: 7px;
+    background: #eef6ff;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .epos-customers-row-actions .edit { background: #fff7ed; color: #f97316; }
+  .epos-customers-row-actions .delete { background: #ffe4e6; color: #ef4444; }
+
+  .epos-customers-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid #edf1f7;
+    padding: 10px 14px;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .epos-customers-side {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .epos-customers-filter-card {
+    padding: 14px;
+    overflow: auto;
+  }
+
+  .epos-customers-filter-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .epos-customers-filter-card h3 {
+    margin: 0;
+    color: #6d28d9;
+    font-size: 15px;
+    font-weight: 950;
+  }
+
+  .epos-customers-filter-card p {
+    margin: 2px 0 12px;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .epos-customers-filter-card label {
+    display: grid;
+    gap: 7px;
+    margin-top: 12px;
+    color: #344054;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  #customerApplyFiltersButton {
+    width: 100%;
+    margin-top: 14px;
+    border: 0;
+    background: linear-gradient(135deg, #1d9bf0, #7c3aed);
+    color: #ffffff;
+  }
+
+  #customerResetFiltersButton {
+    width: 100%;
+    margin-top: 8px;
+    background: #ffffff;
+    color: #2563eb;
+  }
+
+  .epos-customers-top-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .epos-customers-top-list div {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    color: #172033;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-customers-top-list strong {
+    color: #16a34a;
+  }
+
+  .epos-customers-bottom-actions {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .epos-customers-bottom-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 13px;
+    min-height: 66px;
+    border: 1px solid rgb(255 255 255 / 0.7);
+    border-radius: 18px;
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+  }
+
+  .epos-customers-bottom-actions button::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgb(255 255 255 / 0.42), transparent 58%);
+    pointer-events: none;
+  }
+
+  .epos-customers-bottom-actions button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.02);
+  }
+
+  .epos-customers-bottom-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.9;
+  }
+
+  .epos-customers-bottom-actions strong {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: left;
+    line-height: 1.2;
+  }
+
+  .epos-customers-action-icon {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border-radius: 15px;
+    color: #ffffff;
+    font-family: "Segoe UI Symbol", "Arial", sans-serif;
+    font-size: 24px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 12px 22px rgb(15 23 42 / 0.18), inset 1px 1px 0 rgb(255 255 255 / 0.38);
+  }
+
+  .epos-customers-bottom-actions .blue {
+    background: linear-gradient(135deg, #d8d3ff, #7a6cff);
+    color: #ffffff;
+    box-shadow: 0 16px 30px rgb(99 102 241 / 0.22);
+  }
+  .epos-customers-bottom-actions .pink {
+    background: linear-gradient(135deg, #ffe1ec, #ffd3e8);
+    color: #db2777;
+    box-shadow: 0 16px 30px rgb(219 39 119 / 0.14);
+  }
+  .epos-customers-bottom-actions .green {
+    background: linear-gradient(135deg, #dcfce7, #c9f7df);
+    color: #059669;
+    box-shadow: 0 16px 30px rgb(5 150 105 / 0.14);
+  }
+  .epos-customers-bottom-actions .orange {
+    background: linear-gradient(135deg, #ffedd5, #ffe0b5);
+    color: #f97316;
+    box-shadow: 0 16px 30px rgb(249 115 22 / 0.14);
+  }
+  .epos-customers-bottom-actions .sky {
+    background: linear-gradient(135deg, #dbeafe, #c7e7ff);
+    color: #2563eb;
+    box-shadow: 0 16px 30px rgb(37 99 235 / 0.14);
+  }
+  .epos-customers-bottom-actions .violet {
+    background: linear-gradient(135deg, #ede9fe, #e7d6ff);
+    color: #7c3aed;
+    box-shadow: 0 16px 30px rgb(124 58 237 / 0.14);
+  }
+  .epos-customers-bottom-actions .red {
+    background: linear-gradient(135deg, #ffe4e6, #ffd8df);
+    color: #e11d48;
+    box-shadow: 0 16px 30px rgb(225 29 72 / 0.14);
+  }
+
+  .epos-customers-bottom-actions .blue .epos-customers-action-icon { background: linear-gradient(135deg, #4776ff, #4f46e5); }
+  .epos-customers-bottom-actions .pink .epos-customers-action-icon { background: linear-gradient(135deg, #ff6aa2, #e92a8f); }
+  .epos-customers-bottom-actions .green .epos-customers-action-icon { background: linear-gradient(135deg, #35e199, #00b86b); }
+  .epos-customers-bottom-actions .orange .epos-customers-action-icon { background: linear-gradient(135deg, #ffba47, #ff7038); }
+  .epos-customers-bottom-actions .sky .epos-customers-action-icon { background: linear-gradient(135deg, #26a8ff, #2563eb); }
+  .epos-customers-bottom-actions .violet .epos-customers-action-icon { background: linear-gradient(135deg, #b04bff, #7c3aed); }
+  .epos-customers-bottom-actions .red .epos-customers-action-icon { background: linear-gradient(135deg, #ff5b77, #e11d48); }
+
+  .epos-customers-modal,
+  .epos-customers-details {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    background: rgb(15 23 42 / 0.36);
+    padding: 18px;
+  }
+
+  .epos-customers-modal.hidden,
+  .epos-customers-details.hidden {
+    display: none;
+  }
+
+  .epos-customers-modal-card,
+  .epos-customers-details > * {
+    width: min(620px, 100%);
+    max-height: min(720px, 92vh);
+    overflow: auto;
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 16px;
+  }
+
+  .epos-customers-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #edf1f7;
+    padding-bottom: 10px;
+  }
+
+  .epos-customers-modal-head h3 {
+    margin: 0;
+    color: #172033;
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  .epos-customers-modal-head button {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #344054;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .epos-customers-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .epos-customers-form #customerAddressInput,
+  .epos-customers-form .epos-customers-check,
+  .epos-customers-form-actions {
+    grid-column: 1 / -1;
+  }
+
+  .epos-customers-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    border: 1px solid #d9e1ee;
+    border-radius: 9px;
+    padding: 0 11px;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-customers-form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .epos-customers-form-actions button {
+    min-height: 38px;
+    border: 0;
+    border-radius: 10px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .epos-customers-form-actions .green { background: linear-gradient(135deg, #22c55e, #16a34a); color: #ffffff; }
+  .epos-customers-form-actions .neutral { background: #eef2ff; color: #344054; }
+
+  @media (max-width: 1280px) {
+    .epos-customers-workspace {
+      display: block;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .epos-customers-filters {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .epos-customers-bottom-actions {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+}

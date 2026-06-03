@@ -1,0 +1,111 @@
+@layer components {
+  .epos-btn {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    white-space: nowrap;
+    box-shadow: 0 3px 7px rgb(15 23 42 / 0.18);
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease,
+      filter 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .epos-btn-sm {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 12px;
+    box-shadow: none;
+  }
+
+  .epos-btn-block {
+    width: 100%;
+  }
+
+  .epos-btn:hover {
+    filter: brightness(0.97);
+    box-shadow: 0 4px 10px rgb(15 23 42 / 0.22);
+  }
+
+  .epos-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgb(15 23 42 / 0.18);
+  }
+
+  .epos-btn:focus-visible {
+    outline: 3px solid rgb(20 184 166 / 0.28);
+    outline-offset: 2px;
+  }
+
+  .epos-btn:disabled,
+  .epos-btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
+    filter: grayscale(0.18);
+    transform: none;
+    box-shadow: none;
+  }
+
+  .epos-btn-neutral {
+    background: #05050b;
+    color: #ffffff;
+  }
+
+  .epos-btn-outline {
+    border-color: #d4d4d8;
+    background: #ffffff;
+    color: #27272a;
+    box-shadow: none;
+  }
+
+  .epos-btn-primary {
+    background: #4f32d1;
+    color: #ffffff;
+  }
+
+  .epos-btn-secondary {
+    background: #ec2a9a;
+    color: #ffffff;
+  }
+
+  .epos-btn-accent {
+    background: #19cabc;
+    color: #102027;
+  }
+
+  .epos-btn-info {
+    background: #12b8e6;
+    color: #062633;
+  }
+
+  .epos-btn-success {
+    background: #0fc99b;
+    color: #083327;
+  }
+
+  .epos-btn-warning {
+    background: #ffba08;
+    color: #5b3500;
+  }
+
+  .epos-btn-error {
+    background: #ff6380;
+    color: #561221;
+  }
+
+  .epos-btn-danger-outline {
+    border-color: #fecdd3;
+    background: #ffffff;
+    color: #be123c;
+    box-shadow: none;
+  }
+}

@@ -1,0 +1,204 @@
+<div class="epos-users-page">
+  <section class="epos-users-stats">
+    <article class="blue">
+      <span class="epos-users-stat-icon">U</span>
+      <div>
+        <p>Total Users</p>
+        <strong id="userTotalCount">0</strong>
+        <small>Live database</small>
+      </div>
+    </article>
+    <article class="green">
+      <span class="epos-users-stat-icon">A</span>
+      <div>
+        <p>Active Users</p>
+        <strong id="userActiveCount">0</strong>
+        <small>Allowed access</small>
+      </div>
+    </article>
+    <article class="pink">
+      <span class="epos-users-stat-icon">I</span>
+      <div>
+        <p>Inactive Users</p>
+        <strong id="userInactiveCount">0</strong>
+        <small>Blocked accounts</small>
+      </div>
+    </article>
+    <article class="orange">
+      <span class="epos-users-stat-icon">R</span>
+      <div>
+        <p>User Roles</p>
+        <strong id="userRoleCount">0</strong>
+        <small>Permission groups</small>
+      </div>
+    </article>
+  </section>
+
+  <section class="epos-users-commandbar">
+    <div class="epos-users-tabs">
+      <button type="button" data-user-admin-tab="users" class="userAdminTab active">Users</button>
+      <button type="button" data-user-admin-tab="roles" class="userAdminTab">Roles</button>
+      <button type="button" data-user-admin-tab="permissions" class="userAdminTab">Permissions</button>
+      <button type="button" data-user-admin-tab="map" class="userAdminTab">Role Permission Map</button>
+      <button type="button" data-user-admin-tab="activity" class="userAdminTab">Activity Log</button>
+    </div>
+    <div class="epos-users-actions">
+      <button id="userAddButton" type="button" class="epos-users-action violet">+ Add User</button>
+      <button type="button" data-user-admin-tab="roles" class="userAdminTab epos-users-action orange">Roles</button>
+      <button type="button" data-user-admin-tab="permissions" class="userAdminTab epos-users-action green">Permissions</button>
+      <button type="button" data-page-tool="users" data-tool-action="import" class="epos-users-action blue">Import</button>
+      <button type="button" data-page-tool="users" data-tool-action="excel" class="epos-users-action pink">Export</button>
+    </div>
+  </section>
+  <p id="userToolbarMessage" class="hidden epos-users-message"></p>
+
+  <div data-user-admin-panel="users" class="userAdminPanel epos-users-layout">
+    <section class="epos-users-main-card">
+      <div class="epos-users-filters">
+        <label>
+          <span>Search User</span>
+          <input id="userSearch" class="epos-users-input" placeholder="Search by name, email or phone..." />
+        </label>
+        <label>
+          <span>Role</span>
+          <select id="userRoleFilter" class="epos-users-input"></select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select id="userStatusFilter" class="epos-users-input">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+        <label>
+          <span>Outlet</span>
+          <select class="epos-users-input" disabled>
+            <option>All Outlets</option>
+          </select>
+        </label>
+        <label>
+          <span>Department</span>
+          <select class="epos-users-input" disabled>
+            <option>All Departments</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="epos-users-status-pills">
+        <button type="button" data-user-status-shortcut="">All Users <span id="userPillAll">0</span></button>
+        <button type="button" data-user-status-shortcut="active">Active <span id="userPillActive">0</span></button>
+        <button type="button" data-user-status-shortcut="inactive">Inactive <span id="userPillInactive">0</span></button>
+        <button type="button" disabled>Online Now <span id="userPillOnline">0</span></button>
+        <button type="button" disabled>Locked <span>0</span></button>
+      </div>
+
+      <div class="epos-users-table-wrap">
+        <table class="epos-users-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" aria-label="Select all users" /></th>
+              <th>#</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Outlet</th>
+              <th>Department</th>
+              <th>Phone / Email</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Created On</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="epos-users-footer">
+        <span id="userResultSummary">Showing 0 users</span>
+        <span>Database Linked</span>
+      </div>
+    </section>
+
+  </div>
+
+  <div data-user-admin-panel="roles" class="userAdminPanel hidden epos-users-roles-layout">
+    <section class="epos-users-side-card">
+      <h3>Role Editor</h3>
+      <form id="roleForm" class="epos-users-form">
+        <input id="roleId" type="hidden" />
+        <input id="roleName" class="epos-users-input" placeholder="Role name" required />
+        <input id="roleDescription" class="epos-users-input" placeholder="Description" />
+        <label class="epos-users-check"><input id="roleActive" type="checkbox" checked /> Active role</label>
+        <div class="epos-users-form-actions">
+          <button id="saveRoleButton" type="submit" class="epos-users-wide-action green">Save Role</button>
+          <button id="resetRoleButton" type="button" class="epos-users-wide-action neutral">Reset</button>
+        </div>
+      </form>
+      <p id="roleMessage" class="hidden epos-users-message"></p>
+      <div id="roleList" class="epos-users-role-list mt-3"></div>
+    </section>
+  </div>
+
+  <div data-user-admin-panel="permissions" class="userAdminPanel hidden epos-users-roles-layout">
+    <section class="epos-users-side-card">
+      <h3>Roles</h3>
+      <div id="permissionRoleList" class="epos-users-role-list"></div>
+    </section>
+
+    <section class="epos-users-main-card">
+      <div class="epos-users-permission-head">
+        <div>
+          <h3>Permissions</h3>
+          <p>Select a role, update permissions, and save changes to the database.</p>
+        </div>
+        <button id="saveRolePermissionsButton" type="button" class="epos-users-action green">Save Permissions</button>
+      </div>
+      <div id="permissionMatrix" class="epos-users-permission-matrix">Select a role to manage permissions.</div>
+    </section>
+  </div>
+
+  <div data-user-admin-panel="map" class="userAdminPanel hidden epos-users-main-card">
+    <div class="epos-users-permission-head">
+      <div>
+        <h3>Role Permission Map</h3>
+        <p>Live role counts and assigned permission map from the current database state.</p>
+      </div>
+    </div>
+    <div id="rolePermissionMap" class="epos-users-permission-matrix">Open a role from Permissions to view its permission map.</div>
+  </div>
+
+  <div data-user-admin-panel="activity" class="userAdminPanel hidden epos-users-main-card">
+    <div class="epos-users-permission-head">
+      <div>
+        <h3>Activity Log</h3>
+        <p>Recent audited user and role actions from the database.</p>
+      </div>
+    </div>
+    <div id="userActivityLog" class="epos-users-permission-matrix">Activity logs will appear here.</div>
+  </div>
+
+  <div id="userEditorModal" class="epos-users-modal hidden" role="dialog" aria-modal="true" aria-labelledby="userEditorTitle">
+    <div class="epos-users-modal-card">
+      <div class="epos-users-modal-head">
+        <h3 id="userEditorTitle">User Editor</h3>
+        <button id="closeUserEditorButton" type="button" aria-label="Close user editor">x</button>
+      </div>
+      <form id="userForm" class="epos-users-form">
+        <input id="userId" type="hidden" />
+        <input id="userFullName" class="epos-users-input" placeholder="Full name" required />
+        <input id="userUsername" class="epos-users-input" placeholder="Username" required />
+        <input id="userEmail" type="email" class="epos-users-input" placeholder="Email" required />
+        <input id="userPhone" class="epos-users-input" placeholder="Phone" />
+        <select id="userRole" class="epos-users-input" required></select>
+        <input id="userPassword" type="password" class="epos-users-input" placeholder="Password for new user" />
+        <label class="epos-users-check"><input id="userActive" type="checkbox" checked /> Active account</label>
+        <div class="epos-users-form-actions">
+          <button id="saveUserButton" type="submit" class="epos-users-wide-action green">Save User</button>
+          <button id="resetUserButton" type="button" class="epos-users-wide-action neutral">Reset</button>
+        </div>
+      </form>
+      <p id="userMessage" class="hidden epos-users-message"></p>
+    </div>
+  </div>
+</div>

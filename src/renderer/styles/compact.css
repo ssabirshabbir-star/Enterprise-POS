@@ -1,0 +1,767 @@
+@layer components {
+  :root {
+    --app-bg: #f3f6fb;
+    --app-card: #ffffff;
+    --app-card-soft: #f8fafc;
+    --app-border: #dfe5ee;
+    --app-border-soft: #edf1f6;
+    --app-text: #172033;
+    --app-muted: #667085;
+    --app-primary: #145fb6;
+    --app-primary-dark: #0b4d96;
+    --app-success: #087d48;
+    --app-danger: #b42318;
+    --app-warning: #b7791f;
+    --app-shadow: 0 10px 26px rgb(15 23 42 / 0.06);
+    --app-table-header-height: 18px;
+    --app-table-header-padding: 0;
+    --app-table-header-line-height: var(--app-table-header-height);
+    --app-table-header-bg: #f8fafc;
+    --app-table-header-text: #667085;
+  }
+
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--app-bg);
+    color: var(--app-text);
+    font-size: 13px;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    letter-spacing: 0;
+  }
+
+  .app-card {
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-card);
+    box-shadow: var(--app-shadow);
+  }
+
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    color: var(--app-text);
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .app-input {
+    min-height: 34px;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+    background: #ffffff;
+    padding: 0 10px;
+    color: var(--app-text);
+    font-size: 13px;
+    outline: none;
+  }
+
+  .app-input:focus {
+    border-color: var(--app-primary);
+    box-shadow: 0 0 0 3px rgb(20 95 182 / 0.14);
+  }
+
+  .app-button {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 6px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .app-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+
+  #dashboard {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--app-bg);
+  }
+
+  #dashboard > div {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  #dashboard > div > .min-w-0.flex-1 {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  #dashboard header {
+    height: 44px;
+    flex-shrink: 0;
+    border-color: var(--app-border);
+    padding: 5px 14px !important;
+    box-shadow: 0 1px 0 rgb(15 23 42 / 0.03);
+  }
+
+  #dashboard header > div {
+    height: 100%;
+  }
+
+  #dashboard header p {
+    color: var(--app-primary);
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  #routeTitle {
+    margin-top: 0 !important;
+    color: #111827;
+    font-size: 17px !important;
+    line-height: 1.2;
+  }
+
+  #signedInUser,
+  #syncStatusIndicator {
+    min-height: 28px;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+
+  #dashboard main {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px !important;
+    background: var(--app-bg);
+    scrollbar-gutter: stable;
+  }
+
+  [data-route-panel] {
+    min-height: 0;
+    max-width: none !important;
+  }
+
+  #inventoryModule > div > .flex:first-child > div:first-child,
+  #purchaseModule > div > .flex:first-child > div:first-child,
+  #purchaseOrdersModule > div > .flex:first-child > div:first-child,
+  #reportsModule > div > .flex:first-child > div:first-child,
+  #returnsModule > div > .flex:first-child > div:first-child,
+  #suppliersModule > div > div:first-child > div:first-child,
+  #expensesModule > div > div:first-child > div:first-child,
+  #syncModule > div > .flex:first-child > div:first-child,
+  #luckyDrawModule > div > .flex:first-child > div:first-child,
+  #usersModule > div > .flex:first-child > div:first-child {
+    display: none !important;
+  }
+
+  #settingsModule > div:first-child > p:first-child,
+  #settingsModule > div:first-child > h2:first-of-type {
+    display: none !important;
+  }
+
+  #settingsModule > div:first-child > #settingsMessage + div {
+    margin-top: 0 !important;
+  }
+
+  #inventoryModule > div > .flex:first-child,
+  #purchaseModule > div > .flex:first-child,
+  #purchaseOrdersModule > div > .flex:first-child,
+  #reportsModule > div > .flex:first-child,
+  #returnsModule > div > .flex:first-child,
+  #suppliersModule > div > div:first-child,
+  #expensesModule > div > div:first-child,
+  #syncModule > div > .flex:first-child,
+  #luckyDrawModule > div > .flex:first-child,
+  #usersModule > div > .flex:first-child {
+    justify-content: flex-end !important;
+    margin-bottom: 8px !important;
+  }
+
+  #posModule {
+    height: 100%;
+    width: 100%;
+    max-width: none !important;
+    overflow: hidden;
+  }
+
+  #dashboard main:has(#posModule:not(.hidden)) {
+    padding: 4px !important;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  #productModule > div,
+  #inventoryModule > div,
+  #purchaseModule > div {
+    border-top: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  #productModule,
+  #inventoryModule,
+  #purchaseModule,
+  #purchaseOrdersModule,
+  #reportsModule,
+  #luckyDrawModule,
+  #customersModule,
+  #returnsModule,
+  #settingsModule,
+  #syncModule,
+  #suppliersModule,
+  #expensesModule,
+  #usersModule,
+  #dashboardRoute {
+    width: 100%;
+  }
+
+  #productModule h2,
+  #inventoryModule h2,
+  #purchaseModule h2,
+  #purchaseOrdersModule h2,
+  #reportsModule h2,
+  #luckyDrawModule h2,
+  #customersModule h2,
+  #returnsModule h2,
+  #settingsModule h2,
+  #syncModule h2,
+  #suppliersModule h2,
+  #expensesModule h2,
+  #usersModule h2 {
+    margin-top: 3px !important;
+    color: #111827;
+    font-size: 20px !important;
+    line-height: 1.25;
+    font-weight: 750;
+  }
+
+  #productModule p.uppercase,
+  #inventoryModule p.uppercase,
+  #purchaseModule p.uppercase,
+  #purchaseOrdersModule p.uppercase,
+  #reportsModule p.uppercase,
+  #luckyDrawModule p.uppercase,
+  #customersModule p.uppercase,
+  #returnsModule p.uppercase,
+  #settingsModule p.uppercase,
+  #syncModule p.uppercase,
+  #suppliersModule p.uppercase,
+  #expensesModule p.uppercase,
+  #usersModule p.uppercase {
+    color: var(--app-primary) !important;
+    font-size: 10px !important;
+    letter-spacing: 0.16em !important;
+  }
+
+  #dashboard main > [data-route-panel] > div:first-child,
+  #productModule > div > div:first-child,
+  #inventoryModule > div > div:first-child,
+  #purchaseModule > div > div:first-child,
+  #purchaseOrdersModule > div > div:first-child,
+  #reportsModule > div > div:first-child,
+  #luckyDrawModule > div > div:first-child,
+  #settingsModule > div:first-child,
+  #syncModule > div:first-child {
+    border-radius: 8px;
+  }
+
+  .rounded-lg,
+  .rounded-md {
+    border-radius: 8px;
+  }
+
+  .border-zinc-200,
+  .border-zinc-300 {
+    border-color: var(--app-border) !important;
+  }
+
+  .bg-stone-100 {
+    background: var(--app-bg) !important;
+  }
+
+  .rounded-lg.border,
+  .rounded-md.border,
+  form.rounded-lg,
+  #productFormPanel > div,
+  #returnInvoicePanel,
+  #poDetailsPanel,
+  #customerDetailsPanel,
+  #supplierDetailsPanel {
+    border-color: var(--app-border) !important;
+    background: var(--app-card) !important;
+    box-shadow: var(--app-shadow);
+  }
+
+  #productModule > div > div:first-child,
+  #inventoryModule > div > div:first-child,
+  #purchaseModule > div > div:first-child,
+  #purchaseOrdersModule > div > div:first-child,
+  #reportsModule > div > div:first-child,
+  #luckyDrawModule > div > div:first-child,
+  #customersModule > div > div:first-child,
+  #returnsModule > div > div:first-child,
+  #settingsModule > div:first-child,
+  #syncModule > div:first-child,
+  #suppliersModule > div > div:first-child,
+  #expensesModule > div > div:first-child,
+  #usersModule > div > div:first-child {
+    gap: 10px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .p-5,
+  .p-6 {
+    padding: 14px !important;
+  }
+
+  .gap-5,
+  .gap-4 {
+    gap: 12px !important;
+  }
+
+  .mt-5,
+  .mt-6,
+  .mt-8 {
+    margin-top: 12px !important;
+  }
+
+  .space-y-5 > :not(:last-child),
+  .space-y-4 > :not(:last-child) {
+    margin-bottom: 12px !important;
+  }
+
+  input,
+  select,
+  textarea,
+  input.rounded-md,
+  select.rounded-md,
+  textarea.rounded-md,
+  .epos-billing-input,
+  .epos-billing-select {
+    min-height: 34px;
+    border-color: #cfd8e3 !important;
+    border-radius: 6px !important;
+    background: #fff;
+    color: var(--app-text);
+    font-size: 13px !important;
+  }
+
+  input.rounded-md,
+  select.rounded-md,
+  .epos-billing-input,
+  .epos-billing-select {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  textarea.rounded-md {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--app-primary) !important;
+    box-shadow: 0 0 0 3px rgb(20 95 182 / 0.14) !important;
+    outline: none !important;
+  }
+
+  .epos-btn {
+    min-height: 34px;
+    border-radius: 6px;
+    box-shadow: none;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .epos-btn-sm {
+    min-height: 28px;
+    padding-inline: 9px;
+    font-size: 11px;
+  }
+
+  .epos-btn-primary {
+    background: var(--app-primary);
+  }
+
+  .epos-btn-primary:hover {
+    background: var(--app-primary-dark);
+  }
+
+  .epos-btn-outline {
+    border-color: #cfd8e3;
+    color: #344054;
+  }
+
+  .epos-btn-danger-outline {
+    border-color: #fecaca;
+    color: var(--app-danger);
+  }
+
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  table.text-sm,
+  tbody,
+  #productTableBody,
+  #inventoryTableBody {
+    font-size: 12px !important;
+  }
+
+  thead,
+  .bg-zinc-50 {
+    background: var(--app-table-header-bg) !important;
+  }
+
+  th {
+    height: var(--app-table-header-height);
+    padding: var(--app-table-header-padding) !important;
+    color: var(--app-table-header-text) !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.02em;
+    line-height: var(--app-table-header-line-height);
+  }
+
+  th,
+  td {
+    vertical-align: middle;
+  }
+
+  thead th:first-child {
+    border-top-left-radius: 6px;
+  }
+
+  thead th:last-child {
+    border-top-right-radius: 6px;
+  }
+
+  #productModule th,
+  #inventoryModule th,
+  #purchaseOrdersModule th,
+  #customersModule th,
+  #returnsModule th,
+  #expensesModule th,
+  #syncModule th,
+  #usersModule th,
+  #luckyDrawModule th {
+    height: var(--app-table-header-height);
+    padding: var(--app-table-header-padding) !important;
+    line-height: var(--app-table-header-line-height);
+  }
+
+  #productModule td,
+  #inventoryModule td,
+  #purchaseOrdersModule td,
+  #customersModule td,
+  #returnsModule td,
+  #expensesModule td,
+  #syncModule td,
+  #usersModule td,
+  #luckyDrawModule td {
+    padding: 7px 9px !important;
+    line-height: 1.28;
+  }
+
+  #productModule .overflow-x-auto,
+  #inventoryModule .overflow-x-auto,
+  #purchaseModule .overflow-x-auto,
+  #purchaseOrdersModule .overflow-x-auto,
+  #reportsModule .overflow-x-auto,
+  #luckyDrawModule .overflow-x-auto,
+  #customersModule .overflow-auto,
+  #expensesModule .overflow-auto,
+  #suppliersModule .overflow-auto,
+  #usersModule .overflow-auto,
+  #syncModule .overflow-auto {
+    max-height: calc(100vh - 188px);
+    overflow: auto;
+  }
+
+  #purchaseList,
+  #purchaseItemsList,
+  #poList,
+  #poItemsList,
+  #movementHistory,
+  #salesReportList,
+  #purchaseReportList,
+  #purchaseOrderReportList,
+  #goodsReceiptReportList,
+  #lowStockReportList,
+  #cashierReportList,
+  #customerDueReportList,
+  #creditSalesReportList,
+  #returnsReportList,
+  #refundSummaryList,
+  #supplierBalanceReportList,
+  #supplierPaymentReportList,
+  #expenseReportList,
+  #expenseCategoryReportList,
+  #customerPageList,
+  #supplierList,
+  #luckyCampaignList,
+  #luckyWinnersList,
+  #syncLogsList,
+  #roleList {
+    max-height: calc(100vh - 250px) !important;
+    overflow-y: auto;
+  }
+
+  #posModule .epos-billing-input,
+  #posModule .epos-billing-select {
+    min-height: 38px;
+    border-color: #cbd5e1 !important;
+    border-radius: 12px !important;
+    background: #ffffff;
+    color: #172033;
+    font-size: 13px !important;
+  }
+
+  #posModule .epos-billing-panel,
+  #posModule .epos-billing-product-card {
+    border-color: #d8e2ef !important;
+    box-shadow: 0 8px 22px rgb(15 23 42 / 0.06);
+  }
+
+  #posModule .epos-billing-panel-header {
+    background: #f8fafc;
+    color: #172033;
+    letter-spacing: 0.02em;
+  }
+
+  #posModule .epos-billing-products,
+  #posModule .epos-billing-counter,
+  #posModule .epos-billing-checkout {
+    padding: 0;
+  }
+
+  #posModule .epos-billing-action {
+    min-height: 34px;
+    border-radius: 11px;
+    font-size: 12px;
+  }
+
+  #posModule .epos-billing-receipt {
+    max-height: 46px;
+  }
+
+  #posModule .epos-invoice-ui .epos-billing-receipt {
+    max-height: 120px;
+  }
+
+  #posModule .epos-invoice-ui .epos-billing-cart th {
+    background: #0f1b33;
+    color: #ffffff;
+  }
+
+  #posModule .epos-invoice-ui .epos-billing-cart td {
+    background: #ffffff;
+    color: #111827;
+  }
+
+  #posModule .epos-billing-cart th,
+  #posModule .epos-billing-cart td {
+    padding: 8px;
+  }
+
+  #posModule .epos-billing-product-grid:empty {
+    display: grid;
+  }
+
+  #posModule .epos-billing-product-grid:empty::before {
+    display: grid;
+    min-height: 92px;
+    place-items: center;
+    grid-column: 1 / -1;
+    border: 1px dashed rgb(148 163 184 / 0.28);
+    border-radius: 16px;
+    background: transparent;
+    padding: 0;
+    color: #64748b;
+    font-size: 12px;
+    text-align: center;
+    content: "Search products to load database cards";
+  }
+
+  #posModule .epos-billing-holds:empty::before {
+    display: block;
+    padding: 9px;
+    color: #64748b;
+    font-size: 12px;
+    content: "No held sales.";
+  }
+
+  #stockAdjustmentForm,
+  #supplierForm,
+  #purchaseForm,
+  #poForm,
+  #supplierPageForm,
+  #expenseForm,
+  #customerForm,
+  #userForm,
+  #roleForm {
+    padding: 14px !important;
+  }
+
+  #stockAdjustmentForm .mt-4,
+  #stockAdjustmentForm .mt-3,
+  #supplierForm .mt-4,
+  #supplierForm .mt-3,
+  #purchaseForm .mt-4,
+  #purchaseForm .mt-3,
+  #poForm .mt-3,
+  #customerForm .mt-4,
+  #customerForm .mt-3,
+  #userForm .mt-3,
+  #roleForm .mt-3 {
+    margin-top: 8px !important;
+  }
+
+  #productFormPanel {
+    padding: 12px !important;
+  }
+
+  #productFormPanel > div {
+    max-width: 980px !important;
+  }
+
+  #productFormPanel .px-5.py-5 {
+    padding: 12px !important;
+  }
+
+  #productForm,
+  #poForm,
+  #purchaseForm {
+    gap: 10px !important;
+  }
+
+  #productModule button,
+  #inventoryModule button,
+  #purchaseModule button,
+  #purchaseOrdersModule button,
+  #reportsModule button,
+  #luckyDrawModule button,
+  #customersModule button,
+  #returnsModule button,
+  #settingsModule button,
+  #syncModule button,
+  #suppliersModule button,
+  #expensesModule button,
+  #usersModule button {
+    border-radius: 6px;
+  }
+
+  #productModule .text-2xl,
+  #inventoryModule .text-2xl,
+  #purchaseModule .text-2xl,
+  #purchaseOrdersModule .text-2xl,
+  #customersModule .text-2xl,
+  #suppliersModule .text-2xl,
+  #expensesModule .text-2xl,
+  #usersModule .text-2xl {
+    font-size: 20px !important;
+    line-height: 1.25;
+  }
+
+  #productModule .text-xl,
+  #inventoryModule .text-xl,
+  #purchaseModule .text-xl,
+  #purchaseOrdersModule .text-xl,
+  #customersModule .text-xl,
+  #suppliersModule .text-xl,
+  #expensesModule .text-xl,
+  #usersModule .text-xl {
+    font-size: 16px !important;
+  }
+
+  #productModule .text-lg,
+  #inventoryModule .text-lg,
+  #purchaseModule .text-lg,
+  #purchaseOrdersModule .text-lg,
+  #customersModule .text-lg,
+  #suppliersModule .text-lg,
+  #expensesModule .text-lg,
+  #usersModule .text-lg {
+    font-size: 15px !important;
+  }
+
+  #productEmptyState {
+    padding-block: 24px !important;
+  }
+
+  .settingsTab,
+  .luckyTab,
+  .userAdminTab {
+    min-height: 30px;
+  }
+
+  #settingsModule .settingsPanel {
+    align-items: start;
+  }
+
+  #settingsModule .max-h-\[calc\(100vh-190px\)\] {
+    max-height: calc(100vh - 150px) !important;
+  }
+
+  #reportsModule .grid.md\:grid-cols-4,
+  #luckyReportsPanel .grid.md\:grid-cols-5 {
+    gap: 10px !important;
+  }
+
+  #reportsModule .text-2xl,
+  #luckyDrawModule .text-2xl,
+  #syncModule .text-xl {
+    font-size: 19px !important;
+    line-height: 1.2;
+  }
+
+  #customersModule,
+  #suppliersModule,
+  #expensesModule,
+  #usersModule,
+  #returnsModule,
+  #syncModule {
+    padding-bottom: 8px;
+  }
+
+  #customerDetailsPanel,
+  #supplierDetailsPanel,
+  #returnInvoicePanel,
+  #poDetailsPanel {
+    min-height: 180px;
+  }
+
+  @media (min-width: 1360px) {
+    #purchaseModule .lg\:grid-cols-\[1fr_1fr\] {
+      grid-template-columns: minmax(420px, 0.82fr) minmax(0, 1.18fr) !important;
+    }
+
+    #purchaseOrdersModule .xl\:grid-cols-\[0\.9fr_1\.1fr\] {
+      grid-template-columns: minmax(430px, 0.82fr) minmax(0, 1.18fr) !important;
+    }
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+release/
+dist/
+*.log
+src/renderer/styles/output.css
+.env.production
+.env.local
+dist-installers/

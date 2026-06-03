@@ -1,0 +1,113 @@
+﻿<div class="rounded-lg border border-zinc-200 bg-white p-4">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Settings</p>
+          <h2 class="mt-2 text-2xl font-semibold text-zinc-950">Store, System, Printer & Backup</h2>
+          <p id="settingsMessage" class="mt-3 hidden rounded-md px-3 py-2 text-sm"></p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" data-settings-tab="store" class="settingsTab epos-btn epos-btn-sm epos-btn-primary">Store</button>
+            <button type="button" data-settings-tab="tax" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Tax</button>
+            <button type="button" data-settings-tab="printer" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Printer</button>
+            <button type="button" data-settings-tab="backup" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Backup & Restore</button>
+            <button type="button" data-settings-tab="system" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">System</button>
+            <button type="button" data-settings-tab="updates" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Updates</button>
+            <button type="button" data-settings-tab="license" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">License</button>
+            <button type="button" data-settings-tab="about" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">About</button>
+          </div>
+
+          <div class="mt-4 max-h-[calc(100vh-190px)] overflow-y-auto pr-1">
+            <div data-settings-panel="store" class="settingsPanel grid gap-3 md:grid-cols-2">
+              <input id="storeName" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Store name" />
+              <input id="storePhone" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Phone" />
+              <input id="storeEmail" type="email" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Email" />
+              <input id="storeTaxNumber" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Tax number / NTN" />
+              <input id="storeLogoPath" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Logo path foundation" />
+              <input id="storeReceiptFooter" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Receipt footer text" />
+              <input id="storeAddress" class="rounded-md border border-zinc-300 px-3 py-2 text-sm md:col-span-2" placeholder="Address" />
+            </div>
+
+            <div data-settings-panel="tax" class="settingsPanel hidden grid gap-3 md:grid-cols-3">
+              <label class="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm"><input id="taxEnabled" type="checkbox" /> Enable tax</label>
+              <input id="defaultTaxPercentage" type="number" min="0" step="0.01" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Default tax %" />
+              <select id="taxMode" class="rounded-md border border-zinc-300 px-3 py-2 text-sm"><option value="excluded">Tax Excluded</option><option value="included">Tax Included</option></select>
+            </div>
+
+            <div data-settings-panel="printer" class="settingsPanel hidden grid gap-3 md:grid-cols-2">
+              <select id="paperWidth" class="rounded-md border border-zinc-300 px-3 py-2 text-sm"><option>80mm</option><option>58mm</option><option>A4</option></select>
+              <select id="printerSelect" class="rounded-md border border-zinc-300 px-3 py-2 text-sm"></select>
+              <label class="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm"><input id="autoPrintAfterSale" type="checkbox" /> Auto print after sale</label>
+              <label class="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm"><input id="silentPrint" type="checkbox" /> Silent print</label>
+              <input id="receiptCopies" type="number" min="1" max="5" step="1" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Receipt copies" />
+              <input id="printerFooter" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Printer footer" />
+              <button id="testPrintButton" type="button" class="epos-btn epos-btn-outline">Test Print Foundation</button>
+            </div>
+
+            <div data-settings-panel="backup" class="settingsPanel hidden">
+              <div class="flex flex-wrap gap-2">
+                <button id="createBackupButton" type="button" class="epos-btn epos-btn-primary">Manual Backup</button>
+                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error">Restore Backup</button>
+                <button id="refreshBackupHistoryButton" type="button" class="epos-btn epos-btn-outline">Refresh History</button>
+              </div>
+              <div class="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+                <table class="min-w-full divide-y divide-zinc-200 text-sm">
+                  <thead class="bg-zinc-50 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <tr><th class="px-3 py-2">File</th><th class="px-3 py-2">Action</th><th class="px-3 py-2">By</th><th class="px-3 py-2">Status</th><th class="px-3 py-2">Created</th><th class="px-3 py-2">Path</th></tr>
+                  </thead>
+                  <tbody id="backupHistoryBody" class="divide-y divide-zinc-100"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div data-settings-panel="system" class="settingsPanel hidden grid gap-3 md:grid-cols-2">
+              <input id="currencySymbol" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Currency symbol" />
+              <input id="dateFormat" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Date format" />
+              <input id="lowStockAlertThreshold" type="number" min="0" step="0.001" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Low stock alert threshold" />
+              <input id="invoicePrefix" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Invoice prefix" />
+              <input id="nextInvoiceNumber" type="number" min="1" step="1" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Next invoice number foundation" />
+            </div>
+
+            <div data-settings-panel="updates" class="settingsPanel hidden">
+              <div class="grid gap-3 md:grid-cols-3">
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Current Version</p><strong id="updateCurrentVersion">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Latest Version</p><strong id="updateLatestVersion">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Update State</p><strong id="updateState">-</strong></div>
+              </div>
+              <p id="updateMessage" class="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">Manual provider ready.</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button id="checkUpdatesButton" type="button" class="epos-btn epos-btn-primary">Check for Updates</button>
+                <button id="restartUpdateButton" type="button" class="epos-btn epos-btn-outline" disabled>Restart Required</button>
+              </div>
+            </div>
+
+            <div data-settings-panel="license" class="settingsPanel hidden">
+              <div class="grid gap-3 md:grid-cols-3">
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Activation</p><strong id="licenseState">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">License Status</p><strong id="licenseStatus">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Expires</p><strong id="licenseExpires">-</strong></div>
+              </div>
+              <div class="mt-3 rounded-md border border-zinc-200 p-3 text-sm">
+                <p class="font-semibold text-zinc-950">Machine ID</p>
+                <p id="licenseMachineId" class="mt-1 break-all text-zinc-600">-</p>
+              </div>
+              <div class="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                <input id="licenseKeyInput" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Enter license key" />
+                <button id="activateLicenseButton" type="button" class="epos-btn epos-btn-primary">Activate License</button>
+                <button id="refreshLicenseButton" type="button" class="epos-btn epos-btn-outline">Refresh Activation</button>
+              </div>
+              <p id="licenseMessage" class="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">License cache is protected locally and ready for server verification integration.</p>
+            </div>
+
+            <div data-settings-panel="about" class="settingsPanel hidden">
+              <div class="grid gap-3 md:grid-cols-2">
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">App Version</p><strong id="aboutVersion">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Build Date</p><strong id="aboutBuildDate">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Environment</p><strong id="aboutEnvironment">-</strong></div>
+                <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Sync Status</p><strong id="aboutSyncStatus">-</strong></div>
+              </div>
+              <button id="aboutDialogButton" type="button" class="epos-btn epos-btn-outline mt-3">About Dialog Foundation</button>
+            </div>
+          </div>
+          <button id="savePrinterSettingsButton" type="button" class="epos-btn epos-btn-primary mt-4">Save Settings</button>
+        </div>
+      </section>
+      </main>
+        </div>
+      </div>

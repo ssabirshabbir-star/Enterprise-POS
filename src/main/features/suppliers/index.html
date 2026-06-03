@@ -1,0 +1,137 @@
+<section class="epos-suppliers-page">
+  <p id="supplierPageMessage" class="epos-suppliers-message hidden"></p>
+
+  <div class="epos-suppliers-stats">
+    <article class="blue"><span>SP</span><div><p>Total Suppliers</p><strong id="supplierStatTotal">0</strong><small>Active supplier records</small></div></article>
+    <article class="green"><span>PO</span><div><p>Total Purchases</p><strong id="supplierStatPurchases">Rs. 0.00</strong><small>All purchase history</small></div></article>
+    <article class="purple"><span>PY</span><div><p>Total Payments</p><strong id="supplierStatPayments">Rs. 0.00</strong><small>Ledger payments</small></div></article>
+    <article class="orange"><span>DU</span><div><p>Total Due (Payable)</p><strong id="supplierStatDue">Rs. 0.00</strong><small>Outstanding balance</small></div></article>
+    <article class="teal"><span>OD</span><div><p>Overdue Amount</p><strong id="supplierStatOverdue">Rs. 0.00</strong><small>Suppliers with due balance</small></div></article>
+    <article class="sky"><span>TD</span><div><p>Today Purchases</p><strong id="supplierStatToday">Rs. 0.00</strong><small>Live database value</small></div></article>
+  </div>
+
+  <nav class="epos-suppliers-tabs" aria-label="Supplier sections">
+    <button type="button" class="active" data-supplier-view="list">Supplier List</button>
+    <button type="button" data-supplier-view="purchases">Purchases</button>
+    <button type="button" data-supplier-view="payments">Payments</button>
+    <button type="button" data-supplier-view="due">Due / Outstanding</button>
+    <button type="button" data-supplier-view="ledger">Supplier Ledger</button>
+    <button type="button" data-supplier-view="last">Last Purchases</button>
+    <button type="button" data-supplier-view="statements">Statements</button>
+    <button type="button" data-supplier-view="analytics">Analytics</button>
+  </nav>
+
+  <div class="epos-suppliers-filters">
+    <input id="supplierInlineSearch" placeholder="Search supplier by name, phone, email..." />
+    <select id="supplierStatusFilter"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="due">Due Balance</option></select>
+    <select id="supplierCityFilter"><option value="">All Cities</option></select>
+    <input id="supplierDateFilter" type="text" value="01/05/2025 - 14/05/2025" aria-label="Date range foundation" />
+    <button id="supplierFilterButton" type="button">Filter</button>
+    <button id="supplierResetFilterButton" type="button">Reset</button>
+    <button id="supplierColumnsButton" type="button">Columns</button>
+  </div>
+
+  <div class="epos-suppliers-workspace">
+    <main class="epos-suppliers-main">
+      <div class="epos-suppliers-table-wrap">
+        <table class="epos-suppliers-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Supplier Name</th>
+              <th>Contact</th>
+              <th>Total Purchases</th>
+              <th>Total Payments</th>
+              <th>Due Amount</th>
+              <th>Overdue</th>
+              <th>Last Purchase</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="supplierList"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <aside id="supplierDetailsPanel" class="epos-suppliers-detail hidden"></aside>
+  </div>
+
+  <div class="epos-suppliers-bottom-actions">
+    <button id="supplierBottomNewButton" type="button" class="green">New Supplier</button>
+    <button id="supplierNewPurchaseButton" type="button" class="blue">New Purchase</button>
+    <button id="supplierBottomPaymentButton" type="button" class="purple">Make Payment</button>
+    <button id="supplierStatementButton" type="button" class="orange">Suppliers Statement</button>
+    <button id="supplierAgingButton" type="button" class="teal">Aging Report</button>
+    <button id="supplierReminderButton" type="button" class="red">Due Reminder (SMS/Email)</button>
+    <button id="supplierExportButton" type="button" class="sky" title="Export supplier list">Export</button>
+    <button id="supplierPrintButton" type="button" class="slate" title="Print suppliers">Print</button>
+  </div>
+
+  <div id="supplierEditorModal" class="epos-suppliers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierEditorTitle">
+    <div class="epos-suppliers-modal-backdrop" data-supplier-editor-close></div>
+    <form id="supplierPageForm" class="epos-suppliers-editor">
+      <div class="epos-suppliers-editor-head">
+        <div>
+          <span>Supplier</span>
+          <h3 id="supplierEditorTitle">New Supplier</h3>
+        </div>
+        <button type="button" data-supplier-editor-close aria-label="Close supplier form">x</button>
+      </div>
+      <input id="supplierPageId" type="hidden" />
+      <div class="epos-suppliers-editor-grid">
+        <label>Name <input id="supplierPageName" placeholder="Supplier name" required /></label>
+        <label>Phone <input id="supplierPagePhone" placeholder="0300-1234567" /></label>
+        <label>Email <input id="supplierPageEmail" type="email" placeholder="supplier@email.com" /></label>
+        <label>Opening Balance <input id="supplierOpeningBalance" type="number" min="0" step="0.01" value="0" /></label>
+        <label class="wide">Address <input id="supplierPageAddress" placeholder="Address / city" /></label>
+        <label class="epos-suppliers-check"><input id="supplierActive" type="checkbox" checked /> Active supplier</label>
+      </div>
+      <div class="epos-suppliers-editor-actions">
+        <button type="button" data-supplier-editor-close>Cancel</button>
+        <button id="saveSupplierButton" type="submit">Save Supplier</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="supplierPaymentModal" class="epos-suppliers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierPaymentTitle">
+    <div class="epos-suppliers-modal-backdrop" data-supplier-payment-close></div>
+    <form id="supplierPaymentStandaloneForm" class="epos-suppliers-editor epos-suppliers-payment-editor">
+      <div class="epos-suppliers-editor-head">
+        <div>
+          <span>Supplier Payment</span>
+          <h3 id="supplierPaymentTitle">Make Supplier Payment</h3>
+        </div>
+        <button type="button" data-supplier-payment-close aria-label="Close supplier payment form">x</button>
+      </div>
+
+      <div class="epos-suppliers-payment-summary">
+        <label>
+          Supplier
+          <select id="supplierPaymentSupplier" required></select>
+        </label>
+        <div>
+          <span>Outstanding Balance</span>
+          <strong id="supplierPaymentDue">Rs. 0.00</strong>
+        </div>
+      </div>
+
+      <div class="epos-suppliers-editor-grid">
+        <label>Payment Amount <input id="supplierPaymentStandaloneAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required /></label>
+        <label>Payment Method
+          <select id="supplierPaymentStandaloneMethod">
+            <option>Cash</option>
+            <option>Bank</option>
+            <option>Card</option>
+          </select>
+        </label>
+        <label class="wide">Notes <input id="supplierPaymentStandaloneNotes" placeholder="Payment reference or notes" /></label>
+      </div>
+
+      <div class="epos-suppliers-editor-actions">
+        <button type="button" data-supplier-payment-close>Cancel</button>
+        <button id="saveSupplierPaymentButton" type="submit">Save Payment</button>
+      </div>
+    </form>
+  </div>
+</section>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Billing Components</title>
+    <link rel="stylesheet" href="../../renderer/styles/output.css" />
+  </head>
+  <body class="bg-[#dfe8f1] p-10">
+    <section class="epos-billing-shell">
+      <header class="epos-billing-topbar">
+        <strong class="epos-billing-brand">Enterprise POS</strong>
+        <div class="epos-billing-toolbar">
+          <button class="epos-billing-mode epos-billing-mode-active">Retail</button>
+          <button class="epos-billing-mode">Wholesale</button>
+          <button class="epos-billing-sync">Sync</button>
+        </div>
+      </header>
+      <div class="epos-billing-grid">
+        <div class="epos-billing-products">
+          <div class="epos-billing-search-row">
+            <input class="epos-billing-input" placeholder="Search or scan barcode..." />
+            <button class="epos-billing-add">+</button>
+          </div>
+          <div class="epos-billing-categories">
+            <button class="epos-billing-chip epos-billing-chip-active">All</button>
+            <button class="epos-billing-chip">Cold Drink</button>
+            <button class="epos-billing-chip">Grocery</button>
+          </div>
+          <div class="epos-billing-product-grid">
+            <button class="epos-billing-product-card">
+              <p class="epos-billing-product-name">Basmati Rice</p>
+              <p class="epos-billing-product-meta">SKU RICE-001 | 100 stock</p>
+              <p class="epos-billing-product-price">PKR 520/kg</p>
+            </button>
+          </div>
+        </div>
+        <aside class="epos-billing-checkout">
+          <div class="epos-billing-panel">
+            <div class="epos-billing-panel-header">Customer</div>
+            <div class="epos-billing-customer-row">
+              <select class="epos-billing-select"><option>Walk-in Customer</option></select>
+              <button class="epos-billing-add">+</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </body>
+</html>

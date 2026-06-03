@@ -1,0 +1,694 @@
+@layer components {
+  #dashboard main:has(#usersModule:not(.hidden)) {
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 14% 0%, rgb(124 58 237 / 0.12), transparent 30%),
+      radial-gradient(circle at 90% 8%, rgb(37 99 235 / 0.1), transparent 28%),
+      #f6f8ff;
+    padding: 10px !important;
+  }
+
+  #usersModule {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .epos-users-page {
+    --app-table-header-height: 42px;
+    --app-table-header-padding: 0 10px;
+    --app-table-header-line-height: 1.15;
+    --app-table-header-bg: linear-gradient(90deg, #7c3aed 0%, #3868ff 24%, #18c7c6 48%, #f59e0b 70%, #ec2a9a 100%);
+    --app-table-header-text: #ffffff;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    gap: 10px;
+    color: #08113f;
+  }
+
+  .epos-users-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .epos-users-stats article,
+  .epos-users-commandbar,
+  .epos-users-main-card,
+  .epos-users-side-card,
+  .epos-users-tabs {
+    border: 1px solid #e6eaf6;
+    background: rgb(255 255 255 / 0.94);
+    box-shadow: 0 16px 34px rgb(49 56 120 / 0.08);
+  }
+
+  .epos-users-stats article {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 78px;
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .epos-users-stat-icon,
+  .epos-users-title-icon {
+    display: grid;
+    place-items: center;
+    color: #ffffff;
+    font-weight: 950;
+    box-shadow: 0 12px 22px rgb(37 99 235 / 0.18);
+  }
+
+  .epos-users-stat-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .epos-users-stats .blue .epos-users-stat-icon { background: linear-gradient(135deg, #38bdf8, #2563eb); }
+  .epos-users-stats .green .epos-users-stat-icon { background: linear-gradient(135deg, #4ade80, #16a34a); }
+  .epos-users-stats .pink .epos-users-stat-icon { background: linear-gradient(135deg, #fb7185, #ec4899); }
+  .epos-users-stats .orange .epos-users-stat-icon { background: linear-gradient(135deg, #fbbf24, #f97316); }
+
+  .epos-users-stats p {
+    margin: 0;
+    color: #11184d;
+    font-size: 11px;
+    font-weight: 850;
+  }
+
+  .epos-users-stats strong {
+    display: block;
+    margin-top: 3px;
+    color: #060a2d;
+    font-size: 22px;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .epos-users-stats small {
+    display: block;
+    margin-top: 5px;
+    color: #64709d;
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  .epos-users-commandbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-radius: 18px;
+    padding: 10px 12px;
+  }
+
+  .epos-users-title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .epos-users-title-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f97316, #7c3aed);
+    font-size: 13px;
+  }
+
+  .epos-users-title h2,
+  .epos-users-side-card h3,
+  .epos-users-permission-head h3 {
+    margin: 0;
+    color: #070b34;
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  .epos-users-title p,
+  .epos-users-permission-head p {
+    margin: 2px 0 0;
+    color: #64709d;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .epos-users-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .epos-users-action,
+  .epos-users-wide-action {
+    min-height: 36px;
+    border: 0;
+    border-radius: 9px;
+    color: #ffffff;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 12px 22px rgb(49 56 120 / 0.14);
+  }
+
+  .epos-users-action.violet,
+  .epos-users-wide-action.violet { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
+  .epos-users-action.orange,
+  .epos-users-wide-action.orange { background: linear-gradient(135deg, #fb923c, #f97316); }
+  .epos-users-action.green,
+  .epos-users-wide-action.green { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .epos-users-action.blue,
+  .epos-users-wide-action.blue { background: linear-gradient(135deg, #38bdf8, #2563eb); }
+  .epos-users-action.pink,
+  .epos-users-wide-action.pink { background: linear-gradient(135deg, #fb7185, #ec4899); }
+  .epos-users-wide-action.neutral { background: #eef2ff; color: #344174; box-shadow: none; }
+
+  .epos-users-tabs {
+    display: flex;
+    width: auto;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .epos-users-tabs button {
+    min-width: 106px;
+    min-height: 38px;
+    border: 0;
+    border-right: 1px solid #e6eaf6;
+    background: #ffffff;
+    color: #10184e;
+    font-size: 12px;
+    font-weight: 850;
+    cursor: pointer;
+  }
+
+  .epos-users-tabs button.active,
+  .epos-users-tabs button.epos-btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #ffffff;
+  }
+
+  .epos-users-layout {
+    display: block;
+    min-height: 0;
+  }
+
+  .epos-users-roles-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .epos-users-main-card,
+  .epos-users-side-card {
+    min-width: 0;
+    border-radius: 12px;
+  }
+
+  .epos-users-main-card {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .epos-users-filters {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .epos-users-filters label,
+  .epos-users-form {
+    display: grid;
+    gap: 6px;
+  }
+
+  .epos-users-filters span {
+    color: #11184d;
+    font-size: 10px;
+    font-weight: 900;
+  }
+
+  .epos-users-input {
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid #d8deef;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #11184d;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 750;
+    outline: none;
+  }
+
+  .epos-users-input:focus {
+    border-color: #3868ff;
+    box-shadow: 0 0 0 3px rgb(56 104 255 / 0.12);
+  }
+
+  .epos-users-status-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 12px 12px;
+  }
+
+  .epos-users-status-pills button {
+    min-height: 36px;
+    border: 1px solid #e3e8f6;
+    border-radius: 8px;
+    background: #eef6ff;
+    color: #1d4ed8;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .epos-users-status-pills button:nth-child(2) { background: #dcfce7; color: #15803d; }
+  .epos-users-status-pills button:nth-child(3) { background: #ffe4e6; color: #e11d48; }
+  .epos-users-status-pills button:nth-child(4) { background: #eff6ff; color: #2563eb; }
+  .epos-users-status-pills button:nth-child(5) { background: #ffedd5; color: #c2410c; }
+  .epos-users-status-pills span { margin-left: 8px; }
+
+  .epos-users-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .epos-users-table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+
+  .epos-users-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--app-table-header-bg) !important;
+  }
+
+  .epos-users-table th {
+    height: var(--app-table-header-height);
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--app-table-header-text) !important;
+    padding: var(--app-table-header-padding) !important;
+    text-align: left;
+    font-size: 11px !important;
+    font-weight: 950 !important;
+    line-height: var(--app-table-header-line-height);
+    white-space: nowrap;
+  }
+
+  .epos-users-table td {
+    height: 48px;
+    border-bottom: 1px solid #edf0fb;
+    background: #ffffff;
+    color: #11184d;
+    padding: 6px 10px !important;
+    vertical-align: middle;
+  }
+
+  .epos-users-table th:nth-child(1),
+  .epos-users-table td:nth-child(1) {
+    width: 34px;
+    text-align: center;
+  }
+
+  .epos-users-table th:nth-child(2),
+  .epos-users-table td:nth-child(2) {
+    width: 38px;
+  }
+
+  .epos-users-table th:nth-child(3),
+  .epos-users-table td:nth-child(3) {
+    width: 18%;
+  }
+
+  .epos-users-table th:nth-child(4),
+  .epos-users-table td:nth-child(4) {
+    width: 12%;
+  }
+
+  .epos-users-table th:nth-child(5),
+  .epos-users-table td:nth-child(5),
+  .epos-users-table th:nth-child(6),
+  .epos-users-table td:nth-child(6) {
+    width: 10%;
+  }
+
+  .epos-users-table th:nth-child(7),
+  .epos-users-table td:nth-child(7) {
+    width: 16%;
+  }
+
+  .epos-users-table th:nth-child(8),
+  .epos-users-table td:nth-child(8) {
+    width: 9%;
+  }
+
+  .epos-users-table th:nth-child(9),
+  .epos-users-table td:nth-child(9),
+  .epos-users-table th:nth-child(10),
+  .epos-users-table td:nth-child(10) {
+    width: 10%;
+  }
+
+  .epos-users-table th:nth-child(11),
+  .epos-users-table td:nth-child(11) {
+    width: 82px;
+  }
+
+  .epos-users-user-cell {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+  }
+
+  .epos-users-avatar {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #38bdf8, #7c3aed);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .epos-users-user-cell strong {
+    display: block;
+    color: #070b34;
+    font-weight: 950;
+  }
+
+  .epos-users-user-cell span,
+  .epos-users-subtext {
+    display: block;
+    margin-top: 2px;
+    color: #64709d;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .epos-users-role-pill,
+  .epos-users-status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .epos-users-role-pill {
+    background: #eef2ff;
+    color: #4f46e5;
+  }
+
+  .epos-users-status-pill.active {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .epos-users-status-pill.inactive {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  .epos-users-row-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .epos-users-icon-action {
+    display: inline-grid;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    border: 0;
+    border-radius: 7px;
+    background: #eef2ff;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .epos-users-icon-action.warning { background: #fff7ed; color: #f97316; }
+  .epos-users-icon-action.danger { background: #ffe4e6; color: #e11d48; }
+
+  .epos-users-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid #edf0fb;
+    padding: 8px 12px;
+    color: #58658d;
+    font-size: 11px;
+    font-weight: 850;
+  }
+
+  .epos-users-side {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto auto;
+    gap: 10px;
+    overflow: auto;
+  }
+
+  .epos-users-side-card {
+    padding: 12px;
+  }
+
+  .epos-users-donut {
+    display: grid;
+    width: 112px;
+    height: 112px;
+    place-items: center;
+    margin: 14px auto 8px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at center, #fff 0 46%, transparent 47%),
+      conic-gradient(#7c3aed 0 20%, #2563eb 20% 44%, #22c55e 44% 70%, #ec4899 70% 88%, #f59e0b 88% 100%);
+  }
+
+  .epos-users-donut strong {
+    grid-area: 1 / 1;
+    color: #070b34;
+    font-size: 24px;
+    font-weight: 950;
+  }
+
+  .epos-users-donut span {
+    grid-area: 1 / 1;
+    margin-top: 42px;
+    color: #64709d;
+    font-size: 10px;
+    font-weight: 850;
+  }
+
+  .epos-users-role-summary,
+  .epos-users-role-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .epos-users-role-line,
+  .epos-users-role-list button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    border: 1px solid #edf0fb;
+    border-radius: 9px;
+    background: #ffffff;
+    padding: 9px 10px;
+    color: #11184d;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .epos-users-role-line small,
+  .epos-users-role-list small {
+    color: #64709d;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .epos-users-wide-action {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .epos-users-form {
+    margin-top: 10px;
+  }
+
+  .epos-users-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    border: 1px solid #d8deef;
+    border-radius: 7px;
+    padding: 0 10px;
+    color: #11184d;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-users-form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .epos-users-message {
+    margin-top: 10px;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-users-permission-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #edf0fb;
+    padding: 12px;
+  }
+
+  .epos-users-permission-matrix {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+    color: #344174;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .epos-users-permission-matrix > div {
+    margin-bottom: 10px;
+    border: 1px solid #edf0fb;
+    border-radius: 10px;
+    padding: 10px;
+    background: #ffffff;
+  }
+
+  .epos-users-permission-matrix h3 {
+    color: #070b34;
+    font-size: 13px;
+    font-weight: 950;
+  }
+
+  .epos-users-permission-matrix label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #edf0fb;
+    border-radius: 7px;
+    padding: 7px;
+  }
+
+  .epos-users-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    background: rgb(15 23 42 / 0.38);
+    padding: 18px;
+  }
+
+  .epos-users-modal.hidden {
+    display: none;
+  }
+
+  .epos-users-modal-card {
+    width: min(520px, 100%);
+    border: 1px solid #e6eaf6;
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 14px;
+    box-shadow: 0 28px 70px rgb(15 23 42 / 0.24);
+  }
+
+  .epos-users-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #edf0fb;
+    padding-bottom: 10px;
+  }
+
+  .epos-users-modal-head h3 {
+    margin: 0;
+    color: #070b34;
+    font-size: 17px;
+    font-weight: 950;
+  }
+
+  .epos-users-modal-head button {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #344174;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  @media (max-width: 1280px) {
+    .epos-users-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .epos-users-layout {
+      display: block;
+    }
+
+    .epos-users-commandbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .epos-users-actions {
+      justify-content: flex-start;
+    }
+
+    .epos-users-filters {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+}

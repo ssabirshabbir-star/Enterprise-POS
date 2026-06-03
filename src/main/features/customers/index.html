@@ -1,0 +1,112 @@
+<div class="epos-customers-page">
+  <section class="epos-customers-stats">
+    <article class="blue"><span>+</span><div><p>Total Customers</p><strong id="customerTotalCount">0</strong><small>Live database</small></div></article>
+    <article class="green"><span>✓</span><div><p>Active Customers</p><strong id="customerActiveCount">0</strong><small>Ready for billing</small></div></article>
+    <article class="orange"><span>!</span><div><p>Inactive Customers</p><strong id="customerInactiveCount">0</strong><small>Hidden from sale</small></div></article>
+    <article class="pink"><span>₨</span><div><p>Total Sales</p><strong id="customerTotalSales">PKR 0</strong><small>From customer history</small></div></article>
+  </section>
+  <section class="epos-customers-topbar">
+    <button type="button" class="epos-customers-menu" aria-label="Customer menu">☰</button>
+    <label class="epos-customers-search">
+      <span>⌕</span>
+      <input id="customerPageSearch" placeholder="Search customers by name, phone, email or CNIC..." />
+    </label>
+  </section>
+
+
+  <div class="epos-customers-workspace">
+    <main class="epos-customers-card">
+      <div class="epos-customers-tabs">
+        <button type="button" class="active" data-customer-tab="">All Customers</button>
+        <button type="button" data-customer-tab="active">Active Customers</button>
+        <button type="button" data-customer-tab="inactive">Inactive Customers</button>
+        <button type="button" data-customer-tab="vip">VIP Customers</button>
+        <button type="button" data-customer-tab="recent">Recent Customers</button>
+      </div>
+
+      <div class="epos-customers-filters">
+        <select id="customerStatusFilter">
+          <option value="">Select Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select id="customerGroupFilter">
+          <option value="">Select Group</option>
+          <option value="vip">VIP</option>
+          <option value="regular">Regular</option>
+          <option value="wholesale">Wholesale</option>
+        </select>
+        <select id="customerCityFilter">
+          <option value="">Select City</option>
+        </select>
+        <button id="customerAddButton" type="button" class="add">+ Add Customer</button>
+        <button type="button" data-page-tool="customers" data-tool-action="import" class="import">Import</button>
+        <button type="button" data-page-tool="customers" data-tool-action="excel" class="export">Export</button>
+        <button type="button" data-page-tool="customers" data-tool-action="print" class="print">Print</button>
+      </div>
+
+      <p id="customerPageMessage" class="hidden epos-customers-message"></p>
+
+      <div class="epos-customers-table-wrap">
+        <table class="epos-customers-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Customer Name</th>
+              <th>Phone</th>
+              <th>Group</th>
+              <th>City</th>
+              <th>Total Sales</th>
+              <th>Due Amount</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="customerPageList"></tbody>
+        </table>
+      </div>
+
+      <div class="epos-customers-footer">
+        <span id="customerResultSummary">Showing 0 customers</span>
+        <span>Database Linked</span>
+      </div>
+    </main>
+
+  </div>
+
+  <section class="epos-customers-bottom-actions">
+    <button id="customerBottomAddButton" type="button" class="blue"><span class="epos-customers-action-icon" aria-hidden="true">♙</span><strong>Add Customer</strong></button>
+    <button type="button" class="pink" data-customer-tab="vip"><span class="epos-customers-action-icon" aria-hidden="true">♟</span><strong>Customer Groups</strong></button>
+    <button type="button" class="green" data-page-tool="customers" data-tool-action="import"><span class="epos-customers-action-icon" aria-hidden="true">♜</span><strong>Import Customers</strong></button>
+    <button type="button" class="orange" disabled><span class="epos-customers-action-icon" aria-hidden="true">▤</span><strong>SMS / Email</strong></button>
+    <button type="button" class="sky" id="customerLedgerShortcut"><span class="epos-customers-action-icon" aria-hidden="true">▣</span><strong>Customer Ledger</strong></button>
+    <button type="button" class="violet" disabled><span class="epos-customers-action-icon" aria-hidden="true">✣</span><strong>Bulk Actions</strong></button>
+    <button type="button" class="red" id="customerDeleteInactiveButton"><span class="epos-customers-action-icon" aria-hidden="true">▥</span><strong>Delete Inactive</strong></button>
+  </section>
+
+  <div id="customerDetailsPanel" class="epos-customers-details hidden">Select a customer to view purchase history and ledger.</div>
+
+  <div id="customerEditorModal" class="epos-customers-modal hidden" role="dialog" aria-modal="true">
+    <div class="epos-customers-modal-card">
+      <div class="epos-customers-modal-head">
+        <h3>Customer Editor</h3>
+        <button type="button" data-customer-modal-close aria-label="Close customer editor">x</button>
+      </div>
+      <form id="customerForm" class="epos-customers-form">
+        <input id="customerFormId" type="hidden" />
+        <input id="customerNameInput" class="epos-customers-input" placeholder="Customer name" required />
+        <input id="customerPhoneInput" class="epos-customers-input" placeholder="Phone" />
+        <input id="customerEmailInput" type="email" class="epos-customers-input" placeholder="Email" />
+        <input id="customerCnicInput" class="epos-customers-input" placeholder="CNIC" />
+        <input id="customerCreditLimitInput" type="number" min="0" step="0.01" class="epos-customers-input" placeholder="Credit limit" value="0" />
+        <input id="customerOpeningBalanceInput" type="number" min="0" step="0.01" class="epos-customers-input" placeholder="Opening balance" value="0" />
+        <input id="customerAddressInput" class="epos-customers-input" placeholder="Address / City" />
+        <label class="epos-customers-check"><input id="customerActiveInput" type="checkbox" checked /> Active customer</label>
+        <div class="epos-customers-form-actions">
+          <button id="saveCustomerButton" type="submit" class="green">Save Customer</button>
+          <button id="resetCustomerButton" type="button" class="neutral">Reset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

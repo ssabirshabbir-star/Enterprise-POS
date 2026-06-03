@@ -1,0 +1,143 @@
+<div class="epos-inventory-page">
+  <p id="inventoryMessage" class="hidden rounded-xl px-4 py-2 text-sm"></p>
+
+  <input id="lowStockOnly" type="checkbox" class="hidden" />
+  <input id="outOfStockOnly" type="checkbox" class="hidden" />
+
+  <section class="epos-inventory-stats" aria-label="Inventory summary">
+    <article class="purple">
+      <div><span>Total Products</span><strong id="inventoryStatProducts">0</strong></div>
+      <i>▱</i>
+    </article>
+    <article class="blue">
+      <div><span>Total Stock Value</span><strong id="inventoryStatValue">PKR 0.00</strong></div>
+      <i>$</i>
+    </article>
+    <article class="green">
+      <div><span>Low Stock Items</span><strong id="inventoryStatLow">0</strong></div>
+      <i>▥</i>
+    </article>
+    <article class="orange">
+      <div><span>Out of Stock Items</span><strong id="inventoryStatOut">0</strong></div>
+      <i>□</i>
+    </article>
+    <article class="pink">
+      <div><span>Active Variants</span><strong id="inventoryStatVariants">0</strong></div>
+      <i>▰</i>
+    </article>
+  </section>
+
+  <section class="epos-inventory-shell">
+    <nav class="epos-inventory-tabs" aria-label="Inventory filters">
+      <div class="epos-inventory-search">
+        <span>⌕</span>
+        <input id="inventorySearch" type="search" placeholder="Search by Product Name, SKU, Barcode..." autocomplete="off" />
+        <kbd>Ctrl + K</kbd>
+      </div>
+      <button type="button" class="active" data-inventory-tab="all">All Items</button>
+      <button type="button" data-inventory-tab="low">Low Stock</button>
+      <button type="button" data-inventory-tab="out">Out of Stock</button>
+      <button type="button" data-inventory-tab="value">Stock Value</button>
+      <button type="button" data-inventory-tab="recent">Recently Added</button>
+    </nav>
+
+    <div class="epos-inventory-filter-row">
+      <label class="epos-inventory-field">
+        <small>Category</small>
+        <select id="inventoryCategoryFilter"><option value="">All Categories</option></select>
+      </label>
+      <label class="epos-inventory-field">
+        <small>Brand</small>
+        <select id="inventoryBrandFilter"><option value="">All Brands</option></select>
+      </label>
+      <label class="epos-inventory-field">
+        <small>Supplier</small>
+        <select id="inventorySupplierFilter"><option value="">All Suppliers</option></select>
+      </label>
+      <label class="epos-inventory-field">
+        <small>Stock Status</small>
+        <select id="inventoryStockStatusFilter">
+          <option value="">All Status</option>
+          <option value="in">In Stock</option>
+          <option value="low">Low Stock</option>
+          <option value="out">Out of Stock</option>
+        </select>
+      </label>
+      <button type="button" class="epos-inventory-reset-btn" id="inventoryResetFiltersButton">Reset</button>
+    </div>
+
+    <div class="epos-inventory-action-row">
+      <div class="epos-inventory-action-buttons">
+        <button type="button" class="violet" id="inventoryBulkButton">Bulk Actions⌄</button>
+        <button type="button" class="amber" id="openInventoryAdjustmentButton">Stock Adjustment</button>
+        <button type="button" class="green" id="inventoryTransferButton">Stock Transfer</button>
+        <button type="button" class="blue" id="inventoryBarcodeButton">Print Barcode</button>
+        <button type="button" class="indigo" data-route="/pos">Quick Sale</button>
+        <button type="button" class="emerald" data-route="/purchases">New Purchase</button>
+        <button type="button" class="slate" data-page-tool="inventory" data-tool-action="import">Import</button>
+        <button type="button" class="cyan" data-page-tool="inventory" data-tool-action="excel">Export</button>
+        <button type="button" class="rose" id="inventoryAddProductButton">Add New Product</button>
+      </div>
+    </div>
+
+    <div class="epos-inventory-table-card">
+      <table class="epos-inventory-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Image</th>
+            <th>Product Name</th>
+            <th>SKU</th>
+            <th>Barcode</th>
+            <th>Category</th>
+            <th>Brand</th>
+            <th>Cost Price</th>
+            <th>Selling Price</th>
+            <th>Stock Qty</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inventoryTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="epos-inventory-pagination">
+      <span id="inventoryResultSummary">Showing 0 items</span>
+      <div class="epos-inventory-page-controls">
+        <button type="button" disabled>‹</button>
+        <button type="button" class="active">1</button>
+        <button type="button">2</button>
+        <button type="button">3</button>
+        <button type="button">...</button>
+        <select id="inventoryRowsPerPage">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section id="inventoryAdjustmentModal" class="epos-inventory-modal hidden" aria-hidden="true">
+    <form id="stockAdjustmentForm" class="epos-inventory-adjustment">
+      <div class="epos-inventory-modal-head">
+        <div>
+          <h3>Stock Adjustment</h3>
+          <p>Transaction-safe inventory adjustment with movement history.</p>
+        </div>
+        <button type="button" data-close-inventory-modal>×</button>
+      </div>
+      <select id="adjustProductId" required></select>
+      <select id="adjustmentType" required>
+        <option value="IN">IN</option>
+        <option value="OUT">OUT</option>
+        <option value="CORRECTION">CORRECTION</option>
+      </select>
+      <input id="adjustQuantity" type="number" min="0" step="0.001" placeholder="Quantity" required />
+      <input id="adjustReason" placeholder="Reason" required />
+      <button id="saveAdjustmentButton" type="submit">Save Adjustment</button>
+    </form>
+  </section>
+  <div id="movementHistory" class="hidden"></div>
+</div>

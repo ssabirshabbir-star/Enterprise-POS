@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enterprise POS Sidebar</title>
+    <link rel="stylesheet" href="../../renderer/styles/output.css" />
+    <script src="./sidebar.js"></script>
+  </head>
+  <body class="min-h-screen bg-[#dfe8f1] p-10">
+    <main id="preview" class="flex flex-wrap items-start justify-center gap-20"></main>
+    <script>
+      const preview = document.querySelector('#preview');
+      preview.appendChild(window.EposSidebar.createSidebar({ variant: 'dark' }));
+      preview.appendChild(window.EposSidebar.createSidebar({ variant: 'light', compact: true }));
+      preview.appendChild(window.EposSidebar.createSidebar({ variant: 'light' }));
+    </script>
+  </body>
+</html>
