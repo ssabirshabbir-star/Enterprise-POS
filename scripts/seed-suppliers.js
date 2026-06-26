@@ -54,7 +54,57 @@ const SUPPLIERS = [
   ['Millat Food Suppliers', '0346-1204547', 'millat.food@example.local', 'Peshawar, KPK', 11300],
   ['Harmony Grocery Traders', '0347-1204548', 'harmony.grocery@example.local', 'Hyderabad, Sindh', 0],
   ['A-One Wholesale Traders', '0348-1204549', 'aone.wholesale@example.local', 'Rawalpindi, Punjab', 9500],
-  ['Pak Star Distribution', '0349-1204550', 'pakstar.distribution@example.local', 'Karachi, Sindh', 0]
+  ['Pak Star Distribution', '0349-1204550', 'pakstar.distribution@example.local', 'Karachi, Sindh', 0],
+  ['Morning Fresh Traders', '0350-1204551', 'morning.fresh@example.local', 'Lahore, Punjab', 4200],
+  ['Classic Wholesale Network', '0351-1204552', 'classic.wholesale@example.local', 'Karachi, Sindh', 0],
+  ['Fine Foods Partners', '0352-1204553', 'fine.foods@example.local', 'Faisalabad, Punjab', 8800],
+  ['North Star Supplies', '0353-1204554', 'north.star@example.local', 'Islamabad', 0],
+  ['South City Distributors', '0354-1204555', 'south.city@example.local', 'Hyderabad, Sindh', 7600],
+  ['Lahore Retail Depot', '0355-1204556', 'lahore.retail@example.local', 'Lahore, Punjab', 0],
+  ['Karachi General Traders', '0356-1204557', 'karachi.general@example.local', 'Karachi, Sindh', 10100],
+  ['Faisalabad Supply Point', '0357-1204558', 'faisalabad.supply@example.local', 'Faisalabad, Punjab', 0],
+  ['Islamabad Food Service', '0358-1204559', 'islamabad.food@example.local', 'Islamabad', 13400],
+  ['Rawalpindi Grocery Link', '0359-1204560', 'rawalpindi.grocery@example.local', 'Rawalpindi, Punjab', 0],
+  ['Peshawar Wholesale Line', '0360-1204561', 'peshawar.wholesale@example.local', 'Peshawar, KPK', 5600],
+  ['Quetta Retail Supply', '0361-1204562', 'quetta.retail@example.local', 'Quetta, Balochistan', 0],
+  ['Multan Food Bazaar', '0362-1204563', 'multan.food@example.local', 'Multan, Punjab', 11800],
+  ['Sialkot Goods Traders', '0363-1204564', 'sialkot.goods@example.local', 'Sialkot, Punjab', 0],
+  ['Gujranwala Wholesale Mart', '0364-1204565', 'gujranwala.wholesale@example.local', 'Gujranwala, Punjab', 6900],
+  ['Hyderabad Fresh Supply', '0365-1204566', 'hyderabad.fresh@example.local', 'Hyderabad, Sindh', 0],
+  ['Evergreen Grocery Co.', '0366-1204567', 'evergreen.grocery@example.local', 'Lahore, Punjab', 9300],
+  ['Silverline Distribution', '0367-1204568', 'silverline.distribution@example.local', 'Karachi, Sindh', 0],
+  ['Bluebell Household Traders', '0368-1204569', 'bluebell.household@example.local', 'Islamabad', 14900],
+  ['Pakistan Retail Exchange', '0369-1204570', 'pakistan.retail@example.local', 'Rawalpindi, Punjab', 0],
+  ['Green Farm Suppliers', '0370-1204571', 'green.farm@example.local', 'Faisalabad, Punjab', 5200],
+  ['Daily Needs Wholesale', '0371-1204572', 'daily.needs@example.local', 'Karachi, Sindh', 0],
+  ['Family Mart Partners', '0372-1204573', 'family.mart@example.local', 'Lahore, Punjab', 8400],
+  ['Value Choice Traders', '0373-1204574', 'value.choice@example.local', 'Multan, Punjab', 0],
+  ['Grand Bazaar Suppliers', '0374-1204575', 'grand.bazaar@example.local', 'Peshawar, KPK', 12600],
+  ['Smart Basket Distribution', '0375-1204576', 'smart.basket@example.local', 'Islamabad', 0],
+  ['Retail Roots Supply', '0376-1204577', 'retail.roots@example.local', 'Karachi, Sindh', 4700],
+  ['Golden Cart Traders', '0377-1204578', 'golden.cart@example.local', 'Lahore, Punjab', 0],
+  ['Pure Life Wholesale', '0378-1204579', 'pure.life@example.local', 'Quetta, Balochistan', 10900],
+  ['Home Choice Suppliers', '0379-1204580', 'home.choice@example.local', 'Hyderabad, Sindh', 0],
+  ['Urban Shelf Traders', '0380-1204581', 'urban.shelf@example.local', 'Rawalpindi, Punjab', 6400],
+  ['Quick Mart Distribution', '0381-1204582', 'quick.mart@example.local', 'Karachi, Sindh', 0],
+  ['Fresh Basket Wholesale', '0382-1204583', 'fresh.basket@example.local', 'Faisalabad, Punjab', 9700],
+  ['Pak Household Hub', '0383-1204584', 'pak.household@example.local', 'Lahore, Punjab', 0],
+  ['Green Leaf Traders', '0384-1204585', 'green.leaf@example.local', 'Peshawar, KPK', 13200],
+  ['Daily Fresh Partners', '0385-1204586', 'daily.fresh@example.local', 'Islamabad', 0],
+  ['Royal Basket Supply', '0386-1204587', 'royal.basket@example.local', 'Sialkot, Punjab', 5800],
+  ['Trade Link Grocery', '0387-1204588', 'trade.link@example.local', 'Karachi, Sindh', 0],
+  ['City Food Warehouse', '0388-1204589', 'city.food.warehouse@example.local', 'Gujranwala, Punjab', 11200],
+  ['National Retail Supply', '0389-1204590', 'national.retail@example.local', 'Lahore, Punjab', 0],
+  ['Premium Goods Traders', '0390-1204591', 'premium.goods@example.local', 'Rawalpindi, Punjab', 7200],
+  ['Trusted Grocery Suppliers', '0391-1204592', 'trusted.grocery@example.local', 'Multan, Punjab', 0],
+  ['Alpha Wholesale Store', '0392-1204593', 'alpha.wholesale@example.local', 'Karachi, Sindh', 9000],
+  ['Bravo Foods Distribution', '0393-1204594', 'bravo.foods@example.local', 'Hyderabad, Sindh', 0],
+  ['Central Supply Network', '0394-1204595', 'central.supply@example.local', 'Islamabad', 14300],
+  ['Delta Retail Traders', '0395-1204596', 'delta.retail@example.local', 'Peshawar, KPK', 0],
+  ['Elite Grocery Partners', '0396-1204597', 'elite.grocery@example.local', 'Lahore, Punjab', 6500],
+  ['Future Mart Suppliers', '0397-1204598', 'future.mart@example.local', 'Faisalabad, Punjab', 0],
+  ['Grocery World Traders', '0398-1204599', 'grocery.world@example.local', 'Karachi, Sindh', 11700],
+  ['Horizon Wholesale Depot', '0399-1204600', 'horizon.wholesale@example.local', 'Quetta, Balochistan', 0]
 ];
 
 async function seedSuppliers() {
@@ -63,11 +113,16 @@ async function seedSuppliers() {
   let inserted = 0;
   await withTransaction(async (client) => {
     for (const [name, phone, email, address, openingBalance] of SUPPLIERS) {
+      const existing = await client.query(
+        'SELECT id FROM suppliers WHERE LOWER(name) = LOWER($1) AND deleted_at IS NULL LIMIT 1',
+        [name]
+      );
+      if (existing.rows[0]) continue;
+
       const result = await client.query(
         `
           INSERT INTO suppliers (name, phone, email, address, opening_balance, current_balance, is_active)
           VALUES ($1, $2, $3, $4, $5, $5, TRUE)
-          ON CONFLICT (LOWER(name)) WHERE deleted_at IS NULL DO NOTHING
           RETURNING id
         `,
         [name, phone, email, address, openingBalance]
