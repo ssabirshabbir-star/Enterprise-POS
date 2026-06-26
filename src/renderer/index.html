@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -57,20 +57,20 @@
           </div>
           <nav class="epos-sidebar-nav" id="sidebarNav">
             <button type="button" data-route="/dashboard" data-module="dashboard" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#8962;</span><span class="epos-sidebar-label">Dashboard</span></button>
-            <button type="button" data-route="/pos" data-module="pos" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128179;</span><span class="epos-sidebar-label">Sales</span></button>
+            <button type="button" data-route="/pos" data-module="pos" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128179;</span><span class="epos-sidebar-label">Billing</span></button>
             <button type="button" data-route="/products" data-module="products" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128230;</span><span class="epos-sidebar-label">Products</span></button>
             <button type="button" data-route="/inventory" data-module="inventory" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128202;</span><span class="epos-sidebar-label">Inventory</span></button>
             <button type="button" data-route="/purchases" data-module="purchases" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128722;</span><span class="epos-sidebar-label">Purchases</span></button>
             <button type="button" data-route="/purchase-orders" data-module="purchase_orders" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128196;</span><span class="epos-sidebar-label">Purchase Orders</span></button>
+            <button type="button" data-route="/suppliers" data-module="suppliers" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128666;</span><span class="epos-sidebar-label">Suppliers</span></button>
             <button type="button" data-route="/customers" data-module="customers" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128100;</span><span class="epos-sidebar-label">Customers</span></button>
             <button type="button" data-route="/returns" data-module="returns" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#8634;</span><span class="epos-sidebar-label">Returns</span></button>
             <button type="button" data-route="/reports" data-module="reports" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128200;</span><span class="epos-sidebar-label">Reports</span></button>
+            <button type="button" data-route="/expenses" data-module="expenses" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128176;</span><span class="epos-sidebar-label">Expenses</span></button>
             <button type="button" data-route="/lucky-draw" data-module="lucky_draw" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#127873;</span><span class="epos-sidebar-label">Lucky Draw</span></button>
+            <button type="button" data-route="/users" data-module="users" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128101;</span><span class="epos-sidebar-label">User Management</span></button>
             <button type="button" data-route="/settings" data-module="settings" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#9881;</span><span class="epos-sidebar-label">Settings</span></button>
             <button type="button" data-route="/sync" data-module="sync" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#8644;</span><span class="epos-sidebar-label">Sync Queue</span></button>
-            <button type="button" data-route="/suppliers" data-module="suppliers" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128666;</span><span class="epos-sidebar-label">Suppliers</span></button>
-            <button type="button" data-route="/expenses" data-module="expenses" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128176;</span><span class="epos-sidebar-label">Expenses</span></button>
-            <button type="button" data-route="/users" data-module="users" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128101;</span><span class="epos-sidebar-label">User Management</span></button>
           </nav>
           <div class="epos-sidebar-user-card">
             <span class="epos-sidebar-user-avatar">👤</span>
@@ -81,7 +81,7 @@
           </div>
         </aside>
 
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 flex-1 flex flex-col overflow-hidden">
       <header class="border-b border-zinc-200 bg-white px-8 py-5">
         <div class="flex items-center justify-between">
           <div>
@@ -109,15 +109,15 @@
         </div>
       </header>
 
-      <main class="px-8 py-8">
-            <section id="dashboardRoute" data-route-panel="/dashboard" data-fragment="../main/features/dashboard/index.html"></section>
-      <section id="posModule" data-route-panel="/pos" data-fragment="../main/features/sales/index.html" class="hidden"></section>
+      <main id="appMain" class="flex-1 min-h-0 overflow-hidden">
+            <section id="dashboardRoute" data-route-panel="/dashboard" data-fragment="../main/features/dashboard/index.html" class="hidden dashboard-shell"></section>
+      <section id="posModule" data-route-panel="/pos" data-fragment="../main/features/billing/index.html" class="hidden"></section>
       <section id="productModule" data-route-panel="/products" data-fragment="../main/features/products/index.html" class="hidden w-full"></section>
       <section id="inventoryModule" data-route-panel="/inventory" data-fragment="../main/features/inventory/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="purchaseModule" data-route-panel="/purchases" data-fragment="../main/features/purchases/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="purchaseOrdersModule" data-route-panel="/purchase-orders" data-fragment="../main/features/purchase-orders/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="reportsModule" data-route-panel="/reports" data-fragment="../main/features/reports/index.html" class="mx-auto hidden max-w-7xl"></section>
-      <section id="luckyDrawModule" data-route-panel="/lucky-draw" data-fragment="../main/features/lucky-draw/index.html" class="w-full hidden"></section>
+      <section id="luckyDrawModule" data-route-panel="/lucky-draw" data-fragment="../main/features/luckydraw_v2/ui/index.html" class="w-full h-full hidden"></section>
       <section id="suppliersModule" data-route-panel="/suppliers" data-fragment="../main/features/suppliers/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="expensesModule" data-route-panel="/expenses" data-fragment="../main/features/expenses/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="customersModule" data-route-panel="/customers" data-fragment="../main/features/customers/index.html" class="mx-auto hidden max-w-7xl"></section>
@@ -126,94 +126,117 @@
       <section id="usersModule" data-route-panel="/users" data-fragment="../main/features/access-control/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="settingsModule" data-route-panel="/settings" data-fragment="../main/features/settings/index.html" class="mx-auto hidden max-w-7xl"></section>
 
-<section id="productFormPanel" class="fixed inset-0 z-20 hidden bg-zinc-950/35 px-4 py-6">
-      <div class="mx-auto flex max-h-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
-        <div class="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-teal-700">Product</p>
-            <h2 id="productFormTitle" class="text-xl font-semibold text-zinc-950">Add Product</h2>
+<section id="productFormPanel" class="fixed inset-0 z-20 hidden items-center justify-center bg-zinc-950/40" style="display:none;align-items:center;justify-content:center;">
+      <div class="pf-modal">
+        <!-- Header -->
+        <div class="pf-header">
+          <div class="pf-header-left">
+            <span class="pf-badge">PRODUCT</span>
+            <h2 id="productFormTitle" class="pf-title">Add Product</h2>
           </div>
-          <button id="closeProductFormButton" type="button" class="epos-btn epos-btn-sm epos-btn-outline">Close</button>
+          <button id="closeProductFormButton" type="button" class="pf-close-btn">✕ Close</button>
         </div>
 
-        <div class="overflow-y-auto px-5 py-5">
-          <form id="productForm" class="grid gap-4 md:grid-cols-3">
-            <input type="hidden" id="productId" />
-            <label class="md:col-span-2">
-              <span class="text-sm font-medium text-zinc-800">Product name</span>
-              <input id="productName" required class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">SKU</span>
-              <input id="productSku" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 uppercase outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" placeholder="Auto if blank" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Barcode</span>
-              <input id="productBarcode" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" placeholder="Scan or auto" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Category</span>
-              <select id="productCategory" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"></select>
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Brand</span>
-              <select id="productBrand" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"></select>
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Unit</span>
-              <select id="productUnit" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"></select>
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Purchase price</span>
-              <input id="purchasePrice" type="number" min="0" step="0.01" value="0" required class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Sale price</span>
-              <input id="salePrice" type="number" min="0" step="0.01" value="0" required class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Wholesale price</span>
-              <input id="wholesalePrice" type="number" min="0" step="0.01" value="0" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Minimum stock</span>
-              <input id="minStockLevel" type="number" min="0" step="0.001" value="0" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" />
-            </label>
-            <label>
-              <span class="text-sm font-medium text-zinc-800">Current stock</span>
-              <input id="currentStock" type="number" min="0" step="0.001" value="0" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100" />
-            </label>
-            <label class="flex items-end gap-3 pb-2">
-              <input id="productActive" type="checkbox" checked class="h-5 w-5 rounded border-zinc-300 text-teal-700 focus:ring-teal-600" />
-              <span class="text-sm font-medium text-zinc-800">Active</span>
-            </label>
-            <div class="md:col-span-3 flex flex-col gap-3 border-t border-zinc-200 pt-4 sm:flex-row sm:justify-end">
-              <button id="barcodePrintButton" type="button" class="epos-btn epos-btn-outline">Print Barcode</button>
-              <button id="saveProductButton" type="submit" class="epos-btn epos-btn-primary">Save Product</button>
-            </div>
-          </form>
+        <!-- Main Product Form -->
+        <form id="productForm" class="pf-body">
+          <input type="hidden" id="productId" />
 
-          <div class="mt-6 grid gap-4 border-t border-zinc-200 pt-5 md:grid-cols-3">
-            <form class="catalogForm rounded-lg border border-zinc-200 p-4" data-type="categories">
-              <h3 class="font-semibold text-zinc-950">Category</h3>
-              <input name="name" class="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Category name" required />
-              <input name="description" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Description" />
-              <button type="submit" class="epos-btn epos-btn-neutral mt-3">Add Category</button>
-              <div id="categoryList" class="mt-4 space-y-2 text-sm"></div>
+          <!-- Row 1: Name (spans 3) + SKU -->
+          <div class="pf-field pf-span3">
+            <label class="pf-label" for="productName">Product Name <span class="pf-required">*</span></label>
+            <input id="productName" required class="pf-input" placeholder="Enter product name" />
+          </div>
+          <div class="pf-field">
+            <label class="pf-label" for="productSku">SKU</label>
+            <input id="productSku" class="pf-input pf-upper" placeholder="Auto if blank" />
+          </div>
+
+          <!-- Row 2: Barcode + Category + Brand + Unit -->
+          <div class="pf-field">
+            <label class="pf-label" for="productBarcode">Barcode</label>
+            <input id="productBarcode" class="pf-input" placeholder="Scan or auto" />
+          </div>
+          <div class="pf-field">
+            <label class="pf-label" for="productCategory">Category</label>
+            <select id="productCategory" class="pf-input"></select>
+          </div>
+          <div class="pf-field">
+            <label class="pf-label" for="productBrand">Brand</label>
+            <select id="productBrand" class="pf-input"></select>
+          </div>
+          <div class="pf-field">
+            <label class="pf-label" for="productUnit">Unit</label>
+            <select id="productUnit" class="pf-input"></select>
+          </div>
+
+          <!-- Row 3: 3 Prices in a 3-col sub-row -->
+          <div class="pf-row-3">
+            <div class="pf-field">
+              <label class="pf-label" for="purchasePrice">Cost Price <span class="pf-required">*</span></label>
+              <input id="purchasePrice" type="number" min="0" step="0.01" value="0" required class="pf-input" />
+            </div>
+            <div class="pf-field">
+              <label class="pf-label" for="salePrice">Sale Price <span class="pf-required">*</span></label>
+              <input id="salePrice" type="number" min="0" step="0.01" value="0" required class="pf-input" />
+            </div>
+            <div class="pf-field">
+              <label class="pf-label" for="wholesalePrice">Wholesale Price</label>
+              <input id="wholesalePrice" type="number" min="0" step="0.01" value="0" class="pf-input" />
+            </div>
+          </div>
+
+          <!-- Row 4: Stock fields + Active toggle in a 3-col sub-row -->
+          <div class="pf-row-3">
+            <div class="pf-field">
+              <label class="pf-label" for="minStockLevel">Min Stock</label>
+              <input id="minStockLevel" type="number" min="0" step="0.001" value="0" class="pf-input" />
+            </div>
+            <div class="pf-field">
+              <label class="pf-label" for="currentStock">Current Stock</label>
+              <input id="currentStock" type="number" min="0" step="0.001" value="0" class="pf-input" />
+            </div>
+            <div class="pf-field pf-active-row">
+              <label class="pf-active-label">
+                <input id="productActive" type="checkbox" checked class="pf-checkbox" />
+                <span>Active Product</span>
+              </label>
+            </div>
+          </div>
+
+
+          <!-- Footer actions -->
+          <div class="pf-footer">
+            <button id="pfCatalogToggle" type="button" class="pf-catalog-toggle-btn">⊕ Manage Categories / Brands / Units</button>
+            <div class="pf-footer-actions">
+              <button id="barcodePrintButton" type="button" class="pf-btn-secondary">⎙ Print Barcode</button>
+              <button id="saveProductButton" type="submit" class="pf-btn-primary">✓ Save Product</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Collapsible Catalog Panel -->
+        <div id="pfCatalogPanel" class="pf-catalog-panel hidden">
+          <div class="pf-catalog-grid">
+            <form class="catalogForm pf-catalog-form" data-type="categories">
+              <h4 class="pf-catalog-title">📁 Category</h4>
+              <input name="name" class="pf-input pf-sm" placeholder="Category name" required />
+              <input name="description" class="pf-input pf-sm" placeholder="Description (optional)" />
+              <button type="submit" class="pf-catalog-add-btn">+ Add Category</button>
+              <div id="categoryList" class="pf-catalog-list"></div>
             </form>
-            <form class="catalogForm rounded-lg border border-zinc-200 p-4" data-type="brands">
-              <h3 class="font-semibold text-zinc-950">Brand</h3>
-              <input name="name" class="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Brand name" required />
-              <input name="description" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Description" />
-              <button type="submit" class="epos-btn epos-btn-neutral mt-3">Add Brand</button>
-              <div id="brandList" class="mt-4 space-y-2 text-sm"></div>
+            <form class="catalogForm pf-catalog-form" data-type="brands">
+              <h4 class="pf-catalog-title">🏷️ Brand</h4>
+              <input name="name" class="pf-input pf-sm" placeholder="Brand name" required />
+              <input name="description" class="pf-input pf-sm" placeholder="Description (optional)" />
+              <button type="submit" class="pf-catalog-add-btn">+ Add Brand</button>
+              <div id="brandList" class="pf-catalog-list"></div>
             </form>
-            <form class="catalogForm rounded-lg border border-zinc-200 p-4" data-type="units">
-              <h3 class="font-semibold text-zinc-950">Unit</h3>
-              <input name="name" class="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Unit name" required />
-              <input name="shortName" class="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Short name" required />
-              <button type="submit" class="epos-btn epos-btn-neutral mt-3">Add Unit</button>
-              <div id="unitList" class="mt-4 space-y-2 text-sm"></div>
+            <form class="catalogForm pf-catalog-form" data-type="units">
+              <h4 class="pf-catalog-title">📐 Unit</h4>
+              <input name="name" class="pf-input pf-sm" placeholder="Unit name" required />
+              <input name="shortName" class="pf-input pf-sm" placeholder="Short name" required />
+              <button type="submit" class="pf-catalog-add-btn">+ Add Unit</button>
+              <div id="unitList" class="pf-catalog-list"></div>
             </form>
           </div>
         </div>
@@ -222,10 +245,29 @@
 
     <script src="../main/features/dashboard/index.js"></script>
     <script src="../Components/Billing/billing.js"></script>
+    <!-- Billing module renderer — load order: cart → api → renderer -->
+    <script src="../main/features/billing/billing.cart.js"></script>
+    <script src="../main/features/billing/billing.api.js"></script>
+    <script src="../main/features/billing/billing.renderer.js"></script>
+    <!-- Products module renderer — load order: api → renderer -->
+    <script src="../main/features/products/products.api.js"></script>
+    <script src="../main/features/products/products.renderer.js"></script>
+    <!-- Customers module renderer — load order: api → renderer -->
+    <script src="../main/features/customers/customers.api.js"></script>
+    <script src="../main/features/customers/customers.renderer.js"></script>
+    <!-- Lucky Draw V2 module renderer — load order: api → renderer -->
+    <script src="../main/features/luckydraw_v2/ipc/luckydraw.api.js"></script>
+    <script src="../main/features/luckydraw_v2/ui/luckydraw.renderer.js"></script>
+    <!-- Suppliers module renderer -->
+    <script src="../main/features/suppliers/suppliers.renderer.js"></script>
+    <!-- Inventory module renderer -->
+    <script src="../main/features/inventory/inventory.renderer.js"></script>
     <script src="./scripts/login.js"></script>
+
+    <!-- Global Toast Notification Container -->
+    <div id="toastContainer" aria-live="polite" aria-atomic="false" style="position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:380px;pointer-events:none;"></div>
   </body>
 </html>
-
 
 
 

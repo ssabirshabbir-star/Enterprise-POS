@@ -22,13 +22,12 @@
   </nav>
 
   <div class="epos-suppliers-filters">
-    <input id="supplierInlineSearch" placeholder="Search supplier by name, phone, email..." />
+    <input id="supplierInlineSearch" placeholder="Search supplier, phone, city, due, status..." />
     <select id="supplierStatusFilter"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="due">Due Balance</option></select>
     <select id="supplierCityFilter"><option value="">All Cities</option></select>
-    <input id="supplierDateFilter" type="text" value="01/05/2025 - 14/05/2025" aria-label="Date range foundation" />
-    <button id="supplierFilterButton" type="button">Filter</button>
+    <input id="supplierFromDateFilter" type="date" aria-label="From date" />
+    <input id="supplierToDateFilter" type="date" aria-label="To date" />
     <button id="supplierResetFilterButton" type="button">Reset</button>
-    <button id="supplierColumnsButton" type="button">Columns</button>
   </div>
 
   <div class="epos-suppliers-workspace">
@@ -37,6 +36,7 @@
         <table class="epos-suppliers-table">
           <thead>
             <tr>
+              <th class="epos-supplier-check-col"><input type="checkbox" id="supplierSelectAll" title="Select all" /></th>
               <th>#</th>
               <th>Supplier Name</th>
               <th>Contact</th>
@@ -63,7 +63,7 @@
     <button id="supplierBottomPaymentButton" type="button" class="purple">Make Payment</button>
     <button id="supplierStatementButton" type="button" class="orange">Suppliers Statement</button>
     <button id="supplierAgingButton" type="button" class="teal">Aging Report</button>
-    <button id="supplierReminderButton" type="button" class="red">Due Reminder (SMS/Email)</button>
+    <button id="supplierWhatsAppButton" type="button" class="whatsapp">📲 WhatsApp</button>
     <button id="supplierExportButton" type="button" class="sky" title="Export supplier list">Export</button>
     <button id="supplierPrintButton" type="button" class="slate" title="Print suppliers">Print</button>
   </div>
@@ -133,5 +133,47 @@
         <button id="saveSupplierPaymentButton" type="submit">Save Payment</button>
       </div>
     </form>
+  </div>
+
+  <div id="supplierLedgerPickerModal" class="epos-suppliers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierLedgerPickerTitle">
+    <div class="epos-suppliers-modal-backdrop" data-ledger-picker-close></div>
+    <div class="epos-suppliers-ledger-picker">
+      <div class="epos-suppliers-ledger-picker-head">
+        <div>
+          <span>Supplier Ledger</span>
+          <h3 id="supplierLedgerPickerTitle">Select a Supplier</h3>
+        </div>
+        <button type="button" data-ledger-picker-close aria-label="Close">×</button>
+      </div>
+      <div class="epos-suppliers-ledger-picker-search">
+        <input id="supplierLedgerPickerSearch" type="search" placeholder="Search by name, phone or city…" autocomplete="off" />
+      </div>
+      <ul id="supplierLedgerPickerList" class="epos-suppliers-ledger-picker-list"></ul>
+    </div>
+  </div>
+
+  <div id="supplierWhatsAppModal" class="epos-suppliers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierWhatsAppTitle">
+    <div class="epos-suppliers-modal-backdrop" data-whatsapp-modal-close></div>
+    <div class="epos-suppliers-whatsapp-card">
+      <div class="epos-suppliers-ledger-picker-head">
+        <div>
+          <span>WhatsApp</span>
+          <h3 id="supplierWhatsAppTitle">Send to Supplier</h3>
+        </div>
+        <button type="button" data-whatsapp-modal-close aria-label="Close">×</button>
+      </div>
+      <p id="supplierWhatsAppTarget" class="epos-suppliers-wa-target"></p>
+      <div class="epos-suppliers-wa-actions">
+        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="ledger">📊 Send Ledger Statement</button>
+        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="invoices">🧾 Send Purchase Invoices</button>
+        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="due">💰 Send Due Balance Reminder</button>
+        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="payment">✅ Send Payment Confirmation</button>
+        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="custom">✏️ Custom Message</button>
+      </div>
+      <div id="supplierWaCustomBox" class="epos-suppliers-wa-custom hidden">
+        <textarea id="supplierWaCustomText" rows="4" placeholder="Type your custom message here…"></textarea>
+        <button type="button" id="supplierWaSendCustom" class="epos-suppliers-wa-send">📲 Send on WhatsApp</button>
+      </div>
+    </div>
   </div>
 </section>

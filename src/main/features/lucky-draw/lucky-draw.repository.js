@@ -427,6 +427,79 @@ async function getReports() {
   };
 }
 
+async function listEligibleParticipants(campaignId, filters = {}) {
+  const params = [Number(campaignId)];
+  const where = ['entries.campaign_id = $1', 'entries.is_used = TRUE'];
+
+  if (filters.search) {
+    params.push(`%${String(filters.search).trim().toLowerCase()}%`);
+    where.push(`(LOWER(entries.coupon_no) LIKE $${params.length} OR LOWER(customers.name) LIKE $${params.length} OR LOWER(sales.invoice_number) LIKE $${params.length})`);
+  }
+  if (filters.fromDate) {
+    params.push(filters.fromDate);
+    where.push(`entries.created_at::date >= $${params.length}`);
+  }
+  if (filters.toDate) {
+    params.push(filters.toDate);
+    where.push(`entries.created_at::date <= $${params.length}`);
+  }
+
+  const result = await getPool().query(
+    `
+      SELECT entries.*, campaigns.campaign_name, campaigns.campaign_code, customers.name AS customer_name,
+             sales.invoice_number
+      FROM lucky_draw_entries entries
+      INNER JOIN lucky_draw_campaigns campaigns ON campaigns.id = entries.campaign_id
+      INNER JOIN sales ON sales.id = entries.sale_id
+      LEFT JOIN customers ON customers.id = entries.customer_id
+      WHERE ${where.join(' AND ')}
+        AND NOT EXISTS (SELECT 1 FROM lucky_draw_winners winners WHERE winners.entry_id = entries.id)
+      ORDER BY entries.created_at DESC
+      LIMIT 500
+    `,
+    params
+  );
+  return result.rows.map(mapEntry);
+}
+
+async function findCampaignById(campaignId) {
+  const result = await getPool().query(
+    'SELECT * FROM lucky_draw_campaigns WHERE id = $1 AND deleted_at IS NULL',
+    [campaignId]
+  );
+  return mapCampaign(result.rows[0]);
+}
+
+async function createWinner(campaignId, entryId, prizeName, userId) {
+  const result = await getPool().query(
+    `
+      INSERT INTO lucky_draw_winners (campaign_id, entry_id, prize_name, selected_by)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (entry_id) DO NOTHING
+      RETURNING id
+    `,
+    [campaignId, entryId, prizeName, userId]
+  );
+  if (result.rows[0]) {
+    const winner = await getPool().query(
+      `
+        SELECT winners.*, campaigns.campaign_name, campaigns.prize_details, entries.coupon_no, entries.bill_amount,
+               customers.name AS customer_name, sales.invoice_number, users.full_name AS selected_by_name
+        FROM lucky_draw_winners winners
+        INNER JOIN lucky_draw_campaigns campaigns ON campaigns.id = winners.campaign_id
+        INNER JOIN lucky_draw_entries entries ON entries.id = winners.entry_id
+        INNER JOIN sales ON sales.id = entries.sale_id
+        LEFT JOIN customers ON customers.id = entries.customer_id
+        LEFT JOIN users ON users.id = winners.selected_by
+        WHERE winners.id = $1
+      `,
+      [result.rows[0].id]
+    );
+    return mapWinner(winner.rows[0]);
+  }
+  return null;
+}
+
 module.exports = {
   createCampaign,
   createEntriesForSale,
@@ -438,5 +511,8 @@ module.exports = {
   listEntries,
   listWinners,
   updateCampaign,
-  verifyCoupon
+  verifyCoupon,
+  listEligibleParticipants,
+  findCampaignById,
+  createWinner
 };

@@ -257,8 +257,19 @@ async function cancelOrder(id, notes = '') {
   const current = await poRepository.getOrder(orderId);
   if (!current) return { ok: false, message: 'Purchase order not found.' };
   if (['FULLY_RECEIVED', 'INVOICED', 'CLOSED', 'CANCELLED'].includes(current.status)) return { ok: false, message: 'This PO cannot be cancelled.' };
-  const order = await poRepository.updateStatus(orderId, 'CANCELLED', access.profile.id, notes);
-  await activityRepository.createActivityLog({ userId: access.profile.id, action: 'purchase_order.cancel', status: 'success', message: 'Purchase order cancelled', metadata: { purchaseOrderId: orderId } });
+  const order = await poRepository.cancelStatus(orderId);
+  if (!order) return { ok: false, message: 'Purchase order could not be cancelled. It may already be received, invoiced, closed, or cancelled.' };
+  try {
+    await activityRepository.createActivityLog({
+      userId: access.profile.id,
+      action: 'purchase_order.cancel',
+      status: 'success',
+      message: 'Purchase order cancelled',
+      metadata: { purchaseOrderId: orderId, notes: String(notes || '').trim(), previousStatus: current.status }
+    });
+  } catch (error) {
+    console.warn('PO cancel audit log failed:', error.message);
+  }
   return { ok: true, order, message: 'Purchase order cancelled.' };
 }
 

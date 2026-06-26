@@ -1,10 +1,12 @@
 const ROLE_ACCESS = Object.freeze({
-  Admin: ['dashboard', 'pos', 'products', 'inventory', 'purchases', 'purchase_orders', 'suppliers', 'expenses', 'customers', 'returns', 'reports', 'lucky_draw', 'settings', 'users', 'roles', 'permissions', 'printing', 'sync'],
-  Manager: ['dashboard', 'pos', 'products', 'inventory', 'purchases', 'purchase_orders', 'suppliers', 'expenses', 'customers', 'returns', 'reports', 'lucky_draw', 'printing', 'sync'],
-  Cashier: ['dashboard', 'pos', 'products', 'customers', 'returns', 'lucky_draw', 'printing', 'sync'],
-  Saleman: ['dashboard', 'pos', 'products', 'customers', 'lucky_draw', 'printing'],
-  Warehouse: ['dashboard', 'products', 'inventory', 'purchases', 'purchase_orders', 'suppliers', 'printing', 'sync']
+  Admin:      ['dashboard', 'pos', 'products', 'inventory', 'purchases', 'purchase_orders', 'suppliers', 'expenses', 'customers', 'returns', 'reports', 'lucky_draw', 'settings', 'users', 'roles', 'permissions', 'printing', 'sync'],
+  Manager:    ['dashboard', 'pos', 'products', 'inventory', 'purchases', 'purchase_orders', 'suppliers', 'expenses', 'customers', 'returns', 'reports', 'lucky_draw', 'printing', 'sync'],
+  Cashier:    ['dashboard', 'pos', 'products', 'customers', 'returns', 'lucky_draw', 'printing', 'sync'],
+  Saleman:    ['dashboard', 'pos', 'products', 'customers', 'lucky_draw', 'printing'],
+  Warehouse:  ['dashboard', 'products', 'inventory', 'purchases', 'purchase_orders', 'suppliers', 'printing', 'sync'],
+  Accountant: ['dashboard', 'suppliers', 'expenses', 'reports', 'settings'],
 });
+
 
 const ROUTE_PERMISSIONS = Object.freeze({
   dashboard: 'dashboard.view',

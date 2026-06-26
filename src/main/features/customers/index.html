@@ -3,6 +3,7 @@
     <article class="blue"><span>+</span><div><p>Total Customers</p><strong id="customerTotalCount">0</strong><small>Live database</small></div></article>
     <article class="green"><span>✓</span><div><p>Active Customers</p><strong id="customerActiveCount">0</strong><small>Ready for billing</small></div></article>
     <article class="orange"><span>!</span><div><p>Inactive Customers</p><strong id="customerInactiveCount">0</strong><small>Hidden from sale</small></div></article>
+    <article class="violet"><span>Rs</span><div><p>Credit Customers</p><strong id="customerCreditCount">0</strong><small>With due balance</small></div></article>
     <article class="pink"><span>₨</span><div><p>Total Sales</p><strong id="customerTotalSales">PKR 0</strong><small>From customer history</small></div></article>
   </section>
   <section class="epos-customers-topbar">
@@ -11,38 +12,33 @@
       <span>⌕</span>
       <input id="customerPageSearch" placeholder="Search customers by name, phone, email or CNIC..." />
     </label>
+    <button id="customerBulkActionsButton" type="button" class="epos-customers-bulk-top">Bulk Actions</button>
   </section>
 
 
   <div class="epos-customers-workspace">
     <main class="epos-customers-card">
       <div class="epos-customers-tabs">
-        <button type="button" class="active" data-customer-tab="">All Customers</button>
-        <button type="button" data-customer-tab="active">Active Customers</button>
-        <button type="button" data-customer-tab="inactive">Inactive Customers</button>
-        <button type="button" data-customer-tab="vip">VIP Customers</button>
-        <button type="button" data-customer-tab="recent">Recent Customers</button>
-      </div>
+        <div class="epos-customers-tab-buttons">
+          <button type="button" class="active" data-customer-tab="">All Customers</button>
+          <button type="button" data-customer-tab="active">Active Customers</button>
+          <button type="button" data-customer-tab="inactive">Inactive Customers</button>
+          <button type="button" data-customer-tab="vip">VIP Customers</button>
+          <button type="button" data-customer-tab="recent">Recent Customers</button>
+          <button type="button" data-customer-tab="regular">Regular Customers</button>
+          <button type="button" data-customer-tab="credit">Credit Customers</button>
+        </div>
+        </div>
 
       <div class="epos-customers-filters">
-        <select id="customerStatusFilter">
-          <option value="">Select Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <select id="customerGroupFilter">
-          <option value="">Select Group</option>
-          <option value="vip">VIP</option>
-          <option value="regular">Regular</option>
-          <option value="wholesale">Wholesale</option>
-        </select>
-        <select id="customerCityFilter">
-          <option value="">Select City</option>
-        </select>
         <button id="customerAddButton" type="button" class="add">+ Add Customer</button>
+        <button id="openCustomerGroupsButton" type="button" class="groups">Customer Groups</button>
         <button type="button" data-page-tool="customers" data-tool-action="import" class="import">Import</button>
         <button type="button" data-page-tool="customers" data-tool-action="excel" class="export">Export</button>
+        <button type="button" class="ledger" id="customerLedgerShortcut">Customer Ledger</button>
+        <button type="button" class="delete-inactive" id="customerDeleteInactiveButton">Delete Inactive</button>
         <button type="button" data-page-tool="customers" data-tool-action="print" class="print">Print</button>
+        <button id="customerWhatsAppButton" type="button" class="whatsapp">WhatsApp</button>
       </div>
 
       <p id="customerPageMessage" class="hidden epos-customers-message"></p>
@@ -51,8 +47,10 @@
         <table class="epos-customers-table">
           <thead>
             <tr>
+              <th><input id="customerSelectAll" type="checkbox" aria-label="Select all visible customers" /></th>
               <th>#</th>
               <th>Customer Name</th>
+              <th>Customer ID</th>
               <th>Phone</th>
               <th>Group</th>
               <th>City</th>
@@ -76,37 +74,128 @@
 
   <section class="epos-customers-bottom-actions">
     <button id="customerBottomAddButton" type="button" class="blue"><span class="epos-customers-action-icon" aria-hidden="true">♙</span><strong>Add Customer</strong></button>
-    <button type="button" class="pink" data-customer-tab="vip"><span class="epos-customers-action-icon" aria-hidden="true">♟</span><strong>Customer Groups</strong></button>
+    <button id="openCustomerGroupsButton" type="button" class="pink"><span class="epos-customers-action-icon" aria-hidden="true">♟</span><strong>Customer Groups</strong></button>
     <button type="button" class="green" data-page-tool="customers" data-tool-action="import"><span class="epos-customers-action-icon" aria-hidden="true">♜</span><strong>Import Customers</strong></button>
-    <button type="button" class="orange" disabled><span class="epos-customers-action-icon" aria-hidden="true">▤</span><strong>SMS / Email</strong></button>
+    <button id="customerWhatsAppButton" type="button" class="orange"><span class="epos-customers-action-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:22px;height:22px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></span><strong>WhatsApp</strong></button>
     <button type="button" class="sky" id="customerLedgerShortcut"><span class="epos-customers-action-icon" aria-hidden="true">▣</span><strong>Customer Ledger</strong></button>
-    <button type="button" class="violet" disabled><span class="epos-customers-action-icon" aria-hidden="true">✣</span><strong>Bulk Actions</strong></button>
+    <button id="customerBulkActionsButton" type="button" class="violet"><span class="epos-customers-action-icon" aria-hidden="true">✣</span><strong>Bulk Actions</strong></button>
     <button type="button" class="red" id="customerDeleteInactiveButton"><span class="epos-customers-action-icon" aria-hidden="true">▥</span><strong>Delete Inactive</strong></button>
   </section>
 
+  <!-- Customer Ledger / Details Panel -->
   <div id="customerDetailsPanel" class="epos-customers-details hidden">Select a customer to view purchase history and ledger.</div>
 
+  <!-- Customer Editor Modal -->
   <div id="customerEditorModal" class="epos-customers-modal hidden" role="dialog" aria-modal="true">
     <div class="epos-customers-modal-card">
       <div class="epos-customers-modal-head">
-        <h3>Customer Editor</h3>
-        <button type="button" data-customer-modal-close aria-label="Close customer editor">x</button>
+        <h3 id="customerEditorTitle">Add Customer</h3>
+        <button type="button" data-customer-modal-close aria-label="Close customer editor">✕</button>
       </div>
       <form id="customerForm" class="epos-customers-form">
         <input id="customerFormId" type="hidden" />
-        <input id="customerNameInput" class="epos-customers-input" placeholder="Customer name" required />
-        <input id="customerPhoneInput" class="epos-customers-input" placeholder="Phone" />
-        <input id="customerEmailInput" type="email" class="epos-customers-input" placeholder="Email" />
-        <input id="customerCnicInput" class="epos-customers-input" placeholder="CNIC" />
-        <input id="customerCreditLimitInput" type="number" min="0" step="0.01" class="epos-customers-input" placeholder="Credit limit" value="0" />
-        <input id="customerOpeningBalanceInput" type="number" min="0" step="0.01" class="epos-customers-input" placeholder="Opening balance" value="0" />
-        <input id="customerAddressInput" class="epos-customers-input" placeholder="Address / City" />
-        <label class="epos-customers-check"><input id="customerActiveInput" type="checkbox" checked /> Active customer</label>
+        <label class="epos-customers-form-label">
+          <span>Full Name <span style="color:#e11d48">*</span></span>
+          <input id="customerNameInput" class="epos-customers-input" placeholder="Customer full name" required />
+        </label>
+        <label class="epos-customers-form-label">
+          <span>Phone Number</span>
+          <input id="customerPhoneInput" class="epos-customers-input" placeholder="e.g. 03XX-XXXXXXX" type="tel" />
+        </label>
+        <label class="epos-customers-form-label">
+          <span>Email Address</span>
+          <input id="customerEmailInput" type="email" class="epos-customers-input" placeholder="email@example.com" />
+        </label>
+        <label class="epos-customers-form-label">
+          <span>CNIC</span>
+          <input id="customerCnicInput" class="epos-customers-input" placeholder="XXXXX-XXXXXXX-X" />
+        </label>
+        <label class="epos-customers-form-label">
+          <span>Customer Group</span>
+          <select id="customerGroupInput" class="epos-customers-input">
+            <option value="">Auto (based on sales)</option>
+            <option value="regular">Regular</option>
+            <option value="wholesale">Wholesale</option>
+            <option value="vip">VIP</option>
+          </select>
+        </label>
+        <label class="epos-customers-form-label">
+          <span>Credit Limit (PKR)</span>
+          <input id="customerCreditLimitInput" type="number" min="0" step="0.01" class="epos-customers-input" placeholder="Credit limit" value="0" />
+        </label>
+        <label class="epos-customers-form-label">
+          <span>Opening Balance (PKR)</span>
+          <input id="customerOpeningBalanceInput" type="number" min="0" step="0.01" class="epos-customers-input" placeholder="Opening balance" value="0" />
+        </label>
+        <label class="epos-customers-form-label epos-customers-form-full">
+          <span>Address / City</span>
+          <input id="customerAddressInput" class="epos-customers-input" placeholder="Street, Area, City" />
+        </label>
+        <label class="epos-customers-check epos-customers-form-full">
+          <input id="customerActiveInput" type="checkbox" checked />
+          Active customer
+        </label>
         <div class="epos-customers-form-actions">
-          <button id="saveCustomerButton" type="submit" class="green">Save Customer</button>
-          <button id="resetCustomerButton" type="button" class="neutral">Reset</button>
+          <button id="saveCustomerButton" type="submit" class="green">💾 Save Customer</button>
+          <button id="resetCustomerButton" type="button" class="neutral">↩ Reset</button>
         </div>
       </form>
     </div>
   </div>
+
+  <!-- Customer Groups Management Modal -->
+  <div id="customerGroupsModal" class="epos-customers-modal hidden" role="dialog" aria-modal="true">
+    <div class="epos-customers-modal-card epos-groups-modal-card">
+      <div class="epos-customers-modal-head">
+        <h3>Customer Groups</h3>
+        <button type="button" id="closeCustomerGroupsModal" aria-label="Close groups">✕</button>
+      </div>
+      <p class="epos-groups-desc">Create and manage customer groups. Groups help you segment customers for pricing, offers, and reporting.</p>
+      <form id="customerGroupForm" class="epos-groups-form">
+        <input id="customerGroupFormId" type="hidden" />
+        <input id="customerGroupNameInput" class="epos-customers-input" placeholder="Group name (e.g. Wholesale, VIP, Distributor)" required />
+        <input id="customerGroupDescInput" class="epos-customers-input" placeholder="Description (optional)" />
+        <select id="customerGroupColorInput" class="epos-customers-input">
+          <option value="vip">Purple — VIP</option>
+          <option value="regular">Blue — Regular</option>
+          <option value="wholesale">Orange — Wholesale</option>
+          <option value="green">Green — Special</option>
+          <option value="red">Red — Restricted</option>
+        </select>
+        <div class="epos-groups-form-actions">
+          <button type="submit" class="epos-groups-save-btn" id="saveCustomerGroupButton">➕ Add Group</button>
+          <button type="button" class="epos-groups-reset-btn" id="resetCustomerGroupButton">↩ Reset</button>
+        </div>
+      </form>
+      <div id="customerGroupsList" class="epos-groups-list">
+        <p class="epos-groups-empty">Loading groups...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="customerWhatsAppModal" class="epos-customers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="customerWhatsAppTitle">
+    <div class="epos-customers-whatsapp-card">
+      <div class="epos-customers-modal-head">
+        <div>
+          <span class="epos-customers-modal-kicker">WhatsApp</span>
+          <h3 id="customerWhatsAppTitle">Send to Customer</h3>
+        </div>
+        <button type="button" data-customer-whatsapp-close aria-label="Close WhatsApp options">×</button>
+      </div>
+      <p id="customerWhatsAppTarget" class="epos-customers-wa-target"></p>
+      <div class="epos-customers-wa-actions">
+        <button type="button" class="epos-customers-wa-btn" data-customer-wa-action="ledger">Send Ledger Statement</button>
+        <button type="button" class="epos-customers-wa-btn" data-customer-wa-action="invoices">Send Invoices / Purchases</button>
+        <button type="button" class="epos-customers-wa-btn" data-customer-wa-action="report">Send Customer Report</button>
+        <button type="button" class="epos-customers-wa-btn" data-customer-wa-action="due">Send Due Balance Reminder</button>
+        <button type="button" class="epos-customers-wa-btn" data-customer-wa-action="payment">Send Payment Summary</button>
+        <button type="button" class="epos-customers-wa-btn" data-customer-wa-action="custom">Custom Message</button>
+      </div>
+      <div id="customerWaCustomBox" class="epos-customers-wa-custom hidden">
+        <textarea id="customerWaCustomText" rows="4" placeholder="Type your custom message here..."></textarea>
+        <button type="button" id="customerWaSendCustom" class="epos-customers-wa-send">Send on WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
 </div>

@@ -15,6 +15,7 @@
   }
 
   .epos-products-page {
+    --epos-products-control-height: 38px;
     --app-table-header-height: 30px;
     --app-table-header-padding: 0 8px;
     --app-table-header-line-height: 1.1;
@@ -63,7 +64,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    min-height: 32px;
+    min-height: var(--epos-products-control-height);
     border: 1px solid #e6e8f8;
     border-radius: 10px;
     background: rgb(255 255 255 / 0.9);
@@ -72,7 +73,7 @@
   }
 
   .epos-products-global-search input {
-    min-height: 30px;
+    min-height: calc(var(--epos-products-control-height) - 2px);
     border: 0 !important;
     background: transparent;
     color: #11164a;
@@ -97,7 +98,7 @@
   }
 
   .epos-products-btn {
-    min-height: 32px;
+    min-height: var(--epos-products-control-height);
     border: 0;
     border-radius: 9px;
     color: #fff;
@@ -200,7 +201,7 @@
 
   .epos-products-filter-group select,
   .epos-products-filter-group button {
-    min-height: 36px;
+    min-height: var(--epos-products-control-height);
     border: 1px solid #e3e7f6 !important;
     border-radius: 8px !important;
     background: #ffffff;

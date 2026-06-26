@@ -35,19 +35,21 @@
   </section>
 
   <section class="epos-users-commandbar">
-    <div class="epos-users-tabs">
-      <button type="button" data-user-admin-tab="users" class="userAdminTab active">Users</button>
-      <button type="button" data-user-admin-tab="roles" class="userAdminTab">Roles</button>
-      <button type="button" data-user-admin-tab="permissions" class="userAdminTab">Permissions</button>
+    <div class="epos-users-primary-strip">
+      <div class="epos-users-tabs">
+        <button type="button" data-user-admin-tab="users" class="userAdminTab epos-users-action blue active">Users</button>
+      </div>
+      <div class="epos-users-actions">
+        <button id="userAddButton" type="button" class="epos-users-action violet">+ Add User</button>
+        <button type="button" data-user-admin-tab="roles" class="userAdminTab epos-users-action orange">Roles</button>
+        <button type="button" data-user-admin-tab="permissions" class="userAdminTab epos-users-action green">Permissions</button>
+        <button type="button" data-page-tool="users" data-tool-action="import" class="epos-users-action blue">Import</button>
+        <button type="button" data-page-tool="users" data-tool-action="excel" class="epos-users-action pink">Export</button>
+      </div>
+    </div>
+    <div class="epos-users-tabs epos-users-tabs-secondary">
       <button type="button" data-user-admin-tab="map" class="userAdminTab">Role Permission Map</button>
       <button type="button" data-user-admin-tab="activity" class="userAdminTab">Activity Log</button>
-    </div>
-    <div class="epos-users-actions">
-      <button id="userAddButton" type="button" class="epos-users-action violet">+ Add User</button>
-      <button type="button" data-user-admin-tab="roles" class="userAdminTab epos-users-action orange">Roles</button>
-      <button type="button" data-user-admin-tab="permissions" class="userAdminTab epos-users-action green">Permissions</button>
-      <button type="button" data-page-tool="users" data-tool-action="import" class="epos-users-action blue">Import</button>
-      <button type="button" data-page-tool="users" data-tool-action="excel" class="epos-users-action pink">Export</button>
     </div>
   </section>
   <p id="userToolbarMessage" class="hidden epos-users-message"></p>
@@ -172,9 +174,10 @@
     <div class="epos-users-permission-head">
       <div>
         <h3>Activity Log</h3>
-        <p>Recent audited user and role actions from the database.</p>
+        <p>Password policy, login attempts, blocks, user activity, and user/role changes from the database.</p>
       </div>
     </div>
+    <div id="userSecurityPolicy" class="epos-users-security-policy"></div>
     <div id="userActivityLog" class="epos-users-permission-matrix">Activity logs will appear here.</div>
   </div>
 

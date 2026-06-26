@@ -41,6 +41,8 @@ async function initializeDatabase() {
         role_id INTEGER NOT NULL REFERENCES roles(id),
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
         failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        locked_until TIMESTAMPTZ,
+        password_changed_at TIMESTAMPTZ,
         last_login_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -49,6 +51,8 @@ async function initializeDatabase() {
 
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(80);');
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(60);');
+    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;');
+    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;');
     await client.query("UPDATE users SET username = LOWER(SPLIT_PART(email, '@', 1)) WHERE username IS NULL;");
     await client.query('ALTER TABLE users ALTER COLUMN username SET NOT NULL;');
 
@@ -292,6 +296,7 @@ async function initializeDatabase() {
         min_stock_level NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (min_stock_level >= 0),
         current_stock NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        product_image TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         deleted_at TIMESTAMPTZ
@@ -407,12 +412,16 @@ async function initializeDatabase() {
         id BIGSERIAL PRIMARY KEY,
         purchase_id BIGINT NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
         product_id INTEGER NOT NULL REFERENCES products(id),
+        batch_number VARCHAR(120),
+        expiration_date DATE,
         quantity NUMERIC(14, 3) NOT NULL CHECK (quantity > 0),
         purchase_price NUMERIC(14, 2) NOT NULL CHECK (purchase_price >= 0),
         sale_price NUMERIC(14, 2) NOT NULL CHECK (sale_price >= 0),
         total NUMERIC(14, 2) NOT NULL CHECK (total >= 0)
       );
     `);
+    await client.query('ALTER TABLE purchase_items ADD COLUMN IF NOT EXISTS batch_number VARCHAR(120);');
+    await client.query('ALTER TABLE purchase_items ADD COLUMN IF NOT EXISTS expiration_date DATE;');
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchase_requisitions (
@@ -992,6 +1001,7 @@ async function initializeDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_products_name_search ON products (LOWER(name)) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_products_category_id ON products (category_id) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products (brand_id) WHERE deleted_at IS NULL;');
+    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS product_image TEXT;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements (product_id, created_at DESC);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory (product_id);');
     await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_name_unique ON suppliers (LOWER(name)) WHERE deleted_at IS NULL;');
@@ -1018,6 +1028,8 @@ async function initializeDatabase() {
     await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_entries_campaign_sale_unique ON lucky_draw_entries (campaign_id, sale_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_entries_campaign_created ON lucky_draw_entries (campaign_id, created_at DESC);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_entries_customer ON lucky_draw_entries (customer_id, created_at DESC);');
+    // P-7: persist walk-in customer names (nullable, safe idempotent migration)
+    await client.query('ALTER TABLE lucky_draw_entries ADD COLUMN IF NOT EXISTS customer_name VARCHAR(180);');
     await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_winners_entry_unique ON lucky_draw_winners (entry_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_winners_campaign ON lucky_draw_winners (campaign_id, selected_at DESC);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_coupon_logs_coupon_no ON coupon_logs (LOWER(coupon_no), timestamp DESC);');

@@ -17,6 +17,18 @@ function parseProductId(value) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function normalizeProductImage(value) {
+  const image = String(value || '').trim();
+  if (!image) return { ok: true, image: null };
+  if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image)) {
+    return { ok: false, message: 'Please select a valid PNG, JPG, WEBP, or GIF image.' };
+  }
+  if (image.length > 2_500_000) {
+    return { ok: false, message: 'Product image is too large. Please select an image under 2 MB.' };
+  }
+  return { ok: true, image };
+}
+
 async function listInventory(filters = {}) {
   const access = await requireInventoryAccess('read');
   if (!access.ok) return access;
@@ -65,8 +77,37 @@ async function adjustStock(payload = {}) {
   return { ok: true, message: 'Stock adjusted successfully.', ...result };
 }
 
+async function updateProductImage(payload = {}) {
+  const access = await requireInventoryAccess('write');
+  if (!access.ok) return access;
+
+  const productId = parseProductId(payload.productId);
+  if (!productId) return { ok: false, message: 'Product is required.' };
+
+  const imageResult = normalizeProductImage(payload.productImage);
+  if (!imageResult.ok) return imageResult;
+
+  const updated = await inventoryRepository.updateProductImage({
+    productId,
+    productImage: imageResult.image
+  });
+
+  if (!updated) return { ok: false, message: 'Product was not found.' };
+
+  await activityRepository.createActivityLog({
+    userId: access.profile.id,
+    action: 'inventory.product_image.update',
+    status: 'success',
+    message: 'Product image updated',
+    metadata: { productId, hasImage: Boolean(imageResult.image) }
+  });
+
+  return { ok: true, message: imageResult.image ? 'Product image updated.' : 'Product image removed.' };
+}
+
 module.exports = {
   adjustStock,
   listInventory,
-  listMovements
+  listMovements,
+  updateProductImage
 };

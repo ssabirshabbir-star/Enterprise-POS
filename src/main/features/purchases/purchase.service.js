@@ -197,7 +197,15 @@ async function createPurchase(payload = {}) {
     if (!Number.isInteger(productId) || productId <= 0) return { ok: false, message: 'Invalid product in purchase item.' };
     if (!Number.isFinite(quantity) || quantity <= 0) return { ok: false, message: 'Purchase quantity must be greater than zero.' };
     if (purchasePrice === null || salePrice === null) return { ok: false, message: 'Invalid purchase item price.' };
-    cleanItems.push({ productId, quantity, purchasePrice, salePrice, total: Number((quantity * purchasePrice).toFixed(2)) });
+    cleanItems.push({
+      productId,
+      quantity,
+      purchasePrice,
+      salePrice,
+      batchNumber: String(item.batchNumber || '').trim() || null,
+      expirationDate: item.expirationDate || null,
+      total: Number((quantity * purchasePrice).toFixed(2))
+    });
   }
 
   const subtotal = Number(cleanItems.reduce((sum, item) => sum + item.total, 0).toFixed(2));

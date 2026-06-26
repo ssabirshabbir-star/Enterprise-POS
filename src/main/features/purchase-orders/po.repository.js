@@ -4,6 +4,17 @@ function number(value) {
   return Number(value || 0);
 }
 
+async function ensureWorkflowColumns(client = getPool()) {
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approval_notes TEXT;');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS rejection_reason TEXT;');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_sent_at TIMESTAMPTZ;');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_confirmed_at TIMESTAMPTZ;');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_reference_number VARCHAR(120);');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_confirmation_notes TEXT;');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_expected_delivery_date DATE;');
+  await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;');
+}
+
 function mapOrder(row) {
   return row && {
     id: Number(row.id),
@@ -235,11 +246,17 @@ async function updateRequisitionStatus(id, status, userId, notes = '') {
 }
 
 async function listOrders(filters = {}) {
+  await ensureWorkflowColumns();
   const params = [];
   const where = ['orders.deleted_at IS NULL'];
   if (filters.status) {
-    params.push(String(filters.status).toUpperCase());
-    where.push(`orders.status = $${params.length}`);
+    const statusVal = String(filters.status).toUpperCase();
+    if (statusVal === 'ACTIVE') {
+      where.push(`orders.status NOT IN ('CANCELLED', 'CLOSED')`);
+    } else {
+      params.push(statusVal);
+      where.push(`orders.status = $${params.length}`);
+    }
   }
   if (filters.supplierId) {
     params.push(Number(filters.supplierId));
@@ -247,7 +264,29 @@ async function listOrders(filters = {}) {
   }
   if (filters.search) {
     params.push(`%${String(filters.search).trim().toLowerCase()}%`);
-    where.push(`(LOWER(orders.po_number) LIKE $${params.length} OR LOWER(suppliers.name) LIKE $${params.length} OR LOWER(COALESCE(requisitions.requisition_number,'')) LIKE $${params.length})`);
+    where.push(`(
+      LOWER(orders.po_number) LIKE $${params.length}
+      OR LOWER(suppliers.name) LIKE $${params.length}
+      OR LOWER(COALESCE(suppliers.phone, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(suppliers.email, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(orders.supplier_reference_number, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(orders.supplier_confirmation_notes, '')) LIKE $${params.length}
+      OR CAST(orders.id AS TEXT) LIKE $${params.length}
+      OR LOWER(CONCAT('po-', orders.id::text)) LIKE $${params.length}
+      OR LOWER(COALESCE(requisitions.requisition_number, '')) LIKE $${params.length}
+      OR EXISTS (
+        SELECT 1
+        FROM purchase_order_items search_items
+        INNER JOIN products search_products ON search_products.id = search_items.product_id
+        WHERE search_items.purchase_order_id = orders.id
+          AND (
+            LOWER(search_products.name) LIKE $${params.length}
+            OR LOWER(COALESCE(search_products.sku, '')) LIKE $${params.length}
+            OR LOWER(COALESCE(search_products.barcode, '')) LIKE $${params.length}
+            OR CAST(search_products.id AS TEXT) LIKE $${params.length}
+          )
+      )
+    )`);
   }
   if (filters.fromDate) {
     params.push(filters.fromDate);
@@ -281,6 +320,7 @@ async function listOrders(filters = {}) {
 
 async function createOrder(payload, userId) {
   return withTransaction(async (client) => {
+    await ensureWorkflowColumns(client);
     if (payload.requisitionId) {
       const requisition = await client.query('SELECT * FROM purchase_requisitions WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [payload.requisitionId]);
       if (!requisition.rows[0]) throw new Error('REQUISITION_NOT_FOUND');
@@ -316,6 +356,7 @@ async function createOrder(payload, userId) {
 }
 
 async function getStats() {
+  await ensureWorkflowColumns();
   const result = await getPool().query(
     `
       SELECT
@@ -372,6 +413,7 @@ async function convertRequisitionToOrder(requisitionId, payload, userId) {
 }
 
 async function getOrder(id) {
+  await ensureWorkflowColumns();
   const order = await getPool().query(
     `
       SELECT orders.*, suppliers.name AS supplier_name, users.full_name AS created_by_name,
@@ -402,6 +444,7 @@ async function getOrder(id) {
 }
 
 async function updateStatus(id, status, userId, notes = '') {
+  await ensureWorkflowColumns();
   const result = await getPool().query(
     `
       UPDATE purchase_orders
@@ -420,7 +463,26 @@ async function updateStatus(id, status, userId, notes = '') {
   return mapOrder(result.rows[0]);
 }
 
+async function cancelStatus(id) {
+  await ensureWorkflowColumns();
+  const result = await getPool().query(
+    `
+      UPDATE purchase_orders
+      SET status = 'CANCELLED',
+          updated_at = NOW()
+      WHERE id = $1
+        AND deleted_at IS NULL
+        AND status NOT IN ('FULLY_RECEIVED', 'INVOICED', 'CLOSED', 'CANCELLED')
+      RETURNING id
+    `,
+    [id]
+  );
+  if (!result.rows[0]) return null;
+  return getOrder(id);
+}
+
 async function markSentToSupplier(id, userId, notes = '') {
+  await ensureWorkflowColumns();
   const result = await getPool().query(
     `
       UPDATE purchase_orders
@@ -434,6 +496,7 @@ async function markSentToSupplier(id, userId, notes = '') {
 }
 
 async function confirmSupplier(id, payload = {}) {
+  await ensureWorkflowColumns();
   const result = await getPool().query(
     `
       UPDATE purchase_orders
@@ -652,6 +715,7 @@ module.exports = {
   listWarehouses,
   markSentToSupplier,
   receiveOrder,
+  cancelStatus,
   updateRequisitionStatus,
   updateStatus
 };

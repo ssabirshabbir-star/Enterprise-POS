@@ -276,6 +276,16 @@
   .epos-inventory-action-buttons .cyan { background: linear-gradient(135deg, #06b6d4, #0284c7); }
   .epos-inventory-action-buttons .rose { background: linear-gradient(135deg, #f43f5e, #e11d48); }
 
+  .epos-inventory-action-buttons #inventoryAddProductButton { order: 1; }
+  .epos-inventory-action-buttons [data-tool-action="import"] { order: 2; }
+  .epos-inventory-action-buttons [data-tool-action="excel"] { order: 3; }
+  .epos-inventory-action-buttons #openInventoryAdjustmentButton { order: 4; }
+  .epos-inventory-action-buttons #inventoryTransferButton { order: 5; }
+  .epos-inventory-action-buttons [data-route="/purchases"] { order: 6; }
+  .epos-inventory-action-buttons [data-route="/pos"] { order: 7; }
+  .epos-inventory-action-buttons #inventoryBarcodeButton { order: 8; }
+  .epos-inventory-action-buttons #inventoryBulkButton { order: 9; }
+
   .epos-inventory-pagination {
     display: flex;
     align-items: center;
@@ -392,51 +402,50 @@
 
   .epos-inventory-table th:nth-child(3),
   .epos-inventory-table td:nth-child(3) {
-    width: 190px;
+    width: 220px;
   }
 
   .epos-inventory-table th:nth-child(4),
   .epos-inventory-table td:nth-child(4) {
-    width: 90px;
+    width: 120px;
   }
 
   .epos-inventory-table th:nth-child(5),
   .epos-inventory-table td:nth-child(5) {
-    width: 130px;
+    width: 122px;
   }
 
   .epos-inventory-table th:nth-child(6),
   .epos-inventory-table td:nth-child(6) {
-    width: 92px;
+    width: 132px;
   }
 
   .epos-inventory-table th:nth-child(7),
   .epos-inventory-table td:nth-child(7) {
-    width: 120px;
+    width: 104px;
   }
 
   .epos-inventory-table th:nth-child(8),
-  .epos-inventory-table td:nth-child(8),
+  .epos-inventory-table td:nth-child(8) {
+    width: 104px;
+  }
+
   .epos-inventory-table th:nth-child(9),
   .epos-inventory-table td:nth-child(9) {
-    width: 104px;
+    width: 86px;
+    text-align: center;
   }
 
   .epos-inventory-table th:nth-child(10),
   .epos-inventory-table td:nth-child(10) {
-    width: 86px;
+    width: 96px;
     text-align: center;
   }
 
   .epos-inventory-table th:nth-child(11),
   .epos-inventory-table td:nth-child(11) {
-    width: 96px;
-    text-align: center;
-  }
-
-  .epos-inventory-table th:nth-child(12),
-  .epos-inventory-table td:nth-child(12) {
     width: 94px;
+    text-align: center;
   }
 
   .epos-inventory-table tbody tr:hover td {
@@ -468,13 +477,31 @@
   }
 
   .epos-inventory-image {
-    display: grid;
+    display: inline-grid;
     place-items: center;
     width: 28px;
     height: 28px;
+    padding: 0;
+    border: 1px solid #dbeafe;
     border-radius: 8px;
     background: linear-gradient(135deg, #eef6ff, #fff6dd);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+    cursor: pointer;
     font-size: 17px;
+    overflow: hidden;
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+  }
+
+  .epos-inventory-image:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+  }
+
+  .epos-inventory-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   .epos-inventory-badge,

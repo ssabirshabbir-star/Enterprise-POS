@@ -28,7 +28,8 @@ function mapPurchase(row) {
     dueAmount: Number(row.due_amount),
     status: row.status,
     createdAt: row.created_at,
-    productNames: row.product_names || ''
+    productNames: row.product_names || '',
+    productSearchText: row.product_search_text || ''
   };
 }
 
@@ -221,7 +222,11 @@ async function listPurchases() {
       SELECT
         purchases.*,
         suppliers.name AS supplier_name,
-        STRING_AGG(DISTINCT products.name, ', ' ORDER BY products.name) AS product_names
+        STRING_AGG(DISTINCT products.name, ', ' ORDER BY products.name) AS product_names,
+        STRING_AGG(
+          DISTINCT CONCAT_WS(' ', products.name, products.sku, products.barcode, 'code', products.id),
+          ' '
+        ) AS product_search_text
       FROM purchases
       LEFT JOIN suppliers ON suppliers.id = purchases.supplier_id
       LEFT JOIN purchase_items ON purchase_items.purchase_id = purchases.id
@@ -274,10 +279,10 @@ async function createPurchase(payload, userId) {
 
       await client.query(
         `
-          INSERT INTO purchase_items (purchase_id, product_id, quantity, purchase_price, sale_price, total)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO purchase_items (purchase_id, product_id, batch_number, expiration_date, quantity, purchase_price, sale_price, total)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
-        [purchaseId, item.productId, item.quantity, item.purchasePrice, item.salePrice, item.total]
+        [purchaseId, item.productId, item.batchNumber, item.expirationDate, item.quantity, item.purchasePrice, item.salePrice, item.total]
       );
 
       await client.query(
@@ -355,6 +360,8 @@ async function getPurchaseDetails(purchaseId) {
       productId: item.product_id,
       productName: item.product_name,
       sku: item.sku,
+      batchNumber: item.batch_number,
+      expirationDate: item.expiration_date,
       quantity: Number(item.quantity),
       purchasePrice: Number(item.purchase_price),
       salePrice: Number(item.sale_price),

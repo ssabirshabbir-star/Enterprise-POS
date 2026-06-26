@@ -13,14 +13,17 @@ function mapUser(row) {
     fullName: row.full_name,
     passwordHash: row.password_hash,
     role: row.role,
-    isActive: row.is_active
+    isActive: row.is_active,
+    failedLoginAttempts: Number(row.failed_login_attempts || 0),
+    lockedUntil: row.locked_until
   };
 }
 
 async function findUserByUsername(username) {
   const result = await getPool().query(
     `
-      SELECT users.id, users.username, users.email, users.full_name, users.password_hash, users.is_active, roles.name AS role
+      SELECT users.id, users.username, users.email, users.full_name, users.password_hash, users.is_active,
+             users.failed_login_attempts, users.locked_until, roles.name AS role
       FROM users
       INNER JOIN roles ON roles.id = users.role_id
       WHERE LOWER(users.username) = LOWER($1)
@@ -51,7 +54,8 @@ async function getUserPermissions(userId) {
 async function findUserById(userId) {
   const result = await getPool().query(
     `
-      SELECT users.id, users.username, users.email, users.full_name, users.password_hash, users.is_active, roles.name AS role
+      SELECT users.id, users.username, users.email, users.full_name, users.password_hash, users.is_active,
+             users.failed_login_attempts, users.locked_until, roles.name AS role
       FROM users
       INNER JOIN roles ON roles.id = users.role_id
       WHERE users.id = $1
@@ -67,22 +71,29 @@ async function markLoginSuccess(userId) {
   await getPool().query(
     `
       UPDATE users
-      SET failed_login_attempts = 0, last_login_at = NOW(), updated_at = NOW()
+      SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
       WHERE id = $1
     `,
     [userId]
   );
 }
 
-async function markLoginFailure(username) {
-  await getPool().query(
+async function markLoginFailure(username, maxAttempts = 5, lockMinutes = 15) {
+  const result = await getPool().query(
     `
       UPDATE users
-      SET failed_login_attempts = failed_login_attempts + 1, updated_at = NOW()
+      SET failed_login_attempts = failed_login_attempts + 1,
+          locked_until = CASE
+            WHEN failed_login_attempts + 1 >= $2 THEN NOW() + ($3::text || ' minutes')::interval
+            ELSE locked_until
+          END,
+          updated_at = NOW()
       WHERE LOWER(username) = LOWER($1)
+      RETURNING failed_login_attempts, locked_until
     `,
-    [username]
+    [username, maxAttempts, lockMinutes]
   );
+  return result.rows[0] || null;
 }
 
 async function createRefreshToken({ tokenId = randomUUID(), userId, tokenHash, expiresAt }) {

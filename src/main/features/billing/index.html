@@ -1,0 +1,344 @@
+<div class="epos-billing-shell epos-pos-os epos-invoice-ui">
+  <div class="epos-billing-hidden-controls" aria-hidden="true">
+    <button id="retailModeButton" type="button" class="epos-billing-mode epos-billing-mode-active">Retail</button>
+    <button id="wholesaleModeButton" type="button" class="epos-billing-mode">Wholesale</button>
+    <button id="syncPosButton" type="button" class="epos-billing-sync">Sync</button>
+    <button id="holdSaleButton" type="button">Hold Sale</button>
+    <div id="heldSalesList"></div>
+    <input id="cartTax" type="number" value="0" />
+    <input id="customerSearch" class="epos-billing-input" />
+    <button id="quickCustomerFocusButton" type="button">Add customer</button>
+    <div id="posCustomerBalance">Due: 0.00 | Limit: 0.00</div>
+    <button id="thermalPrintButton" type="button">Print</button>
+    <div id="receiptPreview">No sale completed yet.</div>
+    <select id="paymentMethod">
+      <option>Cash</option><option>Card</option><option>Bank</option><option>Credit</option><option>Mixed</option>
+    </select>
+  </div>
+
+  <section class="epos-invoice-main">
+    <div class="epos-invoice-left">
+      <section class="epos-invoice-filter-card epos-billing-hero-search-card">
+        <div class="epos-invoice-form-grid">
+          <label class="epos-invoice-scan-label">
+            <div class="epos-invoice-scan-field epos-billing-hero-search">
+              <span class="epos-billing-hero-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" focusable="false">
+                  <circle cx="27" cy="27" r="16"></circle>
+                  <path d="M39 39 52 52"></path>
+                </svg>
+              </span>
+              <input id="posBarcodeInput" class="epos-billing-input epos-billing-hero-search-input" placeholder="Search anything..." />
+              <button id="posSearchFocusButton" class="epos-billing-hero-search-mic" type="button" aria-label="Focus search">
+                <svg viewBox="0 0 48 48" focusable="false" aria-hidden="true">
+                  <path d="M24 6c-4.1 0-7.5 3.4-7.5 7.5v10c0 4.1 3.4 7.5 7.5 7.5s7.5-3.4 7.5-7.5v-10C31.5 9.4 28.1 6 24 6Z"></path>
+                  <path d="M10.5 22.5C10.5 30 16.5 36 24 36s13.5-6 13.5-13.5"></path>
+                  <path d="M24 36v6"></path>
+                  <path d="M17.5 42h13"></path>
+                </svg>
+              </button>
+            </div>
+          </label>
+        </div>
+        <p id="posMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
+      </section>
+
+      <section class="epos-invoice-product-card">
+        <div class="epos-invoice-section-head">
+          <h3>Product List <span id="posCartCountLabel">(0 Items)</span></h3>
+          <div id="posCartSwitcher" class="epos-cart-switcher" aria-label="Billing carts">
+            <button type="button" data-pos-cart="0" class="epos-cart-tab epos-cart-tab-active" aria-pressed="true">
+              <span>Cart 1</span><strong>0</strong>
+            </button>
+            <button type="button" data-pos-cart="1" class="epos-cart-tab" aria-pressed="false">
+              <span>Cart 2</span><strong>0</strong>
+            </button>
+            <button type="button" data-pos-cart="2" class="epos-cart-tab" aria-pressed="false">
+              <span>Cart 3</span><strong>0</strong>
+            </button>
+          </div>
+        </div>
+
+        <div id="posSearchResults" class="epos-invoice-search-results"></div>
+
+        <div class="epos-billing-cart epos-invoice-cart">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Product Name</th>
+                <th>Stock</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Discount</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cartTableBody"></tbody>
+          </table>
+          <div id="cartEmptyState" class="epos-billing-empty epos-invoice-empty-state">
+            <div class="epos-empty-cart-icon">
+              <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" fill="none">
+                <defs>
+                  <radialGradient id="cartGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#dbeafe"/>
+                    <stop offset="100%" stop-color="#ede9fe"/>
+                  </radialGradient>
+                </defs>
+                <circle cx="40" cy="40" r="38" fill="url(#cartGrad)" opacity="0.55"/>
+                <path d="M18 24h6l7 22h18l5-14H28" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <circle cx="33" cy="52" r="2.5" fill="#818cf8"/>
+                <circle cx="47" cy="52" r="2.5" fill="#818cf8"/>
+                <path d="M35 35h10M38 30v10" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/>
+                <path d="M24 20l-2-5" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                <path d="M58 28l3-2" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+                <path d="M56 38l4 0" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+              </svg>
+            </div>
+            <p class="epos-empty-title">Scan or search an item.</p>
+            <p class="epos-empty-sub">Added products will appear here in the billing grid.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer inside left panel — only spans cart width -->
+      <footer class="epos-invoice-bottom-actions">
+        <button id="thermalPrintMirrorButton" type="button" data-pos-shortcut="F10" onclick="document.getElementById('thermalPrintButton')?.click()">
+          <span class="epos-action-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 6 2 18 2 18 9"/>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+          </span>
+          <div class="epos-btn-row"><strong>Print Invoice</strong><kbd>F10</kbd></div>
+        </button>
+        <button id="posDownloadPdfButton" type="button" data-pos-shortcut="F11">
+          <span class="epos-action-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </span>
+          <div class="epos-btn-row"><strong>Download PDF</strong><kbd>F11</kbd></div>
+        </button>
+        <button id="posSubtotalDiscountButton" type="button" data-pos-shortcut="F8">
+          <span class="epos-action-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="7.5" cy="7.5" r="1.8"/>
+              <circle cx="16.5" cy="16.5" r="1.8"/>
+              <path d="M18 6 6 18"/>
+            </svg>
+          </span>
+          <div class="epos-btn-row"><strong>Subtotal Discount</strong><kbd>F8</kbd></div>
+        </button>
+        <button id="posWhatsappButton" type="button" data-pos-shortcut="Ctrl+W">
+          <span class="epos-action-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413"/>
+            </svg>
+          </span>
+          <div class="epos-btn-row"><strong>WhatsApp</strong><kbd>Ctrl+W</kbd></div>
+        </button>
+        <button id="posSaveDraftButton" type="button" data-pos-shortcut="Ctrl+S" onclick="document.getElementById('holdSaleButton')?.click()">
+          <span class="epos-action-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+          </span>
+          <div class="epos-btn-row"><strong>Save Draft</strong><kbd>Ctrl+S</kbd></div>
+        </button>
+      </footer>
+    </div>
+
+    <aside class="epos-invoice-right">
+      <section class="epos-invoice-summary-card">
+        <div class="epos-invoice-summary-head">
+          <h3>Billing Summary</h3>
+          <span>Live</span>
+        </div>
+        <div class="epos-invoice-summary-lines">
+          <div class="epos-invoice-summary-customer">
+            <span>Customer</span>
+            <div class="epos-invoice-customer-field">
+              <select id="customerSelect" class="epos-billing-select"></select>
+              <button type="button" id="posCustomerAddButton" class="epos-invoice-plus">+</button>
+            </div>
+          </div>
+          <div><span>Total Items</span><strong id="posTotalItems">0</strong></div>
+          <div><span>Total Quantity</span><strong id="posTotalQuantity">0</strong></div>
+          <div class="epos-summary-subtotal"><span>Subtotal</span><strong id="posSubtotal">0.00</strong></div>
+          <div class="epos-invoice-discount-row epos-summary-discount">
+            <span>Discounts</span>
+            <div class="epos-invoice-summary-discount">
+              <select id="posDiscountType" class="epos-billing-select">
+                <option value="amount">Amount</option>
+                <option value="percentage">Percentage</option>
+              </select>
+              <input id="cartDiscount" type="number" min="0" step="0.01" value="0" class="epos-billing-input" />
+            </div>
+          </div>
+          <div class="epos-invoice-amount-received-row">
+            <span>Amount Received</span>
+            <input id="paidAmount" type="number" min="0" step="0.01" value="0" class="epos-billing-input" />
+          </div>
+          <div><span>Change Return</span><strong id="changeAmount">0.00</strong></div>
+          <div class="grand epos-summary-total"><span>TOTAL:</span><strong id="posGrandTotal">0.00</strong></div>
+        </div>
+
+        <!--
+          Unified 3×3 grid — all 9 buttons SAME SIZE, no scrolling:
+          Row 1: Cash | Card | Bank Transfer
+          Row 2: Split Payment | Sales Return | Exchange
+          Row 3: Reprint | Cancel Invoice | PAY NOW
+        -->
+        <div class="epos-invoice-unified-grid">
+
+          <!-- Row 1: Payment methods -->
+          <button type="button" data-payment-set="Cash" data-pos-shortcut="F6" class="epos-pay-cash">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M6 10v4M18 10v4"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Cash</strong><kbd>F6</kbd></div>
+          </button>
+
+          <button type="button" data-payment-set="Card" data-pos-shortcut="F7" class="epos-pay-card">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <line x1="2" y1="10" x2="22" y2="10"/>
+                <line x1="6" y1="15" x2="10" y2="15"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Card</strong><kbd>F7</kbd></div>
+          </button>
+
+          <button type="button" data-payment-set="Bank" data-pos-shortcut="Ctrl+B" class="epos-pay-credit">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 22h18M3 10h18M5 10V6l7-4 7 4v4M5 22v-8h3v8M11 22v-8h3v8M17 22v-8h3v8"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Bank Transfer</strong><kbd>Ctrl+B</kbd></div>
+          </button>
+
+          <!-- Row 2: More payments + actions -->
+          <button type="button" data-payment-set="Mixed" data-pos-shortcut="F9" class="epos-pay-split">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="1.5" fill="white"/>
+                <circle cx="12" cy="4" r="1.5" fill="white"/>
+                <circle cx="12" cy="20" r="1.5" fill="white"/>
+                <circle cx="4" cy="12" r="1.5" fill="white"/>
+                <circle cx="20" cy="12" r="1.5" fill="white"/>
+                <line x1="12" y1="5.5" x2="12" y2="10.5"/>
+                <line x1="12" y1="13.5" x2="12" y2="18.5"/>
+                <line x1="5.5" y1="12" x2="10.5" y2="12"/>
+                <line x1="13.5" y1="12" x2="18.5" y2="12"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Split Payment</strong><kbd>F9</kbd></div>
+          </button>
+
+          <button id="refundSaleButton" type="button" data-pos-shortcut="Ctrl+R">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Sales Return</strong><kbd>Ctrl+R</kbd></div>
+          </button>
+
+          <button id="exchangeSaleButton" type="button" data-pos-shortcut="Ctrl+E">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"/>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                <polyline points="7 23 3 19 7 15"/>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Exchange</strong><kbd>Ctrl+E</kbd></div>
+          </button>
+
+          <!-- Row 3: Utility + PAY NOW -->
+          <button id="reprintLastBillButton" type="button" data-pos-shortcut="F12">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+                <line x1="9" y1="17" x2="15" y2="17"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Reprint</strong><kbd>F12</kbd></div>
+          </button>
+
+          <button id="clearCartButton" type="button" data-pos-shortcut="Ctrl+Del">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Cancel Invoice</strong><kbd>Ctrl+Del</kbd></div>
+          </button>
+
+          <!-- PAY NOW is the 9th button — same size as all others -->
+          <button id="completeSaleButton" type="button" data-pos-shortcut="F4">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="11" width="14" height="11" rx="2"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                <circle cx="12" cy="16" r="1.5" fill="white"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row">
+              <strong>PAY NOW</strong>
+              <span id="posPayButtonAmount" class="epos-pay-amount">Rs. 0.00</span>
+              <kbd>F4</kbd>
+            </div>
+          </button>
+
+        </div>
+      </section>
+    </aside>
+  </section>
+
+  <div id="posCustomerModal" class="epos-pos-modal hidden" role="dialog" aria-modal="true" aria-labelledby="posCustomerModalTitle">
+    <div class="epos-pos-modal-backdrop" data-pos-customer-close></div>
+    <form id="posCustomerModalForm" class="epos-pos-customer-modal">
+      <div class="epos-pos-modal-head">
+        <div>
+          <span>Customer</span>
+          <h3 id="posCustomerModalTitle">Add New Customer</h3>
+        </div>
+        <button type="button" data-pos-customer-close aria-label="Close customer form">×</button>
+      </div>
+      <div class="epos-pos-customer-grid">
+        <label>Name <input id="posCustomerNameInput" class="epos-billing-input" required placeholder="Customer name" /></label>
+        <label>Phone <input id="posCustomerPhoneInput" class="epos-billing-input" placeholder="Phone number" /></label>
+        <label>Email <input id="posCustomerEmailInput" type="email" class="epos-billing-input" placeholder="Email address" /></label>
+        <label>CNIC <input id="posCustomerCnicInput" class="epos-billing-input" placeholder="CNIC" /></label>
+        <label>Opening Balance <input id="posCustomerOpeningBalanceInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" /></label>
+        <label>Credit Limit <input id="posCustomerCreditLimitInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" /></label>
+        <label class="epos-pos-customer-wide">Address <input id="posCustomerAddressInput" class="epos-billing-input" placeholder="Address" /></label>
+      </div>
+      <p id="posCustomerModalMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
+      <div class="epos-pos-modal-actions">
+        <button type="button" data-pos-customer-close>Cancel</button>
+        <button id="posCustomerModalSaveButton" type="submit">Save Customer</button>
+      </div>
+    </form>
+  </div>
+</div>

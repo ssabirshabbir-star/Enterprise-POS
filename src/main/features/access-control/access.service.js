@@ -31,6 +31,21 @@ async function listUsers(filters = {}) {
   return { ok: true, users: await accessRepository.listUsers(filters) };
 }
 
+async function listSecurityActivity() {
+  const access = await requireAdmin();
+  if (!access.ok) return access;
+  return {
+    ok: true,
+    policy: {
+      minPasswordLength: 8,
+      maxFailedLoginAttempts: 5,
+      lockMinutes: 15,
+      resetClearsLock: true
+    },
+    activity: await accessRepository.listSecurityActivity(100)
+  };
+}
+
 async function createUser(payload = {}) {
   const access = await requireAdmin();
   if (!access.ok) return access;
@@ -148,6 +163,7 @@ module.exports = {
   createRole,
   createUser,
   listRoles,
+  listSecurityActivity,
   listUsers,
   permissionsByRole,
   resetPassword,

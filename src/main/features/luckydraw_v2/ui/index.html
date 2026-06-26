@@ -1,0 +1,319 @@
+<!-- Lucky Draw V2 — UI Fragment
+     File:      src/main/features/luckydraw_v2/ui/index.html
+     Load:      luckydraw.api.js → luckydraw.renderer.js → call initLuckyDrawV2Module()
+     Isolation: Zero shared IDs with other modules (all prefixed ldv2-)
+-->
+<style>
+  /* ── Reset & Shell ── */
+  .ldv2-shell { font-family: 'Inter', system-ui, sans-serif; height:100%; display:flex; flex-direction:column; background:#f8fafc; color:#1e293b; }
+  /* ── Stats bar ── */
+  .ldv2-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:16px 20px 0; }
+  .ldv2-stat-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; }
+  .ldv2-stat-label { font-size:.7rem; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.05em; }
+  .ldv2-stat-value { font-size:1.3rem; font-weight:800; color:#1e293b; }
+  /* ── Tab bar ── */
+  .ldv2-tabbar { display:flex; gap:4px; padding:14px 20px 0; border-bottom:1px solid #e2e8f0; background:#fff; }
+  .ldv2-tab { padding:8px 18px; border:1px solid transparent; border-radius:8px 8px 0 0; font-size:.82rem; font-weight:600; cursor:pointer; background:transparent; color:#64748b; transition:all .15s; }
+  .ldv2-tab:hover { background:#f1f5f9; }
+  .ldv2-tab-active { background:#7c3aed; color:#fff; border-color:#7c3aed; }
+  /* ── Content area ── */
+  .ldv2-content { flex:1; overflow:auto; padding:16px 20px; }
+  /* ── Panel ── */
+  .ldv2-panel { display:flex; flex-direction:column; gap:12px; }
+  .ldv2-panel.hidden { display:none !important; }
+  /* ── Toolbar ── */
+  .ldv2-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ldv2-panel-title { font-size:.95rem; font-weight:700; color:#1e293b; margin:0; flex:1; }
+  /* ── Buttons ── */
+  .ldv2-btn { padding:7px 16px; border:none; border-radius:7px; font-size:.8rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+  .ldv2-btn:hover { opacity:.85; }
+  .ldv2-btn-purple { background:#7c3aed; color:#fff; }
+  .ldv2-btn-blue   { background:#2563eb; color:#fff; }
+  .ldv2-btn-green  { background:#16a34a; color:#fff; }
+  .ldv2-btn-gray   { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+  .ldv2-btn-back   { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; font-size:.78rem; }
+  /* ── Action buttons in table ── */
+  .ldv2-act-btn { padding:3px 10px; border:none; border-radius:5px; font-size:.72rem; font-weight:600; cursor:pointer; }
+  .ldv2-act-blue  { background:#eff6ff; color:#2563eb; }
+  .ldv2-act-green { background:#f0fdf4; color:#16a34a; }
+  .ldv2-act-gray  { background:#f1f5f9; color:#475569; }
+  .ldv2-act-red   { background:#fef2f2; color:#dc2626; }
+  /* ── Table ── */
+  .ldv2-table-wrap { background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
+  .ldv2-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  .ldv2-table thead tr { background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+  .ldv2-table th { padding:10px 12px; text-align:left; font-size:.72rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
+  .ldv2-table td { padding:9px 12px; border-top:1px solid #f1f5f9; vertical-align:middle; }
+  .ldv2-row:hover td { background:#faf5ff; }
+  /* ── Search input ── */
+  .ldv2-input { padding:7px 12px; border:1px solid #e2e8f0; border-radius:7px; font-size:.82rem; background:#fff; color:#1e293b; outline:none; transition:border .15s; }
+  .ldv2-input:focus { border-color:#7c3aed; }
+  .ldv2-select { padding:7px 10px; border:1px solid #e2e8f0; border-radius:7px; font-size:.82rem; background:#fff; color:#1e293b; }
+  /* ── Form card ── */
+  .ldv2-form-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px 20px; }
+  .ldv2-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .ldv2-form-wide { grid-column:1/-1; }
+  .ldv2-label { display:flex; flex-direction:column; gap:4px; font-size:.78rem; font-weight:600; color:#374151; }
+  .ldv2-label input, .ldv2-label select, .ldv2-label textarea { margin-top:2px; }
+  textarea.ldv2-input { resize:vertical; min-height:60px; }
+  /* ── Draw box ── */
+  .ldv2-draw-box { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+  .ldv2-draw-emoji { font-size:4rem; line-height:1; }
+  .ldv2-draw-title { font-size:1.1rem; font-weight:800; color:#1e293b; margin:0; }
+  .ldv2-draw-sub   { font-size:.82rem; color:#64748b; margin:0; }
+  .ldv2-draw-controls { display:flex; align-items:center; gap:10px; }
+  /* ── Modal ── */
+  .ldv2-modal { position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center; }
+  .ldv2-modal.hidden { display:none !important; }
+  .ldv2-modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(2px); }
+  .ldv2-modal-card { position:relative; background:#fff; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.18); padding:28px; width:560px; max-width:95vw; max-height:90vh; overflow-y:auto; }
+  .ldv2-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .ldv2-modal-title { font-size:1rem; font-weight:800; color:#1e293b; margin:0; }
+  .ldv2-modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#94a3b8; line-height:1; }
+  .ldv2-modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  /* ── Message ── */
+  #ldv2Message { display:none; }
+</style>
+
+<div class="ldv2-shell">
+
+  <!-- Stats bar -->
+  <div class="ldv2-stats">
+    <div class="ldv2-stat-card">
+      <span class="ldv2-stat-label">Campaigns</span>
+      <span class="ldv2-stat-value" id="ldv2StatCampaigns">—</span>
+    </div>
+    <div class="ldv2-stat-card">
+      <span class="ldv2-stat-label">Total Entries</span>
+      <span class="ldv2-stat-value" id="ldv2StatEntries">—</span>
+    </div>
+    <div class="ldv2-stat-card">
+      <span class="ldv2-stat-label">Winners Drawn</span>
+      <span class="ldv2-stat-value" id="ldv2StatWinners">—</span>
+    </div>
+    <div class="ldv2-stat-card">
+      <span class="ldv2-stat-label">Total Sales</span>
+      <span class="ldv2-stat-value" id="ldv2StatSales">—</span>
+    </div>
+  </div>
+
+  <!-- Global message bar -->
+  <div style="padding:8px 20px 0">
+    <p id="ldv2Message" class="hidden"></p>
+  </div>
+
+  <!-- Tab bar -->
+  <nav class="ldv2-tabbar">
+    <button type="button" class="ldv2-tab ldv2-tab-active" data-ldv2-tab="ldv2CampaignsPanel">🎪 Campaigns</button>
+    <button type="button" class="ldv2-tab" data-ldv2-tab="ldv2WinnersPanel">🏆 Winners</button>
+  </nav>
+
+  <!-- Content -->
+  <div class="ldv2-content">
+
+    <!-- ── Campaigns Panel ──────────────────────────────────────────── -->
+    <section id="ldv2CampaignsPanel" class="ldv2-panel">
+      <div class="ldv2-toolbar">
+        <h2 class="ldv2-panel-title">Lucky Draw Campaigns</h2>
+        <button type="button" id="ldv2NewCampaignBtn" class="ldv2-btn ldv2-btn-purple">+ New Campaign</button>
+      </div>
+      <div class="ldv2-table-wrap">
+        <table class="ldv2-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Campaign Name</th>
+              <th>Dates</th>
+              <th style="text-align:right">Min Purchase</th>
+              <th style="text-align:center">Entries</th>
+              <th style="text-align:center">Winners</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ldv2CampaignTbody">
+            <tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af;font-size:.82rem">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Participants Panel ────────────────────────────────────────── -->
+    <section id="ldv2ParticipantsPanel" class="ldv2-panel hidden">
+      <div class="ldv2-toolbar">
+        <button type="button" class="ldv2-btn ldv2-btn-back" data-ldv2-back="campaigns">← Back</button>
+        <h2 class="ldv2-panel-title" id="ldv2ParticipantPanelHead">Participants</h2>
+      </div>
+
+      <!-- Add participant form -->
+      <div class="ldv2-form-card">
+        <p style="margin:0 0 12px;font-size:.82rem;font-weight:700;color:#374151">Add Participant</p>
+        <form id="ldv2PartForm" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <input type="hidden" id="ldv2PartCampaignId" />
+          <label class="ldv2-label">
+            Customer Name
+            <input type="text" id="ldv2PartCustomerName" class="ldv2-input" placeholder="Walk-in Customer" style="width:180px" />
+          </label>
+          <label class="ldv2-label">
+            Customer ID <span style="font-weight:400;color:#94a3b8">(optional)</span>
+            <input type="number" id="ldv2PartCustomerId" class="ldv2-input" placeholder="—" style="width:100px" />
+          </label>
+          <label class="ldv2-label">
+            Bill Amount (Rs.)
+            <input type="number" id="ldv2PartBillAmount" class="ldv2-input" placeholder="0.00" min="0" step="0.01" required style="width:130px" />
+          </label>
+          <button type="submit" class="ldv2-btn ldv2-btn-green">+ Add</button>
+        </form>
+      </div>
+
+      <!-- Filter -->
+      <div class="ldv2-toolbar">
+        <input type="text" id="ldv2PartSearchInput" class="ldv2-input" placeholder="Search by coupon or name…" style="width:260px" />
+      </div>
+
+      <div class="ldv2-table-wrap">
+        <table class="ldv2-table">
+          <thead>
+            <tr>
+              <th>Coupon No</th>
+              <th>Customer</th>
+              <th style="text-align:right">Bill Amount</th>
+              <th>Invoice</th>
+              <th>Added</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ldv2ParticipantTbody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:#9ca3af">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Draw Panel ────────────────────────────────────────────────── -->
+    <section id="ldv2DrawPanel" class="ldv2-panel hidden">
+      <div class="ldv2-toolbar">
+        <button type="button" class="ldv2-btn ldv2-btn-back" data-ldv2-back="campaigns">← Back</button>
+        <h2 class="ldv2-panel-title" id="ldv2DrawPanelHead">Lucky Draw</h2>
+        <button type="button" id="ldv2ViewWinnersBtn" class="ldv2-btn ldv2-btn-gray">View All Winners</button>
+      </div>
+
+      <div class="ldv2-draw-box">
+        <div class="ldv2-draw-emoji">🎰</div>
+        <p class="ldv2-draw-title">Run the Lucky Draw</p>
+        <p class="ldv2-draw-sub">Select random winners from all eligible participants.</p>
+        <p id="ldv2DrawRemaining" class="ldv2-draw-sub" style="font-weight:700;color:#7c3aed;display:none"></p>
+        <input type="hidden" id="ldv2DrawCampaignId" />
+        <div class="ldv2-draw-controls">
+          <label class="ldv2-label" style="flex-direction:row;align-items:center;gap:8px">
+            Winners to draw:
+            <input type="number" id="ldv2DrawCount" class="ldv2-input" value="1" min="1" max="100" style="width:70px" />
+          </label>
+          <button type="button" id="ldv2RunDrawBtn" class="ldv2-btn ldv2-btn-purple" style="font-size:.9rem;padding:10px 24px">
+            🎰 Run Draw
+          </button>
+        </div>
+      </div>
+
+      <!-- Draw result -->
+      <div id="ldv2DrawResult" style="display:flex;flex-direction:column;gap:0"></div>
+    </section>
+
+    <!-- ── Winners Panel ─────────────────────────────────────────────── -->
+    <section id="ldv2WinnersPanel" class="ldv2-panel hidden">
+      <div class="ldv2-toolbar">
+        <button type="button" class="ldv2-btn ldv2-btn-back" data-ldv2-back="campaigns">← Back</button>
+        <h2 class="ldv2-panel-title">🏆 Winners History</h2>
+        <button type="button" id="ldv2WinnersAllBtn" class="ldv2-btn ldv2-btn-gray">Show All Campaigns</button>
+      </div>
+      <div class="ldv2-table-wrap">
+        <table class="ldv2-table">
+          <thead>
+            <tr>
+              <th>Campaign</th>
+              <th>Coupon No</th>
+              <th>Winner</th>
+              <th style="text-align:right">Bill Amount</th>
+              <th>Prize</th>
+              <th>Selected At</th>
+            </tr>
+          </thead>
+          <tbody id="ldv2WinnersTbody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:#9ca3af">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div><!-- /ldv2-content -->
+</div><!-- /ldv2-shell -->
+
+
+<!-- ── Campaign Editor Modal ──────────────────────────────────────── -->
+<div id="ldv2CampaignModal" class="ldv2-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ldv2CampaignModalTitle">
+  <div class="ldv2-modal-backdrop" id="ldv2CampaignModalClose"></div>
+  <div class="ldv2-modal-card">
+    <div class="ldv2-modal-head">
+      <h3 class="ldv2-modal-title" id="ldv2CampaignModalTitle">New Campaign</h3>
+      <button type="button" class="ldv2-modal-close" id="ldv2CampaignModalCancel" aria-label="Close">×</button>
+    </div>
+
+    <form id="ldv2CampaignForm">
+      <input type="hidden" id="ldv2CampaignId" />
+      <div class="ldv2-form-grid">
+
+        <label class="ldv2-label ldv2-form-wide">
+          Campaign Name *
+          <input type="text" id="ldv2CampaignName" class="ldv2-input" required placeholder="e.g. Eid Mega Lucky Draw" />
+        </label>
+
+        <label class="ldv2-label">
+          Start Date *
+          <input type="date" id="ldv2CampaignStart" class="ldv2-input" required />
+        </label>
+
+        <label class="ldv2-label">
+          End Date *
+          <input type="date" id="ldv2CampaignEnd" class="ldv2-input" required />
+        </label>
+
+        <label class="ldv2-label">
+          Minimum Purchase (Rs.) *
+          <input type="number" id="ldv2CampaignMinPurchase" class="ldv2-input" value="0" min="0" step="0.01" required />
+        </label>
+
+        <label class="ldv2-label">
+          Total Winners *
+          <input type="number" id="ldv2CampaignWinners" class="ldv2-input" value="1" min="1" required />
+        </label>
+
+        <label class="ldv2-label">
+          Status
+          <select id="ldv2CampaignStatus" class="ldv2-input ldv2-select">
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </label>
+
+        <label class="ldv2-label ldv2-form-wide">
+          Prize Details
+          <input type="text" id="ldv2CampaignPrize" class="ldv2-input" placeholder="e.g. Honda CD70, iPhone 15, Rs. 50,000 Cash" />
+        </label>
+
+        <label class="ldv2-label ldv2-form-wide">
+          Notes
+          <textarea id="ldv2CampaignNotes" class="ldv2-input" placeholder="Internal notes…"></textarea>
+        </label>
+
+      </div>
+
+      <div class="ldv2-modal-actions">
+        <button type="button" id="ldv2CampaignCancelBtn" class="ldv2-btn ldv2-btn-gray">Cancel</button>
+        <button type="submit" class="ldv2-btn ldv2-btn-purple">Save Campaign</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+

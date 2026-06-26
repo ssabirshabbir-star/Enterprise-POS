@@ -127,6 +127,58 @@ async function listEntries(filters = {}) {
   return { ok: true, entries: await luckyDrawRepository.listEntries(filters) };
 }
 
+async function listDrawParticipants(campaignId, filters = {}) {
+  const access = await requireLuckyDrawAccess('read');
+  if (!access.ok) return access;
+  const id = Number(campaignId);
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Campaign is required.' };
+  const participants = await luckyDrawRepository.listEligibleParticipants(id, filters);
+  return { ok: true, participants };
+}
+
+async function pickRandomWinner(campaignId, count) {
+  const access = await requireLuckyDrawAccess('draw');
+  if (!access.ok) return access;
+
+  const campaign = await luckyDrawRepository.findCampaignById(campaignId);
+  if (!campaign) {
+    return { ok: false, message: 'Campaign not found.' };
+  }
+
+  const eligibleParticipants = await luckyDrawRepository.listEligibleParticipants(campaignId, {});
+  if (eligibleParticipants.length === 0) {
+    return { ok: false, message: 'No eligible participants for this campaign.' };
+  }
+
+  const winners = [];
+  const selectedIndexes = new Set();
+
+  while (winners.length < count && winners.length < eligibleParticipants.length) {
+    const randomIndex = Math.floor(Math.random() * eligibleParticipants.length);
+    if (!selectedIndexes.has(randomIndex)) {
+      selectedIndexes.add(randomIndex);
+      const winnerEntry = eligibleParticipants[randomIndex];
+      const insertedWinner = await luckyDrawRepository.createWinner(campaignId, winnerEntry.id, campaign.prizeDetails, access.profile.id);
+      if (insertedWinner) {
+        winners.push(insertedWinner);
+      }
+    }
+  }
+
+  if (winners.length > 0) {
+    await activityRepository.createActivityLog({
+      userId: access.profile.id,
+      action: 'lucky_draw.winner.pick',
+      status: 'success',
+      message: `${winners.length} winner(s) picked for campaign ${campaign.campaignName}`,
+      metadata: { campaignId, winners: winners.map(w => w.id) }
+    });
+    return { ok: true, winners, message: `${winners.length} winner(s) selected.` };
+  } else {
+    return { ok: false, message: 'No new winners could be selected.' };
+  }
+}
+
 async function verifyCoupon(payload = {}) {
   const access = await requireLuckyDrawAccess('read');
   if (!access.ok) return access;
@@ -189,5 +241,7 @@ module.exports = {
   lookupCoupon,
   reports,
   updateCampaign,
-  verifyCoupon
+  verifyCoupon,
+  listDrawParticipants,
+  pickRandomWinner
 };

@@ -1,6 +1,7 @@
 const { getPool, withTransaction } = require('../../database/connection');
 const syncRepository = require('../sync/sync.repository');
-const luckyDrawRepository = require('../lucky-draw/lucky-draw.repository');
+const luckyDrawRepository   = require('../lucky-draw/lucky-draw.repository');
+const luckyDrawV2Repository = require('../luckydraw_v2/repository/luckydraw.repository');
 
 function mapPosProduct(row) {
   return {
@@ -49,6 +50,7 @@ async function searchProducts(filters) {
           LOWER(products.name) LIKE $1
           OR LOWER(products.sku) LIKE $1
           OR LOWER(products.barcode) LIKE $1
+          OR products.id::text LIKE $1
         )
       ORDER BY products.name ASC
       LIMIT 50
@@ -232,13 +234,21 @@ async function createSale(payload, cashierId) {
 
     const luckyDrawEntries = await luckyDrawRepository.createEntriesForSale(client, sale, cashierId);
 
+    // M-3: also create entries for V2-managed campaigns (silent fail — must not block billing)
+    let luckyDrawV2Entries = [];
+    try {
+      luckyDrawV2Entries = await luckyDrawV2Repository.createEntriesForSale(client, sale, cashierId);
+    } catch (v2Err) {
+      console.error('[LuckyDrawV2] Auto-entry failed (billing unaffected):', v2Err.message);
+    }
+
     await syncRepository.queueOperation({
       client,
       entityType: 'sale',
       entityId: sale.id,
       operation: 'CREATE',
       terminalId: terminal.id,
-      payload: { invoiceNumber: sale.invoice_number, grandTotal: Number(sale.grand_total), luckyDrawCoupons: luckyDrawEntries.map((entry) => entry.couponNo) }
+      payload: { invoiceNumber: sale.invoice_number, grandTotal: Number(sale.grand_total), luckyDrawCoupons: [...luckyDrawEntries, ...luckyDrawV2Entries].map((entry) => entry.couponNo) }
     });
 
     sale.lucky_draw_entries = luckyDrawEntries;

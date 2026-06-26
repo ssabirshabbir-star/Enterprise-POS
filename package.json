@@ -15,6 +15,7 @@
     "seed:admin": "node scripts/seed-admin.js",
     "seed:demo": "node scripts/seed-demo.js",
     "seed:grocery": "node scripts/seed-grocery.js",
+    "seed:suppliers": "node scripts/seed-suppliers.js",
     "smoke:auth": "node scripts/auth-smoke.js",
     "prestart": "npm run build:css",
     "start": "electron .",

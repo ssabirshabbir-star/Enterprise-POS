@@ -153,7 +153,7 @@
 
   .epos-purchases-filter-row {
     display: grid;
-    grid-template-columns: 160px 22px 160px minmax(150px, 1fr) minmax(150px, 1fr) minmax(165px, 1fr) 120px 100px 84px;
+    grid-template-columns: 160px 22px 160px minmax(150px, 1fr) minmax(150px, 1fr) minmax(165px, 1fr) 92px 92px 84px;
     gap: 12px;
     align-items: center;
     padding: 14px 18px;
@@ -187,6 +187,24 @@
 
   .epos-purchases-ghost {
     color: #5b35ee !important;
+  }
+
+  /* Overdue: urgent warning amber-to-red */
+  .epos-purchases-overdue {
+    border-color: transparent !important;
+    background: linear-gradient(135deg, #f59e0b, #ef4444) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 18px rgb(239 68 68 / 0.22);
+    font-weight: 900 !important;
+  }
+
+  /* Due Today: calm indigo-blue */
+  .epos-purchases-due-today {
+    border-color: transparent !important;
+    background: linear-gradient(135deg, #6366f1, #2563eb) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 18px rgb(99 102 241 / 0.22);
+    font-weight: 900 !important;
   }
 
   .epos-purchases-search-row {
@@ -254,7 +272,7 @@
 
   .epos-purchases-toolbar {
     display: grid;
-    grid-template-columns: 210px repeat(6, minmax(120px, 1fr)) 130px;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 8px;
     min-width: 0;
   }
@@ -306,18 +324,20 @@
     position: sticky;
     top: 0;
     z-index: 10;
+    background: linear-gradient(90deg, #ef4444 0%, #22c55e 34%, #7c3aed 68%, #f97316 100%) !important;
   }
 
   .epos-purchases-table th {
     height: 40px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #fff;
-    color: #475569;
+    border-bottom: 0;
+    background: transparent !important;
+    color: #ffffff !important;
     overflow: hidden;
-    padding: 0 9px;
+    padding: 0 7px !important;
     text-align: left;
     font-size: 12px;
     font-weight: 900;
+    letter-spacing: 0.01em;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
@@ -328,7 +348,7 @@
     background: #fff;
     color: #17213e;
     overflow: hidden;
-    padding: 7px 9px;
+    padding: 7px 7px;
     vertical-align: middle;
     font-weight: 650;
     white-space: nowrap;
@@ -339,30 +359,37 @@
     background: #fbfdff;
   }
 
+  .epos-purchases-table tbody tr.epos-purchase-row-selected td {
+    background: #eef6ff;
+    box-shadow: inset 3px 0 0 #2563eb;
+  }
+
   .epos-purchases-table th:nth-child(1),
-  .epos-purchases-table td:nth-child(1) { width: 36px; }
+  .epos-purchases-table td:nth-child(1) {
+    width: 26px;
+    padding-inline: 0 !important;
+    text-align: center;
+  }
   .epos-purchases-table th:nth-child(2),
-  .epos-purchases-table td:nth-child(2) { width: 132px; }
+  .epos-purchases-table td:nth-child(2) { width: 126px; }
   .epos-purchases-table th:nth-child(3),
-  .epos-purchases-table td:nth-child(3) { width: 150px; }
+  .epos-purchases-table td:nth-child(3) { width: 140px; }
   .epos-purchases-table th:nth-child(4),
   .epos-purchases-table td:nth-child(4),
   .epos-purchases-table th:nth-child(5),
-  .epos-purchases-table td:nth-child(5) { width: 86px; }
+  .epos-purchases-table td:nth-child(5) { width: 82px; }
   .epos-purchases-table th:nth-child(6),
   .epos-purchases-table td:nth-child(6),
   .epos-purchases-table th:nth-child(7),
   .epos-purchases-table td:nth-child(7),
   .epos-purchases-table th:nth-child(8),
-  .epos-purchases-table td:nth-child(8) { width: 96px; }
+  .epos-purchases-table td:nth-child(8) { width: 92px; }
   .epos-purchases-table th:nth-child(9),
-  .epos-purchases-table td:nth-child(9),
+  .epos-purchases-table td:nth-child(9) { width: 102px; }
   .epos-purchases-table th:nth-child(10),
-  .epos-purchases-table td:nth-child(10) { width: 96px; }
+  .epos-purchases-table td:nth-child(10) { width: 104px; }
   .epos-purchases-table th:nth-child(11),
-  .epos-purchases-table td:nth-child(11) { width: 116px; }
-  .epos-purchases-table th:nth-child(12),
-  .epos-purchases-table td:nth-child(12) { width: 88px; }
+  .epos-purchases-table td:nth-child(11) { width: 72px; }
 
   .epos-purchase-invoice {
     color: #0968f5;
@@ -443,13 +470,14 @@
   .epos-purchase-actions {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 3px;
+    justify-content: center;
   }
 
   .epos-purchase-actions button {
     display: grid;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     place-items: center;
     border: 0;
     border-radius: 5px;
@@ -545,13 +573,14 @@
     position: relative;
     z-index: 1;
     display: grid;
-    gap: 12px;
-    width: min(940px, 94vw);
-    max-height: 92vh;
-    overflow: auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    width: min(1120px, calc(100vw - 96px));
+    max-height: min(92vh, 720px);
+    overflow: hidden;
     border-radius: 14px;
     background: #fff;
-    padding: 16px;
+    padding: 14px;
     box-shadow: 0 28px 80px rgb(15 23 42 / 0.28);
   }
 
@@ -592,21 +621,86 @@
   .epos-purchases-form-grid,
   .epos-purchases-item-row {
     display: grid;
+    gap: 8px;
+  }
+
+  .epos-purchases-form {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
     gap: 10px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .epos-purchases-form-section {
+    min-width: 0;
+    border: 1px solid #e3eaf6;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff, #fbfdff);
+    padding: 10px;
+  }
+
+  .epos-purchases-section-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 8px;
+  }
+
+  .epos-purchases-section-title > span {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    color: #fff;
+    font-weight: 950;
+  }
+
+  .epos-purchases-section-title strong {
+    display: block;
+    color: #11184d;
+    font-size: 14px;
+    font-weight: 950;
+  }
+
+  .epos-purchases-section-title small,
+  .epos-purchases-form label small {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 750;
+  }
+
+  .epos-purchases-form-grid label {
+    display: grid;
+    gap: 4px;
+  }
+
+  .epos-purchases-form-grid span,
+  .epos-purchases-item-row label span {
+    color: #344174;
+    font-size: 11px;
+    font-weight: 900;
   }
 
   .epos-purchases-supplier-form {
     grid-template-columns: 130px repeat(3, minmax(0, 1fr)) 120px;
     align-items: center;
+    min-width: 0;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
-    padding: 10px;
+    padding: 8px 10px;
   }
 
   .epos-purchases-supplier-form input,
   .epos-purchases-form input,
   .epos-purchases-form select {
-    min-height: 38px;
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
     border: 1px solid #d6dfef;
     border-radius: 8px;
     padding: 0 11px;
@@ -618,7 +712,7 @@
   .epos-purchases-supplier-form button,
   .epos-purchases-item-row button,
   .epos-purchases-save {
-    min-height: 38px;
+    min-height: 36px;
     border: 0;
     border-radius: 8px;
     background: linear-gradient(135deg, #7c3aed, #4f46e5);
@@ -633,16 +727,28 @@
   }
 
   .epos-purchases-item-row {
-    grid-template-columns: minmax(0, 1.4fr) 90px 110px 110px 120px;
-    margin-top: 10px;
+    grid-template-columns: minmax(260px, 1.4fr) minmax(210px, 1.1fr) minmax(130px, 0.75fr) repeat(3, minmax(86px, 0.48fr)) 106px;
+    align-items: end;
+    min-width: 0;
+  }
+
+  .epos-purchases-item-row label {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .epos-purchases-item-row button {
+    width: 100%;
+    min-width: 0;
+    white-space: nowrap;
   }
 
   .epos-purchases-items-list {
     display: grid;
-    gap: 8px;
-    max-height: 150px;
+    gap: 7px;
+    max-height: 118px;
     overflow: auto;
-    margin-top: 10px;
     font-size: 13px;
   }
 
@@ -658,10 +764,9 @@
   }
 
   .epos-purchases-totals {
-    margin-top: 10px;
     border-radius: 8px;
     background: #f8fafc;
-    padding: 10px;
+    padding: 9px 10px;
     color: #334155;
     font-size: 13px;
     font-weight: 850;
@@ -669,8 +774,14 @@
 
   .epos-purchases-save {
     width: 100%;
-    margin-top: 10px;
+    flex: 0 0 auto;
     background: linear-gradient(135deg, #22c55e, #059669);
+  }
+
+  .epos-purchases-form-review {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
   }
 
   @media (max-width: 1366px) {
@@ -732,7 +843,7 @@
     }
 
     .epos-purchases-toolbar {
-      grid-template-columns: 180px repeat(6, minmax(90px, 1fr)) 110px;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 7px;
     }
 
@@ -763,6 +874,50 @@
 
     .epos-purchases-footer strong {
       font-size: 17px;
+    }
+
+    .epos-purchases-modal-card {
+      width: min(1080px, calc(100vw - 72px));
+      max-height: calc(100vh - 72px);
+      padding: 10px;
+      gap: 8px;
+    }
+
+    .epos-purchases-form-section {
+      padding: 8px;
+    }
+
+    .epos-purchases-form-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .epos-purchases-item-row {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .epos-purchases-item-row label.wide {
+      grid-column: span 3;
+    }
+
+    .epos-purchases-item-row label:nth-of-type(2) {
+      grid-column: span 2;
+    }
+
+    .epos-purchases-item-row label:nth-of-type(3),
+    .epos-purchases-item-row label:nth-of-type(4),
+    .epos-purchases-item-row label:nth-of-type(5),
+    .epos-purchases-item-row label:nth-of-type(6) {
+      grid-column: span 1;
+    }
+
+    .epos-purchases-item-row button {
+      grid-column: span 2;
+    }
+
+    .epos-purchases-section-title small,
+    .epos-purchases-form label small {
+      display: none;
     }
   }
 }

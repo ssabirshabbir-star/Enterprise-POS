@@ -51,6 +51,7 @@ async function listProducts({ search = '', limit = 100, offset = 0 }) {
       LOWER(products.name) LIKE $${params.length}
       OR LOWER(products.sku) LIKE $${params.length}
       OR LOWER(products.barcode) LIKE $${params.length}
+      OR products.id::text LIKE $${params.length}
     )`;
   }
 

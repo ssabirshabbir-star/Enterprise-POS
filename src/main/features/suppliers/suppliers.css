@@ -10,11 +10,19 @@
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     height: 100%;
     min-height: 0;
-    gap: 10px;
+    gap: 6px;
     overflow: hidden;
     background: #f8fbff;
     color: #0f1f3d;
-    padding: 6px 12px 12px;
+    padding: 2px 0 12px 12px;
+  }
+
+  /* These children need right padding; the workspace/table should reach the edge */
+  .epos-suppliers-stats,
+  .epos-suppliers-tabs,
+  .epos-suppliers-filters,
+  .epos-suppliers-bottom-actions {
+    padding-right: 12px;
   }
 
   #suppliersModule:has(.epos-suppliers-page) {
@@ -75,17 +83,17 @@
   .epos-suppliers-stats {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
   }
 
   .epos-suppliers-stats article {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-height: 82px;
+    gap: 10px;
+    min-height: 62px;
     border-radius: 8px;
     color: #ffffff;
-    padding: 12px;
+    padding: 8px 10px;
     overflow: hidden;
     position: relative;
     box-shadow: 0 12px 24px rgb(15 31 61 / 0.14);
@@ -97,32 +105,33 @@
     right: 12px;
     bottom: 4px;
     color: rgb(255 255 255 / 0.22);
-    font-size: 40px;
+    font-size: 30px;
     font-weight: 900;
   }
 
   .epos-suppliers-stats article > span {
     display: grid;
     place-items: center;
-    width: 54px;
-    height: 54px;
-    border-radius: 14px;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
     background: rgb(255 255 255 / 0.2);
-    font-size: 24px;
+    font-size: 17px;
   }
 
   .epos-suppliers-stats p,
   .epos-suppliers-stats small {
     margin: 0;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 850;
   }
 
   .epos-suppliers-stats strong {
     display: block;
-    margin-top: 4px;
-    font-size: 18px;
+    margin-top: 2px;
+    font-size: 15px;
     font-weight: 950;
+    line-height: 1.1;
   }
 
   .epos-suppliers-stats .blue { background: linear-gradient(135deg, #0a63f6, #005be0); }
@@ -161,7 +170,7 @@
   }
 
   .epos-suppliers-filters {
-    grid-template-columns: minmax(300px, 1.5fr) minmax(140px, 0.7fr) minmax(140px, 0.7fr) minmax(190px, 0.9fr) 88px 82px 96px;
+    grid-template-columns: minmax(300px, 1.6fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(138px, 0.7fr) minmax(138px, 0.7fr) 88px;
     gap: 10px;
     border: 1px solid #e6edf7;
     border-top: 0;
@@ -169,9 +178,12 @@
     padding: 10px;
   }
 
-  .epos-suppliers-filters button:nth-of-type(1) { background: #082cff; }
-  .epos-suppliers-filters button:nth-of-type(2),
-  .epos-suppliers-filters button:nth-of-type(3) { background: #ffffff; color: #0f1f3d; border: 1px solid #d8e1ef; box-shadow: none; }
+  .epos-suppliers-filters button {
+    background: #ffffff;
+    color: #0f1f3d;
+    border: 1px solid #d8e1ef;
+    box-shadow: none;
+  }
 
   .epos-suppliers-workspace {
     display: grid;
@@ -217,14 +229,29 @@
     box-shadow: none;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-gutter: auto;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #edf2f7;
     -ms-overflow-style: none;
   }
 
   .epos-suppliers-table-wrap::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+    width: 10px;
+    height: 10px;
+  }
+
+  .epos-suppliers-table-wrap::-webkit-scrollbar-track {
+    background: #edf2f7;
+    border-radius: 999px;
+  }
+
+  .epos-suppliers-table-wrap::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border: 2px solid #edf2f7;
+    border-radius: 999px;
+  }
+
+  .epos-suppliers-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: #475569;
   }
 
   .epos-suppliers-table {
@@ -262,25 +289,27 @@
   }
 
   .epos-suppliers-table th:nth-child(1),
-  .epos-suppliers-table td:nth-child(1) { width: 42px; }
+  .epos-suppliers-table td:nth-child(1) { width: 36px; text-align: center; padding: 4px 4px !important; }
   .epos-suppliers-table th:nth-child(2),
-  .epos-suppliers-table td:nth-child(2) { width: 19%; }
+  .epos-suppliers-table td:nth-child(2) { width: 34px; }
   .epos-suppliers-table th:nth-child(3),
-  .epos-suppliers-table td:nth-child(3) { width: 15%; }
+  .epos-suppliers-table td:nth-child(3) { width: 18%; }
   .epos-suppliers-table th:nth-child(4),
-  .epos-suppliers-table td:nth-child(4),
+  .epos-suppliers-table td:nth-child(4) { width: 14%; }
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7) { width: 11%; }
+  .epos-suppliers-table td:nth-child(7),
   .epos-suppliers-table th:nth-child(8),
-  .epos-suppliers-table td:nth-child(8) { width: 12%; }
+  .epos-suppliers-table td:nth-child(8) { width: 10%; }
   .epos-suppliers-table th:nth-child(9),
-  .epos-suppliers-table td:nth-child(9) { width: 8%; }
+  .epos-suppliers-table td:nth-child(9) { width: 11%; }
   .epos-suppliers-table th:nth-child(10),
-  .epos-suppliers-table td:nth-child(10) { width: 132px; }
+  .epos-suppliers-table td:nth-child(10) { width: 7%; }
+  .epos-suppliers-table th:nth-child(11),
+  .epos-suppliers-table td:nth-child(11) { width: 120px; min-width: 120px; }
 
   .epos-suppliers-table td {
     border-bottom: 1px solid #e8eef7;
@@ -323,20 +352,20 @@
     font-weight: 950;
   }
 
-  .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(5),
+  .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(6),
-  .epos-suppliers-table td:nth-child(7) {
+  .epos-suppliers-table td:nth-child(7),
+  .epos-suppliers-table td:nth-child(8) {
     text-align: center;
   }
   .epos-supplier-status { color: #009d24; font-weight: 950; }
   .epos-supplier-status.inactive,
   .epos-supplier-status.overdue { color: #ff1414; }
 
-  .epos-suppliers-table th:nth-child(9),
-  .epos-suppliers-table td:nth-child(9) {
+  .epos-suppliers-table th:nth-child(10),
+  .epos-suppliers-table td:nth-child(10) {
     text-align: center;
   }
 
@@ -344,31 +373,31 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     white-space: nowrap;
   }
 
   .epos-suppliers-row-actions button {
     display: inline-grid;
     place-items: center;
-    flex: 0 0 28px;
-    width: 28px;
-    min-width: 28px;
-    height: 28px;
-    min-height: 28px;
+    flex: 0 0 26px;
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+    min-height: 26px;
     aspect-ratio: 1 / 1;
     border: 0;
-    border-radius: 8px;
+    border-radius: 7px;
     color: #ffffff;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 950;
     line-height: 1;
-    box-shadow: 0 6px 12px rgb(15 31 61 / 0.14);
+    box-shadow: 0 4px 8px rgb(15 31 61 / 0.14);
     transition: transform 120ms ease, filter 120ms ease;
   }
 
   .epos-suppliers-row-actions button:hover {
-    filter: brightness(1.05);
+    filter: brightness(1.08);
     transform: translateY(-1px);
   }
 
@@ -386,6 +415,10 @@
     margin: auto;
     overflow: auto;
     padding: 12px;
+  }
+
+  .epos-suppliers-detail.epos-suppliers-ledger-panel {
+    width: min(980px, calc(100vw - 48px));
   }
 
   .epos-suppliers-detail.hidden {
@@ -497,6 +530,111 @@
     background: #7c2bdc;
     color: #ffffff;
     font-weight: 950;
+  }
+
+  .epos-supplier-ledger-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #e6edf7;
+    padding: 6px 2px 12px;
+  }
+
+  .epos-supplier-ledger-head span {
+    color: #064ee4;
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .epos-supplier-ledger-head h3 {
+    margin: 2px 0;
+    font-size: 20px;
+    font-weight: 950;
+  }
+
+  .epos-supplier-ledger-head p {
+    margin: 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .epos-supplier-ledger-head button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: #00a522;
+    color: #ffffff;
+    padding: 0 14px;
+    font-weight: 950;
+  }
+
+  .epos-supplier-ledger-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+  }
+
+  .epos-supplier-ledger-metrics article {
+    border: 1px solid #e6edf7;
+    border-radius: 10px;
+    background: #f8fbff;
+    padding: 10px 12px;
+  }
+
+  .epos-supplier-ledger-metrics span {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .epos-supplier-ledger-metrics strong {
+    display: block;
+    margin-top: 3px;
+    color: #0f1f3d;
+    font-size: 17px;
+    font-weight: 950;
+  }
+
+  .epos-supplier-ledger-table-wrap {
+    max-height: min(450px, calc(100vh - 260px));
+    overflow: auto;
+    border: 1px solid #e6edf7;
+    border-radius: 10px;
+  }
+
+  .epos-supplier-ledger-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+  }
+
+  .epos-supplier-ledger-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: 34px;
+    background: #075cef;
+    color: #ffffff;
+    padding: 7px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .epos-supplier-ledger-table td {
+    border-bottom: 1px solid #edf2f8;
+    padding: 8px 10px;
+    color: #10203f;
+    font-weight: 750;
+    vertical-align: top;
   }
 
   .epos-suppliers-recent {
@@ -691,12 +829,292 @@
   @media (max-width: 1366px) {
     .epos-suppliers-page { gap: 8px; padding: 10px; }
     .epos-suppliers-stats { gap: 10px; }
-    .epos-suppliers-stats article { min-height: 70px; padding: 10px; }
-    .epos-suppliers-stats article > span { width: 44px; height: 44px; font-size: 19px; }
-    .epos-suppliers-stats strong { font-size: 15px; }
+    .epos-suppliers-stats article { min-height: 60px; padding: 8px 9px; }
+    .epos-suppliers-stats article > span { width: 40px; height: 40px; font-size: 16px; }
+    .epos-suppliers-stats strong { font-size: 14px; }
     .epos-suppliers-workspace { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-    .epos-suppliers-filters { grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(118px, 0.7fr)) 72px 72px 82px; }
+    .epos-suppliers-filters { grid-template-columns: minmax(240px, 1.35fr) repeat(4, minmax(112px, 0.7fr)) 72px; }
     .epos-suppliers-bottom-actions { gap: 8px; }
     .epos-suppliers-bottom-actions button { min-height: 42px; padding-inline: 8px; font-size: 11px; }
   }
+
+  /* ── Checkbox selection column ───────────────────────────────────── */
+  .epos-supplier-check-col {
+    width: 36px !important;
+    text-align: center !important;
+  }
+
+  .epos-suppliers-table th.epos-supplier-check-col,
+  .epos-suppliers-table td.epos-supplier-check-col {
+    width: 36px;
+    text-align: center;
+    padding: 4px 6px !important;
+  }
+
+  .epos-suppliers-table tbody tr.epos-supplier-selected td {
+    background: #eef5ff !important;
+  }
+
+  .epos-suppliers-table tbody tr.epos-supplier-selected td:first-child {
+    border-left: 3px solid #0a63f6;
+  }
+
+  /* ── WhatsApp bottom button ──────────────────────────────────────── */
+  .epos-suppliers-bottom-actions .whatsapp {
+    background: linear-gradient(135deg, #25d366, #128c3e);
+  }
+
+  /* ── Ledger Picker Modal ─────────────────────────────────────────── */
+  .epos-suppliers-ledger-picker {
+    position: relative;
+    z-index: 1;
+    width: min(560px, 94vw);
+    max-height: calc(100vh - 60px);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 32px 80px rgb(15 31 61 / 0.28);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .epos-suppliers-ledger-picker-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #e6edf7;
+    padding: 14px 16px 12px;
+    flex-shrink: 0;
+  }
+
+  .epos-suppliers-ledger-picker-head span {
+    display: block;
+    color: #064ee4;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .epos-suppliers-ledger-picker-head h3 {
+    margin: 2px 0 0;
+    font-size: 18px;
+    font-weight: 950;
+    color: #0f1f3d;
+  }
+
+  .epos-suppliers-ledger-picker-head > button {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #d8e1ef;
+    border-radius: 8px;
+    background: #f8fbff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #0f1f3d;
+  }
+
+  .epos-suppliers-ledger-picker-search {
+    padding: 10px 14px;
+    border-bottom: 1px solid #e6edf7;
+    flex-shrink: 0;
+  }
+
+  .epos-suppliers-ledger-picker-search input {
+    width: 100%;
+    min-height: 38px;
+    border: 1px solid #d8e1ef;
+    border-radius: 9px;
+    background: #f6f9ff;
+    color: #0f1f3d;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+    outline: none;
+  }
+
+  .epos-suppliers-ledger-picker-search input:focus {
+    border-color: #0a63f6;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgb(10 99 246 / 0.12);
+  }
+
+  .epos-suppliers-ledger-picker-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0;
+    overflow-y: auto;
+    /* Fixed height so the list is always visible — avoids flex-grow collapse */
+    height: 420px;
+    max-height: calc(100vh - 290px);
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #edf2f7;
+  }
+
+  .epos-suppliers-ledger-picker-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5fb;
+    transition: background 100ms;
+  }
+
+  .epos-suppliers-ledger-picker-list li:hover {
+    background: #eef4ff;
+  }
+
+  .epos-suppliers-ledger-picker-list li:last-child {
+    border-bottom: 0;
+  }
+
+  .epos-suppliers-picker-avatar {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: #08a66b;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 950;
+  }
+
+  .epos-suppliers-picker-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .epos-suppliers-picker-info strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 950;
+    color: #0f1f3d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .epos-suppliers-picker-info small {
+    display: block;
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .epos-suppliers-picker-due {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 950;
+    color: #ef233c;
+    text-align: right;
+  }
+
+  .epos-suppliers-picker-due.paid {
+    color: #059669;
+  }
+
+  .epos-suppliers-picker-list-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  /* ── WhatsApp Action Modal ───────────────────────────────────────── */
+  .epos-suppliers-whatsapp-card {
+    position: relative;
+    z-index: 1;
+    width: min(480px, 94vw);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 32px 80px rgb(15 31 61 / 0.28);
+    overflow: hidden;
+  }
+
+  .epos-suppliers-wa-target {
+    margin: 0;
+    padding: 10px 16px;
+    background: #f0fdf4;
+    border-bottom: 1px solid #bbf7d0;
+    font-size: 13px;
+    font-weight: 800;
+    color: #065f46;
+  }
+
+  .epos-suppliers-wa-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 0;
+  }
+
+  .epos-suppliers-wa-btn {
+    width: 100%;
+    min-height: 46px;
+    border: 0;
+    border-bottom: 1px solid #e6edf7;
+    background: #ffffff;
+    color: #0f1f3d;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: left;
+    padding: 0 20px;
+    cursor: pointer;
+    transition: background 100ms;
+  }
+
+  .epos-suppliers-wa-btn:last-child {
+    border-bottom: 0;
+  }
+
+  .epos-suppliers-wa-btn:hover {
+    background: #f0fdf4;
+    color: #065f46;
+  }
+
+  .epos-suppliers-wa-custom {
+    padding: 10px 16px 14px;
+    border-top: 1px solid #e6edf7;
+    background: #f8fbff;
+  }
+
+  .epos-suppliers-wa-custom.hidden {
+    display: none;
+  }
+
+  .epos-suppliers-wa-custom textarea {
+    width: 100%;
+    min-height: 90px;
+    border: 1px solid #d8e1ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #0f1f3d;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    resize: vertical;
+    outline: none;
+  }
+
+  .epos-suppliers-wa-send {
+    margin-top: 8px;
+    width: 100%;
+    min-height: 40px;
+    border: 0;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #25d366, #128c3e);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: pointer;
+  }
 }
+

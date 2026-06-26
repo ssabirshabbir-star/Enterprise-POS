@@ -103,9 +103,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     border-radius: 18px;
-    padding: 10px 12px;
+    padding: 8px 10px;
+  }
+
+  .epos-users-primary-strip {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
   }
 
   .epos-users-title {
@@ -143,7 +151,8 @@
   .epos-users-actions {
     display: flex;
     flex-wrap: nowrap;
-    justify-content: flex-end;
+    min-width: 0;
+    justify-content: flex-start;
     gap: 8px;
   }
 
@@ -176,14 +185,19 @@
     display: flex;
     width: auto;
     max-width: 100%;
+    flex: 0 0 auto;
     overflow: hidden;
     border-radius: 12px;
     box-shadow: none;
   }
 
+  .epos-users-tabs-secondary {
+    margin-left: auto;
+  }
+
   .epos-users-tabs button {
     min-width: 106px;
-    min-height: 38px;
+    min-height: 36px;
     border: 0;
     border-right: 1px solid #e6eaf6;
     background: #ffffff;
@@ -193,6 +207,22 @@
     cursor: pointer;
   }
 
+  .epos-users-tabs button.epos-users-action {
+    border-right: 0;
+    border-radius: 9px;
+    box-shadow: 0 12px 22px rgb(49 56 120 / 0.14);
+  }
+
+  .epos-users-tabs button.epos-users-action.blue,
+  .epos-users-tabs button.epos-users-action.blue:not(.active) {
+    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    color: #ffffff;
+  }
+
+  .epos-users-tabs-secondary button {
+    min-width: 148px;
+  }
+
   .epos-users-tabs button.active,
   .epos-users-tabs button.epos-btn-primary {
     background: linear-gradient(135deg, #7c3aed, #4f46e5);
@@ -200,7 +230,9 @@
   }
 
   .epos-users-layout {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     min-height: 0;
   }
 
@@ -208,17 +240,29 @@
     display: grid;
     grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
     gap: 10px;
+    height: 100%;
     min-height: 0;
+    overflow: auto;
   }
 
   .epos-users-main-card,
   .epos-users-side-card {
     min-width: 0;
+    min-height: 0;
     border-radius: 12px;
+  }
+
+  .epos-users-roles-layout > .epos-users-side-card {
+    display: flex;
+    max-height: 100%;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .epos-users-main-card {
     display: flex;
+    flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
@@ -227,20 +271,18 @@
   .epos-users-filters {
     display: grid;
     grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
-    gap: 10px;
-    padding: 12px;
+    gap: 8px;
+    padding: 10px 12px;
   }
 
   .epos-users-filters label,
   .epos-users-form {
     display: grid;
-    gap: 6px;
+    gap: 0;
   }
 
   .epos-users-filters span {
-    color: #11184d;
-    font-size: 10px;
-    font-weight: 900;
+    display: none;
   }
 
   .epos-users-input {
@@ -286,9 +328,11 @@
   .epos-users-status-pills span { margin-left: 8px; }
 
   .epos-users-table-wrap {
-    flex: 1;
+    flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .epos-users-table {
@@ -437,6 +481,11 @@
     color: #475569;
   }
 
+  .epos-users-status-pill.locked {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+
   .epos-users-row-actions {
     display: flex;
     gap: 6px;
@@ -515,6 +564,12 @@
     gap: 8px;
   }
 
+  .epos-users-roles-layout .epos-users-role-list {
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
   .epos-users-role-line,
   .epos-users-role-list button {
     display: flex;
@@ -546,6 +601,10 @@
 
   .epos-users-form {
     margin-top: 10px;
+  }
+
+  .epos-users-roles-layout .epos-users-form {
+    flex: 0 0 auto;
   }
 
   .epos-users-check {
@@ -592,6 +651,36 @@
     color: #344174;
     font-size: 12px;
     font-weight: 750;
+  }
+
+  .epos-users-security-policy {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 12px 0;
+  }
+
+  .epos-users-security-policy article {
+    border: 1px solid #e6eaf6;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 9px 10px;
+  }
+
+  .epos-users-security-policy span {
+    display: block;
+    color: #64709d;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .epos-users-security-policy strong {
+    display: block;
+    margin-top: 3px;
+    color: #070b34;
+    font-size: 15px;
+    font-weight: 950;
   }
 
   .epos-users-permission-matrix > div {

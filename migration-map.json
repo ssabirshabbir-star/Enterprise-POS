@@ -1,0 +1,22 @@
+{
+  "auth": {
+    "from": "src/main/features/auth",
+    "status": "already_ok"
+  },
+  "billing": {
+    "from": "src/main/features/billing",
+    "status": "already_ok"
+  },
+  "renderer": {
+    "from": "src/renderer",
+    "status": "already_ok"
+  },
+  "scripts": {
+    "from": "scripts",
+    "status": "already_ok"
+  },
+  "legacy_root_files": {
+    "from": "src/main/*.js",
+    "status": "needs_review"
+  }
+}

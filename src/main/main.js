@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const { loadEnvironment } = require('./config/env');
 const { closeDatabase } = require('./database/connection');
 const { initializeDatabase } = require('./database/schema');
@@ -8,7 +8,7 @@ const { registerInventoryRoutes } = require('./features/inventory/inventory.cont
 const { registerProductRoutes } = require('./features/products/product.controller');
 const { registerPurchaseRoutes } = require('./features/purchases/purchase.controller');
 const { registerPurchaseOrderRoutes } = require('./features/purchase-orders/po.controller');
-const { registerSalesRoutes } = require('./features/sales/sales.controller');
+const { registerBillingRoutes } = require('./features/billing/billing.controller');
 const { registerPrintingRoutes } = require('./features/printing/printing.controller');
 const { registerReportsRoutes } = require('./features/reports/reports.controller');
 const { registerDashboardRoutes } = require('./features/dashboard/dashboard.controller');
@@ -19,7 +19,7 @@ const { registerSyncRoutes } = require('./features/sync/sync.controller');
 const { registerExpenseRoutes } = require('./features/expenses/expense.controller');
 const { registerAccessControlRoutes } = require('./features/access-control/access.controller');
 const { registerDeploymentRoutes } = require('./features/deployment/deployment.controller');
-const { registerLuckyDrawRoutes } = require('./features/lucky-draw/lucky-draw.controller');
+const { registerLuckyDrawV2Routes } = require('./features/luckydraw_v2');
 const { initializeSessionStore } = require('./security/session-store');
 
 let startupStatus = { ok: true, message: 'Ready' };
@@ -89,7 +89,7 @@ app.whenReady().then(async () => {
   registerInventoryRoutes(ipcMain);
   registerPurchaseRoutes(ipcMain);
   registerPurchaseOrderRoutes(ipcMain);
-  registerSalesRoutes(ipcMain);
+  registerBillingRoutes(ipcMain);
   registerPrintingRoutes(ipcMain);
   registerReportsRoutes(ipcMain);
   registerDashboardRoutes(ipcMain);
@@ -100,7 +100,45 @@ app.whenReady().then(async () => {
   registerExpenseRoutes(ipcMain);
   registerAccessControlRoutes(ipcMain);
   registerDeploymentRoutes(ipcMain, app);
-  registerLuckyDrawRoutes(ipcMain);
+  registerLuckyDrawV2Routes(ipcMain);
+
+  // Open URLs in the system default browser (e.g. WhatsApp web links)
+  ipcMain.handle('/shell/open-external', async (_event, url) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+      await shell.openExternal(url);
+      return { ok: true };
+    }
+    return { ok: false, message: 'Invalid URL' };
+  });
+
+  // Native dialog helpers (window.confirm/prompt are unreliable in Electron renderers)
+  ipcMain.handle('/dialog/confirm', async (event, message) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: ['Cancel', 'OK'],
+      defaultId: 1,
+      cancelId: 0,
+      message: String(message || 'Are you sure?')
+    });
+    return response === 1;
+  });
+
+  ipcMain.handle('/dialog/prompt', async (event, payload) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const label = String(payload?.label || 'Enter value:');
+    const defaultValue = String(payload?.defaultValue || '');
+    const { response, checkboxChecked: _cc } = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: ['Cancel', 'OK'],
+      defaultId: 1,
+      cancelId: 0,
+      message: label,
+      detail: defaultValue ? `Default: ${defaultValue}` : undefined
+    });
+    // Native Electron dialog cannot collect text input — return empty string on OK
+    return response === 1 ? defaultValue : null;
+  });
 
   createWindow();
 
@@ -128,4 +166,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', async () => {
   await closeDatabase();
+  // Clear the persisted refresh token on every app exit.
+  // This ensures the login screen is always shown on the next launch.
+  const { clearSession } = require('./security/session-store');
+  clearSession();
 });

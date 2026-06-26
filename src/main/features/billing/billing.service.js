@@ -1,7 +1,7 @@
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
-const salesRepository = require('./sales.repository');
-const { canDeleteHeldSales, canReadSales, canRefundOrExchangeSales, canWriteSales } = require('./sales.permissions');
+const billingRepository = require('./billing.repository');
+const { canDeleteHeldSales, canReadSales, canRefundOrExchangeSales, canWriteSales } = require('./billing.permissions');
 
 async function requireSalesAccess(mode) {
   const profileResult = await authService.getProfile();
@@ -35,7 +35,7 @@ function generateInvoiceNumber() {
 async function generateUniqueInvoiceNumber() {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const invoiceNumber = generateInvoiceNumber();
-    if (!(await salesRepository.invoiceExists(invoiceNumber))) {
+    if (!(await billingRepository.invoiceExists(invoiceNumber))) {
       return invoiceNumber;
     }
   }
@@ -48,7 +48,7 @@ async function searchProducts(filters) {
   const payload = typeof filters === 'object' && filters !== null ? filters : { search: filters };
   const cleanSearch = String(payload.search || '').trim();
   const categoryId = Number(payload.categoryId || 0);
-  return { ok: true, products: await salesRepository.searchProducts({ search: cleanSearch, categoryId }) };
+  return { ok: true, products: await billingRepository.searchProducts({ search: cleanSearch, categoryId }) };
 }
 
 async function lookupBarcode(barcode) {
@@ -56,7 +56,7 @@ async function lookupBarcode(barcode) {
   if (!access.ok) return access;
   const cleanBarcode = String(barcode || '').trim();
   if (!cleanBarcode) return { ok: false, message: 'Barcode is required.' };
-  const product = await salesRepository.findProductByBarcode(cleanBarcode);
+  const product = await billingRepository.findProductByBarcode(cleanBarcode);
   if (!product || !product.isActive) return { ok: false, message: 'Product not found or inactive.' };
   if (product.currentStock <= 0) return { ok: false, message: 'Product is out of stock.' };
   return { ok: true, product };
@@ -65,7 +65,7 @@ async function lookupBarcode(barcode) {
 async function listCustomers(search) {
   const access = await requireSalesAccess('read');
   if (!access.ok) return access;
-  return { ok: true, customers: await salesRepository.listCustomers(search) };
+  return { ok: true, customers: await billingRepository.listCustomers(search) };
 }
 
 async function createCustomer(payload = {}) {
@@ -73,7 +73,7 @@ async function createCustomer(payload = {}) {
   if (!access.ok) return access;
   const name = String(payload.name || '').trim();
   if (name.length < 2) return { ok: false, message: 'Customer name is required.' };
-  const customer = await salesRepository.createCustomer({
+  const customer = await billingRepository.createCustomer({
     name,
     phone: String(payload.phone || '').trim(),
     email: String(payload.email || '').trim(),
@@ -118,7 +118,7 @@ async function completeSale(payload = {}) {
   const invoiceNumber = await generateUniqueInvoiceNumber();
 
   try {
-    const sale = await salesRepository.createSale({
+    const sale = await billingRepository.createSale({
       invoiceNumber,
       customerId: payload.customerId ? Number(payload.customerId) : null,
       subtotal,
@@ -131,7 +131,7 @@ async function completeSale(payload = {}) {
       paymentMethod,
       items: cleanItems
     }, access.profile.id);
-    const receipt = await salesRepository.getSaleReceipt(sale.id);
+    const receipt = await billingRepository.getSaleReceipt(sale.id);
     await activityRepository.createActivityLog({ userId: access.profile.id, action: 'sale.complete', status: 'success', message: 'Sale completed', metadata: { saleId: sale.id, invoiceNumber, grandTotal } });
     return { ok: true, receipt, message: 'Sale completed successfully.' };
   } catch (error) {
@@ -148,7 +148,7 @@ async function holdSale(payload = {}) {
   const access = await requireSalesAccess('write');
   if (!access.ok) return access;
   if (!Array.isArray(payload.items) || payload.items.length === 0) return { ok: false, message: 'Cannot hold an empty cart.' };
-  const hold = await salesRepository.holdSale(payload, access.profile.id);
+  const hold = await billingRepository.holdSale(payload, access.profile.id);
   await activityRepository.createActivityLog({ userId: access.profile.id, action: 'sale.hold', status: 'success', message: 'Sale held', metadata: hold });
   return { ok: true, hold, message: 'Sale held successfully.' };
 }
@@ -156,7 +156,7 @@ async function holdSale(payload = {}) {
 async function listHeldSales() {
   const access = await requireSalesAccess('read');
   if (!access.ok) return access;
-  const holds = await salesRepository.listHeldSales(access.profile.id);
+  const holds = await billingRepository.listHeldSales(access.profile.id);
   return { ok: true, holds, permissions: { canDelete: canDeleteHeldSales(access.profile.role) } };
 }
 
@@ -166,7 +166,7 @@ async function deleteHeldSale(holdId) {
   if (!canDeleteHeldSales(access.profile.role)) return { ok: false, message: 'Only Admin or Manager can delete held sales.' };
   const id = Number(holdId);
   if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Invalid held sale.' };
-  const deleted = await salesRepository.deleteHeldSale(id);
+  const deleted = await billingRepository.deleteHeldSale(id);
   if (!deleted) return { ok: false, message: 'Held sale not found.' };
   await activityRepository.createActivityLog({ userId: access.profile.id, action: 'sale.hold.delete', status: 'success', message: 'Held sale deleted', metadata: { holdId: id } });
   return { ok: true, message: 'Held sale deleted.' };
@@ -175,7 +175,7 @@ async function deleteHeldSale(holdId) {
 async function getLastReceipt() {
   const access = await requireSalesAccess('read');
   if (!access.ok) return access;
-  const receipt = await salesRepository.getLastSaleReceipt(access.profile.id);
+  const receipt = await billingRepository.getLastSaleReceipt(access.profile.id);
   if (!receipt) return { ok: false, message: 'No previous bill found for this cashier.' };
   return { ok: true, receipt };
 }
@@ -190,7 +190,7 @@ async function validateInvoiceAction(payload = {}) {
   const action = String(payload.action || '').trim().toLowerCase();
   if (!invoiceNumber) return { ok: false, message: 'Invoice number is required.' };
   if (!['refund', 'exchange'].includes(action)) return { ok: false, message: 'Invalid sale action.' };
-  const receipt = await salesRepository.getSaleReceiptByInvoice(invoiceNumber);
+  const receipt = await billingRepository.getSaleReceiptByInvoice(invoiceNumber);
   if (!receipt) return { ok: false, message: 'Invoice was not found in the database.' };
   await activityRepository.createActivityLog({
     userId: access.profile.id,

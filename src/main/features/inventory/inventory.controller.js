@@ -29,6 +29,14 @@ function registerInventoryRoutes(ipcMain) {
       return safeError(error, 'Inventory adjustment error:');
     }
   });
+
+  ipcMain.handle('/inventory/product-image', async (_event, payload) => {
+    try {
+      return await inventoryService.updateProductImage(payload || {});
+    } catch (error) {
+      return safeError(error, 'Inventory image update error:');
+    }
+  });
 }
 
 module.exports = { registerInventoryRoutes };

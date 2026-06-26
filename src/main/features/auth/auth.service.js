@@ -1,4 +1,6 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
 const {
   createAccessToken,
   createRefreshToken,
@@ -7,12 +9,16 @@ const {
   verifyAccessToken,
   verifyRefreshToken
 } = require('../../security/token.service');
+
 const sessionStore = require('../../security/session-store');
 const activityRepository = require('../activity/activity.repository');
 const authRepository = require('./auth.repository');
 const { canRoleAccess } = require('./rbac');
 
-function sanitizeProfile(user) {
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCK_MINUTES = 15;
+
+function sanitizeProfile(user = {}) {
   return {
     id: user.id,
     username: user.username,
@@ -38,173 +44,200 @@ function validateLoginInput({ username, password }) {
   return { ok: true, username: normalizedUsername, password: rawPassword };
 }
 
-async function persistFreshSession(user, oldRefreshTokenId = null) {
-  const accessToken = createAccessToken(user);
-  const expiresAt = getRefreshTokenExpiry();
-  const tokenId = cryptoRandomId();
-  const refreshToken = createRefreshToken({ user, tokenId });
-  const tokenHash = hashToken(refreshToken);
-
-  if (oldRefreshTokenId) {
-    await authRepository.rotateRefreshToken({
-      oldTokenId: oldRefreshTokenId,
-      newTokenId: tokenId,
-      userId: user.id,
-      tokenHash,
-      expiresAt
-    });
-  } else {
-    await authRepository.createRefreshToken({ userId: user.id, tokenHash, expiresAt, tokenId });
-  }
-
-  sessionStore.setAccessToken(accessToken);
-  sessionStore.persistRefreshToken(refreshToken);
-
-  return { accessToken, refreshToken };
+function cryptoRandomId() {
+  return crypto.randomUUID();
 }
 
-function cryptoRandomId() {
-  return require('crypto').randomUUID();
+async function persistFreshSession(user, oldRefreshTokenId = null) {
+  try {
+    const accessToken = createAccessToken(user);
+    const expiresAt = getRefreshTokenExpiry();
+    const tokenId = cryptoRandomId();
+
+    const refreshToken = createRefreshToken({ user, tokenId });
+    const tokenHash = hashToken(refreshToken);
+
+    if (oldRefreshTokenId) {
+      await authRepository.rotateRefreshToken({
+        oldTokenId: oldRefreshTokenId,
+        newTokenId: tokenId,
+        userId: user.id,
+        tokenHash,
+        expiresAt
+      });
+    } else {
+      await authRepository.createRefreshToken({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        tokenId
+      });
+    }
+
+    sessionStore.setAccessToken(accessToken);
+    sessionStore.persistRefreshToken(refreshToken);
+
+    return { accessToken, refreshToken };
+  } catch (err) {
+    console.error('Session persist failed:', err);
+    return null;
+  }
 }
 
 async function login({ username, password }) {
-  const input = validateLoginInput({ username, password });
-  if (!input.ok) {
-    return { ok: false, message: input.message };
+  try {
+    const input = validateLoginInput({ username, password });
+    if (!input.ok) return input;
+
+    const user = await authRepository.findUserByUsername(input.username);
+
+    if (!user || !user.isActive) {
+      return { ok: false, message: 'Invalid username or password.' };
+    }
+
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      return {
+        ok: false,
+        message: 'Account is temporarily locked.'
+      };
+    }
+
+    const isValidPassword = await bcrypt.compare(input.password, user.passwordHash);
+
+    if (!isValidPassword) {
+      await authRepository.markLoginFailure(
+        input.username,
+        MAX_FAILED_LOGIN_ATTEMPTS,
+        LOGIN_LOCK_MINUTES
+      );
+
+      return { ok: false, message: 'Invalid username or password.' };
+    }
+
+    await authRepository.markLoginSuccess(user.id);
+
+    await persistFreshSession(user);
+
+    user.permissions = await authRepository.getUserPermissions(user.id);
+
+    return {
+      ok: true,
+      profile: sanitizeProfile(user)
+    };
+
+  } catch (err) {
+    console.error('LOGIN ERROR:', err);
+    return { ok: false, message: 'Login service temporarily unavailable.' };
   }
-
-  const user = await authRepository.findUserByUsername(input.username);
-  if (!user || !user.isActive) {
-    await activityRepository.createActivityLog({
-      action: 'auth.login',
-      status: 'failed',
-      message: 'Invalid login attempt',
-      metadata: { username: input.username }
-    });
-    return { ok: false, message: 'Invalid username or password.' };
-  }
-
-  const isValidPassword = await bcrypt.compare(input.password, user.passwordHash);
-  if (!isValidPassword) {
-    await authRepository.markLoginFailure(input.username);
-    await activityRepository.createActivityLog({
-      userId: user.id,
-      action: 'auth.login',
-      status: 'failed',
-      message: 'Invalid password',
-      metadata: { username: input.username }
-    });
-    return { ok: false, message: 'Invalid username or password.' };
-  }
-
-  await authRepository.markLoginSuccess(user.id);
-  await persistFreshSession(user);
-  user.permissions = await authRepository.getUserPermissions(user.id);
-  await activityRepository.createActivityLog({
-    userId: user.id,
-    action: 'auth.login',
-    status: 'success',
-    message: 'User logged in'
-  });
-
-  return { ok: true, profile: sanitizeProfile(user) };
 }
 
 async function refreshSession() {
-  const refreshToken = sessionStore.readRefreshToken();
-  if (!refreshToken) {
-    return { ok: false, message: 'No saved session.' };
-  }
-
   try {
-    const payload = verifyRefreshToken(refreshToken);
-    const savedToken = await authRepository.findRefreshTokenById(payload.jti);
+    const refreshToken = sessionStore.readRefreshToken();
 
-    if (!savedToken || savedToken.revoked_at || new Date(savedToken.expires_at) <= new Date()) {
-      sessionStore.clearSession();
-      return { ok: false, message: 'Session expired. Please login again.' };
+    if (!refreshToken) {
+      return { ok: false, message: 'No session found.' };
     }
 
-    if (savedToken.token_hash !== hashToken(refreshToken)) {
+    let payload;
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch {
       sessionStore.clearSession();
-      return { ok: false, message: 'Session could not be verified.' };
+      return { ok: false, message: 'Session expired.' };
+    }
+
+    const savedToken = await authRepository.findRefreshTokenById(payload.jti);
+
+    if (!savedToken || savedToken.revoked_at) {
+      sessionStore.clearSession();
+      return { ok: false, message: 'Session invalid.' };
     }
 
     const user = await authRepository.findUserById(Number(payload.sub));
+
     if (!user || !user.isActive) {
       sessionStore.clearSession();
-      return { ok: false, message: 'User account is inactive.' };
+      return { ok: false, message: 'User inactive.' };
     }
 
     await persistFreshSession(user, payload.jti);
-    user.permissions = await authRepository.getUserPermissions(user.id);
-    await activityRepository.createActivityLog({
-      userId: user.id,
-      action: 'auth.refresh',
-      status: 'success',
-      message: 'Session refreshed'
-    });
 
-    return { ok: true, profile: sanitizeProfile(user) };
-  } catch (error) {
+    user.permissions = await authRepository.getUserPermissions(user.id);
+
+    return {
+      ok: true,
+      profile: sanitizeProfile(user)
+    };
+
+  } catch (err) {
+    console.error('REFRESH ERROR:', err);
     sessionStore.clearSession();
-    return { ok: false, message: 'Session expired. Please login again.' };
+    return { ok: false, message: 'Session expired.' };
   }
 }
 
 async function getProfile() {
-  const accessToken = sessionStore.getAccessToken();
+  try {
+    const accessToken = sessionStore.getAccessToken();
 
-  if (accessToken) {
-    try {
-      const payload = verifyAccessToken(accessToken);
-      const user = await authRepository.findUserById(Number(payload.sub));
-
-      if (user && user.isActive) {
-        user.permissions = await authRepository.getUserPermissions(user.id);
-        return { ok: true, profile: sanitizeProfile(user) };
-      }
-    } catch (error) {
-      return refreshSession();
+    if (!accessToken) {
+      return await refreshSession();
     }
-  }
 
-  return refreshSession();
+    let payload;
+    try {
+      payload = verifyAccessToken(accessToken);
+    } catch {
+      return await refreshSession();
+    }
+
+    const user = await authRepository.findUserById(Number(payload.sub));
+
+    if (!user || !user.isActive) {
+      return await refreshSession();
+    }
+
+    user.permissions = await authRepository.getUserPermissions(user.id);
+
+    return {
+      ok: true,
+      profile: sanitizeProfile(user)
+    };
+
+  } catch (err) {
+    console.error('PROFILE ERROR:', err);
+    return await refreshSession();
+  }
 }
 
 async function logout() {
-  const refreshToken = sessionStore.readRefreshToken();
+  try {
+    const refreshToken = sessionStore.readRefreshToken();
 
-  if (refreshToken) {
-    try {
+    if (refreshToken) {
       const payload = verifyRefreshToken(refreshToken);
       await authRepository.revokeRefreshToken(payload.jti);
-      await activityRepository.createActivityLog({
-        userId: Number(payload.sub),
-        action: 'auth.logout',
-        status: 'success',
-        message: 'User logged out'
-      });
-    } catch (error) {
-      await activityRepository.createActivityLog({
-        action: 'auth.logout',
-        status: 'failed',
-        message: 'Logout token verification failed'
-      });
     }
-  }
 
-  sessionStore.clearSession();
-  return { ok: true };
+    sessionStore.clearSession();
+    return { ok: true };
+
+  } catch (err) {
+    sessionStore.clearSession();
+    return { ok: true };
+  }
 }
 
 async function canAccess(route) {
   const profileResult = await getProfile();
+
   if (!profileResult.ok) {
-    return { ok: false, allowed: false, message: 'Authentication required.' };
+    return { ok: false, allowed: false };
   }
 
   const permissions = await authRepository.getUserPermissions(profileResult.profile.id);
+
   return {
     ok: true,
     allowed: canRoleAccess(profileResult.profile.role, route, permissions),
@@ -213,9 +246,9 @@ async function canAccess(route) {
 }
 
 module.exports = {
-  canAccess,
-  getProfile,
   login,
+  refreshSession,
+  getProfile,
   logout,
-  refreshSession
+  canAccess
 };

@@ -11,6 +11,5 @@ Use these classes for billing screens:
 - `epos-billing-product-grid`
 - `epos-billing-product-card`
 - `epos-billing-panel`
-- `epos-billing-action`
 
-The active app implementation is in `src/renderer/index.html` on the `/pos` route.
+The active app implementation uses the feature page in `src/main/features/billing`.

@@ -1,0 +1,84 @@
+const fs = require("fs");
+const path = require("path");
+
+const ROOT = "D:\\Enterprise-POS";
+
+// ----------------------------
+// FILE PATHS
+// ----------------------------
+const loginPath = path.join(ROOT, "src", "renderer", "scripts", "login.js");
+const preloadPath = path.join(ROOT, "src", "main", "preload.js");
+
+// ----------------------------
+// 1. FULL REPLACE: login.js
+// ----------------------------
+if (fs.existsSync(loginPath)) {
+
+  const loginFixed = `
+// ================================
+// AUTO FIXED LOGIN FLOW (SAFE)
+// ================================
+
+async function restoreSession() {
+  try {
+    setCheckingSession(true);
+
+    const profile = await window.posApi.auth.profile();
+
+    if (profile && profile.ok) {
+      setAuthUser(profile.user);
+      showDashboard(profile.user);
+
+      if (typeof navigateTo === "function") {
+        navigateTo("/dashboard");
+      }
+
+    } else {
+      showLogin();
+    }
+
+  } catch (err) {
+    console.error("restoreSession error:", err);
+    showLogin();
+  } finally {
+    setCheckingSession(false);
+  }
+}
+
+// Boot sequence (SAFE)
+restoreSession();
+`;
+
+  fs.writeFileSync(loginPath, loginFixed, "utf8");
+  console.log("✅ login.js FULLY REPLACED");
+
+} else {
+  console.log("❌ login.js not found:", loginPath);
+}
+
+// ----------------------------
+// 2. FULL REPLACE: preload.js
+// ----------------------------
+if (fs.existsSync(preloadPath)) {
+
+  const preloadFixed = `const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("posApi", {
+  auth: {
+    login: (data) => ipcRenderer.invoke("/auth/login", data),
+    profile: () => ipcRenderer.invoke("/auth/profile"),
+    refresh: () => ipcRenderer.invoke("/auth/refresh"),
+    logout: () => ipcRenderer.invoke("/auth/logout"),
+    canAccess: (route) => ipcRenderer.invoke("/auth/can-access", route)
+  }
+});
+`;
+
+  fs.writeFileSync(preloadPath, preloadFixed, "utf8");
+  console.log("✅ preload.js FULLY REPLACED");
+
+} else {
+  console.log("❌ preload.js not found:", preloadPath);
+}
+
+console.log("🚀 FULL AUTH FIX COMPLETED");

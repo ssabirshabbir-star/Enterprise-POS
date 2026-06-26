@@ -7,7 +7,11 @@ function mapInventory(row) {
     name: row.name,
     sku: row.sku,
     barcode: row.barcode,
+    productImage: row.product_image,
     categoryName: row.category_name,
+    batchNumber: row.batch_number,
+    expirationDate: row.expiration_date,
+    lastPurchasePrice: row.last_purchase_price === null || row.last_purchase_price === undefined ? null : Number(row.last_purchase_price),
     currentStock: Number(row.current_stock),
     minStockLevel: Number(row.min_stock_level),
     lastMovementAt: row.last_movement_at,
@@ -39,7 +43,13 @@ async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly
 
   if (search) {
     params.push(`%${search.toLowerCase()}%`);
-    where += ` AND (LOWER(products.name) LIKE $${params.length} OR LOWER(products.sku) LIKE $${params.length} OR LOWER(products.barcode) LIKE $${params.length})`;
+    where += ` AND (
+      LOWER(products.name) LIKE $${params.length}
+      OR LOWER(products.sku) LIKE $${params.length}
+      OR LOWER(products.barcode) LIKE $${params.length}
+      OR LOWER(COALESCE(latest_purchase.batch_number, '')) LIKE $${params.length}
+      OR products.id::text LIKE $${params.length}
+    )`;
   }
 
   if (outOfStockOnly) {
@@ -55,15 +65,28 @@ async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly
         products.name,
         products.sku,
         products.barcode,
+        products.product_image,
         products.current_stock,
         products.min_stock_level,
+        COALESCE(NULLIF(latest_purchase.batch_number, ''), 'BATCH-' || LPAD(products.id::text, 4, '0')) AS batch_number,
+        COALESCE(latest_purchase.expiration_date, (products.created_at::date + INTERVAL '12 months')::date) AS expiration_date,
+        COALESCE(latest_purchase.purchase_price, products.purchase_price) AS last_purchase_price,
         categories.name AS category_name,
         MAX(stock_movements.created_at) AS last_movement_at
       FROM products
       LEFT JOIN categories ON categories.id = products.category_id
+      LEFT JOIN LATERAL (
+        SELECT purchase_items.batch_number, purchase_items.expiration_date, purchase_items.purchase_price
+        FROM purchase_items
+        INNER JOIN purchases ON purchases.id = purchase_items.purchase_id
+        WHERE purchase_items.product_id = products.id
+          AND purchases.deleted_at IS NULL
+        ORDER BY purchases.purchase_date DESC, purchases.created_at DESC, purchase_items.id DESC
+        LIMIT 1
+      ) latest_purchase ON TRUE
       LEFT JOIN stock_movements ON stock_movements.product_id = products.id
       ${where}
-      GROUP BY products.id, categories.name
+      GROUP BY products.id, categories.name, latest_purchase.batch_number, latest_purchase.expiration_date, latest_purchase.purchase_price
       ORDER BY products.name ASC
       LIMIT 300
     `,
@@ -165,8 +188,23 @@ async function adjustStock({ productId, movementType, quantity, reason, userId }
   });
 }
 
+async function updateProductImage({ productId, productImage }) {
+  const result = await getPool().query(
+    `
+      UPDATE products
+      SET product_image = $2, updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING id
+    `,
+    [productId, productImage]
+  );
+
+  return result.rowCount > 0;
+}
+
 module.exports = {
   adjustStock,
   listInventory,
-  listMovements
+  listMovements,
+  updateProductImage
 };

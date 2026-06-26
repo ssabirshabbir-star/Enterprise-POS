@@ -21,6 +21,9 @@ function registerAccessControlRoutes(ipcMain) {
   ipcMain.handle('/users/reset-password', async (_event, { id, password }) => {
     try { return await accessService.resetPassword(id, password); } catch (error) { return safeError(error, 'Users reset password error:'); }
   });
+  ipcMain.handle('/users/security-activity', async () => {
+    try { return await accessService.listSecurityActivity(); } catch (error) { return safeError(error, 'Users security activity error:'); }
+  });
   ipcMain.handle('/roles/list', async () => {
     try { return await accessService.listRoles(); } catch (error) { return safeError(error, 'Roles list error:'); }
   });

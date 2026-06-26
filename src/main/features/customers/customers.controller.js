@@ -1,4 +1,5 @@
 const customersService = require('./customers.service');
+const { seedCustomers } = require('./customers.seeder');
 
 function safeError(error, label) {
   console.error(label, error);
@@ -26,6 +27,9 @@ function registerCustomerRoutes(ipcMain) {
   });
   ipcMain.handle('/customers/due-summary', async () => {
     try { return await customersService.getDueSummary(); } catch (error) { return safeError(error, 'Customer due summary error:'); }
+  });
+  ipcMain.handle('/customers/seed', async () => {
+    try { return await seedCustomers(); } catch (error) { return safeError(error, 'Customer seed error:'); }
   });
 }
 

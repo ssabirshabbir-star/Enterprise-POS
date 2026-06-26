@@ -5,8 +5,7 @@
     products: 'epos-billing-products',
     checkout: 'epos-billing-checkout',
     panel: 'epos-billing-panel',
-    productCard: 'epos-billing-product-card',
-    action: 'epos-billing-action'
+    productCard: 'epos-billing-product-card'
   };
 
   function getClass(name) {

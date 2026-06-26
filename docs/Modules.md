@@ -48,7 +48,6 @@ CORE MODULES:
 46. Employee Attendance
 47. Payroll (optional)
 48. License Activation
-49. Lucky Draw
 50. Multi-language Support
 51. 
 

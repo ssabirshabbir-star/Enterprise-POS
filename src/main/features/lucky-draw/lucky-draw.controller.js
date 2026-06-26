@@ -27,8 +27,11 @@ function registerLuckyDrawRoutes(ipcMain) {
   ipcMain.handle('/lucky-draw/coupons/verify', async (_event, payload) => {
     try { return await luckyDrawService.verifyCoupon(payload || {}); } catch (error) { return safeError(error, 'Lucky Draw coupon verify error:'); }
   });
-  ipcMain.handle('/lucky-draw/winners/draw', async (_event, payload) => {
-    try { return await luckyDrawService.drawWinners(payload || {}); } catch (error) { return safeError(error, 'Lucky Draw winner draw error:'); }
+  ipcMain.handle('/lucky-draw/winners/draw', async (_event, { campaignId, count }) => {
+    try { return await luckyDrawService.pickRandomWinner(campaignId, count); } catch (error) { return safeError(error, 'Lucky Draw winner draw error:'); }
+  });
+  ipcMain.handle('/lucky-draw/participants/list', async (_event, { campaignId, filters }) => {
+    try { return await luckyDrawService.listDrawParticipants(campaignId, filters || {}); } catch (error) { return safeError(error, 'Lucky Draw participants list error:'); }
   });
   ipcMain.handle('/lucky-draw/winners/list', async (_event, campaignId) => {
     try { return await luckyDrawService.listWinners(campaignId); } catch (error) { return safeError(error, 'Lucky Draw winner list error:'); }

@@ -24,7 +24,8 @@ contextBridge.exposeInMainWorld('posApi', {
     create: (payload) => ipcRenderer.invoke('/users/create', payload),
     update: (id, payload) => ipcRenderer.invoke('/users/update', { id, payload }),
     setActive: (id, isActive) => ipcRenderer.invoke('/users/status', { id, isActive }),
-    resetPassword: (id, password) => ipcRenderer.invoke('/users/reset-password', { id, password })
+    resetPassword: (id, password) => ipcRenderer.invoke('/users/reset-password', { id, password }),
+    securityActivity: () => ipcRenderer.invoke('/users/security-activity')
   },
   roles: {
     list: () => ipcRenderer.invoke('/roles/list'),
@@ -50,7 +51,8 @@ contextBridge.exposeInMainWorld('posApi', {
   inventory: {
     list: (filters) => ipcRenderer.invoke('/inventory/list', filters),
     movements: (filters) => ipcRenderer.invoke('/inventory/movements', filters),
-    adjust: (payload) => ipcRenderer.invoke('/inventory/adjust', payload)
+    adjust: (payload) => ipcRenderer.invoke('/inventory/adjust', payload),
+    updateImage: (payload) => ipcRenderer.invoke('/inventory/product-image', payload)
   },
   suppliers: {
     list: () => ipcRenderer.invoke('/suppliers/list'),
@@ -115,17 +117,17 @@ contextBridge.exposeInMainWorld('posApi', {
   reports: {
     overview: (filters) => ipcRenderer.invoke('/reports/overview', filters)
   },
-  luckyDraw: {
-    listCampaigns: () => ipcRenderer.invoke('/lucky-draw/campaigns/list'),
-    createCampaign: (payload) => ipcRenderer.invoke('/lucky-draw/campaigns/create', payload),
-    updateCampaign: (id, payload) => ipcRenderer.invoke('/lucky-draw/campaigns/update', { id, payload }),
-    deleteCampaign: (id) => ipcRenderer.invoke('/lucky-draw/campaigns/delete', id),
-    listEntries: (filters) => ipcRenderer.invoke('/lucky-draw/entries/list', filters),
-    lookupCoupon: (payload) => ipcRenderer.invoke('/lucky-draw/coupons/lookup', payload),
-    verifyCoupon: (payload) => ipcRenderer.invoke('/lucky-draw/coupons/verify', payload),
-    drawWinners: (payload) => ipcRenderer.invoke('/lucky-draw/winners/draw', payload),
-    listWinners: (campaignId) => ipcRenderer.invoke('/lucky-draw/winners/list', campaignId),
-    reports: () => ipcRenderer.invoke('/lucky-draw/reports')
+  luckyDrawV2: {
+    listCampaigns:      ()        => ipcRenderer.invoke('/ld-v2/campaigns/list'),
+    createCampaign:     (payload) => ipcRenderer.invoke('/ld-v2/campaigns/create', payload),
+    updateCampaign:     (payload) => ipcRenderer.invoke('/ld-v2/campaigns/update', payload),
+    deleteCampaign:     (id)      => ipcRenderer.invoke('/ld-v2/campaigns/delete', id),
+    listParticipants:   (filters) => ipcRenderer.invoke('/ld-v2/participants/list', filters),
+    addParticipant:     (payload) => ipcRenderer.invoke('/ld-v2/participants/add', payload),
+    removeParticipant:  (id)      => ipcRenderer.invoke('/ld-v2/participants/remove', id),
+    runDraw:            (payload) => ipcRenderer.invoke('/ld-v2/draw/run', payload),
+    listWinners:        (campaignId) => ipcRenderer.invoke('/ld-v2/winners/list', campaignId),
+    getReports:         ()        => ipcRenderer.invoke('/ld-v2/reports')
   },
   dashboard: {
     overview: () => ipcRenderer.invoke('/dashboard/overview')
@@ -137,7 +139,8 @@ contextBridge.exposeInMainWorld('posApi', {
     update: (id, payload) => ipcRenderer.invoke('/customers/update', { id, payload }),
     delete: (id) => ipcRenderer.invoke('/customers/delete', id),
     payment: (customerId, payload) => ipcRenderer.invoke('/customers/payment', { customerId, payload }),
-    dueSummary: () => ipcRenderer.invoke('/customers/due-summary')
+    dueSummary: () => ipcRenderer.invoke('/customers/due-summary'),
+    seed: () => ipcRenderer.invoke('/customers/seed')
   },
   returns: {
     lookupInvoice: (filters) => ipcRenderer.invoke('/returns/lookup-invoice', filters),
@@ -156,5 +159,12 @@ contextBridge.exposeInMainWorld('posApi', {
     queue: () => ipcRenderer.invoke('/sync/queue'),
     run: () => ipcRenderer.invoke('/sync/run'),
     retryFailed: () => ipcRenderer.invoke('/sync/retry-failed')
+  },
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('/shell/open-external', url)
+  },
+  dialog: {
+    confirm: (message) => ipcRenderer.invoke('/dialog/confirm', message),
+    prompt: (label, defaultValue) => ipcRenderer.invoke('/dialog/prompt', { label, defaultValue: defaultValue || '' })
   }
 });

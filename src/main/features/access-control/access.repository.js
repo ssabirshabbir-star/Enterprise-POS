@@ -11,6 +11,8 @@ function mapUser(row) {
     roleId: row.role_id,
     role: row.role_name,
     isActive: row.is_active,
+    failedLoginAttempts: Number(row.failed_login_attempts || 0),
+    lockedUntil: row.locked_until,
     lastLoginAt: row.last_login_at,
     createdAt: row.created_at
   };
@@ -34,7 +36,7 @@ async function listUsers(filters = {}) {
   const result = await getPool().query(
     `
       SELECT users.id, users.username, users.email, users.full_name, users.phone, users.role_id,
-             users.is_active, users.last_login_at, users.created_at, roles.name AS role_name
+             users.is_active, users.failed_login_attempts, users.locked_until, users.last_login_at, users.created_at, roles.name AS role_name
       FROM users
       INNER JOIN roles ON roles.id = users.role_id
       WHERE ($1 = '%%' OR users.username ILIKE $1 OR users.email ILIKE $1 OR users.full_name ILIKE $1 OR COALESCE(users.phone, '') ILIKE $1)
@@ -110,13 +112,39 @@ async function resetPassword(id, password) {
   const result = await getPool().query(
     `
       UPDATE users
-      SET password_hash = $2, failed_login_attempts = 0, updated_at = NOW()
+      SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, password_changed_at = NOW(), updated_at = NOW()
       WHERE id = $1
       RETURNING id
     `,
     [id, hash]
   );
   return result.rowCount > 0;
+}
+
+async function listSecurityActivity(limit = 100) {
+  const result = await getPool().query(
+    `
+      SELECT activity_logs.action, activity_logs.status, activity_logs.message, activity_logs.metadata,
+             activity_logs.created_at, users.username, users.full_name
+      FROM activity_logs
+      LEFT JOIN users ON users.id = activity_logs.user_id
+      WHERE activity_logs.action LIKE 'users.%'
+         OR activity_logs.action LIKE 'roles.%'
+         OR activity_logs.action LIKE 'auth.%'
+      ORDER BY activity_logs.created_at DESC
+      LIMIT $1
+    `,
+    [Number(limit) || 100]
+  );
+  return result.rows.map((row) => ({
+    action: row.action,
+    status: row.status,
+    message: row.message,
+    metadata: row.metadata || {},
+    username: row.username,
+    fullName: row.full_name,
+    createdAt: row.created_at
+  }));
 }
 
 async function listRoles() {
@@ -178,6 +206,7 @@ module.exports = {
   createRole,
   createUser,
   listRoles,
+  listSecurityActivity,
   listUsers,
   permissionsByRole,
   resetPassword,
