@@ -24,7 +24,9 @@
   /** Shorthand — all display operations go through CustomersRenderer */
   const R = () => window.CustomersRenderer;
 
-  function $id(id) { return document.getElementById(id); }
+  function $id(id) {
+    return document.getElementById(id);
+  }
 
   // ── Internal helpers (matches billing.api.js / products.api.js exactly) ───
 
@@ -53,7 +55,10 @@
       const search = filters?.search || '';
       const res = await window.posApi.customers.list(search);
       const { ok, message } = apiOk(res, 'Failed to load customers.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().renderCustomerTable(res.customers || [], filters);
       LOG('loadCustomers() — received', (res.customers || []).length, 'records');
     } catch (err) {
@@ -79,18 +84,18 @@
   async function saveCustomer(e) {
     e.preventDefault();
     const customerId = $id('customerFormId')?.value;
-    const isEdit     = Boolean(customerId);
+    const isEdit = Boolean(customerId);
 
     const payload = {
-      name:           ($id('customerNameInput')?.value          || '').trim(),
-      phone:          ($id('customerPhoneInput')?.value         || '').trim() || undefined,
-      email:          ($id('customerEmailInput')?.value         || '').trim() || undefined,
-      cnic:           ($id('customerCnicInput')?.value          || '').trim() || undefined,
-      address:        ($id('customerAddressInput')?.value       || '').trim() || undefined,
-      creditLimit:    parseFloat($id('customerCreditLimitInput')?.value   || '0') || 0,
+      name: ($id('customerNameInput')?.value || '').trim(),
+      phone: ($id('customerPhoneInput')?.value || '').trim() || undefined,
+      email: ($id('customerEmailInput')?.value || '').trim() || undefined,
+      cnic: ($id('customerCnicInput')?.value || '').trim() || undefined,
+      address: ($id('customerAddressInput')?.value || '').trim() || undefined,
+      creditLimit: parseFloat($id('customerCreditLimitInput')?.value || '0') || 0,
       openingBalance: parseFloat($id('customerOpeningBalanceInput')?.value || '0') || 0,
-      isActive:       $id('customerActiveInput')?.checked ?? true,
-      group:          $id('customerGroupInput')?.value || undefined
+      isActive: $id('customerActiveInput')?.checked ?? true,
+      group: $id('customerGroupInput')?.value || undefined,
     };
 
     // No renderer-side validation — customers.service.js enforces all rules
@@ -105,7 +110,10 @@
         : await window.posApi.customers.create(payload);
 
       const { ok, message } = apiOk(res, isEdit ? 'Update failed.' : 'Create failed.');
-      if (!ok) { R().showFormMsg(message, true); return; }
+      if (!ok) {
+        R().showFormMsg(message, true);
+        return;
+      }
 
       LOG(isEdit ? 'Customer updated:' : 'Customer created:', res.customer?.name);
       R().showMsg(message || (isEdit ? 'Customer updated.' : 'Customer saved.'));
@@ -124,15 +132,21 @@
     let confirmed = false;
     try {
       confirmed = await window.posApi.dialog.confirm(
-        `Delete "${customerName}"? This cannot be undone.`);
-    } catch (_) { confirmed = window.confirm(`Delete "${customerName}"?`); }
+        `Delete "${customerName}"? This cannot be undone.`
+      );
+    } catch (_) {
+      confirmed = window.confirm(`Delete "${customerName}"?`);
+    }
     if (!confirmed) return;
 
     try {
       LOG('deleteCustomer():', customerId);
       const res = await window.posApi.customers.delete(customerId);
       const { ok, message } = apiOk(res, 'Delete failed.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().showMsg(message || 'Customer deleted.');
       await loadCustomers(R().getCurrentFilters());
       await loadDueSummary();
@@ -146,8 +160,11 @@
     let confirmed = false;
     try {
       confirmed = await window.posApi.dialog.confirm(
-        'Delete ALL inactive customers? This cannot be undone.');
-    } catch (_) { confirmed = window.confirm('Delete all inactive customers?'); }
+        'Delete ALL inactive customers? This cannot be undone.'
+      );
+    } catch (_) {
+      confirmed = window.confirm('Delete all inactive customers?');
+    }
     if (!confirmed) return;
 
     try {
@@ -156,10 +173,16 @@
       // No bulk-delete IPC exists — service handles soft-delete per record
       const res = await window.posApi.customers.list('');
       const { ok } = apiOk(res, 'Failed to load customers for bulk delete.');
-      if (!ok) { R().showMsg('Could not fetch customers for deletion.', true); return; }
+      if (!ok) {
+        R().showMsg('Could not fetch customers for deletion.', true);
+        return;
+      }
 
-      const inactive = (res.customers || []).filter(c => !c.isActive);
-      if (!inactive.length) { R().showMsg('No inactive customers found.'); return; }
+      const inactive = (res.customers || []).filter((c) => !c.isActive);
+      if (!inactive.length) {
+        R().showMsg('No inactive customers found.');
+        return;
+      }
 
       let deleted = 0;
       for (const c of inactive) {
@@ -183,7 +206,10 @@
       LOG('loadCustomerDetails():', customerId);
       const res = await window.posApi.customers.details(customerId);
       const { ok, message } = apiOk(res, 'Could not load customer details.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().renderCustomerDetails(res);
     } catch (err) {
       LOG('loadCustomerDetails error:', err);
@@ -198,7 +224,10 @@
       LOG('postPayment():', customerId, payload);
       const res = await window.posApi.customers.payment(customerId, payload);
       const { ok, message } = apiOk(res, 'Payment failed.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().showMsg(message || 'Payment posted.');
       await loadCustomerDetails(customerId);
       await loadDueSummary();
@@ -218,76 +247,60 @@
     }
 
     const digits = customer.phone.replace(/\D/g, '');
-    if (!digits) { R().showMsg('Invalid phone number for WhatsApp.', true); return; }
+    if (!digits) {
+      R().showMsg('Invalid phone number for WhatsApp.', true);
+      return;
+    }
 
     const messages = {
-      ledger:   `Dear ${customer.name},\nYour ledger statement is ready. Due balance: Rs.${Number(customer.currentBalance || 0).toFixed(2)}.\nPlease contact us for details.`,
+      ledger: `Dear ${customer.name},\nYour ledger statement is ready. Due balance: Rs.${Number(customer.currentBalance || 0).toFixed(2)}.\nPlease contact us for details.`,
       invoices: `Dear ${customer.name},\nYour invoice/purchase history is available. Contact us to get a copy.`,
-      report:   `Dear ${customer.name},\nYour customer report has been prepared. Contact us for details.`,
-      due:      `Dear ${customer.name},\nReminder: You have a due balance of Rs.${Number(customer.currentBalance || 0).toFixed(2)}. Please clear at your earliest convenience.`,
-      payment:  `Dear ${customer.name},\nThank you for your recent payment. Your account has been updated.`,
-      custom:   customText || ''
+      report: `Dear ${customer.name},\nYour customer report has been prepared. Contact us for details.`,
+      due: `Dear ${customer.name},\nReminder: You have a due balance of Rs.${Number(customer.currentBalance || 0).toFixed(2)}. Please clear at your earliest convenience.`,
+      payment: `Dear ${customer.name},\nThank you for your recent payment. Your account has been updated.`,
+      custom: customText || '',
     };
 
     const text = messages[action] || '';
-    if (!text.trim()) { R().showMsg('Message is empty.', true); return; }
+    if (!text.trim()) {
+      R().showMsg('Message is empty.', true);
+      return;
+    }
 
     try {
       LOG('sendWhatsApp():', customer.name, action);
       await window.posApi.shell.openExternal(
-        `https://wa.me/${digits}?text=${encodeURIComponent(text)}`);
+        `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+      );
       R().closeWhatsAppModal();
-    } catch (_) { /* silent — external URL open failure is non-critical */ }
+    } catch (_) {
+      /* silent — external URL open failure is non-critical */
+    }
   }
 
   // ── Import / Export ───────────────────────────────────────────────────────
 
   async function handleToolAction(action) {
-    try {
-      if (action === 'import') {
-        LOG('tool: import customers');
-        if (!window.posApi.dataTools?.importCustomers) {
-          R().showMsg('Customer import is not yet available.'); return;
-        }
-        const res = await window.posApi.dataTools.importCustomers();
-        const { ok, message } = apiOk(res, 'Import failed.');
-        if (res?.canceled) return;
-        if (ok) { R().showMsg(message || 'Import complete.'); await loadCustomers(R().getCurrentFilters()); await loadDueSummary(); }
-        else     R().showMsg(message, true);
-      } else if (action === 'excel') {
-        LOG('tool: export customers');
-        if (!window.posApi.dataTools?.exportCustomers) {
-          R().showMsg('Customer export is not yet available.'); return;
-        }
-        const res = await window.posApi.dataTools.exportCustomers();
-        const { ok, message } = apiOk(res, 'Export failed.');
-        if (res?.canceled) return;
-        if (ok) R().showMsg(message || 'Export complete.');
-        else    R().showMsg(message, true);
-      } else if (action === 'print') {
-        LOG('tool: print customers');
-        if (!window.posApi.printing?.printCustomerList) {
-          R().showMsg('Customer print is not yet available.'); return;
-        }
-        const res = await window.posApi.printing.printCustomerList();
-        const { ok, message } = apiOk(res, 'Print failed.');
-        if (ok) R().showMsg('Print sent.');
-        else    R().showMsg(message, true);
-      }
-    } catch (err) {
-      LOG('handleToolAction error:', action, err);
-      R().showMsg(`${action} failed. Please try again.`, true);
+    if (action === 'import') {
+      R().showMsg('Customer import is coming soon. It is not implemented yet.', true);
+    } else if (action === 'excel') {
+      R().showMsg('Customer export is coming soon. It is not implemented yet.', true);
+    } else if (action === 'print') {
+      R().showMsg('Customer print is coming soon. It is not implemented yet.', true);
     }
   }
 
   // ── Public surface ────────────────────────────────────────────────────────
 
   window.CustomersApi = {
-    loadCustomers, loadDueSummary,
-    saveCustomer, deleteCustomer, deleteInactiveCustomers,
+    loadCustomers,
+    loadDueSummary,
+    saveCustomer,
+    deleteCustomer,
+    deleteInactiveCustomers,
     loadCustomerDetails,
     postPayment,
     sendWhatsApp,
-    handleToolAction
+    handleToolAction,
   };
 })();
