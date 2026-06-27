@@ -1,6 +1,4 @@
 <section class="epos-suppliers-page">
-  <p id="supplierPageMessage" class="epos-suppliers-message hidden"></p>
-
   <div class="epos-suppliers-stats">
     <article class="blue"><span>SP</span><div><p>Total Suppliers</p><strong id="supplierStatTotal">0</strong><small>Active supplier records</small></div></article>
     <article class="green"><span>PO</span><div><p>Total Purchases</p><strong id="supplierStatPurchases">Rs. 0.00</strong><small>All purchase history</small></div></article>
@@ -30,13 +28,14 @@
     <button id="supplierResetFilterButton" type="button">Reset</button>
   </div>
 
+  <p id="supplierPageMessage" class="epos-suppliers-message hidden"></p>
+
   <div class="epos-suppliers-workspace">
     <main class="epos-suppliers-main">
       <div class="epos-suppliers-table-wrap">
         <table class="epos-suppliers-table">
           <thead>
             <tr>
-              <th class="epos-supplier-check-col"><input type="checkbox" id="supplierSelectAll" title="Select all" /></th>
               <th>#</th>
               <th>Supplier Name</th>
               <th>Contact</th>
@@ -59,7 +58,7 @@
 
   <div class="epos-suppliers-bottom-actions">
     <button id="supplierBottomNewButton" type="button" class="green">New Supplier</button>
-    <button id="supplierNewPurchaseButton" type="button" class="blue">New Purchase</button>
+    <button id="supplierNewPurchaseButton" type="button" class="blue navLink" data-route="/purchases">New Purchase</button>
     <button id="supplierBottomPaymentButton" type="button" class="purple">Make Payment</button>
     <button id="supplierStatementButton" type="button" class="orange">Suppliers Statement</button>
     <button id="supplierAgingButton" type="button" class="teal">Aging Report</button>

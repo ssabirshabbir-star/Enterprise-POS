@@ -1,4 +1,9 @@
 @layer components {
+  .epos-suppliers-page,
+  .epos-suppliers-page * {
+    box-sizing: border-box;
+  }
+
   .epos-suppliers-page {
     --supplier-blue: #0968f5;
     --supplier-green: #06a61a;
@@ -7,28 +12,33 @@
     --supplier-teal: #089c95;
     --supplier-red: #ef233c;
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     height: 100%;
     min-height: 0;
-    gap: 6px;
+    gap: 5px;
     overflow: hidden;
     background: #f8fbff;
     color: #0f1f3d;
-    padding: 2px 0 12px 12px;
-  }
-
-  /* These children need right padding; the workspace/table should reach the edge */
-  .epos-suppliers-stats,
-  .epos-suppliers-tabs,
-  .epos-suppliers-filters,
-  .epos-suppliers-bottom-actions {
-    padding-right: 12px;
+    max-height: 100%;
+    padding: 2px 0 8px 12px;
   }
 
   #suppliersModule:has(.epos-suppliers-page) {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     max-width: none;
     height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .epos-suppliers-stats,
+  .epos-suppliers-tabs,
+  .epos-suppliers-filters,
+  .epos-suppliers-message,
+  .epos-suppliers-bottom-actions {
+    padding-right: 12px;
   }
 
   #dashboard .epos-suppliers-main {
@@ -75,9 +85,24 @@
   .epos-suppliers-message {
     margin: 0;
     border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 5px 10px;
+    font-size: 11px;
     font-weight: 800;
+    line-height: 16px;
+    max-height: 28px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+    z-index: 4;
+  }
+
+  .epos-suppliers-message.hidden {
+    display: none !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    margin: 0 !important;
   }
 
   .epos-suppliers-stats {
@@ -188,10 +213,11 @@
   .epos-suppliers-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 0;
     height: 100%;
     min-height: 0;
     width: 100%;
+    max-width: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -220,15 +246,16 @@
     width: 100% !important;
     max-width: none !important;
     height: 100%;
+    max-height: 100%;
     min-height: 0;
     margin: 0;
     padding: 0 !important;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+    border: 1px solid #e6edf7;
+    border-radius: 8px;
+    background: #ffffff;
     box-shadow: none;
+    overflow-x: auto;
     overflow-y: auto;
-    overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: #64748b #edf2f7;
     -ms-overflow-style: none;
@@ -289,27 +316,25 @@
   }
 
   .epos-suppliers-table th:nth-child(1),
-  .epos-suppliers-table td:nth-child(1) { width: 36px; text-align: center; padding: 4px 4px !important; }
+  .epos-suppliers-table td:nth-child(1) { width: 42px; text-align: center; padding: 4px 6px !important; }
   .epos-suppliers-table th:nth-child(2),
-  .epos-suppliers-table td:nth-child(2) { width: 34px; }
+  .epos-suppliers-table td:nth-child(2) { width: 18%; }
   .epos-suppliers-table th:nth-child(3),
-  .epos-suppliers-table td:nth-child(3) { width: 18%; }
+  .epos-suppliers-table td:nth-child(3) { width: 12%; }
   .epos-suppliers-table th:nth-child(4),
-  .epos-suppliers-table td:nth-child(4) { width: 14%; }
+  .epos-suppliers-table td:nth-child(4) { width: 9%; }
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7),
+  .epos-suppliers-table td:nth-child(7) { width: 9%; }
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) { width: 10%; }
   .epos-suppliers-table th:nth-child(9),
-  .epos-suppliers-table td:nth-child(9) { width: 11%; }
+  .epos-suppliers-table td:nth-child(9) { width: 8%; }
   .epos-suppliers-table th:nth-child(10),
-  .epos-suppliers-table td:nth-child(10) { width: 7%; }
-  .epos-suppliers-table th:nth-child(11),
-  .epos-suppliers-table td:nth-child(11) { width: 120px; min-width: 120px; }
+  .epos-suppliers-table td:nth-child(10) { width: 180px; min-width: 180px; }
 
   .epos-suppliers-table td {
     border-bottom: 1px solid #e8eef7;
@@ -317,6 +342,8 @@
     vertical-align: middle;
     color: #10203f;
     font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .epos-suppliers-table tbody tr:hover td {
@@ -352,13 +379,17 @@
     font-weight: 950;
   }
 
+  .epos-suppliers-table th:nth-child(4),
+  .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table th:nth-child(8),
+  .epos-suppliers-table td:nth-child(4),
+  .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table td:nth-child(7),
+  .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) {
-    text-align: center;
+    text-align: right;
   }
   .epos-supplier-status { color: #009d24; font-weight: 950; }
   .epos-supplier-status.inactive,
@@ -375,21 +406,23 @@
     justify-content: center;
     gap: 4px;
     white-space: nowrap;
+    overflow: visible !important;
   }
 
   .epos-suppliers-row-actions button {
-    display: inline-grid;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     place-items: center;
-    flex: 0 0 26px;
-    width: 26px;
-    min-width: 26px;
-    height: 26px;
-    min-height: 26px;
-    aspect-ratio: 1 / 1;
+    flex: 0 0 auto;
+    min-width: 30px;
+    height: 24px;
+    min-height: 24px;
+    padding: 0 5px;
     border: 0;
-    border-radius: 7px;
+    border-radius: 6px;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 950;
     line-height: 1;
     box-shadow: 0 4px 8px rgb(15 31 61 / 0.14);
@@ -404,7 +437,8 @@
   .epos-suppliers-row-actions button:nth-child(1) { background: #005ff5; }
   .epos-suppliers-row-actions button:nth-child(2) { background: #ffb000; }
   .epos-suppliers-row-actions button:nth-child(3) { background: #009f58; }
-  .epos-suppliers-row-actions button:nth-child(4) { background: #ef233c; }
+  .epos-suppliers-row-actions button:nth-child(4) { background: #3b82f6; }
+  .epos-suppliers-row-actions button:nth-child(5) { background: #ef233c; }
 
   .epos-suppliers-detail {
     position: fixed;
@@ -657,13 +691,22 @@
     flex: 0 0 auto;
     width: 100%;
     align-self: end;
-    margin-top: auto;
-    gap: 14px;
+    margin-top: 0;
+    gap: 8px;
+    min-height: 0;
+    height: 34px;
+    overflow: hidden;
+    position: relative;
+    z-index: 5;
+    background: #f8fbff;
   }
 
   .epos-suppliers-bottom-actions button {
-    min-height: 48px;
-    font-size: 14px;
+    min-height: 34px;
+    height: 34px;
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 1.1;
   }
 
   .epos-suppliers-bottom-actions .green { background: #00a522; }
@@ -827,30 +870,23 @@
   }
 
   @media (max-width: 1366px) {
-    .epos-suppliers-page { gap: 8px; padding: 10px; }
+    .epos-suppliers-page { gap: 5px; padding: 6px 0 6px 10px; }
     .epos-suppliers-stats { gap: 10px; }
     .epos-suppliers-stats article { min-height: 60px; padding: 8px 9px; }
     .epos-suppliers-stats article > span { width: 40px; height: 40px; font-size: 16px; }
     .epos-suppliers-stats strong { font-size: 14px; }
-    .epos-suppliers-workspace { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .epos-suppliers-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .epos-suppliers-stats,
+    .epos-suppliers-tabs,
+    .epos-suppliers-filters,
+    .epos-suppliers-message,
+    .epos-suppliers-bottom-actions { padding-right: 10px; }
     .epos-suppliers-filters { grid-template-columns: minmax(240px, 1.35fr) repeat(4, minmax(112px, 0.7fr)) 72px; }
     .epos-suppliers-bottom-actions { gap: 8px; }
-    .epos-suppliers-bottom-actions button { min-height: 42px; padding-inline: 8px; font-size: 11px; }
+    .epos-suppliers-bottom-actions button { min-height: 34px; height: 34px; padding-inline: 8px; font-size: 11px; }
   }
 
   /* ── Checkbox selection column ───────────────────────────────────── */
-  .epos-supplier-check-col {
-    width: 36px !important;
-    text-align: center !important;
-  }
-
-  .epos-suppliers-table th.epos-supplier-check-col,
-  .epos-suppliers-table td.epos-supplier-check-col {
-    width: 36px;
-    text-align: center;
-    padding: 4px 6px !important;
-  }
-
   .epos-suppliers-table tbody tr.epos-supplier-selected td {
     background: #eef5ff !important;
   }
