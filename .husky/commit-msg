@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+# .husky/commit-msg
+# Validates commit message format (conventional commits).
+# Format: type(scope): description
+# Types: feat, fix, chore, docs, style, refactor, test, build, ci
+#
+# Examples:
+#   feat(billing): add multi-cart support
+#   fix(auth): correct token refresh race condition
+#   chore(deps): upgrade typescript to 5.8
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Allow merge commits and fixup commits through unchanged
+if echo "$COMMIT_MSG" | grep -qE "^(Merge|Revert|fixup!|squash!)"; then
+  exit 0
+fi
+
+# Validate conventional commit format
+if ! echo "$COMMIT_MSG" | grep -qE "^(feat|fix|chore|docs|style|refactor|test|build|ci|perf|revert)(\(.+\))?: .{1,100}"; then
+  echo ""
+  echo "  ✗ Invalid commit message format."
+  echo ""
+  echo "  Expected: type(scope): description"
+  echo "  Example:  feat(billing): add multi-cart support"
+  echo ""
+  echo "  Types: feat, fix, chore, docs, style, refactor, test, build, ci, perf, revert"
+  echo ""
+  exit 1
+fi

@@ -1,0 +1,201 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+//
+// Enterprise POS — Prisma Schema (Foundation Layer)
+//
+// PURPOSE: This schema mirrors the PostgreSQL database that the existing
+//          raw `pg` queries already manage via src/main/database/schema.js.
+//
+//          It is declared here to:
+//          1. Provide type-safe DB access for NEW TypeScript modules only
+//          2. Allow gradual migration away from raw SQL
+//          3. Enable Prisma Studio for DB inspection during development
+//
+// IMPORTANT:
+//   - Do NOT run `prisma migrate deploy` against an existing production DB
+//     without a proper migration review.
+//   - The existing src/main/database/schema.js remains the authoritative
+//     schema owner for now. Prisma is additive.
+//   - Run `npx prisma db pull` to introspect your actual DB into this file.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Roles ─────────────────────────────────────────────────────────────────────
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(40)
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id                   Int       @id @default(autoincrement())
+  username             String    @unique @db.VarChar(80)
+  email                String    @unique @db.VarChar(180)
+  fullName             String    @map("full_name") @db.VarChar(140)
+  phone                String?   @db.VarChar(60)
+  passwordHash         String    @map("password_hash")
+  roleId               Int       @map("role_id")
+  isActive             Boolean   @default(true) @map("is_active")
+  failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
+  lockedUntil          DateTime? @map("locked_until")
+  passwordChangedAt    DateTime? @map("password_changed_at")
+  lastLoginAt          DateTime? @map("last_login_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  role         Role           @relation(fields: [roleId], references: [id])
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// ── Auth tokens ───────────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ── Permissions ───────────────────────────────────────────────────────────────
+
+model Permission {
+  id            Int      @id @default(autoincrement())
+  permissionKey String   @unique @map("permission_key") @db.VarChar(120)
+  category      String   @db.VarChar(60)
+  label         String   @db.VarChar(160)
+  description   String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int      @map("role_id")
+  permissionId Int      @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ── Products & Catalog ────────────────────────────────────────────────────────
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(120)
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(120)
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model Unit {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(80)
+  shortName String?   @map("short_name") @db.VarChar(20)
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("units")
+}
+
+model Product {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(200)
+  sku            String?   @unique @db.VarChar(80)
+  barcode        String?   @unique @db.VarChar(80)
+  categoryId     Int?      @map("category_id")
+  brandId        Int?      @map("brand_id")
+  unitId         Int?      @map("unit_id")
+  costPrice      Decimal   @default(0) @map("cost_price") @db.Decimal(12, 2)
+  retailPrice    Decimal   @default(0) @map("retail_price") @db.Decimal(12, 2)
+  wholesalePrice Decimal   @default(0) @map("wholesale_price") @db.Decimal(12, 2)
+  taxRate        Decimal   @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  stockQty       Decimal   @default(0) @map("stock_qty") @db.Decimal(12, 3)
+  reorderLevel   Decimal   @default(0) @map("reorder_level") @db.Decimal(12, 3)
+  imagePath      String?   @map("image_path")
+  isActive       Boolean   @default(true) @map("is_active")
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  category Category? @relation(fields: [categoryId], references: [id])
+  brand    Brand?    @relation(fields: [brandId], references: [id])
+  unit     Unit?     @relation(fields: [unitId], references: [id])
+
+  @@map("products")
+}
+
+// ── Activity Logs ─────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  action    String   @db.VarChar(120)
+  status    String   @db.VarChar(40)
+  message   String?
+  metadata  Json?    @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
+}

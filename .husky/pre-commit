@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# .husky/pre-commit
+# Runs lint-staged on staged files before every commit.
+# TypeScript files: ESLint (strict, zero warnings) + Prettier
+# JS/JSON/MD files: Prettier only (non-breaking for existing modules)
+
+npx lint-staged

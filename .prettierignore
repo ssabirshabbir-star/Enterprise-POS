@@ -1,0 +1,6 @@
+node_modules/
+dist/
+release/
+_archive/
+*.log
+src/renderer/styles/output.css
