@@ -26,7 +26,9 @@
   /** Shorthand — all render/display operations go through ProductsRenderer */
   const R = () => window.ProductsRenderer;
 
-  function $id(id) { return document.getElementById(id); }
+  function $id(id) {
+    return document.getElementById(id);
+  }
 
   // ── Internal helpers (matches billing.api.js pattern exactly) ─────────────
 
@@ -55,7 +57,10 @@
       LOG('loadProducts()', filters);
       const res = await window.posApi.products.list(filters || {});
       const { ok, message } = apiOk(res, 'Failed to load products.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().setCanWrite(res.permissions?.canWrite ?? false);
       R().renderProductTable(res.products || []);
       LOG('loadProducts() — received', (res.products || []).length, 'products');
@@ -82,21 +87,21 @@
   async function saveProduct(e) {
     e.preventDefault();
     const productId = $id('productId')?.value;
-    const isEdit    = Boolean(productId);
+    const isEdit = Boolean(productId);
 
     const payload = {
-      name:          ($id('productName')?.value      || '').trim(),
-      sku:           ($id('productSku')?.value       || '').trim() || undefined,
-      barcode:       ($id('productBarcode')?.value   || '').trim() || undefined,
-      categoryId:    Number($id('productCategory')?.value) || null,
-      brandId:       Number($id('productBrand')?.value)    || null,
-      unitId:        Number($id('productUnit')?.value)     || null,
-      purchasePrice: parseFloat($id('purchasePrice')?.value  || '0') || 0,
-      salePrice:     parseFloat($id('salePrice')?.value      || '0') || 0,
-      wholesalePrice:parseFloat($id('wholesalePrice')?.value || '0') || 0,
-      minStockLevel: parseFloat($id('minStockLevel')?.value  || '0') || 0,
-      currentStock:  parseFloat($id('currentStock')?.value   || '0') || 0,
-      isActive:      $id('productActive')?.checked ?? true
+      name: ($id('productName')?.value || '').trim(),
+      sku: ($id('productSku')?.value || '').trim() || undefined,
+      barcode: ($id('productBarcode')?.value || '').trim() || undefined,
+      categoryId: Number($id('productCategory')?.value) || null,
+      brandId: Number($id('productBrand')?.value) || null,
+      unitId: Number($id('productUnit')?.value) || null,
+      purchasePrice: parseFloat($id('purchasePrice')?.value || '0') || 0,
+      salePrice: parseFloat($id('salePrice')?.value || '0') || 0,
+      wholesalePrice: parseFloat($id('wholesalePrice')?.value || '0') || 0,
+      minStockLevel: parseFloat($id('minStockLevel')?.value || '0') || 0,
+      currentStock: parseFloat($id('currentStock')?.value || '0') || 0,
+      isActive: $id('productActive')?.checked ?? true,
     };
 
     // No renderer-side validation — product.service.js enforces all rules
@@ -111,7 +116,10 @@
         : await window.posApi.products.create(payload);
 
       const { ok, message } = apiOk(res, isEdit ? 'Update failed.' : 'Create failed.');
-      if (!ok) { R().showFormMsg(message, true); return; }
+      if (!ok) {
+        R().showFormMsg(message, true);
+        return;
+      }
 
       LOG(isEdit ? 'Product updated:' : 'Product created:', res.product?.name);
       R().showMsg(message || (isEdit ? 'Product updated.' : 'Product saved.'));
@@ -131,15 +139,21 @@
     let confirmed = false;
     try {
       confirmed = await window.posApi.dialog.confirm(
-        `Delete "${productName}"? This action cannot be undone.`);
-    } catch (_) { confirmed = window.confirm(`Delete "${productName}"?`); }
+        `Delete "${productName}"? This action cannot be undone.`
+      );
+    } catch (_) {
+      confirmed = window.confirm(`Delete "${productName}"?`);
+    }
     if (!confirmed) return;
 
     try {
       LOG('deleteProduct():', productId);
       const res = await window.posApi.products.delete(productId);
       const { ok, message } = apiOk(res, 'Delete failed.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().showMsg(message || 'Product deleted.');
       await loadProducts(R().getCurrentFilters());
       await loadStats();
@@ -171,13 +185,16 @@
 
   async function printBarcode() {
     const productId = $id('productId')?.value;
-    if (!productId) { R().showMsg('Save the product first to print a barcode.', true); return; }
+    if (!productId) {
+      R().showMsg('Save the product first to print a barcode.', true);
+      return;
+    }
     try {
       LOG('printBarcode():', productId);
       const res = await window.posApi.printing?.printBarcode?.({ productId: Number(productId) });
       const { ok, message } = apiOk(res, 'Barcode print failed.');
       if (ok) R().showMsg('Barcode sent to printer.');
-      else    R().showMsg(message, true);
+      else R().showMsg(message, true);
     } catch (err) {
       LOG('printBarcode error:', err);
       R().showMsg('Barcode print failed. Check printer settings.', true);
@@ -192,12 +209,12 @@
       const [cats, brands, units] = await Promise.all([
         window.posApi.catalog.list('categories'),
         window.posApi.catalog.list('brands'),
-        window.posApi.catalog.list('units')
+        window.posApi.catalog.list('units'),
       ]);
       const catalog = {
-        categories: cats?.items  || [],
-        brands:     brands?.items || [],
-        units:      units?.items  || []
+        categories: cats?.items || [],
+        brands: brands?.items || [],
+        units: units?.items || [],
       };
       R().renderCatalogDropdowns(catalog);
       R().renderCatalogLists(catalog);
@@ -210,25 +227,28 @@
 
   async function saveCatalogItem(e) {
     e.preventDefault();
-    const form   = e.target;
-    const type   = form.dataset.type;
+    const form = e.target;
+    const type = form.dataset.type;
     const nameEl = form.querySelector('input[name="name"]');
     const descEl = form.querySelector('input[name="description"]');
-    const shortEl= form.querySelector('input[name="shortName"]');
+    const shortEl = form.querySelector('input[name="shortName"]');
     const submitBtn = form.querySelector('[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
 
     const payload = {
-      name:        (nameEl?.value  || '').trim(),
-      description: (descEl?.value  || '').trim() || undefined,
-      shortName:   (shortEl?.value || '').trim() || undefined
+      name: (nameEl?.value || '').trim(),
+      description: (descEl?.value || '').trim() || undefined,
+      shortName: (shortEl?.value || '').trim() || undefined,
     };
 
     try {
       LOG('saveCatalogItem():', type, payload.name);
       const res = await window.posApi.catalog.create(type, payload);
       const { ok, message } = apiOk(res, `Failed to save ${type}.`);
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().showMsg(message || `${type} saved.`);
       form.reset();
       await loadCatalog(); // refresh all catalog dropdowns + lists
@@ -244,14 +264,19 @@
     let confirmed = false;
     try {
       confirmed = await window.posApi.dialog.confirm(`Delete "${name}"?`);
-    } catch (_) { confirmed = window.confirm(`Delete "${name}"?`); }
+    } catch (_) {
+      confirmed = window.confirm(`Delete "${name}"?`);
+    }
     if (!confirmed) return;
 
     try {
       LOG('deleteCatalogItem():', type, id);
       const res = await window.posApi.catalog.delete(type, id);
       const { ok, message } = apiOk(res, 'Delete failed.');
-      if (!ok) { R().showMsg(message, true); return; }
+      if (!ok) {
+        R().showMsg(message, true);
+        return;
+      }
       R().showMsg(message || 'Item deleted.');
       await loadCatalog();
     } catch (err) {
@@ -263,34 +288,25 @@
   // ── Excel import / export (shell integration) ─────────────────────────────
 
   async function handleToolAction(action) {
-    try {
-      if (action === 'import') {
-        LOG('tool: import products');
-        const res = await window.posApi.dataTools?.importProducts?.();
-        const { ok, message } = apiOk(res, 'Import failed.');
-        if (ok) { R().showMsg(message || 'Import complete.'); await loadProducts(R().getCurrentFilters()); await loadStats(); }
-        else     R().showMsg(message, true);
-      } else if (action === 'excel') {
-        LOG('tool: export products');
-        const res = await window.posApi.dataTools?.exportProducts?.();
-        const { ok, message } = apiOk(res, 'Export failed.');
-        if (res?.canceled) return;
-        if (ok) R().showMsg(message || 'Export complete.');
-        else    R().showMsg(message, true);
-      }
-    } catch (err) {
-      LOG('handleToolAction error:', action, err);
-      R().showMsg(`${action === 'import' ? 'Import' : 'Export'} failed. Please try again.`, true);
+    if (action === 'import') {
+      R().showMsg('Product import is coming soon. It is not implemented yet.', true);
+    } else if (action === 'excel') {
+      R().showMsg('Product export is coming soon. It is not implemented yet.', true);
     }
   }
 
   // ── Public surface ────────────────────────────────────────────────────────
 
   window.ProductsApi = {
-    loadProducts, loadStats,
-    saveProduct, deleteProduct, loadProductForEdit,
+    loadProducts,
+    loadStats,
+    saveProduct,
+    deleteProduct,
+    loadProductForEdit,
     printBarcode,
-    loadCatalog, saveCatalogItem, deleteCatalogItem,
-    handleToolAction
+    loadCatalog,
+    saveCatalogItem,
+    deleteCatalogItem,
+    handleToolAction,
   };
 })();

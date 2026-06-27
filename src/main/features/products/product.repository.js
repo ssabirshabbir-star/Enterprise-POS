@@ -24,7 +24,7 @@ function mapProduct(row) {
     currentStock: Number(row.current_stock),
     isActive: row.is_active,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
   };
 }
 
@@ -41,9 +41,24 @@ const productSelect = `
   LEFT JOIN units ON units.id = products.unit_id
 `;
 
-async function listProducts({ search = '', limit = 100, offset = 0 }) {
+async function listProducts({
+  id = null,
+  search = '',
+  category = null,
+  brand = null,
+  unit = null,
+  stockStatus = '',
+  tab = '',
+  limit = 100,
+  offset = 0,
+}) {
   const params = [];
   let where = 'WHERE products.deleted_at IS NULL';
+
+  if (id) {
+    params.push(id);
+    where += ` AND products.id = $${params.length}`;
+  }
 
   if (search) {
     params.push(`%${search.toLowerCase()}%`);
@@ -53,6 +68,37 @@ async function listProducts({ search = '', limit = 100, offset = 0 }) {
       OR LOWER(products.barcode) LIKE $${params.length}
       OR products.id::text LIKE $${params.length}
     )`;
+  }
+
+  if (category) {
+    params.push(category);
+    where += ` AND products.category_id = $${params.length}`;
+  }
+
+  if (brand) {
+    params.push(brand);
+    where += ` AND products.brand_id = $${params.length}`;
+  }
+
+  if (unit) {
+    params.push(unit);
+    where += ` AND products.unit_id = $${params.length}`;
+  }
+
+  const stockFilter = stockStatus || tab;
+  if (stockFilter === 'in') {
+    where += ' AND products.current_stock > 0';
+  } else if (stockFilter === 'low') {
+    where +=
+      ' AND products.current_stock > 0 AND products.current_stock <= products.min_stock_level';
+  } else if (stockFilter === 'out') {
+    where += ' AND products.current_stock <= 0';
+  }
+
+  if (tab === 'active') {
+    where += ' AND products.is_active = TRUE';
+  } else if (tab === 'inactive') {
+    where += ' AND products.is_active = FALSE';
   }
 
   params.push(limit, offset);
@@ -103,7 +149,9 @@ async function skuOrBarcodeExists({ sku, barcode, exceptId = null }) {
 
 async function createProduct(payload, actorId) {
   return withTransaction(async (client) => {
-    const warehouseResult = await client.query('SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1');
+    const warehouseResult = await client.query(
+      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+    );
     const warehouseId = warehouseResult.rows[0]?.id;
     const result = await client.query(
       `
@@ -127,7 +175,7 @@ async function createProduct(payload, actorId) {
         payload.wholesalePrice,
         payload.minStockLevel,
         payload.currentStock,
-        payload.isActive
+        payload.isActive,
       ]
     );
 
@@ -164,9 +212,14 @@ async function createProduct(payload, actorId) {
 
 async function updateProduct(productId, payload, actorId) {
   return withTransaction(async (client) => {
-    const warehouseResult = await client.query('SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1');
+    const warehouseResult = await client.query(
+      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+    );
     const warehouseId = warehouseResult.rows[0]?.id;
-    const previous = await client.query('SELECT current_stock FROM products WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [productId]);
+    const previous = await client.query(
+      'SELECT current_stock FROM products WHERE id = $1 AND deleted_at IS NULL LIMIT 1',
+      [productId]
+    );
     const previousStock = Number(previous.rows[0]?.current_stock ?? 0);
 
     const result = await client.query(
@@ -202,7 +255,7 @@ async function updateProduct(productId, payload, actorId) {
         payload.wholesalePrice,
         payload.minStockLevel,
         payload.currentStock,
-        payload.isActive
+        payload.isActive,
       ]
     );
 
@@ -227,7 +280,14 @@ async function updateProduct(productId, payload, actorId) {
           )
           VALUES ($1, $2, 'MANUAL_ADJUSTMENT', $3, $4, $5, 'product.update', 'Product form stock edit', 'Stock updated from product form', $6, $6)
         `,
-        [productId, warehouseId, Number(payload.currentStock) - previousStock, previousStock, payload.currentStock, actorId]
+        [
+          productId,
+          warehouseId,
+          Number(payload.currentStock) - previousStock,
+          previousStock,
+          payload.currentStock,
+          actorId,
+        ]
       );
     } else if (result.rowCount > 0 && warehouseId) {
       await client.query(
@@ -241,8 +301,24 @@ async function updateProduct(productId, payload, actorId) {
 }
 
 async function countProducts() {
-  const result = await getPool().query('SELECT COUNT(*)::int AS count FROM products WHERE deleted_at IS NULL');
-  return result.rows[0]?.count || 0;
+  const result = await getPool().query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE is_active = TRUE)::int AS active,
+      COUNT(*) FILTER (WHERE current_stock > 0 AND current_stock <= min_stock_level)::int AS low_stock,
+      COUNT(*) FILTER (WHERE current_stock <= 0)::int AS out_of_stock,
+      COALESCE(SUM(sale_price * current_stock), 0)::numeric AS total_value
+    FROM products
+    WHERE deleted_at IS NULL
+  `);
+  const row = result.rows[0] || {};
+  return {
+    total: Number(row.total || 0),
+    active: Number(row.active || 0),
+    lowStock: Number(row.low_stock || 0),
+    outOfStock: Number(row.out_of_stock || 0),
+    totalValue: Number(row.total_value || 0),
+  };
 }
 
 async function softDeleteProduct(productId) {
@@ -266,5 +342,5 @@ module.exports = {
   listProducts,
   skuOrBarcodeExists,
   softDeleteProduct,
-  updateProduct
+  updateProduct,
 };

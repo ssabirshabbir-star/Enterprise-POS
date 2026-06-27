@@ -14,7 +14,11 @@ async function requireProductAccess(mode) {
   const profile = profileResult.profile;
   const allowed = mode === 'write' ? canWriteProducts(profile.role) : canReadProducts(profile.role);
   if (!allowed) {
-    return { ok: false, status: 'forbidden', message: 'You do not have permission for this product action.' };
+    return {
+      ok: false,
+      status: 'forbidden',
+      message: 'You do not have permission for this product action.',
+    };
   }
 
   return { ok: true, profile };
@@ -76,10 +80,26 @@ async function listProducts(filters = {}) {
     return access;
   }
 
+  const id = parseId(filters.id);
   const search = String(filters.search || '').trim();
+  const category = parseId(filters.category);
+  const brand = parseId(filters.brand);
+  const unit = parseId(filters.unit);
+  const stockStatus = String(filters.stockStatus || '').trim();
+  const tab = String(filters.tab || '').trim();
   const limit = Math.min(Math.max(Number(filters.limit || 100), 1), 200);
   const offset = Math.max(Number(filters.offset || 0), 0);
-  const products = await productRepository.listProducts({ search, limit, offset });
+  const products = await productRepository.listProducts({
+    id,
+    search,
+    category,
+    brand,
+    unit,
+    stockStatus,
+    tab,
+    limit,
+    offset,
+  });
   return { ok: true, products, permissions: { canWrite: canWriteProducts(access.profile.role) } };
 }
 
@@ -136,7 +156,7 @@ async function createProduct(payload) {
     action: 'product.create',
     status: 'success',
     message: 'Product created',
-    metadata: { productId, sku: product.sku, barcode: product.barcode }
+    metadata: { productId, sku: product.sku, barcode: product.barcode },
   });
 
   return { ok: true, product, message: 'Product saved successfully.' };
@@ -168,7 +188,11 @@ async function updateProduct(productId, payload) {
     return codes;
   }
 
-  const updated = await productRepository.updateProduct(id, { ...validation.value, sku: codes.sku, barcode: codes.barcode }, access.profile.id);
+  const updated = await productRepository.updateProduct(
+    id,
+    { ...validation.value, sku: codes.sku, barcode: codes.barcode },
+    access.profile.id
+  );
   if (!updated) {
     return { ok: false, message: 'Product could not be updated.' };
   }
@@ -179,7 +203,7 @@ async function updateProduct(productId, payload) {
     action: 'product.update',
     status: 'success',
     message: 'Product updated',
-    metadata: { productId: id, sku: product.sku, barcode: product.barcode }
+    metadata: { productId: id, sku: product.sku, barcode: product.barcode },
   });
 
   return { ok: true, product, message: 'Product updated successfully.' };
@@ -207,7 +231,7 @@ async function deleteProduct(productId) {
     action: 'product.delete',
     status: 'success',
     message: 'Product soft deleted',
-    metadata: { productId: id, sku: product.sku, barcode: product.barcode }
+    metadata: { productId: id, sku: product.sku, barcode: product.barcode },
   });
 
   return { ok: true, message: 'Product deleted successfully.' };
@@ -241,7 +265,7 @@ async function createCatalog(type, payload) {
       action: `${type}.create`,
       status: 'success',
       message: `${label} created`,
-      metadata: { id: item.id, name: item.name }
+      metadata: { id: item.id, name: item.name },
     });
     return { ok: true, item, message: `${label} saved successfully.` };
   } catch (error) {
@@ -279,7 +303,7 @@ async function updateCatalog(type, id, payload) {
       action: `${type}.update`,
       status: 'success',
       message: `${label} updated`,
-      metadata: { id: item.id, name: item.name }
+      metadata: { id: item.id, name: item.name },
     });
     return { ok: true, item, message: `${label} updated successfully.` };
   } catch (error) {
@@ -311,7 +335,7 @@ async function deleteCatalog(type, id) {
     action: `${type}.delete`,
     status: 'success',
     message: 'Catalog item soft deleted',
-    metadata: { id: catalogId }
+    metadata: { id: catalogId },
   });
 
   return { ok: true, message: 'Catalog item deleted successfully.' };
@@ -327,5 +351,5 @@ module.exports = {
   getProductStats,
   lookupBarcode,
   updateCatalog,
-  updateProduct
+  updateProduct,
 };
