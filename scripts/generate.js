@@ -1,3 +1,5 @@
 #!/usr/bin/env node
 
-console.log('Generate step complete: this project uses PostgreSQL schema bootstrap and does not require Prisma Client generation.');
+console.log(
+  'Generate step complete: approved stack uses PostgreSQL via pg and does not require a code-generation step.'
+);

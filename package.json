@@ -8,37 +8,29 @@
     "build:css": "tailwindcss -i ./src/renderer/styles/input.css -o ./src/renderer/styles/output.css --minify",
     "watch:css": "tailwindcss -i ./src/renderer/styles/input.css -o ./src/renderer/styles/output.css --watch",
     "typecheck": "node scripts/type-check.js",
-    "typecheck:ts": "node ./node_modules/typescript/bin/tsc --noEmit",
     "generate": "node scripts/generate.js",
     "db:health": "node scripts/db-health.js",
     "db:migrate": "node scripts/db-migrate.js",
     "db:first-run": "node scripts/first-run-setup.js",
-    "db:pull": "node node_modules/prisma/build/index.js db pull",
-    "db:studio": "node node_modules/prisma/build/index.js studio",
-    "prisma:generate": "node node_modules/prisma/build/index.js generate",
     "seed:admin": "node scripts/seed-admin.js",
     "seed:demo": "node scripts/seed-demo.js",
     "seed:grocery": "node scripts/seed-grocery.js",
     "seed:suppliers": "node scripts/seed-suppliers.js",
     "smoke:auth": "node scripts/auth-smoke.js",
     "prestart": "npm run build:css",
-    "start": "electron .",
+    "start": "node scripts/start-electron.js",
     "dev": "concurrently \"npm:watch:css\" \"wait-on ./src/renderer/styles/output.css && electron .\"",
     "build:desktop": "npm run build && electron-builder --dir",
-    "build:renderer": "node node_modules/vite/bin/vite.js build",
     "package:win": "npm run build && electron-builder --win nsis portable",
     "predist": "npm run build",
     "dist": "electron-builder --win nsis portable",
     "prepack": "npm run build",
     "pack": "electron-builder --dir",
-    "lint": "node ./node_modules/eslint/bin/eslint.js . --ext .ts,.tsx",
-    "lint:fix": "node ./node_modules/eslint/bin/eslint.js . --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js}\" \"scripts/**/*.{ts,js}\" \"*.{json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,js}\" \"scripts/**/*.{ts,js}\" \"*.{json,md}\"",
-    "test:unit": "node node_modules/vitest/vitest.mjs run",
-    "test:unit:watch": "node node_modules/vitest/vitest.mjs",
-    "test:unit:coverage": "node node_modules/vitest/vitest.mjs run --coverage",
-    "test:e2e": "node node_modules/@playwright/test/cli.js test",
+    "lint": "node ./node_modules/eslint/bin/eslint.js . --ext .js,.cjs,.mjs",
+    "lint:fix": "node ./node_modules/eslint/bin/eslint.js . --ext .js,.cjs,.mjs --fix",
+    "format": "prettier --write \"src/**/*.js\" \"scripts/**/*.js\" \"*.{json,md}\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"scripts/**/*.js\" \"*.{json,md}\"",
+    "test": "npm run typecheck",
     "prepare": "husky"
   },
   "keywords": [],
@@ -47,9 +39,6 @@
   "type": "commonjs",
   "bin": {
     "generate": "scripts/generate.js"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   },
   "build": {
     "appId": "com.enterprisepos.desktop",
@@ -91,7 +80,6 @@
     }
   },
   "dependencies": {
-    "@prisma/client": "^6.10.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "jsonwebtoken": "^9.0.3",
@@ -102,12 +90,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
-    "@playwright/test": "^1.53.1",
     "@tailwindcss/cli": "^4.3.0",
-    "@types/node": "^22.15.21",
-    "@typescript-eslint/eslint-plugin": "^8.35.1",
-    "@typescript-eslint/parser": "^8.35.1",
-    "@vitest/coverage-v8": "^3.2.4",
     "concurrently": "^9.2.1",
     "electron": "^42.1.0",
     "electron-builder": "^26.8.1",
@@ -117,13 +100,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
     "prettier": "^3.5.3",
-    "prisma": "^6.10.1",
     "tailwindcss": "^4.3.0",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.4",
     "wait-on": "^9.0.10"
   }
 }

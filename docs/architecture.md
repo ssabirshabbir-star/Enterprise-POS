@@ -4,6 +4,23 @@
 
 This project is a commercial enterprise-grade Point of Sale (POS) software system.
 
+Approved technology stack:
+
+- Electron
+- JavaScript
+- HTML
+- CSS
+- Tailwind CSS
+- PostgreSQL
+
+Disallowed for the active runtime/build path:
+
+- TypeScript
+- Prisma
+- Vite
+- React
+- Vue
+
 The system must support:
 
 - retail stores
@@ -22,9 +39,9 @@ The software must be:
 - maintainable
 - production-ready
 
---------------------------------------------------
-ARCHITECTURE PRINCIPLES
---------------------------------------------------
+---
+
+## ARCHITECTURE PRINCIPLES
 
 The architecture must follow:
 
@@ -40,9 +57,9 @@ Never create tightly coupled systems.
 
 Never mix business logic with UI logic.
 
---------------------------------------------------
-HIGH LEVEL ARCHITECTURE
---------------------------------------------------
+---
+
+## HIGH LEVEL ARCHITECTURE
 
 SYSTEM LAYERS:
 
@@ -51,11 +68,9 @@ SYSTEM LAYERS:
 3. API Layer
 4. Business Logic Layer
 5. Database Access Layer
-6. Local SQLite Layer
-7. Cloud PostgreSQL Layer
-8. Sync Engine Layer
-9. Thermal Printing Layer
-
+6. Local PostgreSQL Layer
+7. Sync Engine Layer
+8. Thermal Printing Layer
 
 Frontend responsibilities:
 
@@ -76,7 +91,6 @@ Frontend rules:
 - Avoid duplicated logic
 - Separate UI from business logic
 - Use feature-based folder structure
-
 
 Backend responsibilities:
 
@@ -99,9 +113,9 @@ Backend rules:
 - Handle all exceptions safely
 - Never expose internal errors
 
---------------------------------------------------
-DATABASE ARCHITECTURE
---------------------------------------------------
+---
+
+## DATABASE ARCHITECTURE
 
 Databases:
 
@@ -135,9 +149,9 @@ Critical tables:
 - audit_logs
 - activity_logs
 
---------------------------------------------------
-OFFLINE-FIRST ARCHITECTURE
---------------------------------------------------
+---
+
+## OFFLINE-FIRST ARCHITECTURE
 
 The system must support complete offline operation.
 
@@ -152,9 +166,9 @@ Offline strategy:
 
 Never lose offline sales data.
 
---------------------------------------------------
-SYNC ENGINE ARCHITECTURE
---------------------------------------------------
+---
+
+## SYNC ENGINE ARCHITECTURE
 
 Sync engine responsibilities:
 
@@ -172,9 +186,9 @@ Sync rules:
 - Preserve consistency
 - Prevent duplicate syncs
 
---------------------------------------------------
-THERMAL PRINTING ARCHITECTURE
---------------------------------------------------
+---
+
+## THERMAL PRINTING ARCHITECTURE
 
 Supported printers:
 
@@ -198,9 +212,9 @@ Printing rules:
 - Support Urdu Unicode
 - Support dynamic content height
 
---------------------------------------------------
-SECURITY ARCHITECTURE
---------------------------------------------------
+---
+
+## SECURITY ARCHITECTURE
 
 Security responsibilities:
 
@@ -219,9 +233,9 @@ Security rules:
 - Protect admin routes
 - Protect sensitive operations
 
---------------------------------------------------
-REPORTING ARCHITECTURE
---------------------------------------------------
+---
+
+## REPORTING ARCHITECTURE
 
 Reports must support:
 
@@ -240,9 +254,9 @@ Export support:
 - Excel
 - Thermal print
 
---------------------------------------------------
-ERROR HANDLING ARCHITECTURE
---------------------------------------------------
+---
+
+## ERROR HANDLING ARCHITECTURE
 
 The system must:
 
@@ -254,9 +268,9 @@ The system must:
 
 Never allow silent failures.
 
---------------------------------------------------
-PERFORMANCE ARCHITECTURE
---------------------------------------------------
+---
+
+## PERFORMANCE ARCHITECTURE
 
 Optimize for:
 
@@ -274,9 +288,9 @@ Performance strategies:
 - Efficient rendering
 - Efficient caching
 
---------------------------------------------------
-TESTING ARCHITECTURE
---------------------------------------------------
+---
+
+## TESTING ARCHITECTURE
 
 Testing responsibilities:
 
@@ -290,9 +304,9 @@ Testing responsibilities:
 
 Never deploy untested financial logic.
 
---------------------------------------------------
-DEPLOYMENT ARCHITECTURE
---------------------------------------------------
+---
+
+## DEPLOYMENT ARCHITECTURE
 
 Deployment targets:
 
@@ -307,9 +321,9 @@ Deployment responsibilities:
 - Build optimization
 - Backup support
 
---------------------------------------------------
-FINAL ARCHITECTURE DIRECTIVE
---------------------------------------------------
+---
+
+## FINAL ARCHITECTURE DIRECTIVE
 
 This project must evolve into a fully commercial enterprise-grade POS software system.
 

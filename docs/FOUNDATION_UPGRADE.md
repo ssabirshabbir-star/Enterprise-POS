@@ -1,93 +1,66 @@
-# Enterprise POS — Foundation Upgrade Notes
+# Deprecated Stack References
 
-## Tooling Added (`upgrade/foundation-v1`)
+This file records tooling that existed during an earlier foundation experiment but is no longer part
+of the approved Enterprise POS stack.
 
-This branch adds enterprise-grade tooling infrastructure to the project.
-**No existing feature code has been changed.**
+## Approved Stack
 
-### New Tools
+- Electron
+- JavaScript
+- HTML
+- CSS
+- Tailwind CSS
+- PostgreSQL via `pg`
 
-| Tool | Version | Purpose |
-|---|---|---|
-| TypeScript | 5.8+ | Static typing for new modules |
-| Vite | 6.x | Renderer build pipeline (additive) |
-| Prisma | 6.x | Type-safe DB client for new TS modules |
-| ESLint | 9.x | Linting (strict for .ts, advisory for .js) |
-| Prettier | 3.x | Code formatting |
-| Husky | 9.x | Git hooks |
-| lint-staged | 16.x | Per-file staged checks |
-| Vitest | 3.x | Unit test runner |
-| Playwright | 1.x | E2E test runner |
-| Zod | 3.x | Runtime schema validation |
-| Pino | 9.x | Structured logging |
+The project must not introduce TypeScript, Prisma, Vite, React, Vue, Vitest, or Playwright-based
+TypeScript workflows for the active runtime path.
 
-### New Scripts
+## Deprecated Tooling Kept On Disk For Now
 
-```bash
-npm run typecheck:ts        # TypeScript type-check (new .ts files only)
-npm run lint                # ESLint (TypeScript files)
-npm run lint:fix            # ESLint auto-fix
-npm run format              # Prettier write
-npm run format:check        # Prettier check (CI)
-npm run test:unit           # Vitest unit tests
-npm run test:unit:watch     # Vitest watch mode
-npm run test:unit:coverage  # Vitest with coverage report
-npm run test:e2e            # Playwright e2e tests
-npm run build:renderer      # Vite renderer build (additive)
-npm run db:pull             # Prisma DB introspection
-npm run db:studio           # Prisma Studio GUI
-npm run prisma:generate     # Generate Prisma client
-```
+The following files/folders may still exist in the repository for historical reference, but they are
+not part of active scripts or dependencies after Phase 1 Step 1:
 
-### New Files
+- `tsconfig.json`
+- `vite.config.ts`
+- `vitest.config.ts`
+- `playwright.config.ts`
+- `prisma.config.ts`
+- `prisma/schema.prisma`
+- `prisma/seed.ts`
+- `src/shared/**/*.ts`
+- `tests/**/*.ts`
 
-```
-tsconfig.json               TypeScript config (strict, JS-compatible)
-vite.config.ts              Vite renderer build config
-vitest.config.ts            Vitest unit test config
-playwright.config.ts        Playwright e2e config
-eslint.config.mjs           ESLint flat config (v9)
-.prettierrc.json            Prettier config
-.prettierignore             Prettier ignore patterns
-.lintstagedrc.json          lint-staged config
-.husky/pre-commit           Git pre-commit hook
-.husky/commit-msg           Conventional commits enforcement
-prisma/schema.prisma        Prisma schema (mirrors existing DB)
-prisma/seed.ts              Prisma seed (delegates to seed-admin.js)
-src/shared/core/            Result<T>, error classes
-src/shared/types/           TypeScript type definitions
-src/shared/utils/           Typed format + Zod validation schemas
-src/shared/config/          Typed env config (Zod-validated)
-src/shared/logger/          Pino structured logger factory
-src/shared/database/        Prisma client singleton
-tests/unit/shared/          First unit tests (format utilities)
-tests/e2e/                  E2E test placeholders
-_archive/                   Superseded files (never deleted)
-```
+Do not delete these files during stack drift cleanup. They should be archived or removed only in a
+separate approved cleanup phase.
 
-### Migration Rules
+## Deprecated Scripts Removed From Active Use
 
-1. **Existing JS modules are untouched** — `allowJs: true`, `checkJs: false`
-2. **New features** should be written in TypeScript in `src/`
-3. **ESLint** is strict only for `.ts` files; JS files get advisory warnings only
-4. **Prisma** is additive — the existing `pg` pool remains authoritative
-5. **Vite** only applies to the renderer; the main process stays CommonJS
+- `typecheck:ts`
+- `build:renderer`
+- `db:pull`
+- `db:studio`
+- `prisma:generate`
+- `test:unit`
+- `test:unit:watch`
+- `test:unit:coverage`
+- `test:e2e`
 
-### First Steps After Merge
+## Deprecated Dependencies Removed From Active Install
 
-```bash
-# 1. Generate Prisma client
-npm run prisma:generate
+- `@prisma/client`
+- `prisma`
+- `typescript`
+- `ts-node`
+- `tsx`
+- `vite`
+- `vitest`
+- `@vitest/coverage-v8`
+- `@playwright/test`
+- `@typescript-eslint/eslint-plugin`
+- `@typescript-eslint/parser`
+- `@types/node`
 
-# 2. Pull current DB schema into Prisma (optional — introspects live DB)
-npm run db:pull
+## Phase 1 Rule
 
-# 3. Run unit tests
-npm run test:unit
-
-# 4. Type-check new TypeScript files
-npm run typecheck:ts
-
-# 5. Verify Electron still starts
-npm start
-```
+Runtime and build workflows must stay inside the approved stack. If any future tool is proposed, it
+needs an explicit architecture decision before being added to `package.json`.
