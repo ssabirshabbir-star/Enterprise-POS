@@ -8,23 +8,30 @@
 (function InventoryRendererModule() {
   'use strict';
 
-  let initialized  = false;
-  let initPending  = false;
-  let _allItems    = [];
-  let _msgTimer    = null;
+  let initialized = false;
+  let initPending = false;
+  let _allItems = [];
+  let _msgTimer = null;
   let _searchTimer = null;
-  let _currentTab  = 'all';
-  let _page        = 1;
-  const PAGE_SIZE  = 50;
+  let _currentTab = 'all';
+  let _page = 1;
+  const PAGE_SIZE = 50;
 
   const LOG = (...a) => console.log('[InventoryRenderer]', ...a);
 
-  function $id(id)  { return document.getElementById(id); }
-  function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function $id(id) {
+    return document.getElementById(id);
   }
-  function money(v) { return `PKR ${Number(v || 0).toFixed(2)}`; }
+  function esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function money(v) {
+    return `PKR ${Number(v || 0).toFixed(2)}`;
+  }
 
   // ── Feedback ─────────────────────────────────────────────────────────────
 
@@ -43,42 +50,64 @@
   // ── Stats ─────────────────────────────────────────────────────────────────
 
   function renderStats(items) {
-    const set = (id, v) => { const e = $id(id); if (e) e.textContent = v; };
+    const set = (id, v) => {
+      const e = $id(id);
+      if (e) e.textContent = v;
+    };
     set('inventoryStatProducts', items.length);
-    const value   = items.reduce((s, x) => s + (Number(x.currentStock || 0) * Number(x.purchasePrice || 0)), 0);
-    const low     = items.filter(x => Number(x.currentStock || 0) > 0 && Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)).length;
-    const out     = items.filter(x => Number(x.currentStock || 0) <= 0).length;
-    set('inventoryStatValue',    money(value));
-    set('inventoryStatLow',      low);
-    set('inventoryStatOut',      out);
-    set('inventoryStatVariants', items.length);  // no variant model — same as total
+    const value = items.reduce(
+      (s, x) => s + Number(x.currentStock || 0) * Number(x.purchasePrice || 0),
+      0
+    );
+    const low = items.filter(
+      (x) =>
+        Number(x.currentStock || 0) > 0 &&
+        Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)
+    ).length;
+    const out = items.filter((x) => Number(x.currentStock || 0) <= 0).length;
+    set('inventoryStatValue', money(value));
+    set('inventoryStatLow', low);
+    set('inventoryStatOut', out);
+    set('inventoryStatVariants', items.length); // no variant model — same as total
   }
 
   // ── Filter ────────────────────────────────────────────────────────────────
 
   function applyFilters(items) {
-    const search    = ($id('inventorySearch')?.value || '').trim().toLowerCase();
-    const catId     = $id('inventoryCategoryFilter')?.value || '';
-    const brandId   = $id('inventoryBrandFilter')?.value || '';
+    const search = ($id('inventorySearch')?.value || '').trim().toLowerCase();
+    const catId = $id('inventoryCategoryFilter')?.value || '';
+    const brandId = $id('inventoryBrandFilter')?.value || '';
     const stockStat = $id('inventoryStockStatusFilter')?.value || '';
     let list = items;
 
     if (search) {
-      list = list.filter(x =>
-        (x.name    || '').toLowerCase().includes(search) ||
-        (x.sku     || '').toLowerCase().includes(search) ||
-        (x.barcode || '').toLowerCase().includes(search)
+      list = list.filter(
+        (x) =>
+          (x.name || '').toLowerCase().includes(search) ||
+          (x.sku || '').toLowerCase().includes(search) ||
+          (x.barcode || '').toLowerCase().includes(search)
       );
     }
-    if (catId)   list = list.filter(x => String(x.categoryId || '') === catId);
-    if (brandId) list = list.filter(x => String(x.brandId    || '') === brandId);
+    if (catId) list = list.filter((x) => String(x.categoryId || '') === catId);
+    if (brandId) list = list.filter((x) => String(x.brandId || '') === brandId);
 
-    if (stockStat === 'in')  list = list.filter(x => Number(x.currentStock || 0) > Number(x.minStockLevel || 0));
-    if (stockStat === 'low') list = list.filter(x => Number(x.currentStock || 0) > 0 && Number(x.currentStock || 0) <= Number(x.minStockLevel || 0));
-    if (stockStat === 'out') list = list.filter(x => Number(x.currentStock || 0) <= 0);
+    if (stockStat === 'in')
+      list = list.filter((x) => Number(x.currentStock || 0) > Number(x.minStockLevel || 0));
+    if (stockStat === 'low')
+      list = list.filter(
+        (x) =>
+          Number(x.currentStock || 0) > 0 &&
+          Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)
+      );
+    if (stockStat === 'out') list = list.filter((x) => Number(x.currentStock || 0) <= 0);
 
-    if (_currentTab === 'low')    list = list.filter(x => Number(x.currentStock || 0) > 0 && Number(x.currentStock || 0) <= Number(x.minStockLevel || 0));
-    if (_currentTab === 'out')    list = list.filter(x => Number(x.currentStock || 0) <= 0);
+    if (_currentTab === 'low')
+      list = list.filter(
+        (x) =>
+          Number(x.currentStock || 0) > 0 &&
+          Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)
+      );
+    if (_currentTab === 'out') list = list.filter((x) => Number(x.currentStock || 0) <= 0);
     if (_currentTab === 'recent') list = list.slice(0, 50);
 
     return list;
@@ -90,8 +119,13 @@
     const current = sel.value;
     const seen = new Set();
     const opts = items
-      .filter(x => { const v = String(x[valKey] || ''); if (!v || seen.has(v)) return false; seen.add(v); return true; })
-      .map(x => `<option value="${esc(x[valKey])}">${esc(x[labelKey])}</option>`);
+      .filter((x) => {
+        const v = String(x[valKey] || '');
+        if (!v || seen.has(v)) return false;
+        seen.add(v);
+        return true;
+      })
+      .map((x) => `<option value="${esc(x[valKey])}">${esc(x[labelKey])}</option>`);
     sel.innerHTML = `<option value="">${sel.options[0]?.text || 'All'}</option>` + opts.join('');
     sel.value = current;
   }
@@ -100,15 +134,16 @@
     _allItems = items;
     renderStats(items);
     populateDropdown('inventoryCategoryFilter', items, 'categoryName', 'categoryId');
-    populateDropdown('inventoryBrandFilter',    items, 'brandName',    'brandId');
+    populateDropdown('inventoryBrandFilter', items, 'brandName', 'brandId');
 
     const filtered = applyFilters(items);
     const rowsPerPage = Number($id('inventoryRowsPerPage')?.value || PAGE_SIZE);
     const start = (_page - 1) * rowsPerPage;
-    const page  = filtered.slice(start, start + rowsPerPage);
+    const page = filtered.slice(start, start + rowsPerPage);
 
     const summary = $id('inventoryResultSummary');
-    if (summary) summary.textContent = `Showing ${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
+    if (summary)
+      summary.textContent = `Showing ${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
 
     const tbody = $id('inventoryTableBody');
     if (!tbody) return;
@@ -116,19 +151,22 @@
       tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:.82rem">No items found.</td></tr>`;
       return;
     }
-    tbody.innerHTML = page.map((x, i) => {
-      const stock    = Number(x.currentStock || 0);
-      const minStock = Number(x.minStockLevel || 0);
-      const isOut    = stock <= 0;
-      const isLow    = !isOut && stock <= minStock;
-      const statusColor = isOut ? '#dc2626' : isLow ? '#d97706' : '#16a34a';
-      const statusLabel = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock';
-      return `<tr>
+    tbody.innerHTML = page
+      .map((x, i) => {
+        const stock = Number(x.currentStock || 0);
+        const minStock = Number(x.minStockLevel || 0);
+        const isOut = stock <= 0;
+        const isLow = !isOut && stock <= minStock;
+        const statusColor = isOut ? '#dc2626' : isLow ? '#d97706' : '#16a34a';
+        const statusLabel = isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock';
+        return `<tr>
         <td style="color:#9ca3af;font-size:.75rem">${start + i + 1}</td>
         <td style="text-align:center">
-          ${x.imageUrl
-            ? `<img src="${esc(x.imageUrl)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px" />`
-            : `<span style="display:inline-block;width:36px;height:36px;background:#f3f4f6;border-radius:4px;font-size:18px;line-height:36px;text-align:center">📦</span>`}
+          ${
+            x.productImage
+              ? `<img src="${esc(x.productImage)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px" />`
+              : `<span style="display:inline-block;width:36px;height:36px;background:#f3f4f6;border-radius:4px;font-size:18px;line-height:36px;text-align:center">📦</span>`
+          }
         </td>
         <td style="font-weight:600;font-size:.82rem">
           ${esc(x.name)}<br>
@@ -144,11 +182,12 @@
           <span style="padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600;background:${statusColor}20;color:${statusColor}">${statusLabel}</span>
         </td>
         <td style="white-space:nowrap;text-align:center">
-          <button type="button" data-adjust-product="${x.id}" data-product-name="${esc(x.name)}"
+          <button type="button" data-adjust-product="${x.productId}" data-product-name="${esc(x.name)}"
             style="padding:3px 8px;border:1px solid #f59e0b;color:#d97706;background:none;border-radius:5px;cursor:pointer;font-size:.72rem;margin-right:3px">Adjust</button>
         </td>
       </tr>`;
-    }).join('');
+      })
+      .join('');
   }
 
   // ── Load inventory ────────────────────────────────────────────────────────
@@ -156,7 +195,10 @@
   async function loadInventory(filters) {
     try {
       const res = await window.posApi.inventory.list(filters || {});
-      if (!res?.ok) { showMsg(res?.message || 'Failed to load inventory.', true); return; }
+      if (!res?.ok) {
+        showMsg(res?.message || 'Failed to load inventory.', true);
+        return;
+      }
       renderTable(res.items || res.inventory || []);
       LOG('loaded', (res.items || res.inventory || []).length, 'items');
     } catch (err) {
@@ -175,14 +217,20 @@
     const sel = $id('adjustProductId');
     if (sel) {
       // Populate with all products
-      sel.innerHTML = _allItems.map(x =>
-        `<option value="${x.id}" ${String(x.id) === String(productId) ? 'selected' : ''}>${esc(x.name)} (${Number(x.currentStock || 0).toFixed(2)})</option>`
-      ).join('');
+      sel.innerHTML = _allItems
+        .map(
+          (x) =>
+            `<option value="${x.productId}" ${String(x.productId) === String(productId) ? 'selected' : ''}>${esc(x.name)} (${Number(x.currentStock || 0).toFixed(2)})</option>`
+        )
+        .join('');
     }
     const reason = $id('adjustReason');
     if (reason) reason.value = '';
     const qty = $id('adjustQuantity');
-    if (qty) { qty.value = ''; qty.focus(); }
+    if (qty) {
+      qty.value = '';
+      qty.focus();
+    }
   }
 
   function closeAdjustModal() {
@@ -195,18 +243,35 @@
 
   async function saveAdjustment(e) {
     e.preventDefault();
-    const productId      = Number($id('adjustProductId')?.value);
+    const productId = Number($id('adjustProductId')?.value);
     const adjustmentType = $id('adjustmentType')?.value || 'IN';
-    const quantity       = parseFloat($id('adjustQuantity')?.value || '0');
-    const reason         = ($id('adjustReason')?.value || '').trim();
-    if (!productId)          { showMsg('Select a product.', true); return; }
-    if (!quantity || quantity <= 0) { showMsg('Enter a valid quantity.', true); return; }
-    if (!reason)             { showMsg('Enter a reason for adjustment.', true); return; }
+    const quantity = parseFloat($id('adjustQuantity')?.value || '0');
+    const reason = ($id('adjustReason')?.value || '').trim();
+    if (!productId) {
+      showMsg('Select a product.', true);
+      return;
+    }
+    if (!quantity || quantity <= 0) {
+      showMsg('Enter a valid quantity.', true);
+      return;
+    }
+    if (!reason) {
+      showMsg('Enter a reason for adjustment.', true);
+      return;
+    }
     const btn = $id('saveAdjustmentButton');
     if (btn) btn.disabled = true;
     try {
-      const res = await window.posApi.inventory.adjust({ productId, adjustmentType, quantity, reason });
-      if (!res?.ok) { showMsg(res?.message || 'Adjustment failed.', true); return; }
+      const res = await window.posApi.inventory.adjust({
+        productId,
+        movementType: adjustmentType,
+        quantity,
+        reason,
+      });
+      if (!res?.ok) {
+        showMsg(res?.message || 'Adjustment failed.', true);
+        return;
+      }
       showMsg(res.message || 'Stock adjusted.');
       closeAdjustModal();
       await loadInventory();
@@ -230,50 +295,75 @@
     });
 
     // Filters
-    ['inventoryCategoryFilter', 'inventoryBrandFilter', 'inventoryStockStatusFilter'].forEach(id =>
-      $id(id)?.addEventListener('change', () => { _page = 1; renderTable(_allItems); })
+    ['inventoryCategoryFilter', 'inventoryBrandFilter', 'inventoryStockStatusFilter'].forEach(
+      (id) =>
+        $id(id)?.addEventListener('change', () => {
+          _page = 1;
+          renderTable(_allItems);
+        })
     );
     $id('inventoryResetFiltersButton')?.addEventListener('click', () => {
-      ['inventoryCategoryFilter', 'inventoryBrandFilter', 'inventoryStockStatusFilter'].forEach(id => {
-        const el = $id(id); if (el) el.selectedIndex = 0;
-      });
-      const s = $id('inventorySearch'); if (s) s.value = '';
+      ['inventoryCategoryFilter', 'inventoryBrandFilter', 'inventoryStockStatusFilter'].forEach(
+        (id) => {
+          const el = $id(id);
+          if (el) el.selectedIndex = 0;
+        }
+      );
+      const s = $id('inventorySearch');
+      if (s) s.value = '';
       _page = 1;
       renderTable(_allItems);
     });
 
     // Tabs
-    document.querySelectorAll('[data-inventory-tab]').forEach(btn =>
+    document.querySelectorAll('[data-inventory-tab]').forEach((btn) =>
       btn.addEventListener('click', () => {
         _currentTab = btn.dataset.inventoryTab;
-        document.querySelectorAll('[data-inventory-tab]').forEach(b =>
-          b.classList.toggle('active', b.dataset.inventoryTab === _currentTab)
-        );
+        document
+          .querySelectorAll('[data-inventory-tab]')
+          .forEach((b) => b.classList.toggle('active', b.dataset.inventoryTab === _currentTab));
         _page = 1;
         renderTable(_allItems);
       })
     );
 
     // Rows per page
-    $id('inventoryRowsPerPage')?.addEventListener('change', () => { _page = 1; renderTable(_allItems); });
+    $id('inventoryRowsPerPage')?.addEventListener('change', () => {
+      _page = 1;
+      renderTable(_allItems);
+    });
 
     // Table delegation — Adjust button
-    $id('inventoryTableBody')?.addEventListener('click', e => {
+    $id('inventoryTableBody')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-adjust-product]');
       if (btn) openAdjustModal(btn.dataset.adjustProduct, btn.dataset.productName);
     });
 
     // Adjustment modal
-    $id('openInventoryAdjustmentButton')?.addEventListener('click', () => openAdjustModal(null, null));
-    document.querySelectorAll('[data-close-inventory-modal]').forEach(el =>
-      el.addEventListener('click', () => closeAdjustModal())
+    $id('openInventoryAdjustmentButton')?.addEventListener('click', () =>
+      openAdjustModal(null, null)
     );
-    $id('stockAdjustmentForm')?.addEventListener('submit', e => saveAdjustment(e));
+    document
+      .querySelectorAll('[data-close-inventory-modal]')
+      .forEach((el) => el.addEventListener('click', () => closeAdjustModal()));
+    $id('stockAdjustmentForm')?.addEventListener('submit', (e) => saveAdjustment(e));
 
-    // Add product — delegates to products module
-    $id('inventoryAddProductButton')?.addEventListener('click', () => {
-      showMsg('Use the Products module to add new products.', false);
+    // Toolbar placeholders
+    $id('inventoryBulkButton')?.addEventListener('click', () => {
+      showMsg('Inventory bulk actions are coming soon. They are not implemented yet.', true);
     });
+    $id('inventoryTransferButton')?.addEventListener('click', () => {
+      showMsg('Stock transfer is coming soon. It is not implemented yet.', true);
+    });
+    $id('inventoryBarcodeButton')?.addEventListener('click', () => {
+      showMsg('Inventory barcode printing is coming soon. It is not implemented yet.', true);
+    });
+    document.querySelectorAll('[data-page-tool="inventory"]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.toolAction === 'import' ? 'import' : 'export';
+        showMsg(`Inventory ${action} is coming soon. It is not implemented yet.`, true);
+      })
+    );
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -282,7 +372,10 @@
     if (!$id('inventoryTableBody')) {
       if (initPending) return;
       initPending = true;
-      setTimeout(() => { initPending = false; init(); }, 80);
+      setTimeout(() => {
+        initPending = false;
+        init();
+      }, 80);
       return;
     }
     if (!initialized) {
