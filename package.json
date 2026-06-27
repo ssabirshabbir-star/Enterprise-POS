@@ -51,18 +51,6 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix --max-warnings=0",
-      "prettier --write"
-    ],
-    "*.{js,cjs,mjs}": [
-      "prettier --write"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
-  },
   "build": {
     "appId": "com.enterprisepos.desktop",
     "productName": "Enterprise POS",
