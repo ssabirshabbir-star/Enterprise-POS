@@ -207,6 +207,10 @@ async function navigateTo(route) {
     window.initPurchasesModule?.();
   }
 
+  if (target === '/purchase-orders') {
+    window.initPurchaseOrdersModule?.();
+  }
+
   if (target === '/returns') {
     window.initReturnsModule?.();
   }

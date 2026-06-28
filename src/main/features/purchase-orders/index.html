@@ -1,11 +1,54 @@
-<section class="epos-po-page">
+<section class="epos-po-page" aria-label="Purchase Orders">
+  <style>
+    .epos-po-page button[disabled] {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: grayscale(0.15);
+      box-shadow: none;
+    }
+
+    .epos-po-page .epos-po-list-row {
+      display: grid;
+      grid-template-columns: minmax(132px, 1fr) minmax(120px, 1fr) 110px 98px 110px 88px;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    .epos-po-page .epos-po-list-row button {
+      min-height: 30px;
+      border: 0;
+      border-radius: 7px;
+      background: #e8edff;
+      color: #2563eb;
+      font-weight: 900;
+    }
+
+    .epos-po-page .epos-po-empty {
+      border: 1px dashed #cbd5e1;
+      border-radius: 9px;
+      padding: 18px;
+      color: #64748b;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 800;
+    }
+  </style>
+
   <div class="epos-po-header">
-    <label class="epos-po-main-search"><span>Search</span><input id="poSearch" placeholder="Search PO, supplier, product, barcode..." /></label>
+    <label class="epos-po-main-search">
+      <span>Search</span>
+      <input id="poSearch" placeholder="Search PO, supplier, product, barcode..." />
+    </label>
     <div>
-      <button id="poImportButton" type="button" class="blue">⇩ Import PO</button>
-      <button id="poPdfButton" type="button" class="pink">⇧ Download PDF</button>
-      <button id="poPrintButton" type="button" class="purple">⎙ Print</button>
-      <button id="resetPoButton" type="button" class="green">＋ New Purchase Order</button>
+      <button id="poImportButton" type="button" class="blue" disabled title="Import is planned for Phase 2.">Import Phase 2</button>
+      <button id="poPdfButton" type="button" class="pink" disabled title="PDF export is planned for Phase 2.">PDF Phase 2</button>
+      <button id="poPrintButton" type="button" class="purple" disabled title="Printing is planned for Phase 2.">Print Phase 2</button>
+      <button id="resetPoButton" type="button" class="green">New Purchase Order</button>
     </div>
   </div>
 
@@ -19,7 +62,7 @@
           <button type="button" data-po-tab="other">Other Details</button>
           <button type="button" data-po-tab="shipping">Shipping Details</button>
           <button type="button" data-po-tab="payment">Payment Details</button>
-          <button type="button" data-po-tab="attachments">Attachments</button>
+          <button type="button" data-po-tab="attachments" disabled title="Attachments are planned for Phase 2.">Attachments Phase 2</button>
           <button type="button" data-po-tab="notes">Notes</button>
         </nav>
 
@@ -28,37 +71,37 @@
             <label>Supplier <b>*</b></label>
             <div class="epos-po-inline">
               <select id="poSupplier"></select>
-              <button id="poAddSupplierButton" type="button" title="Add supplier">＋</button>
+              <button id="poAddSupplierButton" type="button" title="Supplier creation is planned for Phase 2." disabled>+</button>
             </div>
           </div>
-          <div class="epos-po-field"><label>PO Number <b>*</b></label><div class="epos-po-inline"><input id="poNumber" /><button id="poGenerateNumberButton" type="button" title="Generate PO number">⚙</button></div></div>
-          <div class="epos-po-field"><label>Reference / Quote No.</label><input id="poReference" placeholder="QT-4587" /></div>
+          <div class="epos-po-field"><label>PO Number <b>*</b></label><div class="epos-po-inline"><input id="poNumber" /><button id="poGenerateNumberButton" type="button" title="Use generated PO number">Use</button></div></div>
+          <div class="epos-po-field"><label>Reference / Quote No.</label><input id="poReference" placeholder="Phase 2" disabled title="Reference tracking is planned for Phase 2." /></div>
           <div class="epos-po-field"><label>Warehouse <b>*</b></label><select id="poWarehouse"></select></div>
           <div class="epos-po-field"><label>Contact Person</label><input id="poContactPerson" placeholder="Contact person" /></div>
           <div class="epos-po-field"><label>PO Date <b>*</b></label><input id="poDate" type="date" /></div>
-          <div class="epos-po-field"><label>Currency</label><select id="poCurrency"><option>PKR - Pakistani Rupee</option><option>USD - US Dollar</option></select></div>
-          <div class="epos-po-field"><label>Status <b>*</b></label><select id="poStatusSelect"><option value="DRAFT">Draft</option><option value="PENDING_APPROVAL" selected>Pending</option><option value="APPROVED">Approved</option></select></div>
+          <div class="epos-po-field"><label>Currency</label><select id="poCurrency" disabled title="Multi-currency is planned for Phase 2."><option>PKR - Pakistani Rupee</option></select></div>
+          <div class="epos-po-field"><label>Status <b>*</b></label><select id="poStatusSelect"><option value="DRAFT">Draft</option><option value="PENDING_APPROVAL" selected>Pending Approval</option></select></div>
           <div class="epos-po-field"><label>Contact Number</label><input id="poSupplierEmail" type="tel" placeholder="supplier phone / mobile" /></div>
           <div class="epos-po-field"><label>Delivery Date</label><input id="poExpectedDate" type="date" /></div>
-          <div class="epos-po-field"><label>Exchange Rate</label><input id="poExchangeRate" type="number" min="0" step="0.0001" value="1.0000" /></div>
-          <div class="epos-po-field"><label>Prior PO</label><select id="poPriorOrder"><option value="">Select Prior PO</option></select></div>
+          <div class="epos-po-field"><label>Exchange Rate</label><input id="poExchangeRate" type="number" value="1.0000" disabled title="Exchange rates are planned for Phase 2." /></div>
+          <div class="epos-po-field"><label>Prior PO</label><select id="poPriorOrder" disabled title="Prior PO linking is planned for Phase 2."><option value="">Phase 2</option></select></div>
         </div>
 
         <div class="epos-po-tab-panel hidden" data-po-panel="other">
           <div class="epos-po-field wide"><label>Internal Notes</label><textarea id="poOtherNotes" placeholder="Internal procurement notes"></textarea></div>
-          <div class="epos-po-field"><label>Department</label><input id="reqDepartment" placeholder="Department" /></div>
-          <div class="epos-po-field"><label>Location</label><input id="reqLocation" placeholder="Location" /></div>
+          <div class="epos-po-field"><label>Department</label><input id="reqDepartment" placeholder="Phase 2" disabled /></div>
+          <div class="epos-po-field"><label>Location</label><input id="reqLocation" placeholder="Phase 2" disabled /></div>
         </div>
         <div class="epos-po-tab-panel hidden" data-po-panel="shipping">
-          <div class="epos-po-field"><label>Shipping Charges</label><input id="poShippingCharges" type="number" min="0" step="0.01" value="0" /></div>
-          <div class="epos-po-field"><label>Delivery Terms</label><input id="poDeliveryTerms" placeholder="Delivery terms" /></div>
+          <div class="epos-po-field"><label>Shipping Charges</label><input id="poShippingCharges" type="number" min="0" step="0.01" value="0" disabled title="Shipping charges are planned for Phase 2." /></div>
+          <div class="epos-po-field"><label>Delivery Terms</label><input id="poDeliveryTerms" placeholder="Phase 2" disabled /></div>
         </div>
         <div class="epos-po-tab-panel hidden" data-po-panel="payment">
           <div class="epos-po-field"><label>Discount</label><input id="poDiscount" type="number" min="0" step="0.01" value="0" /></div>
-          <div class="epos-po-field"><label>Payment Terms</label><input id="poPaymentTerms" placeholder="30 days" /></div>
+          <div class="epos-po-field"><label>Payment Terms</label><input id="poPaymentTerms" placeholder="Phase 2" disabled /></div>
         </div>
         <div class="epos-po-tab-panel hidden" data-po-panel="attachments">
-          <div class="epos-po-field wide"><label>Attachment Foundation</label><input id="poAttachment" type="file" /></div>
+          <div class="epos-po-field wide"><label>Attachment Foundation</label><input id="poAttachment" type="file" disabled /></div>
         </div>
         <div class="epos-po-tab-panel hidden" data-po-panel="notes">
           <div class="epos-po-field wide"><label>Notes</label><textarea id="poNotes" placeholder="Notes visible on purchase order"></textarea></div>
@@ -67,26 +110,24 @@
 
       <section class="epos-po-items-card">
         <header>
-          <h3>▣ PO Items</h3>
+          <h3>PO Items</h3>
           <div>
-            <button id="addPoItemButton" type="button" class="green">＋ Add Row</button>
-            <button id="poAddMultipleButton" type="button" class="blue">▣ Add Multiple</button>
-            <button id="poQuickAddButton" type="button" class="purple">◉ Quick Add</button>
+            <button id="addPoItemButton" type="button" class="green">Add Row</button>
+            <button id="poAddMultipleButton" type="button" class="blue" disabled title="Bulk add is planned for Phase 2.">Add Multiple Phase 2</button>
+            <button id="poQuickAddButton" type="button" class="purple" disabled title="Quick add is planned for Phase 2.">Quick Add Phase 2</button>
           </div>
         </header>
         <div class="epos-po-item-tools">
-          <!-- Unified Search/Scan field replaces both the old product select and barcode scan -->
           <div class="epos-po-product-search-wrap">
-            <input id="poBarcodeInput" list="poProductLookupList" class="epos-po-product-search-input" placeholder="🔍 Search or scan product — name, SKU, barcode, code..." autocomplete="off" />
+            <input id="poBarcodeInput" list="poProductLookupList" class="epos-po-product-search-input" placeholder="Search product by name, SKU or barcode..." autocomplete="off" />
             <datalist id="poProductLookupList"></datalist>
             <div id="poProductLookupMenu" class="epos-po-product-menu hidden" role="listbox"></div>
-            <!-- Hidden select kept for JS compatibility (fills automatically on product match) -->
             <select id="poItemProduct" class="epos-po-product-select-hidden" aria-hidden="true" tabindex="-1"></select>
           </div>
           <input id="poItemQty" type="number" min="0.001" step="0.001" placeholder="Qty" />
           <input id="poItemCost" type="number" min="0" step="0.01" placeholder="Rate" />
           <input id="poItemSale" type="number" min="0" step="0.01" placeholder="Sale" />
-          <input id="poItemDiscount" type="number" min="0" step="0.01" value="0" placeholder="Disc %" />
+          <input id="poItemDiscount" type="number" min="0" step="0.01" value="0" placeholder="Phase 2" disabled title="Line discount is planned for Phase 2." />
           <button id="poBarcodeButton" type="button">Add Product</button>
         </div>
         <div class="epos-po-table-wrap">
@@ -105,50 +146,48 @@
         <div id="poList" class="epos-po-list"></div>
       </section>
 
-      <section id="poDetailsPanel" class="epos-po-details-panel">Select a PO to view approval, receiving, invoice, and ledger steps.</section>
+      <section id="poDetailsPanel" class="epos-po-details-panel">Select a PO to view details.</section>
 
-      <!-- Bottom action buttons ABOVE status cards -->
       <div class="epos-po-bottom">
-        <button id="poBackButton" type="button" class="white">← Back</button>
-        <button id="savePoButton" type="button" class="blue">▣ Save as Draft</button>
-        <button id="poRequestApprovalButton" type="button" class="amber">✈ Request Approval</button>
-        <button id="poCancelCurrentButton" type="button" class="pink">× Cancel PO</button>
-        <button id="poSubmitButton" type="submit" form="poForm" class="green">✓ Submit Purchase Order</button>
+        <button id="poBackButton" type="button" class="white">Clear / Cancel Draft</button>
+        <button id="savePoButton" type="button" class="blue">Save as Draft</button>
+        <button id="poRequestApprovalButton" type="button" class="amber" disabled title="Approval workflow is planned for Phase 2.">Request Approval Phase 2</button>
+        <button id="poCancelCurrentButton" type="button" class="pink" disabled title="PO cancellation is planned for Phase 2.">Cancel PO Phase 2</button>
+        <button id="poSubmitButton" type="submit" form="poForm" class="green">Submit Purchase Order</button>
       </div>
 
-      <!-- Status cards BELOW the action buttons -->
       <div class="epos-po-stats" aria-label="Purchase order summary">
-        <article class="green"><span>📄</span><div><p>Total POs</p><strong id="poStatTotal">0</strong><small>This Month</small></div></article>
-        <article class="blue"><span>🧾</span><div><p>Pending POs</p><strong id="poStatPending">0</strong><small>This Month</small></div></article>
-        <article class="amber"><span>📦</span><div><p>GRN Completed</p><strong id="poStatGrn">0</strong><small>This Month</small></div></article>
-        <article class="purple"><span>💷</span><div><p>Total Spent</p><strong id="poStatSpent">PKR 0</strong><small>This Month</small></div></article>
+        <article class="green"><span>PO</span><div><p>Total POs</p><strong id="poStatTotal">0</strong><small>This Month</small></div></article>
+        <article class="blue"><span>PN</span><div><p>Pending POs</p><strong id="poStatPending">0</strong><small>This Month</small></div></article>
+        <article class="amber"><span>GR</span><div><p>GRN Completed</p><strong id="poStatGrn">0</strong><small>This Month</small></div></article>
+        <article class="purple"><span>PK</span><div><p>Total Spent</p><strong id="poStatSpent">PKR 0</strong><small>This Month</small></div></article>
       </div>
     </main>
 
     <aside class="epos-po-side">
       <section class="epos-po-summary">
-        <h3>▣ Order Summary</h3>
+        <h3>Order Summary</h3>
         <p><span>Items (<b id="poSummaryItems">0</b>)</span><strong id="poSummaryItemsTotal">PKR 0.00</strong></p>
         <p><span>Discount</span><strong class="green" id="poSummaryDiscount">PKR 0.00</strong></p>
         <p><span>Shipping Charges</span><strong id="poSummaryShipping">PKR 0.00</strong></p>
         <p class="total"><span>Total Amount</span><strong id="poSummaryTotal">PKR 0.00</strong></p>
       </section>
       <section class="epos-po-quick">
-        <h3>♙ Quick Actions</h3>
-        <button id="poQuickSupplierButton" type="button" class="blue">♙ Add Supplier</button>
-        <button id="poQuickProductButton" type="button" class="green">⚕ Add Product</button>
-        <button id="poViewSuppliersButton" type="button" class="amber">▣ View Suppliers</button>
-        <button id="poViewProductsButton" type="button" class="purple">▣ View Products</button>
-        <button id="poPendingButton" type="button" class="cyan">↻ Pending POs</button>
-        <button id="poGrnButton" type="button" class="pink">▣ GRN List</button>
+        <h3>Quick Actions</h3>
+        <button id="poQuickSupplierButton" type="button" class="blue" disabled title="Supplier creation is planned for Phase 2.">Add Supplier Phase 2</button>
+        <button id="poQuickProductButton" type="button" class="green" disabled title="Product creation is planned for Phase 2.">Add Product Phase 2</button>
+        <button id="poViewSuppliersButton" type="button" class="amber" disabled title="Supplier navigation is planned for Phase 2.">View Suppliers Phase 2</button>
+        <button id="poViewProductsButton" type="button" class="purple" disabled title="Product navigation is planned for Phase 2.">View Products Phase 2</button>
+        <button id="poPendingButton" type="button" class="cyan" disabled title="Pending PO shortcut is planned for Phase 2.">Pending POs Phase 2</button>
+        <button id="poGrnButton" type="button" class="pink" disabled title="Goods receiving is planned for Phase 2.">GRN List Phase 2</button>
       </section>
       <section class="epos-po-progress">
-        <h3>📍 PO Progress</h3>
-        <div><span class="done">✓</span><span>★</span><span>▣</span><span>▣</span></div>
+        <h3>PO Progress</h3>
+        <div><span class="done">1</span><span>2</span><span>3</span><span>4</span></div>
         <p>PO Created <b>Approved</b> <b>GRN</b> <b>Completed</b></p>
       </section>
       <section class="epos-po-recent">
-        <h3>⚙ Recent Suppliers <button id="poViewAllSuppliersButton" type="button">View All</button></h3>
+        <h3>Recent Suppliers <button id="poViewAllSuppliersButton" type="button" disabled title="Supplier browser is planned for Phase 2.">View All Phase 2</button></h3>
         <div id="poRecentSuppliers"></div>
       </section>
     </aside>

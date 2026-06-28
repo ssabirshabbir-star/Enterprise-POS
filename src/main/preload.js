@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('posApi', {
   },
   purchaseOrders: {
     pageData: () => ipcRenderer.invoke('/purchase-orders/page-data'),
+    suppliers: () => ipcRenderer.invoke('/suppliers/list'),
+    products: (filters) => ipcRenderer.invoke('/products/list', filters || { limit: 200 }),
     listRequisitions: (filters) => ipcRenderer.invoke('/purchase-requisitions/list', filters),
     createRequisition: (payload) => ipcRenderer.invoke('/purchase-requisitions/create', payload),
     updateRequisitionStatus: (id, status, notes) =>
