@@ -35,6 +35,15 @@ contextBridge.exposeInMainWorld('posApi', {
     savePermissions: (roleId, permissionIds) =>
       ipcRenderer.invoke('/roles/permissions/save', { roleId, permissionIds }),
   },
+  accessControl: {
+    listUsers: (filters) => ipcRenderer.invoke('/users/list', filters),
+    createUser: (payload) => ipcRenderer.invoke('/users/create', payload),
+    updateUser: (id, payload) => ipcRenderer.invoke('/users/update', { id, payload }),
+    setUserActive: (id, isActive) => ipcRenderer.invoke('/users/status', { id, isActive }),
+    resetPassword: (id, password) => ipcRenderer.invoke('/users/reset-password', { id, password }),
+    securityActivity: () => ipcRenderer.invoke('/users/security-activity'),
+    listRoles: () => ipcRenderer.invoke('/roles/list'),
+  },
   products: {
     list: (filters) => ipcRenderer.invoke('/products/list', filters),
     stats: () => ipcRenderer.invoke('/products/stats'),

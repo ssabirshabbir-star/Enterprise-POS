@@ -322,11 +322,8 @@
 
   async function promptPayment(customerId) {
     let amount = '';
-    try {
-      amount = await window.posApi.dialog.prompt('Enter payment amount (PKR):', '');
-    } catch (_) {
-      amount = window.prompt('Enter payment amount (PKR):') || '';
-    }
+    amount = await window.posApi.dialog.prompt('Enter payment amount (PKR):', '');
+    window.focus?.();
     const parsed = parseFloat(amount);
     if (!parsed || parsed <= 0) {
       if (amount !== '' && amount !== null) showMsg('Invalid payment amount.', true);
@@ -336,6 +333,7 @@
     let note = '';
     try {
       note = await window.posApi.dialog.prompt('Payment note (optional):', '');
+      window.focus?.();
     } catch (_) {}
 
     A().postPayment(customerId, { amount: parsed, notes: (note || '').trim() || undefined });

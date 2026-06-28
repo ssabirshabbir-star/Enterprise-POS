@@ -16,15 +16,15 @@
 (function LuckyDrawV2ApiModule() {
   'use strict';
 
-  const LOG = (...a) => console.log('[LuckyDrawV2Api]', ...a);
-  const R   = () => window.LuckyDrawV2Renderer;
+  const LOG = () => {};
+  const R = () => window.LuckyDrawV2Renderer;
   const api = () => window.posApi?.luckyDrawV2;
 
   // ── Response normalizer ───────────────────────────────────────────────────
 
   function ok(res, fallback) {
-    const isOk  = Boolean(res?.ok || res?.success);
-    const msg   = res?.message || res?.failureReason || fallback || 'Request failed.';
+    const isOk = Boolean(res?.ok || res?.success);
+    const msg = res?.message || res?.failureReason || fallback || 'Request failed.';
     return { ok: isOk, message: msg };
   }
 
@@ -32,16 +32,25 @@
 
   async function loadCampaigns() {
     LOG('loadCampaigns()');
-    if (!api()?.listCampaigns) { R().showMsg('Lucky Draw API not available.', true); return; }
+    if (!api()?.listCampaigns) {
+      R().showMsg('Lucky Draw API not available.', true);
+      return;
+    }
     const res = await api().listCampaigns();
     const { ok: isOk, message } = ok(res, 'Failed to load campaigns.');
-    if (!isOk) { R().showMsg(message, true); return; }
+    if (!isOk) {
+      R().showMsg(message, true);
+      return;
+    }
     R().renderCampaigns(res.campaigns || []);
   }
 
   async function saveCampaign(payload) {
     LOG('saveCampaign()', payload);
-    if (!api()) { R().showMsg('Lucky Draw API not available.', true); return; }
+    if (!api()) {
+      R().showMsg('Lucky Draw API not available.', true);
+      return;
+    }
     const isEdit = Boolean(payload.id);
     const res = isEdit
       ? await api().updateCampaign({ id: payload.id, data: payload })
@@ -57,21 +66,34 @@
 
   async function deleteCampaign(id) {
     LOG('deleteCampaign()', id);
-    if (!confirm('Delete this campaign? This cannot be undone.')) return;
+    const confirmed = await window.posApi.dialog.confirm(
+      'Delete this campaign? This cannot be undone.'
+    );
+    window.focus?.();
+    if (!confirmed) return;
     const res = await api().deleteCampaign(id);
     const { ok: isOk, message } = ok(res, 'Delete failed.');
     R().showMsg(message, !isOk);
-    if (isOk) { loadCampaigns(); loadReports(); }
+    if (isOk) {
+      loadCampaigns();
+      loadReports();
+    }
   }
 
   // ── Participants ──────────────────────────────────────────────────────────
 
   async function loadParticipants(filters = {}) {
     LOG('loadParticipants()', filters);
-    if (!api()?.listParticipants) { R().showMsg('Lucky Draw API not available.', true); return; }
+    if (!api()?.listParticipants) {
+      R().showMsg('Lucky Draw API not available.', true);
+      return;
+    }
     const res = await api().listParticipants(filters);
     const { ok: isOk, message } = ok(res, 'Failed to load participants.');
-    if (!isOk) { R().showMsg(message, true); return; }
+    if (!isOk) {
+      R().showMsg(message, true);
+      return;
+    }
     R().renderParticipants(res.participants || []);
   }
 
@@ -89,11 +111,18 @@
 
   async function removeParticipant(id, campaignId) {
     LOG('removeParticipant()', id);
-    if (!confirm('Remove this participant? This cannot be undone.')) return;
+    const confirmed = await window.posApi.dialog.confirm(
+      'Remove this participant? This cannot be undone.'
+    );
+    window.focus?.();
+    if (!confirmed) return;
     const res = await api().removeParticipant(id);
     const { ok: isOk, message } = ok(res, 'Remove failed.');
     R().showMsg(message, !isOk);
-    if (isOk) { loadParticipants({ campaignId }); loadReports(); }
+    if (isOk) {
+      loadParticipants({ campaignId });
+      loadReports();
+    }
   }
 
   // ── Draw ──────────────────────────────────────────────────────────────────
@@ -101,7 +130,10 @@
   async function runDraw(payload) {
     LOG('runDraw()', payload);
     const btn = document.getElementById('ldv2RunDrawBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Drawing…'; }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Drawing…';
+    }
     try {
       const res = await api().runDraw(payload);
       const { ok: isOk, message } = ok(res, 'Draw failed.');
@@ -113,7 +145,10 @@
         loadReports();
       }
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '🎰 Run Draw'; }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🎰 Run Draw';
+      }
     }
   }
 
@@ -121,10 +156,16 @@
 
   async function loadWinners(campaignId) {
     LOG('loadWinners()', campaignId);
-    if (!api()?.listWinners) { R().showMsg('Lucky Draw API not available.', true); return; }
+    if (!api()?.listWinners) {
+      R().showMsg('Lucky Draw API not available.', true);
+      return;
+    }
     const res = await api().listWinners(campaignId || null);
     const { ok: isOk, message } = ok(res, 'Failed to load winners.');
-    if (!isOk) { R().showMsg(message, true); return; }
+    if (!isOk) {
+      R().showMsg(message, true);
+      return;
+    }
     R().renderWinners(res.winners || []);
   }
 

@@ -136,14 +136,10 @@
   }
 
   async function deleteProduct(productId, productName) {
-    let confirmed = false;
-    try {
-      confirmed = await window.posApi.dialog.confirm(
-        `Delete "${productName}"? This action cannot be undone.`
-      );
-    } catch (_) {
-      confirmed = window.confirm(`Delete "${productName}"?`);
-    }
+    const confirmed = await window.posApi.dialog.confirm(
+      `Delete "${productName}"? This action cannot be undone.`
+    );
+    window.focus?.();
     if (!confirmed) return;
 
     try {
@@ -261,12 +257,8 @@
   }
 
   async function deleteCatalogItem(type, id, name) {
-    let confirmed = false;
-    try {
-      confirmed = await window.posApi.dialog.confirm(`Delete "${name}"?`);
-    } catch (_) {
-      confirmed = window.confirm(`Delete "${name}"?`);
-    }
+    const confirmed = await window.posApi.dialog.confirm(`Delete "${name}"?`);
+    window.focus?.();
     if (!confirmed) return;
 
     try {

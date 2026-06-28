@@ -289,12 +289,8 @@
   }
 
   async function deleteSupplier(id, name) {
-    let ok = false;
-    try {
-      ok = await window.posApi.dialog.confirm(`Delete "${name}"? This cannot be undone.`);
-    } catch {
-      ok = window.confirm(`Delete "${name}"?`);
-    }
+    const ok = await window.posApi.dialog.confirm(`Delete "${name}"? This cannot be undone.`);
+    window.focus?.();
     if (!ok) return;
     try {
       const res = await window.posApi.suppliers.delete(id);

@@ -18,7 +18,7 @@
 (function LuckyDrawV2RendererModule() {
   'use strict';
 
-  const LOG = (...a) => console.log('[LuckyDrawV2Renderer]', ...a);
+  const LOG = () => {};
   const A = () => window.LuckyDrawV2Api;
 
   // ── State ──────────────────────────────────────────────────────────────────

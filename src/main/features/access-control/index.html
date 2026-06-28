@@ -204,4 +204,24 @@
       <p id="userMessage" class="hidden epos-users-message"></p>
     </div>
   </div>
+
+  <div id="userPasswordModal" class="epos-users-modal hidden" role="dialog" aria-modal="true" aria-labelledby="userPasswordTitle">
+    <div class="epos-users-modal-card">
+      <div class="epos-users-modal-head">
+        <h3 id="userPasswordTitle">Reset Password</h3>
+        <button id="closeUserPasswordButton" type="button" aria-label="Close reset password">x</button>
+      </div>
+      <form id="userPasswordForm" class="epos-users-form">
+        <input id="passwordUserId" type="hidden" />
+        <p id="passwordUserLabel" class="epos-users-message">Select a user to reset password.</p>
+        <input id="newUserPassword" type="password" class="epos-users-input" placeholder="New password" autocomplete="new-password" required />
+        <input id="confirmUserPassword" type="password" class="epos-users-input" placeholder="Confirm password" autocomplete="new-password" required />
+        <div class="epos-users-form-actions">
+          <button id="saveUserPasswordButton" type="submit" class="epos-users-wide-action green">Reset Password</button>
+          <button id="cancelUserPasswordButton" type="button" class="epos-users-wide-action neutral">Cancel</button>
+        </div>
+      </form>
+      <p id="userPasswordMessage" class="hidden epos-users-message"></p>
+    </div>
+  </div>
 </div>

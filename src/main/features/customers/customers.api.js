@@ -129,14 +129,10 @@
   }
 
   async function deleteCustomer(customerId, customerName) {
-    let confirmed = false;
-    try {
-      confirmed = await window.posApi.dialog.confirm(
-        `Delete "${customerName}"? This cannot be undone.`
-      );
-    } catch (_) {
-      confirmed = window.confirm(`Delete "${customerName}"?`);
-    }
+    const confirmed = await window.posApi.dialog.confirm(
+      `Delete "${customerName}"? This cannot be undone.`
+    );
+    window.focus?.();
     if (!confirmed) return;
 
     try {
@@ -157,14 +153,10 @@
   }
 
   async function deleteInactiveCustomers() {
-    let confirmed = false;
-    try {
-      confirmed = await window.posApi.dialog.confirm(
-        'Delete ALL inactive customers? This cannot be undone.'
-      );
-    } catch (_) {
-      confirmed = window.confirm('Delete all inactive customers?');
-    }
+    const confirmed = await window.posApi.dialog.confirm(
+      'Delete ALL inactive customers? This cannot be undone.'
+    );
+    window.focus?.();
     if (!confirmed) return;
 
     try {

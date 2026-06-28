@@ -214,6 +214,10 @@ async function navigateTo(route) {
   if (target === '/returns') {
     window.initReturnsModule?.();
   }
+
+  if (target === '/users') {
+    window.initAccessControlModule?.();
+  }
 }
 
 // ---- Dashboard Stats ---------------------------------------
