@@ -1,6 +1,5 @@
 const { getPool, withTransaction } = require('../../database/connection');
 const syncRepository = require('../sync/sync.repository');
-const luckyDrawRepository   = require('../lucky-draw/lucky-draw.repository');
 const luckyDrawV2Repository = require('../luckydraw_v2/repository/luckydraw.repository');
 
 function mapPosProduct(row) {
@@ -14,28 +13,34 @@ function mapPosProduct(row) {
     currentStock: Number(row.current_stock),
     isActive: row.is_active,
     categoryId: row.category_id,
-    categoryName: row.category_name
+    categoryName: row.category_name,
   };
 }
 
 function mapCustomer(row) {
-  return row && {
-    id: row.id,
-    name: row.name,
-    phone: row.phone,
-    email: row.email,
-    currentBalance: Number(row.current_balance || 0),
-    creditLimit: Number(row.credit_limit || 0),
-    isWalkIn: row.is_walk_in
-  };
+  return (
+    row && {
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      currentBalance: Number(row.current_balance || 0),
+      creditLimit: Number(row.credit_limit || 0),
+      isWalkIn: row.is_walk_in,
+    }
+  );
 }
 
 async function searchProducts(filters) {
   const search = typeof filters === 'object' && filters !== null ? filters.search : filters;
-  const categoryId = typeof filters === 'object' && filters !== null ? Number(filters.categoryId || 0) : 0;
-  const query = `%${String(search || '').trim().toLowerCase()}%`;
+  const categoryId =
+    typeof filters === 'object' && filters !== null ? Number(filters.categoryId || 0) : 0;
+  const query = `%${String(search || '')
+    .trim()
+    .toLowerCase()}%`;
   const params = [query];
-  const categoryClause = Number.isInteger(categoryId) && categoryId > 0 ? 'AND products.category_id = $2' : '';
+  const categoryClause =
+    Number.isInteger(categoryId) && categoryId > 0 ? 'AND products.category_id = $2' : '';
   if (categoryClause) params.push(categoryId);
   const result = await getPool().query(
     `
@@ -76,7 +81,9 @@ async function findProductByBarcode(barcode) {
 }
 
 async function listCustomers(search = '') {
-  const query = `%${String(search || '').trim().toLowerCase()}%`;
+  const query = `%${String(search || '')
+    .trim()
+    .toLowerCase()}%`;
   const result = await getPool().query(
     `
       SELECT *
@@ -100,7 +107,13 @@ async function createCustomer(payload) {
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `,
-      [payload.name, payload.phone || null, payload.email || null, payload.address || null, payload.creditLimit || 0]
+      [
+        payload.name,
+        payload.phone || null,
+        payload.email || null,
+        payload.address || null,
+        payload.creditLimit || 0,
+      ]
     );
     const customer = result.rows[0];
     await syncRepository.queueOperation({
@@ -109,27 +122,34 @@ async function createCustomer(payload) {
       entityId: customer.id,
       operation: 'CREATE',
       terminalId: terminal.id,
-      payload: { name: customer.name, phone: customer.phone }
+      payload: { name: customer.name, phone: customer.phone },
     });
     return mapCustomer(customer);
   });
 }
 
 async function getWalkInCustomerId(client) {
-  const result = await client.query("SELECT id FROM customers WHERE is_walk_in = TRUE AND deleted_at IS NULL ORDER BY id ASC LIMIT 1");
+  const result = await client.query(
+    'SELECT id FROM customers WHERE is_walk_in = TRUE AND deleted_at IS NULL ORDER BY id ASC LIMIT 1'
+  );
   if (result.rows[0]) return result.rows[0].id;
-  const created = await client.query("INSERT INTO customers (name, is_walk_in) VALUES ('Walk-in Customer', TRUE) RETURNING id");
+  const created = await client.query(
+    "INSERT INTO customers (name, is_walk_in) VALUES ('Walk-in Customer', TRUE) RETURNING id"
+  );
   return created.rows[0].id;
 }
 
 async function invoiceExists(invoiceNumber) {
-  const result = await getPool().query('SELECT id FROM sales WHERE LOWER(invoice_number) = LOWER($1) LIMIT 1', [invoiceNumber]);
+  const result = await getPool().query(
+    'SELECT id FROM sales WHERE LOWER(invoice_number) = LOWER($1) LIMIT 1',
+    [invoiceNumber]
+  );
   return Boolean(result.rows[0]);
 }
 
 async function createSale(payload, cashierId) {
   return withTransaction(async (client) => {
-    const customerId = payload.customerId || await getWalkInCustomerId(client);
+    const customerId = payload.customerId || (await getWalkInCustomerId(client));
     const terminal = await syncRepository.getOrCreateTerminal(client);
     let lockedCustomer = null;
     if (payload.dueAmount > 0) {
@@ -138,7 +158,8 @@ async function createSale(payload, cashierId) {
         [customerId]
       );
       lockedCustomer = customerResult.rows[0];
-      if (!lockedCustomer || lockedCustomer.is_walk_in) throw new Error('CREDIT_SALE_REQUIRES_CUSTOMER');
+      if (!lockedCustomer || lockedCustomer.is_walk_in)
+        throw new Error('CREDIT_SALE_REQUIRES_CUSTOMER');
       const nextBalance = Number(lockedCustomer.current_balance || 0) + Number(payload.dueAmount);
       const creditLimit = Number(lockedCustomer.credit_limit || 0);
       if (creditLimit > 0 && nextBalance > creditLimit) throw new Error('CREDIT_LIMIT_EXCEEDED');
@@ -164,12 +185,14 @@ async function createSale(payload, cashierId) {
         payload.grandTotal,
         payload.paidAmount,
         payload.changeAmount,
-        payload.paymentMethod
+        payload.paymentMethod,
       ]
     );
     const sale = saleResult.rows[0];
 
-    const warehouseResult = await client.query('SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1');
+    const warehouseResult = await client.query(
+      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+    );
     const warehouseId = warehouseResult.rows[0]?.id;
 
     for (const item of payload.items) {
@@ -192,7 +215,10 @@ async function createSale(payload, cashierId) {
         [sale.id, item.productId, item.quantity, item.unitPrice, item.discount, item.total]
       );
 
-      await client.query('UPDATE products SET current_stock = $2, updated_at = NOW() WHERE id = $1', [item.productId, newStock]);
+      await client.query(
+        'UPDATE products SET current_stock = $2, updated_at = NOW() WHERE id = $1',
+        [item.productId, newStock]
+      );
 
       if (warehouseId) {
         await client.query(
@@ -214,7 +240,16 @@ async function createSale(payload, cashierId) {
           )
           VALUES ($1, $2, 'SALE_OUT', $3, $4, $5, 'sale', $6, 'POS sale completed', $7, $8, $8)
         `,
-        [item.productId, warehouseId, item.quantity, previousStock, newStock, sale.id, sale.invoice_number, cashierId]
+        [
+          item.productId,
+          warehouseId,
+          item.quantity,
+          previousStock,
+          newStock,
+          sale.id,
+          sale.invoice_number,
+          cashierId,
+        ]
       );
     }
 
@@ -225,21 +260,26 @@ async function createSale(payload, cashierId) {
 
     if (payload.dueAmount > 0) {
       const balance = lockedCustomer.next_balance;
-      await client.query('UPDATE customers SET current_balance = $2, updated_at = NOW() WHERE id = $1', [customerId, balance]);
+      await client.query(
+        'UPDATE customers SET current_balance = $2, updated_at = NOW() WHERE id = $1',
+        [customerId, balance]
+      );
       await client.query(
         'INSERT INTO customer_ledger (customer_id, sale_id, entry_type, debit, credit, balance, notes) VALUES ($1, $2, $3, $4, 0, $5, $6)',
         [customerId, sale.id, 'SALE_CREDIT', payload.dueAmount, balance, sale.invoice_number]
       );
     }
 
-    const luckyDrawEntries = await luckyDrawRepository.createEntriesForSale(client, sale, cashierId);
-
-    // M-3: also create entries for V2-managed campaigns (silent fail — must not block billing)
+    // V2 owns Billing auto-entry; failures must not block sale completion.
     let luckyDrawV2Entries = [];
     try {
-      luckyDrawV2Entries = await luckyDrawV2Repository.createEntriesForSale(client, sale, cashierId);
+      luckyDrawV2Entries = await luckyDrawV2Repository.createEntriesForSale(
+        client,
+        sale,
+        cashierId
+      );
     } catch (v2Err) {
-      console.error('[LuckyDrawV2] Auto-entry failed (billing unaffected):', v2Err.message);
+      void v2Err;
     }
 
     await syncRepository.queueOperation({
@@ -248,10 +288,14 @@ async function createSale(payload, cashierId) {
       entityId: sale.id,
       operation: 'CREATE',
       terminalId: terminal.id,
-      payload: { invoiceNumber: sale.invoice_number, grandTotal: Number(sale.grand_total), luckyDrawCoupons: [...luckyDrawEntries, ...luckyDrawV2Entries].map((entry) => entry.couponNo) }
+      payload: {
+        invoiceNumber: sale.invoice_number,
+        grandTotal: Number(sale.grand_total),
+        luckyDrawCoupons: luckyDrawV2Entries.map((entry) => entry.couponNo),
+      },
     });
 
-    sale.lucky_draw_entries = luckyDrawEntries;
+    sale.lucky_draw_entries = luckyDrawV2Entries;
     return sale;
   });
 }
@@ -311,7 +355,7 @@ async function getSaleReceipt(saleId) {
       qrValue: coupon.qr_value,
       barcodeValue: coupon.barcode_value,
       billAmount: Number(coupon.bill_amount || 0),
-      verificationStatus: coupon.verification_status
+      verificationStatus: coupon.verification_status,
     })),
     items: items.rows.map((item) => ({
       productName: item.product_name,
@@ -319,8 +363,8 @@ async function getSaleReceipt(saleId) {
       quantity: Number(item.quantity),
       unitPrice: Number(item.unit_price),
       discount: Number(item.discount),
-      total: Number(item.total)
-    }))
+      total: Number(item.total),
+    })),
   };
 }
 
@@ -367,7 +411,7 @@ async function listHeldSales(cashierId) {
     customerId: row.customer_id,
     customerName: row.customer_name,
     payload: row.payload,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   }));
 }
 
@@ -404,5 +448,5 @@ module.exports = {
   invoiceExists,
   listCustomers,
   listHeldSales,
-  searchProducts
+  searchProducts,
 };

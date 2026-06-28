@@ -13,8 +13,8 @@
  */
 'use strict';
 
-const authService  = require('../../auth/auth.service');
-const repo         = require('../repository/luckydraw.repository');
+const authService = require('../../auth/auth.service');
+const repo = require('../repository/luckydraw.repository');
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -32,7 +32,9 @@ async function requireAccess(mode) {
 // ── Validation helpers ────────────────────────────────────────────────────────
 
 function cleanStr(v, max = 255) {
-  return String(v || '').trim().slice(0, max);
+  return String(v || '')
+    .trim()
+    .slice(0, max);
 }
 function cleanDate(v) {
   const d = new Date(v);
@@ -60,16 +62,20 @@ async function createCampaign(payload = {}) {
   if (!access.ok) return access;
 
   const campaignName = cleanStr(payload.campaignName, 120);
-  if (campaignName.length < 2) return { ok: false, message: 'Campaign name is required (min 2 chars).' };
+  if (campaignName.length < 2)
+    return { ok: false, message: 'Campaign name is required (min 2 chars).' };
 
   const startDate = cleanDate(payload.startDate);
-  const endDate   = cleanDate(payload.endDate);
+  const endDate = cleanDate(payload.endDate);
   if (!startDate) return { ok: false, message: 'Valid start date is required.' };
-  if (!endDate)   return { ok: false, message: 'Valid end date is required.' };
+  if (!endDate) return { ok: false, message: 'Valid end date is required.' };
   if (endDate < startDate) return { ok: false, message: 'End date must be after start date.' };
 
   const minimumPurchase = cleanMoney(payload.minimumPurchase);
-  if (minimumPurchase === null) return { ok: false, message: 'Minimum purchase must be a valid amount.' };
+  if (minimumPurchase === null)
+    return { ok: false, message: 'Minimum purchase must be a valid amount.' };
+  if (minimumPurchase <= 0)
+    return { ok: false, message: 'Minimum purchase must be greater than zero for auto campaigns.' };
 
   const totalWinners = cleanInt(payload.totalWinners, 1);
   if (totalWinners === null) return { ok: false, message: 'Total winners must be at least 1.' };
@@ -78,20 +84,24 @@ async function createCampaign(payload = {}) {
   const status = validStatuses.includes(payload.status) ? payload.status : 'ACTIVE';
 
   // Auto-generate campaign code if not provided
-  const campaignCode = cleanStr(payload.campaignCode) ||
+  const campaignCode =
+    cleanStr(payload.campaignCode) ||
     `LD-V2-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
 
-  const campaign = await repo.createCampaign({
-    campaignName,
-    campaignCode,
-    startDate,
-    endDate,
-    minimumPurchase,
-    prizeDetails: cleanStr(payload.prizeDetails, 500),
-    totalWinners,
-    status,
-    notes: cleanStr(payload.notes, 500),
-  }, access.profile.id);
+  const campaign = await repo.createCampaign(
+    {
+      campaignName,
+      campaignCode,
+      startDate,
+      endDate,
+      minimumPurchase,
+      prizeDetails: cleanStr(payload.prizeDetails, 500),
+      totalWinners,
+      status,
+      notes: cleanStr(payload.notes, 500),
+    },
+    access.profile.id
+  );
 
   return { ok: true, campaign, message: 'Campaign created successfully.' };
 }
@@ -110,14 +120,16 @@ async function updateCampaign(id, payload = {}) {
   if (campaignName.length < 2) return { ok: false, message: 'Campaign name is required.' };
 
   const startDate = cleanDate(payload.startDate);
-  const endDate   = cleanDate(payload.endDate);
+  const endDate = cleanDate(payload.endDate);
   if (!startDate || !endDate) return { ok: false, message: 'Valid dates are required.' };
-  if (endDate < startDate)    return { ok: false, message: 'End date must be after start date.' };
+  if (endDate < startDate) return { ok: false, message: 'End date must be after start date.' };
 
   const minimumPurchase = cleanMoney(payload.minimumPurchase);
-  const totalWinners    = cleanInt(payload.totalWinners, 1);
+  const totalWinners = cleanInt(payload.totalWinners, 1);
   if (minimumPurchase === null) return { ok: false, message: 'Invalid minimum purchase.' };
-  if (totalWinners    === null) return { ok: false, message: 'Total winners must be at least 1.' };
+  if (minimumPurchase <= 0)
+    return { ok: false, message: 'Minimum purchase must be greater than zero for auto campaigns.' };
+  if (totalWinners === null) return { ok: false, message: 'Total winners must be at least 1.' };
 
   const validStatuses = ['ACTIVE', 'INACTIVE', 'COMPLETED'];
   const status = validStatuses.includes(payload.status) ? payload.status : existing.status;
@@ -153,7 +165,7 @@ async function listParticipants(filters = {}) {
   if (!access.ok) return access;
   const clean = {
     campaignId: filters.campaignId ? cleanInt(filters.campaignId, 1) : null,
-    search:     cleanStr(filters.search, 100) || null,
+    search: cleanStr(filters.search, 100) || null,
   };
   return { ok: true, participants: await repo.listParticipants(clean) };
 }
@@ -170,22 +182,30 @@ async function addParticipant(payload = {}) {
   // M-8: treat ACTIVE campaigns past their end date as expired
   const today = new Date().toISOString().slice(0, 10);
   const isExpired = campaign.status === 'ACTIVE' && campaign.endDate && campaign.endDate < today;
-  if (isExpired) return { ok: false, message: 'Campaign has expired and is no longer accepting entries.' };
+  if (isExpired)
+    return { ok: false, message: 'Campaign has expired and is no longer accepting entries.' };
   if (campaign.status !== 'ACTIVE') return { ok: false, message: 'Campaign is not active.' };
 
-  const billAmount   = cleanMoney(payload.billAmount);
-  if (billAmount === null) return { ok: false, message: 'Bill amount must be a valid amount >= 0.' };
+  const billAmount = cleanMoney(payload.billAmount);
+  if (billAmount === null)
+    return { ok: false, message: 'Bill amount must be a valid amount >= 0.' };
   if (billAmount < campaign.minimumPurchase) {
-    return { ok: false, message: `Bill amount must be at least Rs.${campaign.minimumPurchase} for this campaign.` };
+    return {
+      ok: false,
+      message: `Bill amount must be at least Rs.${campaign.minimumPurchase} for this campaign.`,
+    };
   }
 
   try {
-    const participant = await repo.addParticipant({
-      campaignId,
-      customerId:   payload.customerId ? cleanInt(payload.customerId, 1) : null,
-      customerName: cleanStr(payload.customerName, 120),
-      billAmount,
-    }, access.profile.id);
+    const participant = await repo.addParticipant(
+      {
+        campaignId,
+        customerId: payload.customerId ? cleanInt(payload.customerId, 1) : null,
+        customerName: cleanStr(payload.customerName, 120),
+        billAmount,
+      },
+      access.profile.id
+    );
     return { ok: true, participant, message: 'Participant added successfully.' };
   } catch (err) {
     if (err.message === 'CAMPAIGN_NOT_FOUND') return { ok: false, message: 'Campaign not found.' };
@@ -203,7 +223,8 @@ async function removeParticipant(entryId) {
     if (!removed) return { ok: false, message: 'Participant not found.' };
     return { ok: true, message: 'Participant removed.' };
   } catch (err) {
-    if (err.message === 'ENTRY_IS_WINNER') return { ok: false, message: 'Cannot remove a winner entry.' };
+    if (err.message === 'ENTRY_IS_WINNER')
+      return { ok: false, message: 'Cannot remove a winner entry.' };
     throw err;
   }
 }
@@ -222,7 +243,11 @@ async function runDraw(payload = {}) {
   try {
     const result = await repo.runDraw(campaignId, count, access.profile.id);
     if (result.winners.length === 0) {
-      return { ok: true, ...result, message: result.message || 'No eligible entries to draw from.' };
+      return {
+        ok: true,
+        ...result,
+        message: result.message || 'No eligible entries to draw from.',
+      };
     }
     return { ok: true, ...result, message: `${result.winners.length} winner(s) selected.` };
   } catch (err) {

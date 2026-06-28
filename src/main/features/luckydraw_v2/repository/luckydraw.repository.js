@@ -18,54 +18,54 @@ const { getPool, withTransaction } = require('../../../database/connection');
 function mapCampaign(row) {
   if (!row) return null;
   return {
-    id:                   Number(row.id),
-    campaignName:         row.campaign_name,
-    campaignCode:         row.campaign_code,
-    startDate:            row.start_date ? new Date(row.start_date).toISOString().slice(0, 10) : null,
-    endDate:              row.end_date   ? new Date(row.end_date).toISOString().slice(0, 10)   : null,
-    minimumPurchase:      Number(row.minimum_purchase || 0),
-    prizeDetails:         row.prize_details || '',
-    totalWinners:         Number(row.total_winners || 1),
-    status:               row.status,
-    notes:                row.notes || '',
-    totalEntries:         Number(row.total_entries   || 0),
-    totalWinnersDrawn:    Number(row.winners_drawn   || 0),
-    createdAt:            row.created_at,
+    id: Number(row.id),
+    campaignName: row.campaign_name,
+    campaignCode: row.campaign_code,
+    startDate: row.start_date ? new Date(row.start_date).toISOString().slice(0, 10) : null,
+    endDate: row.end_date ? new Date(row.end_date).toISOString().slice(0, 10) : null,
+    minimumPurchase: Number(row.minimum_purchase || 0),
+    prizeDetails: row.prize_details || '',
+    totalWinners: Number(row.total_winners || 1),
+    status: row.status,
+    notes: row.notes || '',
+    totalEntries: Number(row.total_entries || 0),
+    totalWinnersDrawn: Number(row.winners_drawn || 0),
+    createdAt: row.created_at,
   };
 }
 
 function mapParticipant(row) {
   if (!row) return null;
   return {
-    id:                 Number(row.id),
-    campaignId:         Number(row.campaign_id),
-    campaignName:       row.campaign_name  || '',
-    customerId:         row.customer_id ? Number(row.customer_id) : null,
-    customerName:       row.customer_name  || 'Walk-in',
-    saleId:             row.sale_id ? Number(row.sale_id) : null,
-    invoiceNumber:      row.invoice_number || '',
-    couponNo:           row.coupon_no,
-    billAmount:         Number(row.bill_amount || 0),
+    id: Number(row.id),
+    campaignId: Number(row.campaign_id),
+    campaignName: row.campaign_name || '',
+    customerId: row.customer_id ? Number(row.customer_id) : null,
+    customerName: row.customer_name || 'Walk-in',
+    saleId: row.sale_id ? Number(row.sale_id) : null,
+    invoiceNumber: row.invoice_number || '',
+    couponNo: row.coupon_no,
+    billAmount: Number(row.bill_amount || 0),
     verificationStatus: row.verification_status,
-    isUsed:             Boolean(row.is_used),
-    createdAt:          row.created_at,
+    isUsed: Boolean(row.is_used),
+    createdAt: row.created_at,
   };
 }
 
 function mapWinner(row) {
   if (!row) return null;
   return {
-    id:            Number(row.id),
-    campaignId:    Number(row.campaign_id),
-    campaignName:  row.campaign_name || '',
-    entryId:       Number(row.entry_id),
-    couponNo:      row.coupon_no || '',
-    customerName:  row.customer_name || 'Walk-in',
+    id: Number(row.id),
+    campaignId: Number(row.campaign_id),
+    campaignName: row.campaign_name || '',
+    entryId: Number(row.entry_id),
+    couponNo: row.coupon_no || '',
+    customerName: row.customer_name || 'Walk-in',
     invoiceNumber: row.invoice_number || '',
-    billAmount:    Number(row.bill_amount || 0),
-    prizeName:     row.prize_name || row.prize_details || '',
-    selectedBy:    row.selected_by_name || '',
-    selectedAt:    row.selected_at,
+    billAmount: Number(row.bill_amount || 0),
+    prizeName: row.prize_name || row.prize_details || '',
+    selectedBy: row.selected_by_name || '',
+    selectedAt: row.selected_at,
   };
 }
 
@@ -85,7 +85,7 @@ async function listCampaigns() {
     ORDER BY campaigns.created_at DESC
   `);
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return result.rows.map(row => {
+  return result.rows.map((row) => {
     const campaign = mapCampaign(row);
     // M-8: on-read date-based expiry — treat ACTIVE campaigns past end_date as EXPIRED
     if (campaign.status === 'ACTIVE' && campaign.endDate && campaign.endDate < today) {
@@ -104,7 +104,8 @@ async function getCampaignById(id) {
 }
 
 async function createCampaign(payload, userId) {
-  const result = await getPool().query(`
+  const result = await getPool().query(
+    `
     INSERT INTO lucky_draw_campaigns (
       campaign_name, campaign_code, start_date, end_date,
       minimum_purchase, prize_details, total_winners,
@@ -113,23 +114,26 @@ async function createCampaign(payload, userId) {
     )
     VALUES ($1,$2,$3,$4,$5,$6,$7,'AUTO',false,false,$8,$9,$10)
     RETURNING *
-  `, [
-    payload.campaignName,
-    payload.campaignCode,
-    payload.startDate,
-    payload.endDate,
-    Number(payload.minimumPurchase || 0),
-    payload.prizeDetails || '',
-    Number(payload.totalWinners || 1),
-    payload.status || 'ACTIVE',
-    payload.notes || '',
-    userId
-  ]);
+  `,
+    [
+      payload.campaignName,
+      payload.campaignCode,
+      payload.startDate,
+      payload.endDate,
+      Number(payload.minimumPurchase || 0),
+      payload.prizeDetails || '',
+      Number(payload.totalWinners || 1),
+      payload.status || 'ACTIVE',
+      payload.notes || '',
+      userId,
+    ]
+  );
   return mapCampaign(result.rows[0]);
 }
 
 async function updateCampaign(id, payload) {
-  const result = await getPool().query(`
+  const result = await getPool().query(
+    `
     UPDATE lucky_draw_campaigns
     SET campaign_name     = $2,
         start_date        = $3,
@@ -142,17 +146,19 @@ async function updateCampaign(id, payload) {
         updated_at        = NOW()
     WHERE id = $1 AND deleted_at IS NULL
     RETURNING *
-  `, [
-    Number(id),
-    payload.campaignName,
-    payload.startDate,
-    payload.endDate,
-    Number(payload.minimumPurchase || 0),
-    payload.prizeDetails || '',
-    Number(payload.totalWinners || 1),
-    payload.status || 'ACTIVE',
-    payload.notes || ''
-  ]);
+  `,
+    [
+      Number(id),
+      payload.campaignName,
+      payload.startDate,
+      payload.endDate,
+      Number(payload.minimumPurchase || 0),
+      payload.prizeDetails || '',
+      Number(payload.totalWinners || 1),
+      payload.status || 'ACTIVE',
+      payload.notes || '',
+    ]
+  );
   return mapCampaign(result.rows[0]);
 }
 
@@ -167,8 +173,8 @@ async function softDeleteCampaign(id) {
 // ── Participants ──────────────────────────────────────────────────────────────
 
 async function listParticipants(filters = {}) {
-  const params  = [];
-  const where   = ['1=1'];
+  const params = [];
+  const where = ['1=1'];
 
   if (filters.campaignId) {
     params.push(Number(filters.campaignId));
@@ -176,10 +182,13 @@ async function listParticipants(filters = {}) {
   }
   if (filters.search) {
     params.push(`%${String(filters.search).trim().toLowerCase()}%`);
-    where.push(`(LOWER(entries.coupon_no) LIKE $${params.length} OR LOWER(customers.name) LIKE $${params.length})`);
+    where.push(
+      `(LOWER(entries.coupon_no) LIKE $${params.length} OR LOWER(customers.name) LIKE $${params.length})`
+    );
   }
 
-  const result = await getPool().query(`
+  const result = await getPool().query(
+    `
     SELECT entries.*,
            campaigns.campaign_name, campaigns.campaign_code,
            COALESCE(entries.customer_name, customers.name) AS customer_name,
@@ -191,7 +200,9 @@ async function listParticipants(filters = {}) {
     WHERE ${where.join(' AND ')}
     ORDER BY entries.created_at DESC
     LIMIT 500
-  `, params);
+  `,
+    params
+  );
   return result.rows.map(mapParticipant);
 }
 
@@ -204,28 +215,31 @@ async function addParticipant(payload, userId) {
       'SELECT COUNT(*)::INTEGER + 1 AS next_seq FROM lucky_draw_entries WHERE campaign_id = $1',
       [campaignId]
     );
-    const seq       = Number(seqResult.rows[0].next_seq || 1);
-    const campaign  = await client.query(
+    const seq = Number(seqResult.rows[0].next_seq || 1);
+    const campaign = await client.query(
       'SELECT campaign_code FROM lucky_draw_campaigns WHERE id = $1',
       [campaignId]
     );
     if (!campaign.rows[0]) throw new Error('CAMPAIGN_NOT_FOUND');
     const couponNo = `${campaign.rows[0].campaign_code}-${String(seq).padStart(6, '0')}`;
 
-    const result = await client.query(`
+    const result = await client.query(
+      `
       INSERT INTO lucky_draw_entries (
         campaign_id, customer_id, sale_id,
         coupon_no, qr_value, barcode_value, bill_amount, customer_name
       )
       VALUES ($1, $2, NULL, $3, $3, $3, $4, $5)
       RETURNING *
-    `, [
-      campaignId,
-      payload.customerId ? Number(payload.customerId) : null,
-      couponNo,
-      Number(payload.billAmount || 0),
-      payload.customerId ? null : (payload.customerName || null),  // P-7: only store for walk-ins
-    ]);
+    `,
+      [
+        campaignId,
+        payload.customerId ? Number(payload.customerId) : null,
+        couponNo,
+        Number(payload.billAmount || 0),
+        payload.customerId ? null : payload.customerName || null, // P-7: only store for walk-ins
+      ]
+    );
 
     if (!result.rows[0]) throw new Error('INSERT_FAILED');
 
@@ -237,7 +251,7 @@ async function addParticipant(payload, userId) {
     return mapParticipant({
       ...result.rows[0],
       campaign_name: campaign.rows[0].campaign_code,
-      customer_name: payload.customerId ? null : (payload.customerName || 'Walk-in'),
+      customer_name: payload.customerId ? null : payload.customerName || 'Walk-in',
     });
   });
 }
@@ -273,11 +287,17 @@ async function runDraw(campaignId, count, userId) {
       [Number(campaignId)]
     );
     const alreadyDrawn = Number(existingCount.rows[0].cnt || 0);
-    const remaining    = Math.max(Number(campaign.total_winners) - alreadyDrawn, 0);
-    const drawCount    = Math.min(Number(count || 1), remaining);
-    if (drawCount <= 0) return { campaign: mapCampaign(campaign), winners: [], message: 'No remaining winner slots.' };
+    const remaining = Math.max(Number(campaign.total_winners) - alreadyDrawn, 0);
+    const drawCount = Math.min(Number(count || 1), remaining);
+    if (drawCount <= 0)
+      return {
+        campaign: mapCampaign(campaign),
+        winners: [],
+        message: 'No remaining winner slots.',
+      };
 
-    const candidates = await client.query(`
+    const candidates = await client.query(
+      `
       SELECT entries.id
       FROM lucky_draw_entries entries
       WHERE entries.campaign_id = $1
@@ -286,19 +306,25 @@ async function runDraw(campaignId, count, userId) {
         )
       ORDER BY random()
       LIMIT $2
-    `, [Number(campaignId), drawCount]);
+    `,
+      [Number(campaignId), drawCount]
+    );
 
     const winners = [];
     for (const candidate of candidates.rows) {
-      const inserted = await client.query(`
+      const inserted = await client.query(
+        `
         INSERT INTO lucky_draw_winners (campaign_id, entry_id, prize_name, selected_by)
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (entry_id) DO NOTHING
         RETURNING id
-      `, [Number(campaignId), candidate.id, campaign.prize_details, userId]);
+      `,
+        [Number(campaignId), candidate.id, campaign.prize_details, userId]
+      );
 
       if (inserted.rows[0]) {
-        const winner = await client.query(`
+        const winner = await client.query(
+          `
           SELECT winners.*,
                  campaigns.campaign_name, campaigns.prize_details,
                  entries.coupon_no, entries.bill_amount,
@@ -312,7 +338,9 @@ async function runDraw(campaignId, count, userId) {
           LEFT  JOIN customers                      ON customers.id = entries.customer_id
           LEFT  JOIN users                          ON users.id     = winners.selected_by
           WHERE winners.id = $1
-        `, [inserted.rows[0].id]);
+        `,
+          [inserted.rows[0].id]
+        );
         if (winner.rows[0]) winners.push(mapWinner(winner.rows[0]));
       }
     }
@@ -334,12 +362,13 @@ async function runDraw(campaignId, count, userId) {
 
 async function listWinners(campaignId) {
   const params = [];
-  const where  = [];
+  const where = [];
   if (campaignId) {
     params.push(Number(campaignId));
     where.push(`winners.campaign_id = $${params.length}`);
   }
-  const result = await getPool().query(`
+  const result = await getPool().query(
+    `
     SELECT winners.*,
            campaigns.campaign_name, campaigns.prize_details,
            entries.coupon_no, entries.bill_amount,
@@ -355,7 +384,9 @@ async function listWinners(campaignId) {
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
     ORDER BY winners.selected_at DESC
     LIMIT 300
-  `, params);
+  `,
+    params
+  );
   return result.rows.map(mapWinner);
 }
 
@@ -372,9 +403,9 @@ async function getReports() {
   const r = result.rows[0];
   return {
     campaignCount: Number(r.campaign_count || 0),
-    entryCount:    Number(r.entry_count    || 0),
-    winnerCount:   Number(r.winner_count   || 0),
-    totalSales:    Number(r.total_sales    || 0),
+    entryCount: Number(r.entry_count || 0),
+    winnerCount: Number(r.winner_count || 0),
+    totalSales: Number(r.total_sales || 0),
   };
 }
 
@@ -401,10 +432,10 @@ async function createEntriesForSale(client, sale, cashierId) {
 
   const entries = [];
   for (const campaign of campaigns.rows) {
-    await client.query(
-      'SELECT pg_advisory_xact_lock($1::integer, $2::integer)',
-      [4243, Number(campaign.id)]
-    );
+    await client.query('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', [
+      4243,
+      Number(campaign.id),
+    ]);
 
     const seqResult = await client.query(
       'SELECT COUNT(*)::INTEGER + 1 AS next_seq FROM lucky_draw_entries WHERE campaign_id = $1',
@@ -432,18 +463,17 @@ async function createEntriesForSale(client, sale, cashierId) {
           cashierId,
           JSON.stringify({
             campaign_id: Number(campaign.id),
-            sale_id:     Number(sale.id),
+            sale_id: Number(sale.id),
             customer_id: sale.customer_id || null,
-            invoice:     sale.invoice_number,
+            invoice: sale.invoice_number,
           }),
         ]
       );
-      console.log(`[LuckyDrawV2] Auto-entry — campaign:${campaign.id} sale:${sale.id} coupon:${couponNo}`);
       entries.push({
-        campaignId:   Number(campaign.id),
+        campaignId: Number(campaign.id),
         campaignName: campaign.campaign_name,
         couponNo,
-        billAmount:   Number(sale.grand_total || 0),
+        billAmount: Number(sale.grand_total || 0),
       });
     }
   }

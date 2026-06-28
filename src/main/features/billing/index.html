@@ -40,7 +40,7 @@
             </div>
           </label>
         </div>
-        <p id="posMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
+        <p id="posMessage" class="epos-pos-message hidden"></p>
       </section>
 
       <section class="epos-invoice-product-card">
@@ -142,7 +142,7 @@
           </span>
           <div class="epos-btn-row"><strong>WhatsApp</strong><kbd>Ctrl+W</kbd></div>
         </button>
-        <button id="posSaveDraftButton" type="button" data-pos-shortcut="Ctrl+S" onclick="document.getElementById('holdSaleButton')?.click()">
+        <button id="posSaveDraftButton" type="button" data-pos-shortcut="Ctrl+S" onclick="document.getElementById('clearCartButton')?.click()">
           <span class="epos-action-icon">
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -150,7 +150,7 @@
               <polyline points="7 3 7 8 15 8"/>
             </svg>
           </span>
-          <div class="epos-btn-row"><strong>Save Draft</strong><kbd>Ctrl+S</kbd></div>
+          <div class="epos-btn-row"><strong>Clear Cart</strong><kbd>Ctrl+S</kbd></div>
         </button>
       </footer>
     </div>
@@ -228,6 +228,17 @@
               </svg>
             </span>
             <div class="epos-btn-row"><strong>Bank Transfer</strong><kbd>Ctrl+B</kbd></div>
+          </button>
+
+          <button type="button" data-payment-set="Credit" class="epos-pay-ledger">
+            <span class="epos-action-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 5h16v14H4z"/>
+                <path d="M8 9h8M8 13h5"/>
+                <path d="M17 17l2 2 3-4"/>
+              </svg>
+            </span>
+            <div class="epos-btn-row"><strong>Credit</strong><kbd>Due</kbd></div>
           </button>
 
           <!-- Row 2: More payments + actions -->
@@ -329,8 +340,8 @@
         <label>Name <input id="posCustomerNameInput" class="epos-billing-input" required placeholder="Customer name" /></label>
         <label>Phone <input id="posCustomerPhoneInput" class="epos-billing-input" placeholder="Phone number" /></label>
         <label>Email <input id="posCustomerEmailInput" type="email" class="epos-billing-input" placeholder="Email address" /></label>
-        <label>CNIC <input id="posCustomerCnicInput" class="epos-billing-input" placeholder="CNIC" /></label>
-        <label>Opening Balance <input id="posCustomerOpeningBalanceInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" /></label>
+        <label>CNIC <input id="posCustomerCnicInput" class="epos-billing-input" placeholder="Coming soon" disabled /></label>
+        <label>Opening Balance <input id="posCustomerOpeningBalanceInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" disabled /></label>
         <label>Credit Limit <input id="posCustomerCreditLimitInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" /></label>
         <label class="epos-pos-customer-wide">Address <input id="posCustomerAddressInput" class="epos-billing-input" placeholder="Address" /></label>
       </div>

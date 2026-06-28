@@ -152,6 +152,28 @@
     background: linear-gradient(135deg, var(--epos-white) 0%, #f8fbff 100%) padding-box,
     linear-gradient(135deg, #06b6d4, var(--epos-blue), #8b5cf6) border-box;
   }
+  .epos-pos-message {
+    display: block;
+    min-height: 0;
+    margin: 8px 0 0;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 850;
+    line-height: 1.25;
+    box-shadow: none;
+  }
+  .epos-pos-message.hidden { display: none !important; }
+  .epos-pos-message-success {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+  }
+  .epos-pos-message-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
   .epos-invoice-product-card {
     display: flex;
     flex: 1;
@@ -304,8 +326,8 @@
     line-height: 1;
     box-shadow: 0 8px 16px rgb(15 23 42 / 0.16);
   }
-  .epos-invoice-cart .epos-cart-qty button[data-cart-action="dec"] { background: #ef1111; }
-  .epos-invoice-cart .epos-cart-qty button[data-cart-action="inc"] { background: #08c866; }
+  .epos-invoice-cart .epos-cart-qty button[data-dec-item] { background: #ef1111; }
+  .epos-invoice-cart .epos-cart-qty button[data-inc-item] { background: #08c866; }
   .epos-invoice-cart .epos-cart-qty input, .epos-invoice-cart .epos-cart-discount {
     width: 100%;
     min-height: 34px;
@@ -441,16 +463,43 @@
   .epos-invoice-summary-discount[data-discount-mode="percentage"]::after {
     content: "%";
     position: absolute;
-    right: 14px;
+    right: 8px;
     top: 50%;
     z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    border-radius: 999px;
+    background: #f8fafc;
     color: var(--epos-slate-600);
-    font-size: 13px;
+    font-size: 11px;
     font-weight: var(--epos-font-weight-black);
-    transform: var(--epos-percent-label-transform);
+    line-height: 1;
+    transform: translateY(-50%);
     pointer-events: none;
   }
-  .epos-invoice-summary-discount[data-discount-mode="percentage"] .epos-billing-input { padding-right: 28px; }
+  .epos-invoice-summary-discount[data-discount-mode="amount"]::after {
+    content: "Rs";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: var(--epos-slate-600);
+    font-size: 10px;
+    font-weight: var(--epos-font-weight-black);
+    line-height: 1;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
   /* ==========================================================
      RESPONSIVE LOCAL OVERRIDES - FORM/SUMMARY
      ========================================================== */
@@ -659,6 +708,10 @@
 
   .epos-invoice-summary-discount .epos-billing-input,
   .epos-invoice-amount-received-row .epos-billing-input { padding-left: var(--epos-summary-number-pad-x) !important; padding-right: var(--epos-summary-number-pad-x) !important; }
+  .epos-invoice-summary-discount[data-discount-mode="percentage"] .epos-billing-input,
+  .epos-invoice-summary-discount[data-discount-mode="amount"] .epos-billing-input {
+    padding-right: 44px !important;
+  }
 
   .epos-invoice-summary-lines > div:nth-child(3), .epos-invoice-summary-lines .grand { border-top: 0; border-bottom: var(--epos-summary-divider-strong); padding-bottom: 8px; }
   .epos-invoice-summary-lines .grand {
@@ -701,7 +754,14 @@
     .epos-invoice-summary-lines .epos-invoice-discount-row, .epos-invoice-summary-lines .epos-invoice-amount-received-row, .epos-invoice-summary-lines .epos-invoice-summary-customer { grid-template-columns: 118px minmax(0, 1fr); }
     .epos-invoice-summary-customer .epos-invoice-customer-field { grid-template-columns: minmax(0, 1fr) 42px; margin-top: 0; }
     .epos-invoice-summary-customer .epos-invoice-plus { width: 42px; min-width: 42px; min-height: 40px; }
-    .epos-invoice-summary-discount[data-discount-mode="percentage"]::after { right: 10px; font-size: 12px; }
+    .epos-invoice-summary-discount[data-discount-mode="percentage"]::after,
+    .epos-invoice-summary-discount[data-discount-mode="amount"]::after {
+      right: 7px;
+      width: 26px;
+      height: 20px;
+      font-size: 10px;
+    }
+    .epos-invoice-summary-discount[data-discount-mode="amount"]::after { font-size: 9.5px; }
     .epos-invoice-summary-card .epos-billing-input, .epos-invoice-summary-card .epos-billing-select { min-height: 40px; }
   }
   body[data-current-route="/pos"] #dashboard > div > div > header {
@@ -1031,7 +1091,11 @@
     font-weight: var(--epos-font-weight-heavy);
     line-height: var(--epos-cart-qty-btn-size);
     box-sizing: border-box !important;
+    color: var(--epos-white) !important;
+    cursor: pointer;
   }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-qty button[data-dec-item] { background: #ef1111 !important; }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-qty button[data-inc-item] { background: #08c866 !important; }
   .epos-billing-shell.epos-invoice-ui .epos-cart-qty input, .epos-billing-shell.epos-invoice-ui .epos-cart-discount {
     width: var(--epos-cart-qty-input-width) !important;
     min-width: var(--epos-cart-qty-input-width) !important;
@@ -1061,6 +1125,24 @@
     font-size: 11px;
     font-weight: var(--epos-font-weight-heavy);
     line-height: var(--epos-cart-qty-btn-size);
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-line-total {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    color: var(--epos-text-dark);
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-line-total span {
+    color: var(--epos-slate-600);
+    font-size: 10px;
+    font-weight: var(--epos-font-weight-heavy);
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-line-total strong {
+    color: var(--epos-text-dark);
+    font-size: 12px;
+    font-weight: var(--epos-font-weight-black);
   }
   .epos-billing-shell.epos-invoice-ui .epos-cart-remove {
     width: var(--epos-cart-remove-size) !important;
@@ -1224,6 +1306,39 @@
     inset 0 -2px 3px rgb(255 255 255 / 0.68),
     0 3px 8px rgb(15 23 42 / 0.10);
   }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button.epos-payment-selected {
+    background: linear-gradient(180deg, var(--epos-white) 0%, color-mix(in srgb, var(--billing-accent) 10%, #ffffff 90%) 100%) !important;
+    border-color: color-mix(in srgb, var(--billing-accent) 78%, #ffffff 22%) !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.86),
+      0 0 0 2px color-mix(in srgb, var(--billing-accent) 18%, transparent),
+      0 5px 12px rgb(15 23 42 / 0.10) !important;
+    transform: none !important;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button.epos-payment-selected::after {
+    content: "✓";
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: var(--billing-accent);
+    color: var(--epos-white);
+    font-size: 10px;
+    font-weight: var(--epos-font-weight-black);
+    line-height: 1;
+    z-index: 2;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button.epos-payment-selected .epos-btn-row strong {
+    color: var(--billing-accent) !important;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button.epos-payment-selected kbd {
+    color: var(--billing-accent) !important;
+    border-color: color-mix(in srgb, var(--billing-accent) 24%, var(--epos-white) 76%);
+    background: rgb(255 255 255 / 0.9);
+  }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid .epos-action-icon, .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid .epos-pay-amount { display: none !important; }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid .epos-btn-row {
     display: flex !important;
@@ -1264,16 +1379,17 @@
     position: relative;
     z-index: 1;
   }
-  /* Action button color mapping: Cash, Card, Bank, Split, Return, Exchange, Reprint, Cancel, Pay */
+  /* Action button color mapping: Cash, Card, Bank, Credit, Split, Return, Exchange, Reprint, Cancel, Pay */
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(1) { --billing-accent: var(--billing-cash); --billing-fill: linear-gradient(180deg, #f7fff9 0%, #dff8e7 100%); --billing-shadow: rgb(20 164 77 / 0.22); }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(2) { --billing-accent: var(--billing-card); --billing-fill: linear-gradient(180deg, #fbfdff 0%, var(--epos-blue-soft-border) 100%); --billing-shadow: rgb(37 99 235 / 0.22); }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(3) { --billing-accent: var(--billing-bank); --billing-fill: linear-gradient(180deg, #fffdf8 0%, #ffedd5 100%); --billing-shadow: rgb(240 138 17 / 0.24); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(4) { --billing-accent: var(--billing-split); --billing-fill: linear-gradient(180deg, #fdfaff 0%, #e9d5ff 100%); --billing-shadow: rgb(139 76 240 / 0.24); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(5) { --billing-accent: var(--billing-return); --billing-fill: linear-gradient(180deg, #fffafb 0%, #fecdd3 100%); --billing-shadow: rgb(235 64 95 / 0.24); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(6) { --billing-accent: var(--billing-exchange); --billing-fill: linear-gradient(180deg, #fcfbff 0%, #ddd6fe 100%); --billing-shadow: rgb(143 93 247 / 0.24); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(7) { --billing-accent: var(--billing-reprint); --billing-fill: linear-gradient(180deg, #fbfdff 0%, var(--epos-blue-soft-border) 100%); --billing-shadow: rgb(63 142 241 / 0.22); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(8) { --billing-accent: var(--billing-cancel); --billing-fill: linear-gradient(180deg, #fffafc 0%, #fecdd3 100%); --billing-shadow: rgb(231 80 99 / 0.24); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(9) { --billing-accent: var(--billing-pay); --billing-fill: linear-gradient(180deg, #f6fffb 0%, #ccfbf1 100%); --billing-shadow: rgb(5 150 105 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(4) { --billing-accent: #7c3aed; --billing-fill: linear-gradient(180deg, #fdfaff 0%, #ede9fe 100%); --billing-shadow: rgb(124 58 237 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(5) { --billing-accent: var(--billing-split); --billing-fill: linear-gradient(180deg, #fdfaff 0%, #e9d5ff 100%); --billing-shadow: rgb(139 76 240 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(6) { --billing-accent: var(--billing-return); --billing-fill: linear-gradient(180deg, #fffafb 0%, #fecdd3 100%); --billing-shadow: rgb(235 64 95 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(7) { --billing-accent: var(--billing-exchange); --billing-fill: linear-gradient(180deg, #fcfbff 0%, #ddd6fe 100%); --billing-shadow: rgb(143 93 247 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(8) { --billing-accent: var(--billing-reprint); --billing-fill: linear-gradient(180deg, #fbfdff 0%, var(--epos-blue-soft-border) 100%); --billing-shadow: rgb(63 142 241 / 0.22); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(9) { --billing-accent: var(--billing-cancel); --billing-fill: linear-gradient(180deg, #fffafc 0%, #fecdd3 100%); --billing-shadow: rgb(231 80 99 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(10) { --billing-accent: var(--billing-pay); --billing-fill: linear-gradient(180deg, #f6fffb 0%, #ccfbf1 100%); --billing-shadow: rgb(5 150 105 / 0.24); }
   /* ==========================================================
      SPECIFICITY AUDIT NOTES - V6
      ==========================================================

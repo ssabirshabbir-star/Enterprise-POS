@@ -26,7 +26,9 @@
   /** Shorthand — all cart/display operations go through BillingCart */
   const C = () => window.BillingCart;
 
-  function $id(id) { return document.getElementById(id); }
+  function $id(id) {
+    return document.getElementById(id);
+  }
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -54,7 +56,10 @@
     const q = String(query || '').trim();
     const resultsEl = $id('posSearchResults');
     if (!resultsEl) return;
-    if (!q) { C().clearSearchResults(); return; }
+    if (!q) {
+      C().clearSearchResults();
+      return;
+    }
 
     // Barcode exact lookup — intentionally silent on miss: falls through to text search
     if (q.length >= 4 && !/\s/.test(q)) {
@@ -65,15 +70,20 @@
           C().addToCart(res.product);
           return;
         }
-      } catch (_) { /* intentional: barcode miss falls through to text search */ }
+      } catch (_) {
+        /* intentional: barcode miss falls through to text search */
+      }
     }
 
     // Text / SKU / name search
     try {
       LOG('Product search:', q);
       const res = await window.posApi.pos.searchProducts({ search: q });
-      const { ok } = apiOk(res, 'Search failed.');   // R1 fix: was direct !res?.ok
-      if (!ok) { C().clearSearchResults(); return; }
+      const { ok } = apiOk(res, 'Search failed.'); // R1 fix: was direct !res?.ok
+      if (!ok) {
+        C().clearSearchResults();
+        return;
+      }
 
       const products = res.products || [];
       if (!products.length) {
@@ -90,11 +100,15 @@
       }
 
       resultsEl._products = products;
-      resultsEl.innerHTML = products.slice(0, 15).map(p => {
-        const price = C().getBillingMode() === 'wholesale' && Number(p.wholesalePrice) > 0
-          ? Number(p.wholesalePrice) : Number(p.salePrice);
-        const sc = p.currentStock <= 0 ? '#dc2626' : p.currentStock < 5 ? '#d97706' : '#16a34a';
-        return `<button type="button" data-product-id="${p.id}"
+      resultsEl.innerHTML = products
+        .slice(0, 15)
+        .map((p) => {
+          const price =
+            C().getBillingMode() === 'wholesale' && Number(p.wholesalePrice) > 0
+              ? Number(p.wholesalePrice)
+              : Number(p.salePrice);
+          const sc = p.currentStock <= 0 ? '#dc2626' : p.currentStock < 5 ? '#d97706' : '#16a34a';
+          return `<button type="button" data-product-id="${p.id}"
           style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:none;background:none;cursor:pointer;text-align:left;border-bottom:1px solid #f3f4f6"
           onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"
         ><span style="flex:1;min-width:0">
@@ -104,9 +118,10 @@
           <span style="font-weight:700;color:#1d4ed8;font-size:.83rem;white-space:nowrap">Rs.${C().fmt(price)}</span>
           <span style="font-size:.72rem;color:${sc};font-weight:600">${p.currentStock}</span>
         </button>`;
-      }).join('');
+        })
+        .join('');
     } catch (err) {
-      LOG('Search error:', err);                               // R2 fix: was console.error('[Billing]')
+      LOG('Search error:', err); // R2 fix: was console.error('[Billing]')
       C().showMsg('Product search failed. Please try again.', true); // A2 fix: was silent on IPC error
     }
   }
@@ -132,11 +147,11 @@
     if (btn) btn.disabled = true;
 
     const payload = {
-      name:        ($id('posCustomerNameInput')?.value        || '').trim(),
-      phone:       ($id('posCustomerPhoneInput')?.value       || '').trim() || undefined,
-      email:       ($id('posCustomerEmailInput')?.value       || '').trim() || undefined,
-      address:     ($id('posCustomerAddressInput')?.value     || '').trim() || undefined,
-      creditLimit: parseFloat($id('posCustomerCreditLimitInput')?.value || '0') || 0
+      name: ($id('posCustomerNameInput')?.value || '').trim(),
+      phone: ($id('posCustomerPhoneInput')?.value || '').trim() || undefined,
+      email: ($id('posCustomerEmailInput')?.value || '').trim() || undefined,
+      address: ($id('posCustomerAddressInput')?.value || '').trim() || undefined,
+      creditLimit: parseFloat($id('posCustomerCreditLimitInput')?.value || '0') || 0,
     };
 
     try {
@@ -163,11 +178,27 @@
 
   async function completeSale() {
     const btn = $id('completeSaleButton');
-    if (btn) { btn.disabled = true; btn.style.opacity = '.7'; }
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '.7';
+    }
 
     try {
       LOG('completeSale() — submitting cart payload');
-      const res = await window.posApi.pos.completeSale(C().getCartPayload());
+      const payload = C().getCartPayload();
+      if (!['Cash', 'Card', 'Bank', 'Credit'].includes(payload.paymentMethod)) {
+        C().showMsg('Please select a valid payment method.', true);
+        return;
+      }
+      if (payload.paymentMethod === 'Credit' && !payload.customerId) {
+        C().showMsg('Credit sale requires a real selected customer, not Walk-in Customer.', true);
+        return;
+      }
+      const selectedCustomerId = C().getCart().customerId || $id('customerSelect')?.value;
+      const receiptCustomer = C()
+        .getCustomers()
+        .find((c) => String(c.id) === String(selectedCustomerId));
+      const res = await window.posApi.pos.completeSale(payload);
       const { ok, message } = apiOk(res, 'Sale failed. Please try again.');
       if (!ok) {
         C().showMsg(message, true);
@@ -175,6 +206,11 @@
       }
 
       LOG('Sale complete — invoice:', res.receipt?.invoiceNumber);
+      if (receiptCustomer && res.receipt) {
+        res.receipt.customerId = receiptCustomer.id;
+        res.receipt.customerName = res.receipt.customerName || receiptCustomer.name;
+        res.receipt.customerPhone = receiptCustomer.phone || '';
+      }
       C().setLastReceipt(res.receipt);
       C().renderReceiptPreview(res.receipt);
 
@@ -195,7 +231,10 @@
       LOG('completeSale error:', err);
       C().showMsg('Sale request failed. Please try again.', true);
     } finally {
-      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+      }
     }
   }
 
@@ -204,21 +243,27 @@
   async function holdSale() {
     const cart = C().getCart();
     const holdPayload = {
-      items: cart.items.map(i => ({
-        productId: i.productId, name:      i.name,
-        quantity:  i.quantity,  unitPrice: i.unitPrice,
-        discount:  i.discount,  total:     Number(i.displayTotal) || 0
+      items: cart.items.map((i) => ({
+        productId: i.productId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        discount: i.discount,
+        total: Number(i.displayTotal) || 0,
       })),
       customerId: cart.customerId || null,
-      note: `Cart ${C().getActiveCart() + 1} — ${cart.items.length} items`
+      note: `Cart ${C().getActiveCart() + 1} — ${cart.items.length} items`,
     };
 
     try {
       LOG('holdSale() — holding cart', C().getActiveCart() + 1);
       const res = await window.posApi.pos.holdSale(holdPayload);
       const { ok, message } = apiOk(res, 'Hold failed.');
-      if (!ok) { C().showMsg(message, true); return; }
-      C().showMsg('Sale held. Cart cleared.');
+      if (!ok) {
+        C().showMsg(message, true);
+        return;
+      }
+      C().showMsg('Sale held. Use the held sales list to resume it.');
       C().clearCartDisplay();
       loadHeldSales();
     } catch (err) {
@@ -240,7 +285,7 @@
 
   async function restoreHold(holdId) {
     const holds = $id('heldSalesList')?._holds || [];
-    const hold  = holds.find(h => String(h.id) === String(holdId));
+    const hold = holds.find((h) => String(h.id) === String(holdId));
     if (!hold?.payload?.items?.length) return;
 
     C().restoreHeldItemsToCart(hold);
@@ -260,13 +305,20 @@
 
   async function deleteHold(holdId) {
     let ok = false;
-    try { ok = await window.posApi.dialog.confirm('Delete this held sale?'); } catch (_) { ok = true; }
+    try {
+      ok = await window.posApi.dialog.confirm('Delete this held sale?');
+    } catch (_) {
+      ok = true;
+    }
     if (!ok) return;
     try {
       LOG('deleteHold():', holdId);
       const res = await window.posApi.pos.deleteHeldSale(holdId);
       const { ok: deleted, message } = apiOk(res, 'Delete failed.');
-      if (!deleted) { C().showMsg(message, true); return; }
+      if (!deleted) {
+        C().showMsg(message, true);
+        return;
+      }
       loadHeldSales();
       C().showMsg('Held sale deleted.');
     } catch (err) {
@@ -286,7 +338,10 @@
 
   async function printReceipt(receipt) {
     const r = receipt || C().getLastReceipt();
-    if (!r) { C().showMsg('No receipt available to print.', true); return; }
+    if (!r) {
+      C().showMsg('No receipt available to print.', true);
+      return;
+    }
     try {
       LOG('printReceipt() — invoice:', r.invoiceNumber);
       const res = await window.posApi.printing.printReceipt(r, {});
@@ -300,7 +355,10 @@
   }
 
   async function downloadPdf() {
-    if (!C().getLastReceipt()) { C().showMsg('Complete a sale first.', true); return; }
+    if (!C().getLastReceipt()) {
+      C().showMsg('Complete a sale first.', true);
+      return;
+    }
     try {
       LOG('downloadPdf()');
       const res = await window.posApi.printing.downloadReceiptPdf(C().getLastReceipt(), {});
@@ -315,12 +373,18 @@
   }
 
   async function reprintLastBill() {
-    if (C().getLastReceipt()) { await printReceipt(C().getLastReceipt()); return; }
+    if (C().getLastReceipt()) {
+      await printReceipt(C().getLastReceipt());
+      return;
+    }
     try {
       LOG('reprintLastBill() — fetching last receipt');
       const res = await window.posApi.pos.getLastReceipt();
       const { ok } = apiOk(res, 'No previous sale found.');
-      if (!ok || !res.receipt) { C().showMsg('No previous sale found.', true); return; }
+      if (!ok || !res.receipt) {
+        C().showMsg('No previous sale found.', true);
+        return;
+      }
       C().setLastReceipt(res.receipt);
       C().renderReceiptPreview(res.receipt);
       await printReceipt(res.receipt);
@@ -333,44 +397,36 @@
   // ── Sale actions (refund / exchange) ──────────────────────────────────────
 
   async function validateSaleAction(action) {
-    let invoiceNumber = '';
-    try {
-      const v = await window.posApi.dialog.prompt(
-        `Invoice Number for ${action === 'refund' ? 'Sales Return' : 'Exchange'}:`, '');
-      if (!v) return;
-      invoiceNumber = String(v).trim();
-    } catch (_) {
-      invoiceNumber = (prompt(`Invoice Number for ${action}:`) || '').trim();
-    }
-    if (!invoiceNumber) return;
-
-    try {
-      LOG('validateSaleAction():', action, invoiceNumber);
-      const res = await window.posApi.pos.validateSaleAction({ invoiceNumber, action });
-      const { ok, message } = apiOk(res, `${action} lookup failed.`);
-      if (!ok) { C().showMsg(message, true); return; }
-      C().showMsg(res.message || `${action} verified.`);
-      if (res.receipt) C().renderReceiptPreview(res.receipt);
-    } catch (err) {
-      LOG('validateSaleAction error:', err);
-      C().showMsg('Request failed.', true);
-    }
+    C().showMsg(
+      `${action === 'refund' ? 'Full refund' : 'Exchange'} workflow is coming soon. It is not implemented yet.`,
+      true
+    );
   }
 
   // ── WhatsApp ──────────────────────────────────────────────────────────────
 
   async function sendWhatsApp() {
-    if (!C().getLastReceipt()) { C().showMsg('Complete a sale first.', true); return; }
-    const customerId = $id('customerSelect')?.value;
-    const customer   = C().getCustomers().find(c => String(c.id) === String(customerId));
-    if (!customer?.phone) { C().showMsg('Customer has no phone number.', true); return; }
-    const digits = customer.phone.replace(/\D/g, '');
-    const r      = C().getLastReceipt();
-    const text   = encodeURIComponent(
-      `Dear ${customer.name},\nInvoice: ${r.invoiceNumber}\nTotal: Rs.${C().fmt(r.grandTotal)}\nDate: ${new Date(r.createdAt || Date.now()).toLocaleDateString()}\nThank you!`
+    const r = C().getLastReceipt();
+    if (!r) {
+      C().showMsg('Complete a sale first.', true);
+      return;
+    }
+    const customerId = r.customerId || $id('customerSelect')?.value;
+    const customer = C()
+      .getCustomers()
+      .find((c) => String(c.id) === String(customerId));
+    const customerName = r.customerName || customer?.name || 'Customer';
+    const customerPhone = r.customerPhone || customer?.phone || '';
+    if (!customerPhone) {
+      C().showMsg('Receipt customer has no phone number.', true);
+      return;
+    }
+    const digits = customerPhone.replace(/\D/g, '');
+    const text = encodeURIComponent(
+      `Dear ${customerName},\nInvoice: ${r.invoiceNumber}\nTotal: Rs.${C().fmt(r.grandTotal)}\nDate: ${new Date(r.createdAt || Date.now()).toLocaleDateString()}\nThank you!`
     );
     try {
-      LOG('sendWhatsApp() — customer:', customer.name);
+      LOG('sendWhatsApp() — customer:', customerName);
       await window.posApi.shell.openExternal(`https://wa.me/${digits}?text=${text}`);
     } catch (_) {}
   }
@@ -380,19 +436,33 @@
   async function clearCartConfirm() {
     if (!C().getCart().items.length) return;
     let ok = false;
-    try { ok = await window.posApi.dialog.confirm('Clear current cart?'); } catch (_) { ok = true; }
-    if (ok) { C().clearCartDisplay(); C().showMsg('Cart cleared.'); }
+    try {
+      ok = await window.posApi.dialog.confirm('Clear current cart?');
+    } catch (_) {
+      ok = true;
+    }
+    if (ok) {
+      C().clearCartDisplay();
+      C().showMsg('Cart cleared.');
+    }
   }
 
   // ── Public surface ────────────────────────────────────────────────────────
 
   window.BillingApi = {
     searchProducts,
-    loadCustomers, saveCustomer,
+    loadCustomers,
+    saveCustomer,
     completeSale,
-    holdSale, loadHeldSales, restoreHold, deleteHold,
-    printReceipt, downloadPdf, reprintLastBill,
-    validateSaleAction, sendWhatsApp,
-    clearCartConfirm
+    holdSale,
+    loadHeldSales,
+    restoreHold,
+    deleteHold,
+    printReceipt,
+    downloadPdf,
+    reprintLastBill,
+    validateSaleAction,
+    sendWhatsApp,
+    clearCartConfirm,
   };
 })();
