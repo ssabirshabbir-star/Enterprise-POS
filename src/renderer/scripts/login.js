@@ -49,7 +49,7 @@ const MODULE_PERMISSIONS = Object.freeze({
   purchase_orders: 'purchaseOrders.view',
   suppliers: 'suppliers.view',
   customers: 'customers.view',
-  returns: 'pos.refund.create',
+  returns: 'returns.view',
   reports: 'reports.view',
   expenses: 'expenses.view',
   lucky_draw: 'lucky_draw.view',
@@ -201,6 +201,10 @@ async function navigateTo(route) {
 
   if (target === '/inventory') {
     window.initInventoryModule?.();
+  }
+
+  if (target === '/returns') {
+    window.initReturnsModule?.();
   }
 }
 
