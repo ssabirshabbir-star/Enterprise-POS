@@ -9,6 +9,7 @@ const { registerProductRoutes } = require('./features/products/product.controlle
 const { registerPurchaseRoutes } = require('./features/purchases/purchase.controller');
 const { registerPurchaseOrderRoutes } = require('./features/purchase-orders/po.controller');
 const { registerBillingRoutes } = require('./features/billing/billing.controller');
+const { registerSalesHistoryRoutes } = require('./features/sales-history/sales-history.controller');
 const { registerPrintingRoutes } = require('./features/printing/printing.controller');
 const { registerReportsRoutes } = require('./features/reports/reports.controller');
 const { registerDashboardRoutes } = require('./features/dashboard/dashboard.controller');
@@ -41,8 +42,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
-    }
+      nodeIntegration: false,
+    },
   });
 
   Menu.setApplicationMenu(null);
@@ -80,7 +81,7 @@ app.whenReady().then(async () => {
     console.error('Database initialization failed:', error);
     startupStatus = {
       ok: false,
-      message: userFriendlyStartupError(error)
+      message: userFriendlyStartupError(error),
     };
   }
 
@@ -90,6 +91,7 @@ app.whenReady().then(async () => {
   registerPurchaseRoutes(ipcMain);
   registerPurchaseOrderRoutes(ipcMain);
   registerBillingRoutes(ipcMain);
+  registerSalesHistoryRoutes(ipcMain);
   registerPrintingRoutes(ipcMain);
   registerReportsRoutes(ipcMain);
   registerDashboardRoutes(ipcMain);
@@ -119,7 +121,7 @@ app.whenReady().then(async () => {
       buttons: ['Cancel', 'OK'],
       defaultId: 1,
       cancelId: 0,
-      message: String(message || 'Are you sure?')
+      message: String(message || 'Are you sure?'),
     });
     return response === 1;
   });
@@ -134,7 +136,7 @@ app.whenReady().then(async () => {
       defaultId: 1,
       cancelId: 0,
       message: label,
-      detail: defaultValue ? `Default: ${defaultValue}` : undefined
+      detail: defaultValue ? `Default: ${defaultValue}` : undefined,
     });
     // Native Electron dialog cannot collect text input — return empty string on OK
     return response === 1 ? defaultValue : null;
@@ -152,9 +154,12 @@ app.whenReady().then(async () => {
 function userFriendlyStartupError(error) {
   const message = String(error?.message || '');
   if (message.includes('Database is not configured')) return message;
-  if (error?.code === 'ECONNREFUSED') return 'PostgreSQL is not running or cannot be reached. Start PostgreSQL and verify your production env file.';
-  if (error?.code === '28P01') return 'PostgreSQL login failed. Check DATABASE_URL or PGUSER/PGPASSWORD.';
-  if (error?.code === '3D000') return 'PostgreSQL database does not exist. Create the database, then restart Enterprise POS.';
+  if (error?.code === 'ECONNREFUSED')
+    return 'PostgreSQL is not running or cannot be reached. Start PostgreSQL and verify your production env file.';
+  if (error?.code === '28P01')
+    return 'PostgreSQL login failed. Check DATABASE_URL or PGUSER/PGPASSWORD.';
+  if (error?.code === '3D000')
+    return 'PostgreSQL database does not exist. Create the database, then restart Enterprise POS.';
   return 'Database startup failed. Check PostgreSQL configuration and run npm run db:health for details.';
 }
 

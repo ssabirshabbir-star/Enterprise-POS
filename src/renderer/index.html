@@ -58,6 +58,7 @@
           <nav class="epos-sidebar-nav" id="sidebarNav">
             <button type="button" data-route="/dashboard" data-module="dashboard" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#8962;</span><span class="epos-sidebar-label">Dashboard</span></button>
             <button type="button" data-route="/pos" data-module="pos" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128179;</span><span class="epos-sidebar-label">Billing</span></button>
+            <button type="button" data-route="/sales-history" data-module="pos" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128196;</span><span class="epos-sidebar-label">Completed Invoices</span></button>
             <button type="button" data-route="/products" data-module="products" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128230;</span><span class="epos-sidebar-label">Products</span></button>
             <button type="button" data-route="/inventory" data-module="inventory" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128202;</span><span class="epos-sidebar-label">Inventory</span></button>
             <button type="button" data-route="/purchases" data-module="purchases" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128722;</span><span class="epos-sidebar-label">Purchases</span></button>
@@ -112,6 +113,7 @@
       <main id="appMain" class="flex-1 min-h-0 overflow-hidden">
             <section id="dashboardRoute" data-route-panel="/dashboard" data-fragment="../main/features/dashboard/index.html" class="hidden dashboard-shell"></section>
       <section id="posModule" data-route-panel="/pos" data-fragment="../main/features/billing/index.html" class="hidden"></section>
+      <section id="salesHistoryModule" data-route-panel="/sales-history" data-fragment="../main/features/sales-history/index.html" class="hidden h-full w-full"></section>
       <section id="productModule" data-route-panel="/products" data-fragment="../main/features/products/index.html" class="hidden w-full"></section>
       <section id="inventoryModule" data-route-panel="/inventory" data-fragment="../main/features/inventory/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="purchaseModule" data-route-panel="/purchases" data-fragment="../main/features/purchases/index.html" class="mx-auto hidden max-w-7xl"></section>
@@ -249,6 +251,9 @@
     <script src="../main/features/billing/billing.cart.js"></script>
     <script src="../main/features/billing/billing.api.js"></script>
     <script src="../main/features/billing/billing.renderer.js"></script>
+    <!-- Sales History module renderer -->
+    <script src="../main/features/sales-history/sales-history.api.js"></script>
+    <script src="../main/features/sales-history/sales-history.renderer.js"></script>
     <!-- Products module renderer — load order: api → renderer -->
     <script src="../main/features/products/products.api.js"></script>
     <script src="../main/features/products/products.renderer.js"></script>

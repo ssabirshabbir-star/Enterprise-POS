@@ -2,22 +2,22 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('posApi', {
   app: {
-    info: () => ipcRenderer.invoke('/app/info')
+    info: () => ipcRenderer.invoke('/app/info'),
   },
   updates: {
-    check: () => ipcRenderer.invoke('/updates/check')
+    check: () => ipcRenderer.invoke('/updates/check'),
   },
   license: {
     status: () => ipcRenderer.invoke('/license/status'),
     activate: (payload) => ipcRenderer.invoke('/license/activate', payload),
-    refresh: () => ipcRenderer.invoke('/license/refresh')
+    refresh: () => ipcRenderer.invoke('/license/refresh'),
   },
   auth: {
     login: (credentials) => ipcRenderer.invoke('/auth/login', credentials),
     profile: () => ipcRenderer.invoke('/auth/profile'),
     refresh: () => ipcRenderer.invoke('/auth/refresh'),
     logout: () => ipcRenderer.invoke('/auth/logout'),
-    canAccess: (route) => ipcRenderer.invoke('/auth/can-access', route)
+    canAccess: (route) => ipcRenderer.invoke('/auth/can-access', route),
   },
   users: {
     list: (filters) => ipcRenderer.invoke('/users/list', filters),
@@ -25,14 +25,15 @@ contextBridge.exposeInMainWorld('posApi', {
     update: (id, payload) => ipcRenderer.invoke('/users/update', { id, payload }),
     setActive: (id, isActive) => ipcRenderer.invoke('/users/status', { id, isActive }),
     resetPassword: (id, password) => ipcRenderer.invoke('/users/reset-password', { id, password }),
-    securityActivity: () => ipcRenderer.invoke('/users/security-activity')
+    securityActivity: () => ipcRenderer.invoke('/users/security-activity'),
   },
   roles: {
     list: () => ipcRenderer.invoke('/roles/list'),
     create: (payload) => ipcRenderer.invoke('/roles/create', payload),
     update: (id, payload) => ipcRenderer.invoke('/roles/update', { id, payload }),
     permissions: (roleId) => ipcRenderer.invoke('/roles/permissions', roleId),
-    savePermissions: (roleId, permissionIds) => ipcRenderer.invoke('/roles/permissions/save', { roleId, permissionIds })
+    savePermissions: (roleId, permissionIds) =>
+      ipcRenderer.invoke('/roles/permissions/save', { roleId, permissionIds }),
   },
   products: {
     list: (filters) => ipcRenderer.invoke('/products/list', filters),
@@ -40,19 +41,19 @@ contextBridge.exposeInMainWorld('posApi', {
     create: (payload) => ipcRenderer.invoke('/products/create', payload),
     update: (id, payload) => ipcRenderer.invoke('/products/update', { id, payload }),
     delete: (id) => ipcRenderer.invoke('/products/delete', id),
-    lookupBarcode: (barcode) => ipcRenderer.invoke('/products/lookup-barcode', barcode)
+    lookupBarcode: (barcode) => ipcRenderer.invoke('/products/lookup-barcode', barcode),
   },
   catalog: {
     list: (type) => ipcRenderer.invoke('/catalog/list', type),
     create: (type, payload) => ipcRenderer.invoke('/catalog/create', { type, payload }),
     update: (type, id, payload) => ipcRenderer.invoke('/catalog/update', { type, id, payload }),
-    delete: (type, id) => ipcRenderer.invoke('/catalog/delete', { type, id })
+    delete: (type, id) => ipcRenderer.invoke('/catalog/delete', { type, id }),
   },
   inventory: {
     list: (filters) => ipcRenderer.invoke('/inventory/list', filters),
     movements: (filters) => ipcRenderer.invoke('/inventory/movements', filters),
     adjust: (payload) => ipcRenderer.invoke('/inventory/adjust', payload),
-    updateImage: (payload) => ipcRenderer.invoke('/inventory/product-image', payload)
+    updateImage: (payload) => ipcRenderer.invoke('/inventory/product-image', payload),
   },
   suppliers: {
     list: () => ipcRenderer.invoke('/suppliers/list'),
@@ -61,30 +62,34 @@ contextBridge.exposeInMainWorld('posApi', {
     delete: (id) => ipcRenderer.invoke('/suppliers/delete', id),
     details: (id) => ipcRenderer.invoke('/suppliers/details', id),
     ledger: (id) => ipcRenderer.invoke('/suppliers/ledger', id),
-    payment: (supplierId, payload) => ipcRenderer.invoke('/suppliers/payment', { supplierId, payload })
+    payment: (supplierId, payload) =>
+      ipcRenderer.invoke('/suppliers/payment', { supplierId, payload }),
   },
   purchases: {
     list: () => ipcRenderer.invoke('/purchases/list'),
     details: (purchaseId) => ipcRenderer.invoke('/purchases/details', purchaseId),
     delete: (purchaseId) => ipcRenderer.invoke('/purchases/delete', purchaseId),
-    create: (payload) => ipcRenderer.invoke('/purchases/create', payload)
+    create: (payload) => ipcRenderer.invoke('/purchases/create', payload),
   },
   purchaseOrders: {
     pageData: () => ipcRenderer.invoke('/purchase-orders/page-data'),
     listRequisitions: (filters) => ipcRenderer.invoke('/purchase-requisitions/list', filters),
     createRequisition: (payload) => ipcRenderer.invoke('/purchase-requisitions/create', payload),
-    updateRequisitionStatus: (id, status, notes) => ipcRenderer.invoke('/purchase-requisitions/status', { id, status, notes }),
+    updateRequisitionStatus: (id, status, notes) =>
+      ipcRenderer.invoke('/purchase-requisitions/status', { id, status, notes }),
     convertRequisition: (payload) => ipcRenderer.invoke('/purchase-requisitions/convert', payload),
     list: (filters) => ipcRenderer.invoke('/purchase-orders/list', filters),
     details: (id) => ipcRenderer.invoke('/purchase-orders/details', id),
     create: (payload) => ipcRenderer.invoke('/purchase-orders/create', payload),
     approve: (id) => ipcRenderer.invoke('/purchase-orders/approve', id),
-    sendToSupplier: (id, notes) => ipcRenderer.invoke('/purchase-orders/send-to-supplier', { id, notes }),
-    confirmSupplier: (id, payload) => ipcRenderer.invoke('/purchase-orders/confirm-supplier', { id, ...(payload || {}) }),
+    sendToSupplier: (id, notes) =>
+      ipcRenderer.invoke('/purchase-orders/send-to-supplier', { id, notes }),
+    confirmSupplier: (id, payload) =>
+      ipcRenderer.invoke('/purchase-orders/confirm-supplier', { id, ...(payload || {}) }),
     cancel: (id) => ipcRenderer.invoke('/purchase-orders/cancel', id),
     receive: (payload) => ipcRenderer.invoke('/purchase-orders/receive', payload),
     createInvoice: (payload) => ipcRenderer.invoke('/purchase-orders/invoice', payload),
-    receipts: (purchaseOrderId) => ipcRenderer.invoke('/purchase-orders/receipts', purchaseOrderId)
+    receipts: (purchaseOrderId) => ipcRenderer.invoke('/purchase-orders/receipts', purchaseOrderId),
   },
   expenses: {
     listCategories: () => ipcRenderer.invoke('/expenses/categories/list'),
@@ -92,7 +97,7 @@ contextBridge.exposeInMainWorld('posApi', {
     list: (filters) => ipcRenderer.invoke('/expenses/list', filters),
     create: (payload) => ipcRenderer.invoke('/expenses/create', payload),
     update: (id, payload) => ipcRenderer.invoke('/expenses/update', { id, payload }),
-    delete: (id) => ipcRenderer.invoke('/expenses/delete', id)
+    delete: (id) => ipcRenderer.invoke('/expenses/delete', id),
   },
   pos: {
     searchProducts: (search) => ipcRenderer.invoke('/pos/products/search', search),
@@ -104,33 +109,39 @@ contextBridge.exposeInMainWorld('posApi', {
     validateSaleAction: (payload) => ipcRenderer.invoke('/pos/sales/action/validate', payload),
     holdSale: (payload) => ipcRenderer.invoke('/pos/holds/create', payload),
     listHeldSales: () => ipcRenderer.invoke('/pos/holds/list'),
-    deleteHeldSale: (holdId) => ipcRenderer.invoke('/pos/holds/delete', holdId)
+    deleteHeldSale: (holdId) => ipcRenderer.invoke('/pos/holds/delete', holdId),
+  },
+  salesHistory: {
+    list: (filters) => ipcRenderer.invoke('/sales-history/list', filters),
+    getDetails: (saleId) => ipcRenderer.invoke('/sales-history/details', saleId),
   },
   printing: {
     listPrinters: () => ipcRenderer.invoke('/printing/printers'),
     getSettings: () => ipcRenderer.invoke('/printing/settings/get'),
     saveSettings: (settings) => ipcRenderer.invoke('/printing/settings/save', settings),
     previewReceipt: (receipt) => ipcRenderer.invoke('/printing/receipt/preview', receipt),
-    printReceipt: (receipt, options) => ipcRenderer.invoke('/printing/receipt/print', { receipt, options }),
-    downloadReceiptPdf: (receipt, options) => ipcRenderer.invoke('/printing/receipt/pdf', { receipt, options })
+    printReceipt: (receipt, options) =>
+      ipcRenderer.invoke('/printing/receipt/print', { receipt, options }),
+    downloadReceiptPdf: (receipt, options) =>
+      ipcRenderer.invoke('/printing/receipt/pdf', { receipt, options }),
   },
   reports: {
-    overview: (filters) => ipcRenderer.invoke('/reports/overview', filters)
+    overview: (filters) => ipcRenderer.invoke('/reports/overview', filters),
   },
   luckyDrawV2: {
-    listCampaigns:      ()        => ipcRenderer.invoke('/ld-v2/campaigns/list'),
-    createCampaign:     (payload) => ipcRenderer.invoke('/ld-v2/campaigns/create', payload),
-    updateCampaign:     (payload) => ipcRenderer.invoke('/ld-v2/campaigns/update', payload),
-    deleteCampaign:     (id)      => ipcRenderer.invoke('/ld-v2/campaigns/delete', id),
-    listParticipants:   (filters) => ipcRenderer.invoke('/ld-v2/participants/list', filters),
-    addParticipant:     (payload) => ipcRenderer.invoke('/ld-v2/participants/add', payload),
-    removeParticipant:  (id)      => ipcRenderer.invoke('/ld-v2/participants/remove', id),
-    runDraw:            (payload) => ipcRenderer.invoke('/ld-v2/draw/run', payload),
-    listWinners:        (campaignId) => ipcRenderer.invoke('/ld-v2/winners/list', campaignId),
-    getReports:         ()        => ipcRenderer.invoke('/ld-v2/reports')
+    listCampaigns: () => ipcRenderer.invoke('/ld-v2/campaigns/list'),
+    createCampaign: (payload) => ipcRenderer.invoke('/ld-v2/campaigns/create', payload),
+    updateCampaign: (payload) => ipcRenderer.invoke('/ld-v2/campaigns/update', payload),
+    deleteCampaign: (id) => ipcRenderer.invoke('/ld-v2/campaigns/delete', id),
+    listParticipants: (filters) => ipcRenderer.invoke('/ld-v2/participants/list', filters),
+    addParticipant: (payload) => ipcRenderer.invoke('/ld-v2/participants/add', payload),
+    removeParticipant: (id) => ipcRenderer.invoke('/ld-v2/participants/remove', id),
+    runDraw: (payload) => ipcRenderer.invoke('/ld-v2/draw/run', payload),
+    listWinners: (campaignId) => ipcRenderer.invoke('/ld-v2/winners/list', campaignId),
+    getReports: () => ipcRenderer.invoke('/ld-v2/reports'),
   },
   dashboard: {
-    overview: () => ipcRenderer.invoke('/dashboard/overview')
+    overview: () => ipcRenderer.invoke('/dashboard/overview'),
   },
   customers: {
     list: (search) => ipcRenderer.invoke('/customers/list', search),
@@ -138,33 +149,35 @@ contextBridge.exposeInMainWorld('posApi', {
     create: (payload) => ipcRenderer.invoke('/customers/create', payload),
     update: (id, payload) => ipcRenderer.invoke('/customers/update', { id, payload }),
     delete: (id) => ipcRenderer.invoke('/customers/delete', id),
-    payment: (customerId, payload) => ipcRenderer.invoke('/customers/payment', { customerId, payload }),
+    payment: (customerId, payload) =>
+      ipcRenderer.invoke('/customers/payment', { customerId, payload }),
     dueSummary: () => ipcRenderer.invoke('/customers/due-summary'),
-    seed: () => ipcRenderer.invoke('/customers/seed')
+    seed: () => ipcRenderer.invoke('/customers/seed'),
   },
   returns: {
     lookupInvoice: (filters) => ipcRenderer.invoke('/returns/lookup-invoice', filters),
     list: () => ipcRenderer.invoke('/returns/list'),
-    create: (payload) => ipcRenderer.invoke('/returns/create', payload)
+    create: (payload) => ipcRenderer.invoke('/returns/create', payload),
   },
   settings: {
     get: () => ipcRenderer.invoke('/settings/get'),
     save: (payload) => ipcRenderer.invoke('/settings/save', payload),
     listBackups: () => ipcRenderer.invoke('/settings/backups/list'),
     createBackup: () => ipcRenderer.invoke('/settings/backups/create'),
-    restoreBackup: () => ipcRenderer.invoke('/settings/backups/restore')
+    restoreBackup: () => ipcRenderer.invoke('/settings/backups/restore'),
   },
   sync: {
     status: () => ipcRenderer.invoke('/sync/status'),
     queue: () => ipcRenderer.invoke('/sync/queue'),
     run: () => ipcRenderer.invoke('/sync/run'),
-    retryFailed: () => ipcRenderer.invoke('/sync/retry-failed')
+    retryFailed: () => ipcRenderer.invoke('/sync/retry-failed'),
   },
   shell: {
-    openExternal: (url) => ipcRenderer.invoke('/shell/open-external', url)
+    openExternal: (url) => ipcRenderer.invoke('/shell/open-external', url),
   },
   dialog: {
     confirm: (message) => ipcRenderer.invoke('/dialog/confirm', message),
-    prompt: (label, defaultValue) => ipcRenderer.invoke('/dialog/prompt', { label, defaultValue: defaultValue || '' })
-  }
+    prompt: (label, defaultValue) =>
+      ipcRenderer.invoke('/dialog/prompt', { label, defaultValue: defaultValue || '' }),
+  },
 });
