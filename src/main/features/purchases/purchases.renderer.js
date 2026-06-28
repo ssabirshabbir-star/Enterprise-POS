@@ -8,6 +8,7 @@
   let draftItems = [];
   let selectedPurchaseId = null;
   let messageTimer = null;
+  let lastLoadError = '';
 
   const A = () => window.PurchasesApi;
 
@@ -49,6 +50,13 @@
     return Number.isNaN(d.getTime()) ? String(value).slice(0, 10) : d.toLocaleDateString();
   }
 
+  function isoDate(value) {
+    if (!value) return '';
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+  }
+
   function numeric(value) {
     const n = Number(value || 0);
     return Number.isFinite(n) ? n : 0;
@@ -57,6 +65,21 @@
   function setTodayIfEmpty(id) {
     const el = $id(id);
     if (el && !el.value) el.value = new Date().toISOString().slice(0, 10);
+  }
+
+  function purchasePaymentStatus(p) {
+    if (numeric(p.dueAmount) <= 0) return 'PAID';
+    return numeric(p.paidAmount) > 0 ? 'PARTIAL' : 'UNPAID';
+  }
+
+  function purchasePaymentMethod(p) {
+    return String(p.paymentMethod || (numeric(p.dueAmount) > 0 ? 'Credit' : 'Cash'));
+  }
+
+  function purchaseStatus(p) {
+    const status = String(p.status || '').toUpperCase();
+    if (status === 'RECEIVED') return purchasePaymentStatus(p);
+    return status || purchasePaymentStatus(p);
   }
 
   function getFilters() {
@@ -80,21 +103,23 @@
     return purchases.filter((p) => {
       const searchHaystack =
         `${p.invoiceNumber || ''} ${p.supplierName || ''} ${p.productNames || ''} ${p.productSearchText || ''} ${p.grandTotal || ''}`.toLowerCase();
-      const paymentStatus =
-        Number(p.dueAmount || 0) <= 0
-          ? 'PAID'
-          : Number(p.paidAmount || 0) > 0
-            ? 'PARTIAL'
-            : 'UNPAID';
+      const paymentStatus = purchasePaymentStatus(p);
+      const rowStatus = purchaseStatus(p);
+      const rowDate = isoDate(p.purchaseDate);
       if (f.search && !searchHaystack.includes(f.search)) return false;
       if (f.supplierId && String(p.supplierId || '') !== f.supplierId) return false;
-      if (f.method && String(p.paymentMethod || '') !== f.method) return false;
+      if (f.method && purchasePaymentMethod(p) !== f.method) return false;
       if (f.payment && paymentStatus !== f.payment) return false;
-      if (f.status && String(p.status || '') !== f.status) return false;
-      if (f.from && String(p.purchaseDate || '').slice(0, 10) < f.from) return false;
-      if (f.to && String(p.purchaseDate || '').slice(0, 10) > f.to) return false;
+      if (f.status && rowStatus !== f.status) return false;
+      if (f.from && (!rowDate || rowDate < f.from)) return false;
+      if (f.to && (!rowDate || rowDate > f.to)) return false;
       return true;
     });
+  }
+
+  function hasActiveFilters() {
+    const f = getFilters();
+    return Boolean(f.search || f.supplierId || f.method || f.payment || f.status || f.from || f.to);
   }
 
   function renderStats(rows) {
@@ -128,29 +153,32 @@
     const rows = filteredPurchases();
     renderStats(rows);
     if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="11" style="padding:24px;text-align:center;color:#71717a">No purchases found.</td></tr>';
+      const message = lastLoadError
+        ? lastLoadError
+        : purchases.length
+          ? 'No purchases match the selected filters. Use Reset to show all purchases.'
+          : 'No purchase records found. Use Add Purchase to create the first purchase.';
+      tbody.innerHTML = `<tr><td colspan="11" style="padding:24px;text-align:center;color:#71717a">${esc(message)}</td></tr>`;
       return;
     }
     tbody.innerHTML = rows
       .map((p, index) => {
-        const paymentStatus =
-          numeric(p.dueAmount) <= 0 ? 'PAID' : numeric(p.paidAmount) > 0 ? 'PARTIAL' : 'UNPAID';
+        const paymentStatus = purchasePaymentStatus(p);
         return `<tr data-purchase-id="${p.id}" class="${String(p.id) === String(selectedPurchaseId) ? 'epos-purchase-row-selected' : ''}">
           <td>${index + 1}</td>
           <td>${esc(p.invoiceNumber)}</td>
           <td>${esc(p.supplierName || 'No supplier')}</td>
           <td>${esc(dateOnly(p.purchaseDate))}</td>
-          <td>-</td>
+          <td>${esc(dateOnly(p.createdAt))}</td>
           <td>${money(p.grandTotal)}</td>
           <td>${money(p.paidAmount)}</td>
           <td>${money(p.dueAmount)}</td>
           <td>${esc(paymentStatus)}</td>
-          <td>${numeric(p.dueAmount) > 0 ? 'Credit' : 'Cash'}</td>
+          <td>${esc(purchasePaymentMethod(p))}</td>
           <td><span class="epos-purchase-actions">
             <button type="button" data-purchase-view="${p.id}">View</button>
-            <button type="button" data-purchase-print="${p.id}">Print</button>
-            <button type="button" data-purchase-delete="${p.id}">Del</button>
+            <button type="button" disabled title="Purchase printing is planned for a future phase.">Print Soon</button>
+            <button type="button" disabled title="Rollback is not enabled in Purchases Phase 1.">Rollback Soon</button>
           </span></td>
         </tr>`;
       })
@@ -208,16 +236,19 @@
       const res = await A().list();
       if (!res?.ok) {
         purchases = [];
+        lastLoadError = res?.message || 'Could not load purchases.';
         renderPurchases();
-        showMessage(res?.message || 'Could not load purchases.', 'error');
+        showMessage(lastLoadError, 'error');
         return;
       }
+      lastLoadError = '';
       purchases = res.purchases || [];
       renderPurchases();
     } catch {
       purchases = [];
+      lastLoadError = 'Could not load purchases.';
       renderPurchases();
-      showMessage('Could not load purchases.', 'error');
+      showMessage(lastLoadError, 'error');
     }
   }
 
@@ -407,8 +438,6 @@
     try {
       const res = await A().details(id);
       if (!res?.ok) return showMessage(res?.message || 'Purchase details not found.', 'error');
-      selectedPurchaseId = id;
-      renderPurchases();
       const items = (res.purchase.items || [])
         .map((i) => `${i.productName} (${i.quantity})`)
         .join(', ');
@@ -433,6 +462,13 @@
       .querySelectorAll('[data-purchase-status-tab]')
       .forEach((btn) => btn.classList.toggle('active', btn.dataset.purchaseStatusTab === ''));
     renderPurchases();
+    if (purchases.length && hasActiveFilters() === false) showMessage('All purchases are visible.');
+  }
+
+  function clearDraft() {
+    resetForm();
+    closeForm();
+    showMessage('Purchase draft cleared.');
   }
 
   function placeholder(text) {
@@ -446,6 +482,7 @@
       .forEach((el) => el.addEventListener('click', closeForm));
     $id('purchaseForm')?.addEventListener('submit', savePurchase);
     $id('supplierForm')?.addEventListener('submit', saveQuickSupplier);
+    $id('clearPurchaseDraftButton')?.addEventListener('click', clearDraft);
     $id('addPurchaseItemButton')?.addEventListener('click', addDraftItem);
     $id('purchaseItemProduct')?.addEventListener('change', fillSelectedProductPrices);
     ['purchaseDiscount', 'purchaseTax', 'purchasePaid'].forEach((id) =>
@@ -467,6 +504,7 @@
       'purchaseFilterTo',
     ].forEach((id) => $id(id)?.addEventListener('change', renderPurchases));
     $id('purchaseClearFiltersButton')?.addEventListener('click', clearFilters);
+    $id('purchaseShowAllButton')?.addEventListener('click', clearFilters);
     document.querySelectorAll('[data-purchase-status-tab]').forEach((btn) =>
       btn.addEventListener('click', () => {
         document
@@ -478,11 +516,7 @@
     );
     $id('purchaseList')?.addEventListener('click', (event) => {
       const view = event.target.closest('[data-purchase-view]');
-      const print = event.target.closest('[data-purchase-print]');
-      const del = event.target.closest('[data-purchase-delete]');
       if (view) viewPurchase(view.dataset.purchaseView).catch(() => {});
-      if (print) placeholder('Purchase print');
-      if (del) placeholder('Purchase delete/rollback');
     });
     $id('purchaseItemsList')?.addEventListener('click', (event) => {
       const remove = event.target.closest('[data-remove-purchase-item]');
@@ -491,32 +525,11 @@
         renderDraftItems();
       }
     });
-    document
-      .querySelectorAll('[data-page-tool="purchases"]')
-      .forEach((btn) =>
-        btn.addEventListener('click', () =>
-          placeholder(`Purchase ${btn.dataset.toolAction || 'tool'}`)
-        )
-      );
-    [
-      'purchaseWhatsAppButton',
-      'purchasePaymentButton',
-      'purchaseMoreActionsButton',
-      'purchaseColumnsButton',
-      'purchaseDueTodayButton',
-      'purchaseShowAllButton',
-      'purchasePrevPage',
-      'purchaseNextPage',
-    ].forEach((id) =>
+    ['purchasePrevPage', 'purchaseNextPage'].forEach((id) =>
       $id(id)?.addEventListener('click', () =>
         placeholder(id.replace('purchase', '').replace('Button', '') || 'Purchase action')
       )
     );
-    document
-      .querySelectorAll('[data-purchase-range], [data-purchase-payment-shortcut]')
-      .forEach((btn) =>
-        btn.addEventListener('click', () => placeholder('Advanced purchase filter'))
-      );
   }
 
   async function initPurchasesModule() {
@@ -526,6 +539,7 @@
       bindEvents();
     }
     setTodayIfEmpty('purchaseDate');
+    clearFilters();
     await loadLookups();
     await loadPurchases();
   }
