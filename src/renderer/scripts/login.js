@@ -203,6 +203,10 @@ async function navigateTo(route) {
     window.initInventoryModule?.();
   }
 
+  if (target === '/purchases') {
+    window.initPurchasesModule?.();
+  }
+
   if (target === '/returns') {
     window.initReturnsModule?.();
   }

@@ -7,8 +7,10 @@ async function requirePurchaseAccess(mode) {
   const profileResult = await authService.getProfile();
   if (!profileResult.ok) return { ok: false, message: 'Authentication required.' };
   const profile = profileResult.profile;
-  const allowed = mode === 'write' ? canWritePurchases(profile.role) : canReadPurchases(profile.role);
-  if (!allowed) return { ok: false, message: 'You do not have permission for this purchase action.' };
+  const allowed =
+    mode === 'write' ? canWritePurchases(profile.role) : canReadPurchases(profile.role);
+  if (!allowed)
+    return { ok: false, message: 'You do not have permission for this purchase action.' };
   return { ok: true, profile };
 }
 
@@ -22,6 +24,12 @@ async function listSuppliers() {
   const access = await requirePurchaseAccess('read');
   if (!access.ok) return access;
   return { ok: true, suppliers: await purchaseRepository.listSuppliers() };
+}
+
+async function listProducts() {
+  const access = await requirePurchaseAccess('read');
+  if (!access.ok) return access;
+  return { ok: true, products: await purchaseRepository.listProducts() };
 }
 
 async function createSupplier(payload = {}) {
@@ -39,9 +47,15 @@ async function createSupplier(payload = {}) {
       address: String(payload.address || '').trim(),
       openingBalance,
       isActive: payload.isActive !== false,
-      userId: access.profile.id
+      userId: access.profile.id,
     });
-    await activityRepository.createActivityLog({ userId: access.profile.id, action: 'supplier.create', status: 'success', message: 'Supplier created', metadata: { supplierId: supplier.id } });
+    await activityRepository.createActivityLog({
+      userId: access.profile.id,
+      action: 'supplier.create',
+      status: 'success',
+      message: 'Supplier created',
+      metadata: { supplierId: supplier.id },
+    });
     return { ok: true, supplier, message: 'Supplier saved successfully.' };
   } catch (error) {
     if (error.code === '23505') return { ok: false, message: 'Supplier already exists.' };
@@ -54,7 +68,8 @@ async function updateSupplier(id, payload = {}) {
   if (!access.ok) return access;
   const supplierId = Number(id);
   const name = String(payload.name || '').trim();
-  if (!Number.isInteger(supplierId) || supplierId <= 0) return { ok: false, message: 'Invalid supplier id.' };
+  if (!Number.isInteger(supplierId) || supplierId <= 0)
+    return { ok: false, message: 'Invalid supplier id.' };
   if (name.length < 2) return { ok: false, message: 'Supplier name is required.' };
   try {
     const supplier = await purchaseRepository.updateSupplier(supplierId, {
@@ -62,10 +77,16 @@ async function updateSupplier(id, payload = {}) {
       phone: String(payload.phone || '').trim(),
       email: String(payload.email || '').trim(),
       address: String(payload.address || '').trim(),
-      isActive: payload.isActive !== false
+      isActive: payload.isActive !== false,
     });
     if (!supplier) return { ok: false, message: 'Supplier not found.' };
-    await activityRepository.createActivityLog({ userId: access.profile.id, action: 'supplier.update', status: 'success', message: 'Supplier updated', metadata: { supplierId } });
+    await activityRepository.createActivityLog({
+      userId: access.profile.id,
+      action: 'supplier.update',
+      status: 'success',
+      message: 'Supplier updated',
+      metadata: { supplierId },
+    });
     return { ok: true, supplier, message: 'Supplier updated successfully.' };
   } catch (error) {
     if (error.code === '23505') return { ok: false, message: 'Supplier already exists.' };
@@ -77,16 +98,27 @@ async function deleteSupplier(id) {
   const access = await requirePurchaseAccess('write');
   if (!access.ok) return access;
   const supplierId = Number(id);
-  if (!Number.isInteger(supplierId) || supplierId <= 0) return { ok: false, message: 'Invalid supplier id.' };
+  if (!Number.isInteger(supplierId) || supplierId <= 0)
+    return { ok: false, message: 'Invalid supplier id.' };
   let deleted;
   try {
     deleted = await purchaseRepository.softDeleteSupplier(supplierId);
   } catch (error) {
-    if (error.code === 'SUPPLIER_BALANCE_DUE') return { ok: false, message: 'Supplier has outstanding balance. Record payment before deleting.' };
+    if (error.code === 'SUPPLIER_BALANCE_DUE')
+      return {
+        ok: false,
+        message: 'Supplier has outstanding balance. Record payment before deleting.',
+      };
     throw error;
   }
   if (!deleted) return { ok: false, message: 'Supplier not found.' };
-  await activityRepository.createActivityLog({ userId: access.profile.id, action: 'supplier.delete', status: 'success', message: 'Supplier deleted', metadata: { supplierId } });
+  await activityRepository.createActivityLog({
+    userId: access.profile.id,
+    action: 'supplier.delete',
+    status: 'success',
+    message: 'Supplier deleted',
+    metadata: { supplierId },
+  });
   return { ok: true, message: 'Supplier deleted successfully.' };
 }
 
@@ -114,28 +146,47 @@ async function recordSupplierPayment(supplierId, payload = {}) {
   const id = Number(supplierId);
   const amount = money(payload.amount);
   if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Invalid supplier id.' };
-  if (amount === null || amount <= 0) return { ok: false, message: 'Payment amount must be greater than zero.' };
+  if (amount === null || amount <= 0)
+    return { ok: false, message: 'Payment amount must be greater than zero.' };
   let result;
   try {
-    result = await purchaseRepository.recordSupplierPayment({
-      supplierId: id,
-      amount,
-      paymentMethod: String(payload.paymentMethod || 'Cash').trim() || 'Cash',
-      notes: String(payload.notes || '').trim()
-    }, access.profile.id);
+    result = await purchaseRepository.recordSupplierPayment(
+      {
+        supplierId: id,
+        amount,
+        paymentMethod: String(payload.paymentMethod || 'Cash').trim() || 'Cash',
+        notes: String(payload.notes || '').trim(),
+      },
+      access.profile.id
+    );
   } catch (error) {
-    if (error.code === 'SUPPLIER_NO_DUE') return { ok: false, message: 'This supplier has no outstanding balance.' };
-    if (error.code === 'SUPPLIER_PAYMENT_EXCEEDS_BALANCE') return { ok: false, message: `Payment cannot exceed outstanding balance Rs. ${Number(error.balance || 0).toFixed(2)}.` };
+    if (error.code === 'SUPPLIER_NO_DUE')
+      return { ok: false, message: 'This supplier has no outstanding balance.' };
+    if (error.code === 'SUPPLIER_PAYMENT_EXCEEDS_BALANCE')
+      return {
+        ok: false,
+        message: `Payment cannot exceed outstanding balance Rs. ${Number(error.balance || 0).toFixed(2)}.`,
+      };
     throw error;
   }
-  await activityRepository.createActivityLog({ userId: access.profile.id, action: 'supplier.payment', status: 'success', message: 'Supplier payment recorded', metadata: { supplierId: id, amount, paymentId: result.paymentId } });
+  await activityRepository.createActivityLog({
+    userId: access.profile.id,
+    action: 'supplier.payment',
+    status: 'success',
+    message: 'Supplier payment recorded',
+    metadata: { supplierId: id, amount, paymentId: result.paymentId },
+  });
   return { ok: true, payment: result, message: 'Supplier payment recorded successfully.' };
 }
 
 async function listPurchases() {
   const access = await requirePurchaseAccess('read');
   if (!access.ok) return access;
-  return { ok: true, purchases: await purchaseRepository.listPurchases(), permissions: { canWrite: canWritePurchases(access.profile.role) } };
+  return {
+    ok: true,
+    purchases: await purchaseRepository.listPurchases(),
+    permissions: { canWrite: canWritePurchases(access.profile.role) },
+  };
 }
 
 async function getPurchaseDetails(purchaseId) {
@@ -161,18 +212,29 @@ async function deletePurchase(purchaseId) {
       action: 'purchase.delete',
       status: 'success',
       message: 'Purchase deleted',
-      metadata: { purchaseId: id, invoiceNumber: deleted.invoiceNumber }
+      metadata: { purchaseId: id, invoiceNumber: deleted.invoiceNumber },
     });
     return { ok: true, message: 'Purchase deleted and stock reversed successfully.' };
   } catch (error) {
     if (error.code === 'PURCHASE_DELETE_NEGATIVE_STOCK') {
-      return { ok: false, message: 'This purchase cannot be deleted because reversing it would make product stock negative.' };
+      return {
+        ok: false,
+        message:
+          'This purchase cannot be deleted because reversing it would make product stock negative.',
+      };
     }
     if (error.code === 'PURCHASE_DELETE_SUPPLIER_BALANCE_CONFLICT') {
-      return { ok: false, message: 'This purchase cannot be deleted because supplier payments/balance would become inconsistent.' };
+      return {
+        ok: false,
+        message:
+          'This purchase cannot be deleted because supplier payments/balance would become inconsistent.',
+      };
     }
     if (error.code === 'PURCHASE_PRODUCT_MISSING') {
-      return { ok: false, message: 'This purchase cannot be deleted because one product no longer exists.' };
+      return {
+        ok: false,
+        message: 'This purchase cannot be deleted because one product no longer exists.',
+      };
     }
     throw error;
   }
@@ -194,9 +256,12 @@ async function createPurchase(payload = {}) {
     const quantity = Number(item.quantity);
     const purchasePrice = money(item.purchasePrice);
     const salePrice = money(item.salePrice);
-    if (!Number.isInteger(productId) || productId <= 0) return { ok: false, message: 'Invalid product in purchase item.' };
-    if (!Number.isFinite(quantity) || quantity <= 0) return { ok: false, message: 'Purchase quantity must be greater than zero.' };
-    if (purchasePrice === null || salePrice === null) return { ok: false, message: 'Invalid purchase item price.' };
+    if (!Number.isInteger(productId) || productId <= 0)
+      return { ok: false, message: 'Invalid product in purchase item.' };
+    if (!Number.isFinite(quantity) || quantity <= 0)
+      return { ok: false, message: 'Purchase quantity must be greater than zero.' };
+    if (purchasePrice === null || salePrice === null)
+      return { ok: false, message: 'Invalid purchase item price.' };
     cleanItems.push({
       productId,
       quantity,
@@ -204,7 +269,7 @@ async function createPurchase(payload = {}) {
       salePrice,
       batchNumber: String(item.batchNumber || '').trim() || null,
       expirationDate: item.expirationDate || null,
-      total: Number((quantity * purchasePrice).toFixed(2))
+      total: Number((quantity * purchasePrice).toFixed(2)),
     });
   }
 
@@ -212,26 +277,37 @@ async function createPurchase(payload = {}) {
   const discount = money(payload.discount);
   const tax = money(payload.tax);
   const paidAmount = money(payload.paidAmount);
-  if (discount === null || tax === null || paidAmount === null) return { ok: false, message: 'Invalid purchase totals.' };
+  if (discount === null || tax === null || paidAmount === null)
+    return { ok: false, message: 'Invalid purchase totals.' };
   const grandTotal = Number((subtotal - discount + tax).toFixed(2));
-  if (grandTotal < 0 || paidAmount > grandTotal) return { ok: false, message: 'Invalid paid amount or total.' };
+  if (grandTotal < 0 || paidAmount > grandTotal)
+    return { ok: false, message: 'Invalid paid amount or total.' };
 
   try {
-    const purchaseId = await purchaseRepository.createPurchase({
-      supplierId,
-      invoiceNumber,
-      purchaseDate,
-      subtotal,
-      discount,
-      tax,
-      grandTotal,
-      paidAmount,
-      dueAmount: Number((grandTotal - paidAmount).toFixed(2)),
-      status: paidAmount >= grandTotal ? 'PAID' : 'PARTIAL',
-      items: cleanItems
-    }, access.profile.id);
+    const purchaseId = await purchaseRepository.createPurchase(
+      {
+        supplierId,
+        invoiceNumber,
+        purchaseDate,
+        subtotal,
+        discount,
+        tax,
+        grandTotal,
+        paidAmount,
+        dueAmount: Number((grandTotal - paidAmount).toFixed(2)),
+        status: paidAmount >= grandTotal ? 'PAID' : 'PARTIAL',
+        items: cleanItems,
+      },
+      access.profile.id
+    );
 
-    await activityRepository.createActivityLog({ userId: access.profile.id, action: 'purchase.create', status: 'success', message: 'Purchase created', metadata: { purchaseId, invoiceNumber, grandTotal } });
+    await activityRepository.createActivityLog({
+      userId: access.profile.id,
+      action: 'purchase.create',
+      status: 'success',
+      message: 'Purchase created',
+      metadata: { purchaseId, invoiceNumber, grandTotal },
+    });
     return { ok: true, purchaseId, message: 'Purchase saved and stock updated successfully.' };
   } catch (error) {
     if (error.code === '23505') return { ok: false, message: 'Invoice number already exists.' };
@@ -247,8 +323,9 @@ module.exports = {
   getSupplierDetails,
   getSupplierLedger,
   getPurchaseDetails,
+  listProducts,
   listPurchases,
   listSuppliers,
   recordSupplierPayment,
-  updateSupplier
+  updateSupplier,
 };

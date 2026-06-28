@@ -67,6 +67,9 @@ contextBridge.exposeInMainWorld('posApi', {
   },
   purchases: {
     list: () => ipcRenderer.invoke('/purchases/list'),
+    suppliers: () => ipcRenderer.invoke('/purchases/suppliers/list'),
+    products: () => ipcRenderer.invoke('/purchases/products/list'),
+    createSupplier: (payload) => ipcRenderer.invoke('/suppliers/create', payload),
     details: (purchaseId) => ipcRenderer.invoke('/purchases/details', purchaseId),
     delete: (purchaseId) => ipcRenderer.invoke('/purchases/delete', purchaseId),
     create: (payload) => ipcRenderer.invoke('/purchases/create', payload),

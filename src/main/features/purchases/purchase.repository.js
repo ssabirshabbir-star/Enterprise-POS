@@ -1,16 +1,18 @@
 const { getPool, withTransaction } = require('../../database/connection');
 
 function mapSupplier(row) {
-  return row && {
-    id: row.id,
-    name: row.name,
-    phone: row.phone,
-    email: row.email,
-    address: row.address,
-    openingBalance: Number(row.opening_balance || 0),
-    currentBalance: Number(row.current_balance || 0),
-    isActive: row.is_active
-  };
+  return (
+    row && {
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      openingBalance: Number(row.opening_balance || 0),
+      currentBalance: Number(row.current_balance || 0),
+      isActive: row.is_active,
+    }
+  );
 }
 
 function mapPurchase(row) {
@@ -29,8 +31,22 @@ function mapPurchase(row) {
     status: row.status,
     createdAt: row.created_at,
     productNames: row.product_names || '',
-    productSearchText: row.product_search_text || ''
+    productSearchText: row.product_search_text || '',
   };
+}
+
+function mapProduct(row) {
+  return (
+    row && {
+      id: row.id,
+      name: row.name,
+      sku: row.sku,
+      barcode: row.barcode,
+      purchasePrice: Number(row.purchase_price || 0),
+      salePrice: Number(row.sale_price || 0),
+      currentStock: Number(row.current_stock || 0),
+    }
+  );
 }
 
 async function listSuppliers() {
@@ -52,9 +68,20 @@ async function listSuppliers() {
       totalPurchases: Number(row.total_purchases || 0),
       totalPaid: Number(row.total_paid || 0),
       totalDue: Number(row.total_due || 0),
-      lastPurchaseDate: row.last_purchase_date
-    }
+      lastPurchaseDate: row.last_purchase_date,
+    },
   }));
+}
+
+async function listProducts() {
+  const result = await getPool().query(`
+    SELECT id, name, sku, barcode, purchase_price, sale_price, current_stock
+    FROM products
+    WHERE deleted_at IS NULL AND is_active = TRUE
+    ORDER BY name ASC
+    LIMIT 500
+  `);
+  return result.rows.map(mapProduct);
 }
 
 async function createSupplier(payload) {
@@ -66,7 +93,14 @@ async function createSupplier(payload) {
         VALUES ($1, $2, $3, $4, $5, $5, $6)
         RETURNING *
       `,
-      [payload.name, payload.phone || null, payload.email || null, payload.address || null, openingBalance, payload.isActive !== false]
+      [
+        payload.name,
+        payload.phone || null,
+        payload.email || null,
+        payload.address || null,
+        openingBalance,
+        payload.isActive !== false,
+      ]
     );
     const supplier = mapSupplier(result.rows[0]);
     if (openingBalance > 0) {
@@ -90,25 +124,41 @@ async function updateSupplier(id, payload) {
       WHERE id = $1 AND deleted_at IS NULL
       RETURNING *
     `,
-    [id, payload.name, payload.phone || null, payload.email || null, payload.address || null, payload.isActive !== false]
+    [
+      id,
+      payload.name,
+      payload.phone || null,
+      payload.email || null,
+      payload.address || null,
+      payload.isActive !== false,
+    ]
   );
   return mapSupplier(result.rows[0]);
 }
 
 async function softDeleteSupplier(id) {
-  const supplier = await getPool().query('SELECT current_balance FROM suppliers WHERE id = $1 AND deleted_at IS NULL', [id]);
+  const supplier = await getPool().query(
+    'SELECT current_balance FROM suppliers WHERE id = $1 AND deleted_at IS NULL',
+    [id]
+  );
   if (!supplier.rows[0]) return false;
   if (Number(supplier.rows[0].current_balance || 0) > 0) {
     const error = new Error('Supplier has outstanding balance.');
     error.code = 'SUPPLIER_BALANCE_DUE';
     throw error;
   }
-  const result = await getPool().query('UPDATE suppliers SET deleted_at = NOW(), is_active = FALSE, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id', [id]);
+  const result = await getPool().query(
+    'UPDATE suppliers SET deleted_at = NOW(), is_active = FALSE, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
+    [id]
+  );
   return result.rowCount > 0;
 }
 
 async function getSupplierDetails(id) {
-  const suppliers = await getPool().query('SELECT * FROM suppliers WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+  const suppliers = await getPool().query(
+    'SELECT * FROM suppliers WHERE id = $1 AND deleted_at IS NULL LIMIT 1',
+    [id]
+  );
   if (!suppliers.rows[0]) return null;
   const purchases = await getPool().query(
     `
@@ -140,11 +190,11 @@ async function getSupplierDetails(id) {
         totalPurchases: Number(stats.total_purchases || 0),
         totalPaid: Number(stats.total_paid || 0),
         totalDue: Number(stats.total_due || 0),
-        lastPurchaseDate: stats.last_purchase_date
-      }
+        lastPurchaseDate: stats.last_purchase_date,
+      },
     },
     purchases: purchases.rows.map(mapPurchase),
-    ledger
+    ledger,
   };
 }
 
@@ -173,13 +223,16 @@ async function getSupplierLedger(id) {
     credit: Number(row.credit || 0),
     balance: Number(row.balance || 0),
     notes: row.notes,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   }));
 }
 
 async function recordSupplierPayment(payload, userId) {
   return withTransaction(async (client) => {
-    const supplierResult = await client.query('SELECT current_balance FROM suppliers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [payload.supplierId]);
+    const supplierResult = await client.query(
+      'SELECT current_balance FROM suppliers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+      [payload.supplierId]
+    );
     const supplier = supplierResult.rows[0];
     if (!supplier) throw new Error('Supplier not found.');
     const previousBalance = Number(supplier.current_balance || 0);
@@ -204,13 +257,23 @@ async function recordSupplierPayment(payload, userId) {
       [payload.supplierId, payload.amount, payload.paymentMethod, payload.notes || null, userId]
     );
     const paymentId = paymentResult.rows[0].id;
-    await client.query('UPDATE suppliers SET current_balance = $2, updated_at = NOW() WHERE id = $1', [payload.supplierId, nextBalance]);
+    await client.query(
+      'UPDATE suppliers SET current_balance = $2, updated_at = NOW() WHERE id = $1',
+      [payload.supplierId, nextBalance]
+    );
     await client.query(
       `
         INSERT INTO supplier_ledger (supplier_id, supplier_payment_id, reference_type, reference_id, entry_type, debit, credit, balance, notes, created_by)
         VALUES ($1, $2, 'supplier_payment', $2, 'PAYMENT', 0, $3, $4, $5, $6)
       `,
-      [payload.supplierId, paymentId, payload.amount, nextBalance, payload.notes || payload.paymentMethod, userId]
+      [
+        payload.supplierId,
+        paymentId,
+        payload.amount,
+        nextBalance,
+        payload.notes || payload.paymentMethod,
+        userId,
+      ]
     );
     return { paymentId, balance: nextBalance };
   });
@@ -242,7 +305,9 @@ async function listPurchases() {
 
 async function createPurchase(payload, userId) {
   return withTransaction(async (client) => {
-    const warehouseResult = await client.query('SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1');
+    const warehouseResult = await client.query(
+      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+    );
     const warehouseId = warehouseResult.rows[0]?.id;
     const purchaseResult = await client.query(
       `
@@ -264,13 +329,16 @@ async function createPurchase(payload, userId) {
         payload.paidAmount,
         payload.dueAmount,
         payload.status,
-        userId
+        userId,
       ]
     );
     const purchaseId = purchaseResult.rows[0].id;
 
     for (const item of payload.items) {
-      const productResult = await client.query('SELECT id, current_stock, min_stock_level FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [item.productId]);
+      const productResult = await client.query(
+        'SELECT id, current_stock, min_stock_level FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+        [item.productId]
+      );
       const product = productResult.rows[0];
       if (!product) throw new Error('Product not found in purchase item.');
 
@@ -282,7 +350,16 @@ async function createPurchase(payload, userId) {
           INSERT INTO purchase_items (purchase_id, product_id, batch_number, expiration_date, quantity, purchase_price, sale_price, total)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
-        [purchaseId, item.productId, item.batchNumber, item.expirationDate, item.quantity, item.purchasePrice, item.salePrice, item.total]
+        [
+          purchaseId,
+          item.productId,
+          item.batchNumber,
+          item.expirationDate,
+          item.quantity,
+          item.purchasePrice,
+          item.salePrice,
+          item.total,
+        ]
       );
 
       await client.query(
@@ -310,20 +387,45 @@ async function createPurchase(payload, userId) {
           )
           VALUES ($1, $2, 'PURCHASE_IN', $3, $4, $5, 'purchase', $6, 'Purchase received', $7, $8, $8)
         `,
-        [item.productId, warehouseId, item.quantity, previousStock, newStock, purchaseId, payload.invoiceNumber, userId]
+        [
+          item.productId,
+          warehouseId,
+          item.quantity,
+          previousStock,
+          newStock,
+          purchaseId,
+          payload.invoiceNumber,
+          userId,
+        ]
       );
     }
 
     if (payload.supplierId) {
-      const supplierResult = await client.query('SELECT current_balance FROM suppliers WHERE id = $1 FOR UPDATE', [payload.supplierId]);
-      const balance = Number(supplierResult.rows[0]?.current_balance || 0) + Number(payload.dueAmount);
-      await client.query('UPDATE suppliers SET current_balance = $2, updated_at = NOW() WHERE id = $1', [payload.supplierId, balance]);
+      const supplierResult = await client.query(
+        'SELECT current_balance FROM suppliers WHERE id = $1 FOR UPDATE',
+        [payload.supplierId]
+      );
+      const balance =
+        Number(supplierResult.rows[0]?.current_balance || 0) + Number(payload.dueAmount);
+      await client.query(
+        'UPDATE suppliers SET current_balance = $2, updated_at = NOW() WHERE id = $1',
+        [payload.supplierId, balance]
+      );
       await client.query(
         `
           INSERT INTO supplier_ledger (supplier_id, purchase_id, reference_type, reference_id, entry_type, debit, credit, balance, notes, created_by)
           VALUES ($1, $2, 'purchase', $2, $3, $4, $5, $6, $7, $8)
         `,
-        [payload.supplierId, purchaseId, payload.dueAmount > 0 ? 'PURCHASE_PARTIAL' : 'PURCHASE_PAID', payload.grandTotal, payload.paidAmount, balance, payload.invoiceNumber, userId]
+        [
+          payload.supplierId,
+          purchaseId,
+          payload.dueAmount > 0 ? 'PURCHASE_PARTIAL' : 'PURCHASE_PAID',
+          payload.grandTotal,
+          payload.paidAmount,
+          balance,
+          payload.invoiceNumber,
+          userId,
+        ]
       );
     }
 
@@ -365,8 +467,8 @@ async function getPurchaseDetails(purchaseId) {
       quantity: Number(item.quantity),
       purchasePrice: Number(item.purchase_price),
       salePrice: Number(item.sale_price),
-      total: Number(item.total)
-    }))
+      total: Number(item.total),
+    })),
   };
 }
 
@@ -383,7 +485,9 @@ async function softDeletePurchase(purchaseId, userId) {
       'SELECT * FROM purchase_items WHERE purchase_id = $1 ORDER BY id ASC',
       [purchaseId]
     );
-    const warehouseResult = await client.query('SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1');
+    const warehouseResult = await client.query(
+      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+    );
     const warehouseId = warehouseResult.rows[0]?.id || null;
 
     for (const item of itemsResult.rows) {
@@ -435,7 +539,16 @@ async function softDeletePurchase(purchaseId, userId) {
           )
           VALUES ($1, $2, 'PURCHASE_DELETE', $3, $4, $5, 'purchase', $6, 'Purchase deleted', $7, $8, $8)
         `,
-        [item.product_id, warehouseId, quantity, previousStock, newStock, purchase.id, purchase.invoice_number, userId]
+        [
+          item.product_id,
+          warehouseId,
+          quantity,
+          previousStock,
+          newStock,
+          purchase.id,
+          purchase.invoice_number,
+          userId,
+        ]
       );
     }
 
@@ -454,18 +567,31 @@ async function softDeletePurchase(purchaseId, userId) {
           throw error;
         }
         const nextBalance = Number((currentBalance - dueAmount).toFixed(2));
-        await client.query('UPDATE suppliers SET current_balance = $2, updated_at = NOW() WHERE id = $1', [purchase.supplier_id, nextBalance]);
+        await client.query(
+          'UPDATE suppliers SET current_balance = $2, updated_at = NOW() WHERE id = $1',
+          [purchase.supplier_id, nextBalance]
+        );
         await client.query(
           `
             INSERT INTO supplier_ledger (supplier_id, purchase_id, reference_type, reference_id, entry_type, debit, credit, balance, notes, created_by)
             VALUES ($1, $2, 'purchase_delete', $2, 'PURCHASE_DELETE', 0, $3, $4, $5, $6)
           `,
-          [purchase.supplier_id, purchase.id, dueAmount, nextBalance, `Deleted purchase ${purchase.invoice_number}`, userId]
+          [
+            purchase.supplier_id,
+            purchase.id,
+            dueAmount,
+            nextBalance,
+            `Deleted purchase ${purchase.invoice_number}`,
+            userId,
+          ]
         );
       }
     }
 
-    await client.query('UPDATE purchases SET deleted_at = NOW(), updated_at = NOW(), status = $2 WHERE id = $1', [purchaseId, 'DELETED']);
+    await client.query(
+      'UPDATE purchases SET deleted_at = NOW(), updated_at = NOW(), status = $2 WHERE id = $1',
+      [purchaseId, 'DELETED']
+    );
     return { id: purchase.id, invoiceNumber: purchase.invoice_number };
   });
 }
@@ -476,10 +602,11 @@ module.exports = {
   getSupplierDetails,
   getSupplierLedger,
   getPurchaseDetails,
+  listProducts,
   listPurchases,
   listSuppliers,
   recordSupplierPayment,
   softDeletePurchase,
   softDeleteSupplier,
-  updateSupplier
+  updateSupplier,
 };

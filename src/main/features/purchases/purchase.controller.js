@@ -63,6 +63,20 @@ function registerPurchaseRoutes(ipcMain) {
       return safeError(error, 'Purchase list error:');
     }
   });
+  ipcMain.handle('/purchases/suppliers/list', async () => {
+    try {
+      return await purchaseService.listSuppliers();
+    } catch (error) {
+      return safeError(error, 'Purchase supplier list error:');
+    }
+  });
+  ipcMain.handle('/purchases/products/list', async () => {
+    try {
+      return await purchaseService.listProducts();
+    } catch (error) {
+      return safeError(error, 'Purchase product list error:');
+    }
+  });
   ipcMain.handle('/purchases/details', async (_event, purchaseId) => {
     try {
       return await purchaseService.getPurchaseDetails(purchaseId);
