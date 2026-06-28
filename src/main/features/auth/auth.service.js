@@ -7,13 +7,14 @@ const {
   getRefreshTokenExpiry,
   hashToken,
   verifyAccessToken,
-  verifyRefreshToken
+  verifyRefreshToken,
 } = require('../../security/token.service');
 
 const sessionStore = require('../../security/session-store');
 const activityRepository = require('../activity/activity.repository');
 const authRepository = require('./auth.repository');
 const { canRoleAccess } = require('./rbac');
+const { logError } = require('../../utils/safe-logger');
 
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_MINUTES = 15;
@@ -25,12 +26,14 @@ function sanitizeProfile(user = {}) {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
-    permissions: user.permissions || []
+    permissions: user.permissions || [],
   };
 }
 
 function validateLoginInput({ username, password }) {
-  const normalizedUsername = String(username || '').trim().toLowerCase();
+  const normalizedUsername = String(username || '')
+    .trim()
+    .toLowerCase();
   const rawPassword = String(password || '');
 
   if (!normalizedUsername || !rawPassword) {
@@ -63,14 +66,14 @@ async function persistFreshSession(user, oldRefreshTokenId = null) {
         newTokenId: tokenId,
         userId: user.id,
         tokenHash,
-        expiresAt
+        expiresAt,
       });
     } else {
       await authRepository.createRefreshToken({
         userId: user.id,
         tokenHash,
         expiresAt,
-        tokenId
+        tokenId,
       });
     }
 
@@ -79,7 +82,7 @@ async function persistFreshSession(user, oldRefreshTokenId = null) {
 
     return { accessToken, refreshToken };
   } catch (err) {
-    console.error('Session persist failed:', err);
+    logError('Session persist failed:', err);
     return null;
   }
 }
@@ -98,7 +101,7 @@ async function login({ username, password }) {
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       return {
         ok: false,
-        message: 'Account is temporarily locked.'
+        message: 'Account is temporarily locked.',
       };
     }
 
@@ -122,11 +125,10 @@ async function login({ username, password }) {
 
     return {
       ok: true,
-      profile: sanitizeProfile(user)
+      profile: sanitizeProfile(user),
     };
-
   } catch (err) {
-    console.error('LOGIN ERROR:', err);
+    logError('LOGIN ERROR:', err);
     return { ok: false, message: 'Login service temporarily unavailable.' };
   }
 }
@@ -167,11 +169,10 @@ async function refreshSession() {
 
     return {
       ok: true,
-      profile: sanitizeProfile(user)
+      profile: sanitizeProfile(user),
     };
-
   } catch (err) {
-    console.error('REFRESH ERROR:', err);
+    logError('REFRESH ERROR:', err);
     sessionStore.clearSession();
     return { ok: false, message: 'Session expired.' };
   }
@@ -202,11 +203,10 @@ async function getProfile() {
 
     return {
       ok: true,
-      profile: sanitizeProfile(user)
+      profile: sanitizeProfile(user),
     };
-
   } catch (err) {
-    console.error('PROFILE ERROR:', err);
+    logError('PROFILE ERROR:', err);
     return await refreshSession();
   }
 }
@@ -222,7 +222,6 @@ async function logout() {
 
     sessionStore.clearSession();
     return { ok: true };
-
   } catch (err) {
     sessionStore.clearSession();
     return { ok: true };
@@ -241,7 +240,7 @@ async function canAccess(route) {
   return {
     ok: true,
     allowed: canRoleAccess(profileResult.profile.role, route, permissions),
-    profile: { ...profileResult.profile, permissions }
+    profile: { ...profileResult.profile, permissions },
   };
 }
 
@@ -250,5 +249,5 @@ module.exports = {
   refreshSession,
   getProfile,
   logout,
-  canAccess
+  canAccess,
 };

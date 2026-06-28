@@ -1,10 +1,11 @@
 const productService = require('./product.service');
+const { logError } = require('../../utils/safe-logger');
 
 function safeError(error, fallback) {
   if (error?.code === '23505') {
     return { ok: false, message: 'SKU or barcode already exists.' };
   }
-  console.error(fallback, error);
+  logError(fallback, error);
   return { ok: false, message: 'Request failed. Please try again.' };
 }
 
@@ -91,5 +92,5 @@ function registerProductRoutes(ipcMain) {
 }
 
 module.exports = {
-  registerProductRoutes
+  registerProductRoutes,
 };

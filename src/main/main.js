@@ -22,6 +22,7 @@ const { registerAccessControlRoutes } = require('./features/access-control/acces
 const { registerDeploymentRoutes } = require('./features/deployment/deployment.controller');
 const { registerLuckyDrawV2Routes } = require('./features/luckydraw_v2');
 const { initializeSessionStore } = require('./security/session-store');
+const { logError } = require('./utils/safe-logger');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -78,7 +79,7 @@ app.whenReady().then(async () => {
   try {
     await initializeDatabase();
   } catch (error) {
-    console.error('Database initialization failed:', error);
+    logError('Database initialization failed:', error);
     startupStatus = {
       ok: false,
       message: userFriendlyStartupError(error),

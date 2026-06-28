@@ -1,7 +1,8 @@
 const inventoryService = require('./inventory.service');
+const { logError } = require('../../utils/safe-logger');
 
 function safeError(error, label) {
-  console.error(label, error);
+  logError(label, error);
   return { ok: false, message: 'Request failed. Please try again.' };
 }
 

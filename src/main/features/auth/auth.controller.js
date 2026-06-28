@@ -1,11 +1,11 @@
 const authService = require('./auth.service');
+const { logError } = require('../../utils/safe-logger');
 
 function safeError(message = 'Request failed. Please try again.') {
   return { ok: false, message };
 }
 
 function registerAuthRoutes(ipcMain) {
-
   ipcMain.handle('/auth/login', async (_event, credentials) => {
     try {
       if (!authService?.login) {
@@ -13,7 +13,7 @@ function registerAuthRoutes(ipcMain) {
       }
       return await authService.login(credentials || {});
     } catch (error) {
-      console.error('Auth login error:', error);
+      logError('Auth login error:', error);
       return safeError('Cannot login right now. Please check the database connection.');
     }
   });
@@ -25,7 +25,7 @@ function registerAuthRoutes(ipcMain) {
       }
       return await authService.getProfile();
     } catch (error) {
-      console.error('Auth profile error:', error);
+      logError('Auth profile error:', error);
       return safeError('Authentication required.');
     }
   });
@@ -37,7 +37,7 @@ function registerAuthRoutes(ipcMain) {
       }
       return await authService.refreshSession();
     } catch (error) {
-      console.error('Auth refresh error:', error);
+      logError('Auth refresh error:', error);
       return safeError('Session expired. Please login again.');
     }
   });
@@ -49,7 +49,7 @@ function registerAuthRoutes(ipcMain) {
       }
       return await authService.logout();
     } catch (error) {
-      console.error('Auth logout error:', error);
+      logError('Auth logout error:', error);
       return safeError('Logout failed.');
     }
   });
@@ -61,13 +61,12 @@ function registerAuthRoutes(ipcMain) {
       }
       return await authService.canAccess(route);
     } catch (error) {
-      console.error('Auth RBAC error:', error);
+      logError('Auth RBAC error:', error);
       return { ok: false, allowed: false, message: 'Access denied.' };
     }
   });
-
 }
 
 module.exports = {
-  registerAuthRoutes
+  registerAuthRoutes,
 };
