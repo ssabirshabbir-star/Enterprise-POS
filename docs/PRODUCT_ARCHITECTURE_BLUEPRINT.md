@@ -35,6 +35,8 @@ Default feature state:
 - Quantity Slabs: Off
 - Promotions: Off
 - Batch-Level Selling: Off
+- Tax: Off where not required
+- Advanced Costing: Off
 - Multi-Branch Pricing: Off
 
 ## Standard Product Model
@@ -307,6 +309,43 @@ Feature flags should control:
 - barcode lookup behavior
 - migration readiness
 
+Feature flags should support levels, not only on/off states. This keeps the general store experience
+simple while allowing enterprise deployments to enable only the depth they need.
+
+Recommended feature flag levels:
+
+```text
+Disabled
+Basic
+Advanced
+```
+
+Examples:
+
+```text
+Pricing:
+  Disabled
+  Retail Only
+  Retail + Wholesale
+  Advanced Price Lists
+
+Units:
+  Disabled
+  Simple Display Unit
+  Advanced Conversion
+
+Tax:
+  Disabled
+  Basic Tax
+  Advanced Tax Rules
+
+Costing:
+  Simple Cost
+  FIFO
+  Weighted Average later
+  Specific Identification later
+```
+
 Recommended flags:
 
 - product.variations
@@ -317,9 +356,73 @@ Recommended flags:
 - pricing.customerSpecific
 - pricing.quantitySlabs
 - pricing.promotions
+- tax.mode
+- costing.method
 - inventory.multiWarehouse
 - reporting.advancedProductDimensions
 - branches.multiBranchPricing
+
+## Tax System Strategy
+
+Tax must be configurable and disabled by default where it is not required.
+
+Recommended tax levels:
+
+- Disabled: no tax UI, no tax calculations, and no tax fields shown in simple store workflows.
+- Basic Tax: a simple percentage tax model for stores that only need one tax rule.
+- Advanced Tax Rules: GST/VAT, inclusive/exclusive tax, zero-rated items, category-based tax,
+  customer-based tax, and future branch/country tax rules.
+
+Tax UI visibility rules:
+
+- Billing should show tax controls only when tax is enabled.
+- Products should show item tax configuration only when Basic or Advanced Tax is enabled.
+- Purchases and Purchase Orders should show tax fields only when tax is enabled.
+- Reports should show tax summaries only when tax is enabled.
+- General Store mode should not display tax complexity unless the operator enables it.
+
+Tax must remain separate from product identity, batch management, and pricing strategy. A price list
+answers "what should this customer pay"; tax rules answer "what tax applies to this transaction."
+
+## Inventory Costing Strategy
+
+Inventory costing must be configurable.
+
+Recommended costing levels:
+
+- Simple Cost: last purchase cost or simple average cost suitable for v1 simple stores.
+- FIFO: first-in-first-out costing when inventory lots are enabled.
+- FEFO: first-expiry-first-out stock consumption when expiry/batch control is enabled.
+- Weighted Average: later advanced costing option.
+- Specific Identification: later advanced costing option for serialized or high-value goods.
+
+Costing rules:
+
+- Simple retail flow must not be affected by advanced costing options.
+- FIFO/FEFO should only appear when batch or inventory lot tracking is enabled.
+- Costing reports should appear only when costing mode requires them.
+- Batch stores purchase cost references, but pricing remains controlled by the pricing system.
+- Sales, returns, and stock movements must snapshot the costing method used for audit once advanced
+  costing is enabled.
+
+## UI Visibility Rule
+
+Only enabled systems should appear in the UI.
+
+General Store mode should remain simple:
+
+- Product name
+- SKU
+- Barcode
+- Display unit
+- Purchase price
+- Sale price
+- Stock
+
+Advanced features must not clutter Billing, Products, Inventory, Purchases, Purchase Orders,
+Returns, or Reports unless enabled by configuration. Disabled features may exist in architecture,
+but they should not create visible controls, required fields, confusing placeholders, or dead
+buttons in the default workflow.
 
 ## Reporting Strategy
 
@@ -448,12 +551,14 @@ promotions
 2. Stabilize current modules using product-level stock and price.
 3. Add documentation and feature flag definitions.
 4. Add product identity abstraction: product plus optional variant.
-5. Add variant backend and UI behind a feature flag.
-6. Add barcode mapping behind a feature flag.
-7. Add unit conversion backend and UI behind a feature flag.
-8. Add batch lot inventory and FIFO/FEFO behind a feature flag.
-9. Add advanced price list engine.
-10. Add reporting dimensions for variants, units, batches, and price lists.
+5. Add feature flag levels for products, units, pricing, tax, and costing.
+6. Add variant backend and UI behind a feature flag.
+7. Add barcode mapping behind a feature flag.
+8. Add unit conversion backend and UI behind a feature flag.
+9. Add batch lot inventory and FIFO/FEFO behind a feature flag.
+10. Add basic and advanced tax configuration behind feature flags.
+11. Add advanced price list engine.
+12. Add reporting dimensions for variants, units, batches, tax, costing, and price lists.
 
 ## Before v1.0
 
@@ -468,6 +573,7 @@ Implement before v1.0:
 - Sales History invoice snapshots.
 - Reports that do not assume variants or unit conversion.
 - Documented feature flags for future advanced product architecture.
+- Documented tax and costing strategy with UI disabled by default for simple stores.
 
 Do not implement advanced product schema casually before v1.0.
 
@@ -483,6 +589,10 @@ Implement after v1.0:
 - Customer-specific pricing.
 - Quantity slab pricing.
 - Promotions.
+- Advanced tax rules.
+- FIFO/FEFO costing UI and reports.
+- Weighted average costing.
+- Specific identification costing.
 - Branch pricing.
 - Variant, unit, batch, and price-list reporting.
 
