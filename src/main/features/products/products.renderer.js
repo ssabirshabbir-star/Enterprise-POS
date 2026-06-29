@@ -247,6 +247,8 @@
     const panel = $id('productFormPanel');
     if (!panel) return;
     const title = $id('productFormTitle');
+    const policySection = $id('productPolicySection');
+    if (policySection) policySection.open = false;
     const set = (id, v) => {
       const e = $id(id);
       if (e) e.value = v ?? '';

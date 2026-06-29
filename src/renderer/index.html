@@ -205,39 +205,42 @@
             </div>
           </div>
 
-          <div class="pf-row-3">
-            <div class="pf-field pf-active-row">
-              <label class="pf-active-label">
-                <input id="allowSalePriceOverride" type="checkbox" class="pf-checkbox" />
-                <span>Allow Sale Price Override</span>
-              </label>
+          <details id="productPolicySection" class="pf-policy-section">
+            <summary class="pf-policy-summary">
+              <span>Advanced Product Policies</span>
+              <small>Optional controls for products that need stricter handling</small>
+            </summary>
+            <div class="pf-policy-grid">
+              <div class="pf-field pf-active-row">
+                <label class="pf-active-label">
+                  <input id="allowSalePriceOverride" type="checkbox" class="pf-checkbox" />
+                  <span>Allow Price Override</span>
+                </label>
+              </div>
+              <div class="pf-field pf-active-row">
+                <label class="pf-active-label">
+                  <input id="autoUpdateSalePriceFromPurchase" type="checkbox" class="pf-checkbox" />
+                  <span>Auto Update Sale Price</span>
+                </label>
+              </div>
+              <div class="pf-field pf-active-row">
+                <label class="pf-active-label">
+                  <input id="trackExpiry" type="checkbox" class="pf-checkbox" />
+                  <span>Track Expiry</span>
+                </label>
+              </div>
+              <div class="pf-field pf-active-row">
+                <label class="pf-active-label">
+                  <input id="expiryRequired" type="checkbox" class="pf-checkbox" />
+                  <span>Expiry Required</span>
+                </label>
+              </div>
+              <div class="pf-field">
+                <label class="pf-label" for="expiryAlertDays">Expiry Alert Days</label>
+                <input id="expiryAlertDays" type="number" min="0" step="1" class="pf-input" placeholder="Optional" />
+              </div>
             </div>
-            <div class="pf-field pf-active-row">
-              <label class="pf-active-label">
-                <input id="autoUpdateSalePriceFromPurchase" type="checkbox" class="pf-checkbox" />
-                <span>Auto Update Sale Price From Purchase</span>
-              </label>
-            </div>
-            <div class="pf-field pf-active-row">
-              <label class="pf-active-label">
-                <input id="trackExpiry" type="checkbox" class="pf-checkbox" />
-                <span>Track Expiry</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="pf-row-3">
-            <div class="pf-field pf-active-row">
-              <label class="pf-active-label">
-                <input id="expiryRequired" type="checkbox" class="pf-checkbox" />
-                <span>Expiry Required</span>
-              </label>
-            </div>
-            <div class="pf-field">
-              <label class="pf-label" for="expiryAlertDays">Expiry Alert Days</label>
-              <input id="expiryAlertDays" type="number" min="0" step="1" class="pf-input" placeholder="Optional" />
-            </div>
-          </div>
+          </details>
 
 
           <!-- Footer actions -->
