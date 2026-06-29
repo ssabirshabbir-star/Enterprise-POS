@@ -64,8 +64,18 @@ Platform Owner access is separate from customer accounts. Platform Owner capabil
 
 These capabilities must never be available to customer administrators.
 
-AI-assisted features may be introduced later only if they reduce user effort and do not create
-confusion. AI must assist the user, not replace business control.
+AI-assisted features are optional paid capabilities. They may be introduced later only if they
+reduce user effort and do not create confusion. AI must assist the user, not replace business
+control.
+
+AI-assisted capabilities must be:
+
+- Disabled by default.
+- Controlled by license entitlement.
+- Optionally hidden by Feature Flags.
+- Unavailable to customer administrators unless licensed.
+- Non-blocking for core POS workflows.
+- Protected in service and authorization layers, not protected by UI visibility alone.
 
 Future AI-assisted workflows are reserved for:
 

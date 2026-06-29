@@ -358,6 +358,21 @@ Recommended flags:
 - pricing.promotions
 - tax.mode
 - costing.method
+
+Pending paid AI capabilities:
+
+- AI product suggestions
+- AI barcode/product enrichment
+- AI purchase invoice parsing
+- AI duplicate product detection
+- AI stock reorder suggestions
+- AI natural language reports
+- AI anomaly detection
+- AI customer behavior insights
+
+These AI capabilities are deferred. They must remain disabled by default, require license
+entitlement, and be protected in service and authorization layers before any UI exposure.
+
 - inventory.multiWarehouse
 - reporting.advancedProductDimensions
 - branches.multiBranchPricing
