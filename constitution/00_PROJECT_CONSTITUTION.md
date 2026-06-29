@@ -209,7 +209,53 @@ Remaining foundation and commercial hardening work includes:
 - Printing reliability
 - Database integrity hardening
 
-## 15. Final Principle
+## 15. Constitution Amendment Policy
+
+The Project Constitution is the default authority for architecture and development rules. It is not
+permanent or untouchable. If a better architecture, safer pattern, or stronger commercial foundation
+is identified, the Constitution may be updated through a controlled amendment process.
+
+No agent, developer, or assistant may silently violate the Constitution. If a task appears to
+require breaking an existing rule, work must stop and an Architecture Change Proposal must be
+prepared first.
+
+A Constitution rule may be bypassed only in these cases:
+
+1. Emergency bug fix to restore a broken app.
+2. Security fix.
+3. Data-loss prevention.
+4. Explicit owner-approved architecture migration.
+5. Temporary compatibility bridge during refactor.
+
+Before violating or changing a rule, prepare:
+
+1. Current rule.
+2. Reason it is insufficient.
+3. Proposed new rule.
+4. Risks of changing.
+5. Risks of not changing.
+6. Files/modules affected.
+7. Rollback plan.
+8. Validation plan.
+9. Owner approval.
+
+If temporary deviation is approved, it must include:
+
+- Clear reason.
+- Time limit or cleanup phase.
+- Pending Register entry.
+- Validation checks.
+- Follow-up cleanup task.
+
+Agents must never decide alone to break architecture rules. They must stop and report:
+
+`Architecture rule conflict found. Approval required before proceeding.`
+
+The owner may approve a rule change, but the change must be documented before implementation.
+
+Better architecture is allowed. Silent architecture drift is not allowed.
+
+## 16. Final Principle
 
 Protect working business flows first. New features, cleanup, and polish must not break completed
 cashier, billing, inventory, customer, supplier, Lucky Draw V2, or Sales History behavior.

@@ -12,6 +12,7 @@
     "db:health": "node scripts/db-health.js",
     "db:migrate": "node scripts/db-migrate.js",
     "db:first-run": "node scripts/first-run-setup.js",
+    "architecture:check": "node scripts/architecture-compliance.js",
     "seed:admin": "node scripts/seed-admin.js",
     "seed:demo": "node scripts/seed-demo.js",
     "seed:grocery": "node scripts/seed-grocery.js",
