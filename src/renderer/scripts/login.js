@@ -17,6 +17,8 @@ const routePanels = document.querySelectorAll('[data-route-panel]');
 
 // ---- App State ---------------------------------------------
 let currentProfile = null;
+let dashboardRefreshTimer = null;
+let dashboardLoadPromise = null;
 
 const routeMeta = {
   '/dashboard': { title: 'Dashboard', module: 'dashboard' },
@@ -172,7 +174,10 @@ async function navigateTo(route) {
   setNavActive(target);
 
   if (target === '/dashboard') {
+    startDashboardAutoRefresh();
     loadDashboardStats().catch(() => {});
+  } else {
+    stopDashboardAutoRefresh();
   }
 
   if (target === '/pos') {
@@ -236,6 +241,30 @@ function $money(v) {
 
 async function loadDashboardStats() {
   if (!window.posApi?.dashboard?.overview) return;
+  if (dashboardLoadPromise) return dashboardLoadPromise;
+  dashboardLoadPromise = loadDashboardStatsInternal().finally(() => {
+    dashboardLoadPromise = null;
+  });
+  return dashboardLoadPromise;
+}
+
+function startDashboardAutoRefresh() {
+  if (dashboardRefreshTimer) return;
+  dashboardRefreshTimer = window.setInterval(() => {
+    const panel = document.getElementById('dashboardRoute');
+    if (panel && !panel.classList.contains('hidden')) {
+      loadDashboardStats().catch(() => {});
+    }
+  }, 60000);
+}
+
+function stopDashboardAutoRefresh() {
+  if (!dashboardRefreshTimer) return;
+  window.clearInterval(dashboardRefreshTimer);
+  dashboardRefreshTimer = null;
+}
+
+async function loadDashboardStatsInternal() {
   try {
     const result = await window.posApi.dashboard.overview();
     if (!result?.ok) return;
@@ -246,19 +275,31 @@ async function loadDashboardStats() {
     const topProducts = result.topProducts || [];
     const paymentMethods = result.paymentMethods || [];
     const categorySales = result.categorySales || [];
+    const salesTrend = result.salesTrend || [];
 
     // ── KPI cards ────────────────────────────────────────────────────────────
     $setText('dashboardTodaySales', $money(stats.todaySales));
     $setText('dashboardProfitTotal', $money(stats.totalProfit));
     $setText('dashboardOrderCount', Number(stats.todayOrders || 0).toLocaleString());
-    $setText('dashboardCustomerDue', $money(stats.customerDueTotal));
+    $setText('dashboardCustomerCount', Number(stats.customerCount || 0).toLocaleString());
     $setText('dashboardLowStockCount', Number(stats.lowStockCount || 0).toLocaleString());
     $setText('dashboardPurchaseTotal', $money(stats.duePurchases ?? stats.todayPurchases ?? 0));
     $setText('dashboardProductCount', Number(stats.productCount || 0).toLocaleString());
     $setText('dashboardStockValue', $money(stats.stockValue));
     $setText('dashboardSupplierCount', Number(stats.supplierCount || 0).toLocaleString());
     $setText('dashboardExpenseTotal', $money(stats.todayExpenses));
+    $setText('dashboardTodayPurchases', $money(stats.todayPurchases));
     $setText('dashboardReceivableTotal', $money(stats.customerDueTotal));
+    $setText('dashboardOutOfStockCount', Number(stats.outOfStockCount || 0).toLocaleString());
+    $setText('dashboardOpenReturns', Number(stats.openReturns || 0).toLocaleString());
+    $setText(
+      'dashboardPendingPurchaseOrders',
+      Number(stats.pendingPurchaseOrders || 0).toLocaleString()
+    );
+    $setText(
+      'dashboardLuckyDrawCount',
+      `${Number(stats.activeLuckyDrawCampaigns || 0).toLocaleString()} / ${Number(stats.luckyDrawCoupons || 0).toLocaleString()}`
+    );
     $setText('dashboardMiniSales', $money(stats.todaySales));
     $setText('dashboardMiniProfit', $money(stats.totalProfit));
     $setText('dashboardMiniOrders', Number(stats.todayOrders || 0).toLocaleString());
@@ -306,16 +347,34 @@ async function loadDashboardStats() {
 
     // ── Sales sparkline chart ─────────────────────────────────────────────────
     const chart = document.getElementById('dashboardSalesChart');
-    if (chart && recentSales.length) {
-      const vals = recentSales
-        .slice(0, 7)
-        .map((s) => Number(s.grandTotal || 0))
-        .reverse();
+    if (chart) {
+      const vals = salesTrend.map((s) => Number(s.total || 0));
       const max = Math.max(...vals, 1);
-      chart.innerHTML = vals
+      chart.innerHTML = vals.length
+        ? vals
+            .map(
+              (v) =>
+                `<span class="epos-dashboard-line-bar" title="${$money(v)}" style="height:${Math.max(8, Math.round((v / max) * 100))}%"></span>`
+            )
+            .join('')
+        : '<p class="epos-dashboard-empty">No sales data.</p>';
+    }
+
+    const comparison = document.getElementById('dashboardComparisonChart');
+    if (comparison) {
+      const values = [
+        Number(stats.todaySales || 0),
+        Number(stats.weekSales || 0),
+        Number(stats.monthlySales || 0),
+        Number(stats.todayPurchases || 0),
+        Number(stats.todayExpenses || 0),
+      ];
+      const labels = ['Today', 'Week', 'Month', 'Purch', 'Exp'];
+      const max = Math.max(...values, 1);
+      comparison.innerHTML = values
         .map(
-          (v) =>
-            `<span class="epos-dashboard-line-bar" style="height:${Math.max(8, Math.round((v / max) * 100))}%"></span>`
+          (value, index) =>
+            `<span class="epos-dashboard-bar" title="${labels[index]}: ${$money(value)}" style="height:${Math.max(8, Math.round((value / max) * 100))}%"></span>`
         )
         .join('');
     }
@@ -377,8 +436,13 @@ async function loadDashboardStats() {
         btn.addEventListener('click', () => navigateTo(btn.dataset.route).catch(() => {}));
       }
     });
-  } catch (err) {
-    console.warn('[Dashboard] Stats load failed:', err);
+    const refreshButton = document.getElementById('dashboardRefreshButton');
+    if (refreshButton && !refreshButton._dashboardRefreshWired) {
+      refreshButton._dashboardRefreshWired = true;
+      refreshButton.addEventListener('click', () => loadDashboardStats().catch(() => {}));
+    }
+  } catch {
+    // Keep Dashboard failures local; the controller already returns a safe response shape.
   }
 }
 

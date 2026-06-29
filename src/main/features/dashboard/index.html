@@ -1,32 +1,33 @@
 <section class="epos-dashboard-page">
   <div class="epos-dashboard-reportbar">
     <span id="dashboardReportDate">Today</span>
-    <button id="dashboardExportButton" type="button" data-page-tool="dashboard" data-tool-action="excel">Export Report</button>
+    <button id="dashboardRefreshButton" type="button">Refresh</button>
+    <button id="dashboardExportButton" type="button" disabled title="Dashboard export is planned for Phase 2.">Export Phase 2</button>
   </div>
 
   <section class="epos-dashboard-kpis">
     <article class="blue">
-      <p>Total Sales</p>
+      <p>Today's Sales</p>
       <strong id="dashboardTodaySales">Rs. 0.00</strong>
       <small>Live from sales</small>
       <span>SALE</span>
     </article>
     <article class="green">
-      <p>Total Profit</p>
+      <p>Today's Profit</p>
       <strong id="dashboardProfitTotal">Rs. 0.00</strong>
       <small>Sales less purchases foundation</small>
       <span>PROF</span>
     </article>
     <article class="orange">
-      <p>Total Orders</p>
+      <p>Today's Orders</p>
       <strong id="dashboardOrderCount">0</strong>
       <small>Recent completed invoices</small>
       <span>ORD</span>
     </article>
     <article class="violet">
       <p>Total Customers</p>
-      <strong id="dashboardCustomerDue">Rs. 0.00</strong>
-      <small id="dashboardCustomerDueLabel">Customer due ledger</small>
+      <strong id="dashboardCustomerCount">0</strong>
+      <small id="dashboardCustomerDueLabel">Customer master</small>
       <span>CUST</span>
     </article>
     <article class="pink">
@@ -41,7 +42,7 @@
     <article class="epos-dashboard-card epos-dashboard-sales-overview">
       <div class="epos-dashboard-card-head">
         <h3>Sales Overview</h3>
-        <button type="button">This Week</button>
+        <button type="button" disabled title="Weekly range selector is planned for Phase 2.">This Week</button>
       </div>
       <div id="dashboardSalesChart" class="epos-dashboard-line-chart"></div>
     </article>
@@ -77,7 +78,7 @@
     <article class="epos-dashboard-card">
       <div class="epos-dashboard-card-head">
         <h3>Sales Comparison</h3>
-        <button type="button">This Month</button>
+        <button type="button" disabled title="Monthly range selector is planned for Phase 2.">This Month</button>
       </div>
       <div id="dashboardComparisonChart" class="epos-dashboard-bars"></div>
     </article>
@@ -85,7 +86,7 @@
     <article class="epos-dashboard-card">
       <div class="epos-dashboard-card-head">
         <h3>Recent Transactions</h3>
-        <button type="button" data-route="/reports">View All</button>
+        <button type="button" data-route="/sales-history">View All</button>
       </div>
       <div class="epos-dashboard-transaction-head"><span>Invoice</span><span>Customer</span><span>Amount</span><span>Payment</span></div>
       <div id="dashboardRecentSales" class="epos-dashboard-transactions"></div>
@@ -105,17 +106,22 @@
 
   <section class="epos-dashboard-bottom-kpis">
     <article class="blue"><span>STK</span><p>Total Stock Value</p><strong id="dashboardStockValue">Rs. 0.00</strong></article>
+    <article class="blue"><span>PRD</span><p>Total Products</p><strong id="dashboardProductCount">0</strong></article>
     <article class="cyan"><span>SUP</span><p>Total Suppliers</p><strong id="dashboardSupplierCount">0</strong></article>
-    <article class="orange"><span>EXP</span><p>Total Expenses</p><strong id="dashboardExpenseTotal">Rs. 0.00</strong></article>
+    <article class="orange"><span>EXP</span><p>Today's Expenses</p><strong id="dashboardExpenseTotal">Rs. 0.00</strong></article>
+    <article class="orange"><span>PUR</span><p>Today's Purchases</p><strong id="dashboardTodayPurchases">Rs. 0.00</strong></article>
     <article class="pink"><span>DUE</span><p>Due Purchases</p><strong id="dashboardPurchaseTotal">Rs. 0.00</strong></article>
     <article class="green"><span>REC</span><p>Due Receivables</p><strong id="dashboardReceivableTotal">Rs. 0.00</strong></article>
+    <article class="pink"><span>OUT</span><p>Out of Stock</p><strong id="dashboardOutOfStockCount">0</strong></article>
+    <article class="cyan"><span>RET</span><p>Open Returns</p><strong id="dashboardOpenReturns">0</strong></article>
+    <article class="orange"><span>PO</span><p>Pending POs</p><strong id="dashboardPendingPurchaseOrders">0</strong></article>
+    <article class="green"><span>LD</span><p>Lucky Draw</p><strong id="dashboardLuckyDrawCount">0</strong></article>
   </section>
 
   <section class="epos-dashboard-hidden-feeds">
     <div id="dashboardLowStock"></div>
     <div id="dashboardRecentActivity"></div>
     <div id="moduleGrid"></div>
-    <span id="dashboardProductCount">0</span>
     <span id="dashboardGreeting"></span>
     <span id="dashboardUserName"></span>
     <span id="dashboardUserRole"></span>
