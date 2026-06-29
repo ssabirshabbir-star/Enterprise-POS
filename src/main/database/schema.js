@@ -1,4 +1,5 @@
 const { withTransaction } = require('./connection');
+const { runDatabaseMigrations } = require('./migrations');
 
 async function initializeDatabase() {
   await withTransaction(async (client) => {
@@ -1413,6 +1414,8 @@ async function initializeDatabase() {
       INSERT INTO activity_logs (action, status, message)
       VALUES ('database.initialized', 'success', 'Authentication schema verified');
     `);
+
+    await runDatabaseMigrations(client);
   });
 }
 
