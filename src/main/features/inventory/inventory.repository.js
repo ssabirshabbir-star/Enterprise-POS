@@ -8,14 +8,33 @@ function mapInventory(row) {
     sku: row.sku,
     barcode: row.barcode,
     productImage: row.product_image,
+    categoryId: row.category_id,
     categoryName: row.category_name,
+    brandId: row.brand_id,
+    brandName: row.brand_name,
+    unitId: row.unit_id,
+    unitName: row.unit_name,
+    supplierId: row.supplier_id,
+    supplierName: row.supplier_name,
+    warehouseId: row.warehouse_id,
+    warehouseName: row.warehouse_name,
     batchNumber: row.batch_number,
     expirationDate: row.expiration_date,
-    lastPurchasePrice: row.last_purchase_price === null || row.last_purchase_price === undefined ? null : Number(row.last_purchase_price),
+    lastPurchasePrice:
+      row.last_purchase_price === null || row.last_purchase_price === undefined
+        ? null
+        : Number(row.last_purchase_price),
+    purchasePrice: Number(row.purchase_price || 0),
+    salePrice: Number(row.sale_price || 0),
     currentStock: Number(row.current_stock),
     minStockLevel: Number(row.min_stock_level),
     lastMovementAt: row.last_movement_at,
-    status: Number(row.current_stock) <= 0 ? 'OUT_OF_STOCK' : Number(row.current_stock) <= Number(row.min_stock_level) ? 'LOW_STOCK' : 'IN_STOCK'
+    status:
+      Number(row.current_stock) <= 0
+        ? 'OUT_OF_STOCK'
+        : Number(row.current_stock) <= Number(row.min_stock_level)
+          ? 'LOW_STOCK'
+          : 'IN_STOCK',
   };
 }
 
@@ -33,7 +52,7 @@ function mapMovement(row) {
     referenceId: row.reference_id,
     reason: row.reason || row.notes,
     userId: row.user_id || row.created_by,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   };
 }
 
@@ -55,7 +74,8 @@ async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly
   if (outOfStockOnly) {
     where += ' AND products.current_stock <= 0';
   } else if (lowStockOnly) {
-    where += ' AND products.current_stock > 0 AND products.current_stock <= products.min_stock_level';
+    where +=
+      ' AND products.current_stock > 0 AND products.current_stock <= products.min_stock_level';
   }
 
   const result = await getPool().query(
@@ -66,27 +86,65 @@ async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly
         products.sku,
         products.barcode,
         products.product_image,
+        products.category_id,
+        products.brand_id,
+        products.unit_id,
+        products.purchase_price,
+        products.sale_price,
         products.current_stock,
         products.min_stock_level,
         COALESCE(NULLIF(latest_purchase.batch_number, ''), 'BATCH-' || LPAD(products.id::text, 4, '0')) AS batch_number,
         COALESCE(latest_purchase.expiration_date, (products.created_at::date + INTERVAL '12 months')::date) AS expiration_date,
         COALESCE(latest_purchase.purchase_price, products.purchase_price) AS last_purchase_price,
+        latest_purchase.supplier_id,
+        latest_purchase.supplier_name,
         categories.name AS category_name,
+        brands.name AS brand_name,
+        units.name AS unit_name,
+        default_inventory.warehouse_id,
+        default_inventory.warehouse_name,
         MAX(stock_movements.created_at) AS last_movement_at
       FROM products
       LEFT JOIN categories ON categories.id = products.category_id
+      LEFT JOIN brands ON brands.id = products.brand_id
+      LEFT JOIN units ON units.id = products.unit_id
       LEFT JOIN LATERAL (
-        SELECT purchase_items.batch_number, purchase_items.expiration_date, purchase_items.purchase_price
+        SELECT
+          purchase_items.batch_number,
+          purchase_items.expiration_date,
+          purchase_items.purchase_price,
+          purchases.supplier_id,
+          suppliers.name AS supplier_name
         FROM purchase_items
         INNER JOIN purchases ON purchases.id = purchase_items.purchase_id
+        LEFT JOIN suppliers ON suppliers.id = purchases.supplier_id
         WHERE purchase_items.product_id = products.id
           AND purchases.deleted_at IS NULL
         ORDER BY purchases.purchase_date DESC, purchases.created_at DESC, purchase_items.id DESC
         LIMIT 1
       ) latest_purchase ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT inventory.warehouse_id, warehouses.name AS warehouse_name
+        FROM inventory
+        LEFT JOIN warehouses ON warehouses.id = inventory.warehouse_id
+        WHERE inventory.product_id = products.id
+        ORDER BY warehouses.is_default DESC NULLS LAST, inventory.updated_at DESC, inventory.id DESC
+        LIMIT 1
+      ) default_inventory ON TRUE
       LEFT JOIN stock_movements ON stock_movements.product_id = products.id
       ${where}
-      GROUP BY products.id, categories.name, latest_purchase.batch_number, latest_purchase.expiration_date, latest_purchase.purchase_price
+      GROUP BY
+        products.id,
+        categories.name,
+        brands.name,
+        units.name,
+        latest_purchase.batch_number,
+        latest_purchase.expiration_date,
+        latest_purchase.purchase_price,
+        latest_purchase.supplier_id,
+        latest_purchase.supplier_name,
+        default_inventory.warehouse_id,
+        default_inventory.warehouse_name
       ORDER BY products.name ASC
       LIMIT 300
     `,
@@ -136,7 +194,9 @@ async function adjustStock({ productId, movementType, quantity, reason, userId }
       return { ok: false, message: 'Product not found.' };
     }
 
-    const warehouseResult = await client.query('SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1');
+    const warehouseResult = await client.query(
+      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+    );
     const warehouseId = warehouseResult.rows[0]?.id;
     const previousStock = Number(product.current_stock);
     let newStock = previousStock;
@@ -149,7 +209,10 @@ async function adjustStock({ productId, movementType, quantity, reason, userId }
       return { ok: false, message: 'Stock cannot go negative.' };
     }
 
-    await client.query('UPDATE products SET current_stock = $2, updated_at = NOW() WHERE id = $1', [productId, newStock]);
+    await client.query('UPDATE products SET current_stock = $2, updated_at = NOW() WHERE id = $1', [
+      productId,
+      newStock,
+    ]);
 
     if (warehouseId) {
       await client.query(
@@ -172,7 +235,16 @@ async function adjustStock({ productId, movementType, quantity, reason, userId }
         VALUES ($1, $2, $3, $4, $5, $6, 'inventory.adjustment', $7, $7, $8, $8)
         RETURNING id
       `,
-      [productId, warehouseId, movementType, movementType === 'CORRECTION' ? newStock - previousStock : quantity, previousStock, newStock, reason, userId]
+      [
+        productId,
+        warehouseId,
+        movementType,
+        movementType === 'CORRECTION' ? newStock - previousStock : quantity,
+        previousStock,
+        newStock,
+        reason,
+        userId,
+      ]
     );
 
     await syncRepository.queueOperation({
@@ -181,7 +253,7 @@ async function adjustStock({ productId, movementType, quantity, reason, userId }
       entityId: movementResult.rows[0].id,
       operation: 'ADJUST',
       terminalId: terminal.id,
-      payload: { productId, movementType, quantity, previousStock, newStock, reason }
+      payload: { productId, movementType, quantity, previousStock, newStock, reason },
     });
 
     return { ok: true, previousStock, newStock };
@@ -206,5 +278,5 @@ module.exports = {
   adjustStock,
   listInventory,
   listMovements,
-  updateProductImage
+  updateProductImage,
 };

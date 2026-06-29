@@ -17,7 +17,7 @@
   let _page = 1;
   const PAGE_SIZE = 50;
 
-  const LOG = (...a) => console.log('[InventoryRenderer]', ...a);
+  const LOG = () => {};
 
   function $id(id) {
     return document.getElementById(id);
@@ -56,7 +56,8 @@
     };
     set('inventoryStatProducts', items.length);
     const value = items.reduce(
-      (s, x) => s + Number(x.currentStock || 0) * Number(x.purchasePrice || 0),
+      (s, x) =>
+        s + Number(x.currentStock || 0) * Number(x.lastPurchasePrice ?? x.purchasePrice ?? 0),
       0
     );
     const low = items.filter(
@@ -77,6 +78,7 @@
     const search = ($id('inventorySearch')?.value || '').trim().toLowerCase();
     const catId = $id('inventoryCategoryFilter')?.value || '';
     const brandId = $id('inventoryBrandFilter')?.value || '';
+    const supplierId = $id('inventorySupplierFilter')?.value || '';
     const stockStat = $id('inventoryStockStatusFilter')?.value || '';
     let list = items;
 
@@ -90,6 +92,7 @@
     }
     if (catId) list = list.filter((x) => String(x.categoryId || '') === catId);
     if (brandId) list = list.filter((x) => String(x.brandId || '') === brandId);
+    if (supplierId) list = list.filter((x) => String(x.supplierId || '') === supplierId);
 
     if (stockStat === 'in')
       list = list.filter((x) => Number(x.currentStock || 0) > Number(x.minStockLevel || 0));
@@ -135,6 +138,7 @@
     renderStats(items);
     populateDropdown('inventoryCategoryFilter', items, 'categoryName', 'categoryId');
     populateDropdown('inventoryBrandFilter', items, 'brandName', 'brandId');
+    populateDropdown('inventorySupplierFilter', items, 'supplierName', 'supplierId');
 
     const filtered = applyFilters(items);
     const rowsPerPage = Number($id('inventoryRowsPerPage')?.value || PAGE_SIZE);
@@ -174,7 +178,7 @@
         </td>
         <td style="font-size:.75rem;color:#6b7280">${esc(x.batchNumber || '—')}</td>
         <td style="font-size:.75rem;color:#6b7280">${x.expirationDate ? new Date(x.expirationDate).toLocaleDateString() : '—'}</td>
-        <td style="text-align:right;font-size:.78rem">${money(x.lastPurchasePrice || x.purchasePrice)}</td>
+        <td style="text-align:right;font-size:.78rem">${money(x.lastPurchasePrice ?? x.purchasePrice)}</td>
         <td style="text-align:right;font-size:.78rem">${money(x.purchasePrice)}</td>
         <td style="text-align:right;font-size:.78rem;font-weight:600">${money(x.salePrice)}</td>
         <td style="text-align:right;font-weight:700;font-size:.9rem;color:${statusColor}">${stock.toFixed(3)}</td>
@@ -295,20 +299,27 @@
     });
 
     // Filters
-    ['inventoryCategoryFilter', 'inventoryBrandFilter', 'inventoryStockStatusFilter'].forEach(
-      (id) =>
-        $id(id)?.addEventListener('change', () => {
-          _page = 1;
-          renderTable(_allItems);
-        })
+    [
+      'inventoryCategoryFilter',
+      'inventoryBrandFilter',
+      'inventorySupplierFilter',
+      'inventoryStockStatusFilter',
+    ].forEach((id) =>
+      $id(id)?.addEventListener('change', () => {
+        _page = 1;
+        renderTable(_allItems);
+      })
     );
     $id('inventoryResetFiltersButton')?.addEventListener('click', () => {
-      ['inventoryCategoryFilter', 'inventoryBrandFilter', 'inventoryStockStatusFilter'].forEach(
-        (id) => {
-          const el = $id(id);
-          if (el) el.selectedIndex = 0;
-        }
-      );
+      [
+        'inventoryCategoryFilter',
+        'inventoryBrandFilter',
+        'inventorySupplierFilter',
+        'inventoryStockStatusFilter',
+      ].forEach((id) => {
+        const el = $id(id);
+        if (el) el.selectedIndex = 0;
+      });
       const s = $id('inventorySearch');
       if (s) s.value = '';
       _page = 1;
