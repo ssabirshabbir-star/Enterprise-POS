@@ -22,6 +22,14 @@ function mapProduct(row) {
     wholesalePrice: Number(row.wholesale_price),
     minStockLevel: Number(row.min_stock_level),
     currentStock: Number(row.current_stock),
+    allowSalePriceOverride: Boolean(row.allow_sale_price_override),
+    autoUpdateSalePriceFromPurchase: Boolean(row.auto_update_sale_price_from_purchase),
+    trackExpiry: Boolean(row.track_expiry),
+    expiryRequired: Boolean(row.expiry_required),
+    expiryAlertDays:
+      row.expiry_alert_days === null || row.expiry_alert_days === undefined
+        ? null
+        : Number(row.expiry_alert_days),
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -158,9 +166,11 @@ async function createProduct(payload, actorId) {
         INSERT INTO products (
           name, sku, barcode, category_id, brand_id, unit_id,
           purchase_price, sale_price, wholesale_price,
-          min_stock_level, current_stock, is_active
+          min_stock_level, current_stock, allow_sale_price_override,
+          auto_update_sale_price_from_purchase, track_expiry,
+          expiry_required, expiry_alert_days, is_active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id
       `,
       [
@@ -175,6 +185,11 @@ async function createProduct(payload, actorId) {
         payload.wholesalePrice,
         payload.minStockLevel,
         payload.currentStock,
+        payload.allowSalePriceOverride,
+        payload.autoUpdateSalePriceFromPurchase,
+        payload.trackExpiry,
+        payload.expiryRequired,
+        payload.expiryAlertDays,
         payload.isActive,
       ]
     );
@@ -237,7 +252,12 @@ async function updateProduct(productId, payload, actorId) {
           wholesale_price = $10,
           min_stock_level = $11,
           current_stock = $12,
-          is_active = $13,
+          allow_sale_price_override = $13,
+          auto_update_sale_price_from_purchase = $14,
+          track_expiry = $15,
+          expiry_required = $16,
+          expiry_alert_days = $17,
+          is_active = $18,
           updated_at = NOW()
         WHERE id = $1 AND deleted_at IS NULL
         RETURNING id
@@ -255,6 +275,11 @@ async function updateProduct(productId, payload, actorId) {
         payload.wholesalePrice,
         payload.minStockLevel,
         payload.currentStock,
+        payload.allowSalePriceOverride,
+        payload.autoUpdateSalePriceFromPurchase,
+        payload.trackExpiry,
+        payload.expiryRequired,
+        payload.expiryAlertDays,
         payload.isActive,
       ]
     );

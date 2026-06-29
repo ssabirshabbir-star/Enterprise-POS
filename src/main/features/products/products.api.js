@@ -33,7 +33,7 @@
   // ── Internal helpers (matches billing.api.js pattern exactly) ─────────────
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
-  const LOG = (...args) => console.log('[ProductsApi]', ...args);
+  const LOG = () => {};
 
   /**
    * Normalizes a posApi response into { ok, message }.
@@ -101,6 +101,11 @@
       wholesalePrice: parseFloat($id('wholesalePrice')?.value || '0') || 0,
       minStockLevel: parseFloat($id('minStockLevel')?.value || '0') || 0,
       currentStock: parseFloat($id('currentStock')?.value || '0') || 0,
+      allowSalePriceOverride: $id('allowSalePriceOverride')?.checked === true,
+      autoUpdateSalePriceFromPurchase: $id('autoUpdateSalePriceFromPurchase')?.checked === true,
+      trackExpiry: $id('trackExpiry')?.checked === true,
+      expiryRequired: $id('expiryRequired')?.checked === true,
+      expiryAlertDays: $id('expiryAlertDays')?.value || null,
       isActive: $id('productActive')?.checked ?? true,
     };
 

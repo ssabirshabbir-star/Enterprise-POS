@@ -13,9 +13,15 @@ async function initializeDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-    await client.query('ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;');
-    await client.query('ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;');
-    await client.query('ALTER TABLE roles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();');
+    await client.query(
+      'ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query(
+      'ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;'
+    );
+    await client.query(
+      'ALTER TABLE roles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();'
+    );
 
     await client.query(`
       INSERT INTO roles (name, description)
@@ -28,7 +34,9 @@ async function initializeDatabase() {
         ('Accountant', 'Financial reports, expenses, suppliers, and ledgers')
       ON CONFLICT (name) DO NOTHING;
     `);
-    await client.query("UPDATE roles SET is_system = TRUE WHERE name IN ('Admin','Manager','Cashier','Saleman','Warehouse','Accountant');");
+    await client.query(
+      "UPDATE roles SET is_system = TRUE WHERE name IN ('Admin','Manager','Cashier','Saleman','Warehouse','Accountant');"
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -52,8 +60,12 @@ async function initializeDatabase() {
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(80);');
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(60);');
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;');
-    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;');
-    await client.query("UPDATE users SET username = LOWER(SPLIT_PART(email, '@', 1)) WHERE username IS NULL;");
+    await client.query(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;'
+    );
+    await client.query(
+      "UPDATE users SET username = LOWER(SPLIT_PART(email, '@', 1)) WHERE username IS NULL;"
+    );
     await client.query('ALTER TABLE users ALTER COLUMN username SET NOT NULL;');
 
     await client.query(`
@@ -169,49 +181,167 @@ async function initializeDatabase() {
       WHERE roles.name = 'Admin'
       ON CONFLICT DO NOTHING;
     `);
-    await client.query(`
+    await client.query(
+      `
       INSERT INTO role_permissions (role_id, permission_id)
       SELECT roles.id, permissions.id
       FROM roles
       JOIN permissions ON permissions.permission_key = ANY($1)
       WHERE roles.name = 'Manager'
       ON CONFLICT DO NOTHING;
-    `, [[
-      'dashboard.view','pos.view','pos.sale.create','pos.sale.discount','pos.sale.hold','pos.sale.deleteHeld','pos.refund.create',
-      'products.view','products.create','products.update','products.delete','inventory.view','inventory.adjust',
-      'purchases.view','purchases.create','purchases.update','requisition.view','requisition.create','requisition.approve',
-      'purchaseOrders.view','purchaseOrders.create','purchaseOrders.update','purchaseOrders.approve','purchaseOrders.receive','purchaseOrders.cancel',
-      'purchaseOrder.view','purchaseOrder.create','purchaseOrder.approve','purchaseOrder.sendToSupplier','purchaseOrder.confirmSupplier','purchaseOrder.receiveGoods','purchaseInvoice.create','supplierPayment.create',
-      'customers.view','customers.create','customers.update','customers.ledger.view','customers.payment.create',
-      'suppliers.view','suppliers.create','suppliers.update','suppliers.ledger.view','suppliers.payment.create','expenses.view','expenses.create','expenses.update','expenses.delete',
-      'reports.view','reports.sales','reports.profit','reports.inventory','reports.cashflow',
-      'lucky_draw.view','lucky_draw.create','lucky_draw.update','lucky_draw.delete','lucky_draw.verify','lucky_draw.draw','lucky_draw.print','lucky_draw.reports',
-      'settings.view','settings.update','backup.create','sync.view','sync.retry'
-    ]]);
-    await client.query(`
+    `,
+      [
+        [
+          'dashboard.view',
+          'pos.view',
+          'pos.sale.create',
+          'pos.sale.discount',
+          'pos.sale.hold',
+          'pos.sale.deleteHeld',
+          'pos.refund.create',
+          'products.view',
+          'products.create',
+          'products.update',
+          'products.delete',
+          'inventory.view',
+          'inventory.adjust',
+          'purchases.view',
+          'purchases.create',
+          'purchases.update',
+          'requisition.view',
+          'requisition.create',
+          'requisition.approve',
+          'purchaseOrders.view',
+          'purchaseOrders.create',
+          'purchaseOrders.update',
+          'purchaseOrders.approve',
+          'purchaseOrders.receive',
+          'purchaseOrders.cancel',
+          'purchaseOrder.view',
+          'purchaseOrder.create',
+          'purchaseOrder.approve',
+          'purchaseOrder.sendToSupplier',
+          'purchaseOrder.confirmSupplier',
+          'purchaseOrder.receiveGoods',
+          'purchaseInvoice.create',
+          'supplierPayment.create',
+          'customers.view',
+          'customers.create',
+          'customers.update',
+          'customers.ledger.view',
+          'customers.payment.create',
+          'suppliers.view',
+          'suppliers.create',
+          'suppliers.update',
+          'suppliers.ledger.view',
+          'suppliers.payment.create',
+          'expenses.view',
+          'expenses.create',
+          'expenses.update',
+          'expenses.delete',
+          'reports.view',
+          'reports.sales',
+          'reports.profit',
+          'reports.inventory',
+          'reports.cashflow',
+          'lucky_draw.view',
+          'lucky_draw.create',
+          'lucky_draw.update',
+          'lucky_draw.delete',
+          'lucky_draw.verify',
+          'lucky_draw.draw',
+          'lucky_draw.print',
+          'lucky_draw.reports',
+          'settings.view',
+          'settings.update',
+          'backup.create',
+          'sync.view',
+          'sync.retry',
+        ],
+      ]
+    );
+    await client.query(
+      `
       INSERT INTO role_permissions (role_id, permission_id)
       SELECT roles.id, permissions.id
       FROM roles
       JOIN permissions ON permissions.permission_key = ANY($1)
       WHERE roles.name = 'Cashier'
       ON CONFLICT DO NOTHING;
-    `, [['dashboard.view','pos.view','pos.sale.create','pos.sale.discount','pos.sale.hold','pos.refund.create','products.view','customers.view','customers.create','lucky_draw.view','lucky_draw.verify','lucky_draw.print','returns.view','sync.view'].filter(Boolean)]);
-    await client.query(`
+    `,
+      [
+        [
+          'dashboard.view',
+          'pos.view',
+          'pos.sale.create',
+          'pos.sale.discount',
+          'pos.sale.hold',
+          'pos.refund.create',
+          'products.view',
+          'customers.view',
+          'customers.create',
+          'lucky_draw.view',
+          'lucky_draw.verify',
+          'lucky_draw.print',
+          'returns.view',
+          'sync.view',
+        ].filter(Boolean),
+      ]
+    );
+    await client.query(
+      `
       INSERT INTO role_permissions (role_id, permission_id)
       SELECT roles.id, permissions.id
       FROM roles
       JOIN permissions ON permissions.permission_key = ANY($1)
       WHERE roles.name = 'Warehouse'
       ON CONFLICT DO NOTHING;
-    `, [['dashboard.view','products.view','inventory.view','inventory.adjust','purchases.view','purchases.create','requisition.view','purchaseOrders.view','purchaseOrders.receive','purchaseOrder.view','purchaseOrder.receiveGoods','suppliers.view','sync.view']]);
-    await client.query(`
+    `,
+      [
+        [
+          'dashboard.view',
+          'products.view',
+          'inventory.view',
+          'inventory.adjust',
+          'purchases.view',
+          'purchases.create',
+          'requisition.view',
+          'purchaseOrders.view',
+          'purchaseOrders.receive',
+          'purchaseOrder.view',
+          'purchaseOrder.receiveGoods',
+          'suppliers.view',
+          'sync.view',
+        ],
+      ]
+    );
+    await client.query(
+      `
       INSERT INTO role_permissions (role_id, permission_id)
       SELECT roles.id, permissions.id
       FROM roles
       JOIN permissions ON permissions.permission_key = ANY($1)
       WHERE roles.name = 'Accountant'
       ON CONFLICT DO NOTHING;
-    `, [['dashboard.view','suppliers.view','suppliers.ledger.view','suppliers.payment.create','expenses.view','expenses.create','expenses.update','reports.view','reports.sales','reports.profit','reports.cashflow','settings.view','backup.create']]);
+    `,
+      [
+        [
+          'dashboard.view',
+          'suppliers.view',
+          'suppliers.ledger.view',
+          'suppliers.payment.create',
+          'expenses.view',
+          'expenses.create',
+          'expenses.update',
+          'reports.view',
+          'reports.sales',
+          'reports.profit',
+          'reports.cashflow',
+          'settings.view',
+          'backup.create',
+        ],
+      ]
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -238,12 +368,20 @@ async function initializeDatabase() {
     `);
 
     await client.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users (LOWER(email));');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (LOWER(username));');
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (LOWER(username));'
+    );
     await client.query('CREATE INDEX IF NOT EXISTS idx_users_role_id ON users (role_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_users_status ON users (is_active);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions (role_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens (user_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs (created_at DESC);');
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions (role_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens (user_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs (created_at DESC);'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS categories (
@@ -295,6 +433,11 @@ async function initializeDatabase() {
         wholesale_price NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (wholesale_price >= 0),
         min_stock_level NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (min_stock_level >= 0),
         current_stock NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
+        allow_sale_price_override BOOLEAN NOT NULL DEFAULT FALSE,
+        auto_update_sale_price_from_purchase BOOLEAN NOT NULL DEFAULT FALSE,
+        track_expiry BOOLEAN NOT NULL DEFAULT FALSE,
+        expiry_required BOOLEAN NOT NULL DEFAULT FALSE,
+        expiry_alert_days INTEGER CHECK (expiry_alert_days IS NULL OR expiry_alert_days >= 0),
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
         product_image TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -322,9 +465,13 @@ async function initializeDatabase() {
       );
     `);
 
-    await client.query('ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;');
+    await client.query(
+      'ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;'
+    );
     await client.query('ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS reason TEXT;');
-    await client.query('ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
+    await client.query(
+      'ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS warehouses (
@@ -384,8 +531,12 @@ async function initializeDatabase() {
       );
     `);
 
-    await client.query('ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS current_balance NUMERIC(14, 2) NOT NULL DEFAULT 0;');
-    await client.query('ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(14, 2) NOT NULL DEFAULT 0;');
+    await client.query(
+      'ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS current_balance NUMERIC(14, 2) NOT NULL DEFAULT 0;'
+    );
+    await client.query(
+      'ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(14, 2) NOT NULL DEFAULT 0;'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchases (
@@ -420,7 +571,9 @@ async function initializeDatabase() {
         total NUMERIC(14, 2) NOT NULL CHECK (total >= 0)
       );
     `);
-    await client.query('ALTER TABLE purchase_items ADD COLUMN IF NOT EXISTS batch_number VARCHAR(120);');
+    await client.query(
+      'ALTER TABLE purchase_items ADD COLUMN IF NOT EXISTS batch_number VARCHAR(120);'
+    );
     await client.query('ALTER TABLE purchase_items ADD COLUMN IF NOT EXISTS expiration_date DATE;');
 
     await client.query(`
@@ -477,15 +630,31 @@ async function initializeDatabase() {
       );
     `);
 
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS requisition_id BIGINT REFERENCES purchase_requisitions(id) ON DELETE SET NULL;');
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS requisition_id BIGINT REFERENCES purchase_requisitions(id) ON DELETE SET NULL;'
+    );
     await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approval_notes TEXT;');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS rejection_reason TEXT;');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_sent_at TIMESTAMPTZ;');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_confirmed_at TIMESTAMPTZ;');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_reference_number VARCHAR(120);');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_confirmation_notes TEXT;');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_expected_delivery_date DATE;');
-    await client.query('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;');
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS rejection_reason TEXT;'
+    );
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_sent_at TIMESTAMPTZ;'
+    );
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_confirmed_at TIMESTAMPTZ;'
+    );
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_reference_number VARCHAR(120);'
+    );
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_confirmation_notes TEXT;'
+    );
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_expected_delivery_date DATE;'
+    );
+    await client.query(
+      'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchase_order_items (
@@ -520,9 +689,15 @@ async function initializeDatabase() {
       );
     `);
 
-    await client.query('ALTER TABLE purchases ADD COLUMN IF NOT EXISTS purchase_order_id BIGINT REFERENCES purchase_orders(id) ON DELETE SET NULL;');
-    await client.query('ALTER TABLE purchases ADD COLUMN IF NOT EXISTS goods_receipt_id BIGINT REFERENCES goods_receipts(id) ON DELETE SET NULL;');
-    await client.query('ALTER TABLE purchases ADD COLUMN IF NOT EXISTS supplier_invoice_number VARCHAR(120);');
+    await client.query(
+      'ALTER TABLE purchases ADD COLUMN IF NOT EXISTS purchase_order_id BIGINT REFERENCES purchase_orders(id) ON DELETE SET NULL;'
+    );
+    await client.query(
+      'ALTER TABLE purchases ADD COLUMN IF NOT EXISTS goods_receipt_id BIGINT REFERENCES goods_receipts(id) ON DELETE SET NULL;'
+    );
+    await client.query(
+      'ALTER TABLE purchases ADD COLUMN IF NOT EXISTS supplier_invoice_number VARCHAR(120);'
+    );
     await client.query('ALTER TABLE purchases ADD COLUMN IF NOT EXISTS invoice_date DATE;');
 
     await client.query(`
@@ -538,8 +713,12 @@ async function initializeDatabase() {
       );
     `);
 
-    await client.query('ALTER TABLE goods_receipt_items ADD COLUMN IF NOT EXISTS damaged_qty NUMERIC(14, 3) NOT NULL DEFAULT 0;');
-    await client.query('ALTER TABLE goods_receipt_items ADD COLUMN IF NOT EXISTS rejected_qty NUMERIC(14, 3) NOT NULL DEFAULT 0;');
+    await client.query(
+      'ALTER TABLE goods_receipt_items ADD COLUMN IF NOT EXISTS damaged_qty NUMERIC(14, 3) NOT NULL DEFAULT 0;'
+    );
+    await client.query(
+      'ALTER TABLE goods_receipt_items ADD COLUMN IF NOT EXISTS rejected_qty NUMERIC(14, 3) NOT NULL DEFAULT 0;'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS customers (
@@ -561,7 +740,9 @@ async function initializeDatabase() {
     `);
 
     await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS cnic VARCHAR(40);');
-    await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(14, 2) NOT NULL DEFAULT 0;');
+    await client.query(
+      'ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(14, 2) NOT NULL DEFAULT 0;'
+    );
 
     await client.query(`
       INSERT INTO customers (name, is_walk_in)
@@ -766,10 +947,16 @@ async function initializeDatabase() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-    await client.query('ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS supplier_payment_id BIGINT;');
-    await client.query('ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS reference_type VARCHAR(60);');
+    await client.query(
+      'ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS supplier_payment_id BIGINT;'
+    );
+    await client.query(
+      'ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS reference_type VARCHAR(60);'
+    );
     await client.query('ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS reference_id BIGINT;');
-    await client.query('ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;');
+    await client.query(
+      'ALTER TABLE supplier_ledger ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS supplier_payments (
@@ -861,7 +1048,9 @@ async function initializeDatabase() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-    await client.query('ALTER TABLE offline_queue ADD COLUMN IF NOT EXISTS operation_uuid VARCHAR(80);');
+    await client.query(
+      'ALTER TABLE offline_queue ADD COLUMN IF NOT EXISTS operation_uuid VARCHAR(80);'
+    );
     await client.query('ALTER TABLE offline_queue ADD COLUMN IF NOT EXISTS terminal_id INTEGER;');
     await client.query('ALTER TABLE offline_queue ADD COLUMN IF NOT EXISTS last_error TEXT;');
     await client.query('ALTER TABLE offline_queue ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;');
@@ -915,8 +1104,12 @@ async function initializeDatabase() {
       WHERE NOT EXISTS (SELECT 1 FROM printer_settings);
     `);
 
-    await client.query('ALTER TABLE printer_settings ADD COLUMN IF NOT EXISTS auto_print BOOLEAN NOT NULL DEFAULT FALSE;');
-    await client.query('ALTER TABLE printer_settings ADD COLUMN IF NOT EXISTS receipt_copies INTEGER NOT NULL DEFAULT 1;');
+    await client.query(
+      'ALTER TABLE printer_settings ADD COLUMN IF NOT EXISTS auto_print BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query(
+      'ALTER TABLE printer_settings ADD COLUMN IF NOT EXISTS receipt_copies INTEGER NOT NULL DEFAULT 1;'
+    );
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS app_settings (
@@ -993,49 +1186,158 @@ async function initializeDatabase() {
       ON CONFLICT (key) DO NOTHING;
     `);
 
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_unique ON categories (LOWER(name)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_brands_name_unique ON brands (LOWER(name)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_units_name_unique ON units (LOWER(name)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku_unique ON products (LOWER(sku)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode_unique ON products (LOWER(barcode)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_products_name_search ON products (LOWER(name)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_products_category_id ON products (category_id) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products (brand_id) WHERE deleted_at IS NULL;');
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_unique ON categories (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_brands_name_unique ON brands (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_units_name_unique ON units (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku_unique ON products (LOWER(sku)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode_unique ON products (LOWER(barcode)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_products_name_search ON products (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_products_category_id ON products (category_id) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products (brand_id) WHERE deleted_at IS NULL;'
+    );
     await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS product_image TEXT;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements (product_id, created_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory (product_id);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_name_unique ON suppliers (LOWER(name)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_invoice_unique ON purchases (LOWER(invoice_number)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchases_po ON purchases (purchase_order_id) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchases_receipt ON purchases (goods_receipt_id) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_invoice_unique ON sales (LOWER(invoice_number));');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items (sale_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales (created_at DESC);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_orders_po_unique ON purchase_orders (LOWER(po_number)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier ON purchase_orders (supplier_id, created_at DESC) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders (status, created_at DESC) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchase_orders_expected_date ON purchase_orders (expected_date) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po ON purchase_order_items (purchase_order_id);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_requisitions_number_unique ON purchase_requisitions (LOWER(requisition_number)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchase_requisitions_status ON purchase_requisitions (status, created_at DESC) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_purchase_requisition_items_req ON purchase_requisition_items (requisition_id);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_goods_receipts_number_unique ON goods_receipts (LOWER(receipt_number));');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_goods_receipts_po ON goods_receipts (purchase_order_id, received_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_goods_receipt_items_receipt ON goods_receipt_items (goods_receipt_id);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_campaigns_code_unique ON lucky_draw_campaigns (LOWER(campaign_code)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_campaigns_status_dates ON lucky_draw_campaigns (status, start_date, end_date) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_entries_coupon_unique ON lucky_draw_entries (LOWER(coupon_no));');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_entries_campaign_sale_unique ON lucky_draw_entries (campaign_id, sale_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_entries_campaign_created ON lucky_draw_entries (campaign_id, created_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_entries_customer ON lucky_draw_entries (customer_id, created_at DESC);');
+    await client.query(
+      'ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_sale_price_override BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query(
+      'ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_update_sale_price_from_purchase BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query(
+      'ALTER TABLE products ADD COLUMN IF NOT EXISTS track_expiry BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query(
+      'ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_required BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_alert_days INTEGER;');
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'products_expiry_alert_days_non_negative'
+        ) THEN
+          ALTER TABLE products
+          ADD CONSTRAINT products_expiry_alert_days_non_negative
+          CHECK (expiry_alert_days IS NULL OR expiry_alert_days >= 0);
+        END IF;
+      END $$;
+    `);
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements (product_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory (product_id);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_name_unique ON suppliers (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_invoice_unique ON purchases (LOWER(invoice_number)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchases_po ON purchases (purchase_order_id) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchases_receipt ON purchases (goods_receipt_id) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_invoice_unique ON sales (LOWER(invoice_number));'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items (sale_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales (created_at DESC);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_orders_po_unique ON purchase_orders (LOWER(po_number)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier ON purchase_orders (supplier_id, created_at DESC) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders (status, created_at DESC) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchase_orders_expected_date ON purchase_orders (expected_date) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po ON purchase_order_items (purchase_order_id);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_requisitions_number_unique ON purchase_requisitions (LOWER(requisition_number)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchase_requisitions_status ON purchase_requisitions (status, created_at DESC) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_purchase_requisition_items_req ON purchase_requisition_items (requisition_id);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_goods_receipts_number_unique ON goods_receipts (LOWER(receipt_number));'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_goods_receipts_po ON goods_receipts (purchase_order_id, received_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_goods_receipt_items_receipt ON goods_receipt_items (goods_receipt_id);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_campaigns_code_unique ON lucky_draw_campaigns (LOWER(campaign_code)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_lucky_draw_campaigns_status_dates ON lucky_draw_campaigns (status, start_date, end_date) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_entries_coupon_unique ON lucky_draw_entries (LOWER(coupon_no));'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_entries_campaign_sale_unique ON lucky_draw_entries (campaign_id, sale_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_lucky_draw_entries_campaign_created ON lucky_draw_entries (campaign_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_lucky_draw_entries_customer ON lucky_draw_entries (customer_id, created_at DESC);'
+    );
     // P-7: persist walk-in customer names (nullable, safe idempotent migration)
-    await client.query('ALTER TABLE lucky_draw_entries ADD COLUMN IF NOT EXISTS customer_name VARCHAR(180);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_winners_entry_unique ON lucky_draw_winners (entry_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_lucky_draw_winners_campaign ON lucky_draw_winners (campaign_id, selected_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_coupon_logs_coupon_no ON coupon_logs (LOWER(coupon_no), timestamp DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_customers_search ON customers (LOWER(name), phone) WHERE deleted_at IS NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_held_sales_hold_number_unique ON held_sales (LOWER(hold_number)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_offline_queue_status ON offline_queue (status, created_at);');
+    await client.query(
+      'ALTER TABLE lucky_draw_entries ADD COLUMN IF NOT EXISTS customer_name VARCHAR(180);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_draw_winners_entry_unique ON lucky_draw_winners (entry_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_lucky_draw_winners_campaign ON lucky_draw_winners (campaign_id, selected_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_coupon_logs_coupon_no ON coupon_logs (LOWER(coupon_no), timestamp DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_customers_search ON customers (LOWER(name), phone) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_held_sales_hold_number_unique ON held_sales (LOWER(hold_number)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_offline_queue_status ON offline_queue (status, created_at);'
+    );
     await client.query(`
       DELETE FROM offline_queue older
       USING offline_queue newer
@@ -1052,24 +1354,60 @@ async function initializeDatabase() {
         AND newer.operation_uuid IS NOT NULL
         AND older.operation_uuid = newer.operation_uuid;
     `);
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_queue_operation_uuid_unique ON offline_queue (operation_uuid) WHERE operation_uuid IS NOT NULL;');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_queue_entity_operation_unique ON offline_queue (entity_type, entity_id, operation);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_terminals_code ON terminals (terminal_code);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_sync_logs_started_at ON sync_logs (started_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_customer_ledger_customer_id ON customer_ledger (customer_id, created_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_customer_payments_customer_id ON customer_payments (customer_id, created_at DESC);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_returns_number_unique ON returns (LOWER(return_number)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_returns_sale_id ON returns (sale_id, created_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_return_items_sale_item_id ON return_items (sale_item_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_supplier_ledger_supplier_id ON supplier_ledger (supplier_id, created_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier_id ON supplier_payments (supplier_id, created_at DESC);');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_categories_name_unique ON expense_categories (LOWER(name)) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_expenses_category_id ON expenses (category_id) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (expense_date DESC) WHERE deleted_at IS NULL;');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON backup_logs (created_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_device_registrations_machine_id ON device_registrations (machine_id);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_licenses_machine_id ON licenses (machine_id, updated_at DESC);');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_update_checks_checked_at ON update_checks (checked_at DESC);');
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_queue_operation_uuid_unique ON offline_queue (operation_uuid) WHERE operation_uuid IS NOT NULL;'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_queue_entity_operation_unique ON offline_queue (entity_type, entity_id, operation);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_terminals_code ON terminals (terminal_code);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_sync_logs_started_at ON sync_logs (started_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_customer_ledger_customer_id ON customer_ledger (customer_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_customer_payments_customer_id ON customer_payments (customer_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_returns_number_unique ON returns (LOWER(return_number)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_returns_sale_id ON returns (sale_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_return_items_sale_item_id ON return_items (sale_item_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_supplier_ledger_supplier_id ON supplier_ledger (supplier_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier_id ON supplier_payments (supplier_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_categories_name_unique ON expense_categories (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_expenses_category_id ON expenses (category_id) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (expense_date DESC) WHERE deleted_at IS NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON backup_logs (created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_device_registrations_machine_id ON device_registrations (machine_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_licenses_machine_id ON licenses (machine_id, updated_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_update_checks_checked_at ON update_checks (checked_at DESC);'
+    );
 
     await client.query(`
       INSERT INTO activity_logs (action, status, message)
@@ -1079,5 +1417,5 @@ async function initializeDatabase() {
 }
 
 module.exports = {
-  initializeDatabase
+  initializeDatabase,
 };

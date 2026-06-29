@@ -30,6 +30,18 @@ function parseNullableId(value, field) {
   return { ok: true, value: number };
 }
 
+function parseNullableNonNegativeInteger(value, field) {
+  if (value === undefined || value === null || value === '') {
+    return { ok: true, value: null };
+  }
+
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0) {
+    return { ok: false, message: `${field} must be zero or greater.` };
+  }
+  return { ok: true, value: number };
+}
+
 function validateProductPayload(payload) {
   const name = cleanString(payload.name);
   const sku = cleanString(payload.sku).toUpperCase();
@@ -40,11 +52,17 @@ function validateProductPayload(payload) {
   }
 
   if (sku && !/^[A-Z0-9._-]{2,80}$/.test(sku)) {
-    return { ok: false, message: 'SKU may contain letters, numbers, dot, dash, and underscore only.' };
+    return {
+      ok: false,
+      message: 'SKU may contain letters, numbers, dot, dash, and underscore only.',
+    };
   }
 
   if (barcode && !/^[A-Za-z0-9._-]{4,120}$/.test(barcode)) {
-    return { ok: false, message: 'Barcode may contain letters, numbers, dot, dash, and underscore only.' };
+    return {
+      ok: false,
+      message: 'Barcode may contain letters, numbers, dot, dash, and underscore only.',
+    };
   }
 
   const categoryId = parseNullableId(payload.categoryId, 'Category');
@@ -55,8 +73,22 @@ function validateProductPayload(payload) {
   const wholesalePrice = parseMoney(payload.wholesalePrice, 'Wholesale price');
   const minStockLevel = parseQuantity(payload.minStockLevel, 'Minimum stock level');
   const currentStock = parseQuantity(payload.currentStock, 'Current stock');
+  const expiryAlertDays = parseNullableNonNegativeInteger(
+    payload.expiryAlertDays,
+    'Expiry alert days'
+  );
 
-  const checks = [categoryId, brandId, unitId, purchasePrice, salePrice, wholesalePrice, minStockLevel, currentStock];
+  const checks = [
+    categoryId,
+    brandId,
+    unitId,
+    purchasePrice,
+    salePrice,
+    wholesalePrice,
+    minStockLevel,
+    currentStock,
+    expiryAlertDays,
+  ];
   const failed = checks.find((check) => !check.ok);
   if (failed) {
     return failed;
@@ -80,8 +112,13 @@ function validateProductPayload(payload) {
       wholesalePrice: wholesalePrice.value,
       minStockLevel: minStockLevel.value,
       currentStock: currentStock.value,
-      isActive: payload.isActive !== false
-    }
+      allowSalePriceOverride: payload.allowSalePriceOverride === true,
+      autoUpdateSalePriceFromPurchase: payload.autoUpdateSalePriceFromPurchase === true,
+      trackExpiry: payload.trackExpiry === true,
+      expiryRequired: payload.expiryRequired === true,
+      expiryAlertDays: expiryAlertDays.value,
+      isActive: payload.isActive !== false,
+    },
   };
 }
 
@@ -104,12 +141,12 @@ function validateCatalogPayload(payload, type) {
       name,
       description,
       shortName,
-      isActive: payload.isActive !== false
-    }
+      isActive: payload.isActive !== false,
+    },
   };
 }
 
 module.exports = {
   validateCatalogPayload,
-  validateProductPayload
+  validateProductPayload,
 };

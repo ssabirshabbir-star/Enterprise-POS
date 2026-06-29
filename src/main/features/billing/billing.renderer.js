@@ -37,7 +37,7 @@
   let cTimer = null; // customer search debounce — module-scoped for clarity
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
-  const LOG = (...args) => console.log('[BillingRenderer]', ...args);
+  const LOG = () => {};
 
   /** Live references — resolved at call-time so load order is safe */
   const C = () => window.BillingCart;
@@ -253,6 +253,13 @@
       syncDiscountMode();
       C().updateDisplayTotals();
     });
+    const autoAdvanceToggle = document.getElementById('posAutoAdvanceUnitPrice');
+    if (autoAdvanceToggle) {
+      C().setAutoAdvanceUnitPrice(autoAdvanceToggle.checked);
+      autoAdvanceToggle.addEventListener('change', () =>
+        C().setAutoAdvanceUnitPrice(autoAdvanceToggle.checked)
+      );
+    }
 
     // ── Payment method buttons ───────────────────────────────────────────────
     document

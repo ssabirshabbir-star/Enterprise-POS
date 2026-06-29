@@ -356,6 +356,21 @@
     font-weight: var(--epos-font-weight-heavy);
   }
   .epos-invoice-summary-head { display: flex; align-items: center; justify-content: space-between; }
+  .epos-billing-auto-advance-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    margin: 8px 0 10px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: var(--epos-font-weight-heavy);
+  }
+  .epos-billing-auto-advance-toggle input {
+    width: 14px;
+    height: 14px;
+    accent-color: #2563eb;
+  }
   
   /* ==========================================================
      CUSTOMER MODAL
@@ -1107,6 +1122,36 @@
     padding: 0 6px !important;
     box-sizing: border-box !important;
   }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-locked {
+    border-color: #cbd5e1 !important;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    cursor: not-allowed;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-editable {
+    border-color: #93c5fd !important;
+    background: #eff6ff !important;
+  }
+  .epos-cart-policy-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 4px;
+  }
+  .epos-cart-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: var(--epos-font-weight-heavy);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .epos-cart-badge-locked { background: #f1f5f9; color: #475569; }
+  .epos-cart-badge-editable { background: #dbeafe; color: #1d4ed8; }
+  .epos-cart-badge-expiry { background: #fef3c7; color: #92400e; }
+  .epos-cart-badge-required { background: #fee2e2; color: #b91c1c; }
   .epos-billing-shell.epos-invoice-ui .epos-cart-discount-wrap {
     display: grid !important;
     grid-template-columns: var(--epos-cart-qty-input-width) 14px !important;

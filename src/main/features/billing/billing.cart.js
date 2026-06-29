@@ -28,6 +28,7 @@
   let customers = [];
   let lastReceipt = null;
   let paidAmountManual = false;
+  let autoAdvanceUnitPrice = true;
 
   function makeEmptyCart() {
     return { items: [], customerId: null, paymentMethod: 'Cash' };
@@ -113,6 +114,12 @@
   function getBillingMode() {
     return billingMode;
   }
+  function setAutoAdvanceUnitPrice(enabled) {
+    autoAdvanceUnitPrice = enabled !== false;
+  }
+  function getAutoAdvanceUnitPrice() {
+    return autoAdvanceUnitPrice;
+  }
 
   /**
    * Controlled setter for cart customer ID.
@@ -158,6 +165,9 @@
         discount: 0,
         displayTotal: Number(price.toFixed(2)),
         unit: product.unit || 'pcs',
+        allowSalePriceOverride: product.allowSalePriceOverride === true,
+        trackExpiry: product.trackExpiry === true,
+        expiryRequired: product.expiryRequired === true,
       });
     }
     renderCart();
@@ -251,7 +261,7 @@
     item.displayTotal = Math.max(item.quantity * item.unitPrice - item.discount, 0);
     updateCartRowDisplay(index);
     updateDisplayTotals();
-    if (field === 'price') renderCart();
+    if (field === 'price' && autoAdvanceUnitPrice) renderCart();
   }
 
   // ── Cart rendering ────────────────────────────────────────────────────────
@@ -285,6 +295,10 @@
         <td>
           <div style="font-weight:600;font-size:.83rem">${esc(item.name)}</div>
           ${item.sku ? `<div style="font-size:.7rem;color:#9ca3af">${esc(item.sku)}</div>` : ''}
+          <div class="epos-cart-policy-badges">
+            ${item.allowSalePriceOverride ? '<span class="epos-cart-badge epos-cart-badge-editable">Price editable</span>' : '<span class="epos-cart-badge epos-cart-badge-locked">Price locked</span>'}
+            ${item.expiryRequired ? '<span class="epos-cart-badge epos-cart-badge-required">Expiry required</span>' : item.trackExpiry ? '<span class="epos-cart-badge epos-cart-badge-expiry">Expiry tracked</span>' : ''}
+          </div>
         </td>
         <td style="text-align:center">
           <span style="font-size:.78rem;font-weight:700;color:${
@@ -300,7 +314,7 @@
           </div>
         </td>
         <td><input type="number" min="0" step="0.01" value="${item.unitPrice}"
-          data-cart-price="${i}" class="epos-cart-discount" style="text-align:right"/></td>
+          data-cart-price="${i}" class="epos-cart-discount ${item.allowSalePriceOverride ? 'epos-cart-price-editable' : 'epos-cart-price-locked'}" style="text-align:right" ${item.allowSalePriceOverride ? '' : 'readonly title="Sale price is locked by product policy."'} /></td>
         <td>
           <input type="number" min="0" step="0.01" value="${item.discount}"
             data-cart-disc="${i}" class="epos-cart-discount" style="text-align:right"/>
@@ -579,6 +593,7 @@ Method: ${receipt.paymentMethod || 'Cash'}${
     getLastReceipt,
     setLastReceipt,
     getBillingMode,
+    getAutoAdvanceUnitPrice,
     // Cart mutations
     addToCart,
     removeCartItem,
@@ -591,6 +606,7 @@ Method: ${receipt.paymentMethod || 'Cash'}${
     updateDisplayTotals,
     setBillingMode,
     setPaymentMethod,
+    setAutoAdvanceUnitPrice,
     // Customer display
     renderCustomerSelect,
     updateCustomerBalanceDisplay,

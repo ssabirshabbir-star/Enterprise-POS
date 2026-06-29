@@ -10,6 +10,9 @@ function mapPosProduct(row) {
     barcode: row.barcode,
     salePrice: Number(row.sale_price),
     wholesalePrice: Number(row.wholesale_price || row.sale_price),
+    allowSalePriceOverride: Boolean(row.allow_sale_price_override),
+    trackExpiry: Boolean(row.track_expiry),
+    expiryRequired: Boolean(row.expiry_required),
     currentStock: Number(row.current_stock),
     isActive: row.is_active,
     categoryId: row.category_id,
@@ -44,7 +47,9 @@ async function searchProducts(filters) {
   if (categoryClause) params.push(categoryId);
   const result = await getPool().query(
     `
-      SELECT products.id, products.name, products.sku, products.barcode, products.sale_price, products.wholesale_price, products.category_id,
+      SELECT products.id, products.name, products.sku, products.barcode, products.sale_price, products.wholesale_price,
+             products.allow_sale_price_override, products.track_expiry, products.expiry_required,
+             products.category_id,
              products.current_stock, products.is_active, categories.name AS category_name
       FROM products
       LEFT JOIN categories ON categories.id = products.category_id
@@ -68,7 +73,9 @@ async function searchProducts(filters) {
 async function findProductByBarcode(barcode) {
   const result = await getPool().query(
     `
-      SELECT products.id, products.name, products.sku, products.barcode, products.sale_price, products.wholesale_price, products.category_id,
+      SELECT products.id, products.name, products.sku, products.barcode, products.sale_price, products.wholesale_price,
+             products.allow_sale_price_override, products.track_expiry, products.expiry_required,
+             products.category_id,
              products.current_stock, products.is_active, categories.name AS category_name
       FROM products
       LEFT JOIN categories ON categories.id = products.category_id
@@ -96,6 +103,32 @@ async function listCustomers(search = '') {
     [query]
   );
   return result.rows.map(mapCustomer);
+}
+
+async function getSaleProductPolicies(productIds = []) {
+  const ids = [...new Set(productIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (ids.length === 0) return new Map();
+
+  const result = await getPool().query(
+    `
+      SELECT id, sale_price, allow_sale_price_override, is_active
+      FROM products
+      WHERE id = ANY($1::int[]) AND deleted_at IS NULL
+    `,
+    [ids]
+  );
+
+  return new Map(
+    result.rows.map((row) => [
+      Number(row.id),
+      {
+        id: Number(row.id),
+        salePrice: Number(row.sale_price || 0),
+        allowSalePriceOverride: Boolean(row.allow_sale_price_override),
+        isActive: Boolean(row.is_active),
+      },
+    ])
+  );
 }
 
 async function createCustomer(payload) {
@@ -441,6 +474,7 @@ module.exports = {
   createSale,
   deleteHeldSale,
   findProductByBarcode,
+  getSaleProductPolicies,
   getSaleReceipt,
   getLastSaleReceipt,
   getSaleReceiptByInvoice,

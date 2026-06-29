@@ -33,7 +33,7 @@
   // ── Internal helpers ──────────────────────────────────────────────────────
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
-  const LOG = (...args) => console.log('[BillingApi]', ...args);
+  const LOG = () => {};
 
   /**
    * Normalizes a posApi response into { ok, message }.
@@ -121,7 +121,7 @@
         })
         .join('');
     } catch (err) {
-      LOG('Search error:', err); // R2 fix: was console.error('[Billing]')
+      LOG('Search error:', err);
       C().showMsg('Product search failed. Please try again.', true); // A2 fix: was silent on IPC error
     }
   }

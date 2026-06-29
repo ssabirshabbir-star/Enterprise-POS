@@ -30,7 +30,7 @@
   let initPending = false;
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
-  const LOG = (...args) => console.log('[ProductsRenderer]', ...args);
+  const LOG = () => {};
 
   /** Live reference — resolved at call-time */
   const A = () => window.ProductsApi;
@@ -247,14 +247,14 @@
     const panel = $id('productFormPanel');
     if (!panel) return;
     const title = $id('productFormTitle');
+    const set = (id, v) => {
+      const e = $id(id);
+      if (e) e.value = v ?? '';
+    };
 
     if (product) {
       // Edit mode — populate fields
       if (title) title.textContent = 'Edit Product';
-      const set = (id, v) => {
-        const e = $id(id);
-        if (e) e.value = v ?? '';
-      };
       set('productId', product.id);
       set('productName', product.name);
       set('productSku', product.sku);
@@ -267,6 +267,15 @@
       set('wholesalePrice', product.wholesalePrice);
       set('minStockLevel', product.minStockLevel);
       set('currentStock', product.currentStock);
+      const allowOverrideEl = $id('allowSalePriceOverride');
+      if (allowOverrideEl) allowOverrideEl.checked = product.allowSalePriceOverride === true;
+      const autoUpdateEl = $id('autoUpdateSalePriceFromPurchase');
+      if (autoUpdateEl) autoUpdateEl.checked = product.autoUpdateSalePriceFromPurchase === true;
+      const trackExpiryEl = $id('trackExpiry');
+      if (trackExpiryEl) trackExpiryEl.checked = product.trackExpiry === true;
+      const expiryRequiredEl = $id('expiryRequired');
+      if (expiryRequiredEl) expiryRequiredEl.checked = product.expiryRequired === true;
+      set('expiryAlertDays', product.expiryAlertDays ?? '');
       const activeEl = $id('productActive');
       if (activeEl) activeEl.checked = Boolean(product.isActive);
     } else {
@@ -275,6 +284,16 @@
       $id('productForm')?.reset();
       const idEl = $id('productId');
       if (idEl) idEl.value = '';
+      [
+        'allowSalePriceOverride',
+        'autoUpdateSalePriceFromPurchase',
+        'trackExpiry',
+        'expiryRequired',
+      ].forEach((id) => {
+        const el = $id(id);
+        if (el) el.checked = false;
+      });
+      set('expiryAlertDays', '');
     }
 
     // Clear any previous form msg

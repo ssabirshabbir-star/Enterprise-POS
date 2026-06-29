@@ -44,6 +44,13 @@ function mapProduct(row) {
       barcode: row.barcode,
       purchasePrice: Number(row.purchase_price || 0),
       salePrice: Number(row.sale_price || 0),
+      autoUpdateSalePriceFromPurchase: Boolean(row.auto_update_sale_price_from_purchase),
+      trackExpiry: Boolean(row.track_expiry),
+      expiryRequired: Boolean(row.expiry_required),
+      expiryAlertDays:
+        row.expiry_alert_days === null || row.expiry_alert_days === undefined
+          ? null
+          : Number(row.expiry_alert_days),
       currentStock: Number(row.current_stock || 0),
     }
   );
@@ -75,13 +82,41 @@ async function listSuppliers() {
 
 async function listProducts() {
   const result = await getPool().query(`
-    SELECT id, name, sku, barcode, purchase_price, sale_price, current_stock
+    SELECT id, name, sku, barcode, purchase_price, sale_price,
+           auto_update_sale_price_from_purchase, track_expiry, expiry_required,
+           expiry_alert_days, current_stock
     FROM products
     WHERE deleted_at IS NULL AND is_active = TRUE
     ORDER BY name ASC
     LIMIT 500
   `);
   return result.rows.map(mapProduct);
+}
+
+async function getProductPolicies(productIds = []) {
+  const ids = [...new Set(productIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (ids.length === 0) return new Map();
+
+  const result = await getPool().query(
+    `
+      SELECT id, auto_update_sale_price_from_purchase, track_expiry, expiry_required
+      FROM products
+      WHERE id = ANY($1::int[]) AND deleted_at IS NULL AND is_active = TRUE
+    `,
+    [ids]
+  );
+
+  return new Map(
+    result.rows.map((row) => [
+      Number(row.id),
+      {
+        id: Number(row.id),
+        autoUpdateSalePriceFromPurchase: Boolean(row.auto_update_sale_price_from_purchase),
+        trackExpiry: Boolean(row.track_expiry),
+        expiryRequired: Boolean(row.expiry_required),
+      },
+    ])
+  );
 }
 
 async function createSupplier(payload) {
@@ -336,7 +371,7 @@ async function createPurchase(payload, userId) {
 
     for (const item of payload.items) {
       const productResult = await client.query(
-        'SELECT id, current_stock, min_stock_level FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+        'SELECT id, current_stock, min_stock_level, auto_update_sale_price_from_purchase FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
         [item.productId]
       );
       const product = productResult.rows[0];
@@ -363,7 +398,17 @@ async function createPurchase(payload, userId) {
       );
 
       await client.query(
-        'UPDATE products SET current_stock = $2, purchase_price = $3, sale_price = $4, updated_at = NOW() WHERE id = $1',
+        `
+          UPDATE products
+          SET current_stock = $2,
+              purchase_price = $3,
+              sale_price = CASE
+                WHEN auto_update_sale_price_from_purchase = TRUE THEN $4
+                ELSE sale_price
+              END,
+              updated_at = NOW()
+          WHERE id = $1
+        `,
         [item.productId, newStock, item.purchasePrice, item.salePrice]
       );
 
@@ -599,6 +644,7 @@ async function softDeletePurchase(purchaseId, userId) {
 module.exports = {
   createPurchase,
   createSupplier,
+  getProductPolicies,
   getSupplierDetails,
   getSupplierLedger,
   getPurchaseDetails,

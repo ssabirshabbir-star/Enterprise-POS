@@ -19,9 +19,15 @@ function canRefundOrExchangeSales(role) {
   return REFUND_EXCHANGE_ROLES.has(role);
 }
 
+function canOverrideSalePrice(profile = {}) {
+  const permissions = Array.isArray(profile.permissions) ? profile.permissions : [];
+  return profile.role === 'Admin' || permissions.includes('pos.sale.discount');
+}
+
 module.exports = {
+  canOverrideSalePrice,
   canDeleteHeldSales,
   canRefundOrExchangeSales,
   canReadSales,
-  canWriteSales
+  canWriteSales,
 };

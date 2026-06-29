@@ -251,6 +251,10 @@ async function createPurchase(payload = {}) {
   if (items.length === 0) return { ok: false, message: 'At least one purchase item is required.' };
 
   const cleanItems = [];
+  const productPolicies = await purchaseRepository.getProductPolicies(
+    items.map((item) => item.productId)
+  );
+
   for (const item of items) {
     const productId = Number(item.productId);
     const quantity = Number(item.quantity);
@@ -262,13 +266,19 @@ async function createPurchase(payload = {}) {
       return { ok: false, message: 'Purchase quantity must be greater than zero.' };
     if (purchasePrice === null || salePrice === null)
       return { ok: false, message: 'Invalid purchase item price.' };
+    const productPolicy = productPolicies.get(productId);
+    if (!productPolicy) return { ok: false, message: 'Invalid or inactive product in purchase.' };
+    const expirationDate = item.expirationDate || null;
+    if ((productPolicy.trackExpiry || productPolicy.expiryRequired) && !expirationDate) {
+      return { ok: false, message: 'Expiry date is required for one or more products.' };
+    }
     cleanItems.push({
       productId,
       quantity,
       purchasePrice,
       salePrice,
       batchNumber: String(item.batchNumber || '').trim() || null,
-      expirationDate: item.expirationDate || null,
+      expirationDate,
       total: Number((quantity * purchasePrice).toFixed(2)),
     });
   }
