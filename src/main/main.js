@@ -14,6 +14,7 @@ const { registerPrintingRoutes } = require('./features/printing/printing.control
 const { registerReportsRoutes } = require('./features/reports/reports.controller');
 const { registerDashboardRoutes } = require('./features/dashboard/dashboard.controller');
 const { registerCustomerRoutes } = require('./features/customers/customers.controller');
+const { registerSupplierRoutes } = require('./features/suppliers/suppliers.controller');
 const { registerReturnRoutes } = require('./features/returns/returns.controller');
 const { registerSettingsRoutes } = require('./features/settings/settings.controller');
 const { registerSyncRoutes } = require('./features/sync/sync.controller');
@@ -97,6 +98,7 @@ app.whenReady().then(async () => {
   registerReportsRoutes(ipcMain);
   registerDashboardRoutes(ipcMain);
   registerCustomerRoutes(ipcMain);
+  registerSupplierRoutes(ipcMain);
   registerReturnRoutes(ipcMain);
   registerSettingsRoutes(ipcMain);
   registerSyncRoutes(ipcMain);

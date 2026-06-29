@@ -20,163 +20,10 @@ function money(value) {
   return Number(number.toFixed(2));
 }
 
-async function listSuppliers() {
-  const access = await requirePurchaseAccess('read');
-  if (!access.ok) return access;
-  return { ok: true, suppliers: await purchaseRepository.listSuppliers() };
-}
-
 async function listProducts() {
   const access = await requirePurchaseAccess('read');
   if (!access.ok) return access;
   return { ok: true, products: await purchaseRepository.listProducts() };
-}
-
-async function createSupplier(payload = {}) {
-  const access = await requirePurchaseAccess('write');
-  if (!access.ok) return access;
-  const name = String(payload.name || '').trim();
-  if (name.length < 2) return { ok: false, message: 'Supplier name is required.' };
-  const openingBalance = money(payload.openingBalance);
-  if (openingBalance === null) return { ok: false, message: 'Opening balance is invalid.' };
-  try {
-    const supplier = await purchaseRepository.createSupplier({
-      name,
-      phone: String(payload.phone || '').trim(),
-      email: String(payload.email || '').trim(),
-      address: String(payload.address || '').trim(),
-      openingBalance,
-      isActive: payload.isActive !== false,
-      userId: access.profile.id,
-    });
-    await activityRepository.createActivityLog({
-      userId: access.profile.id,
-      action: 'supplier.create',
-      status: 'success',
-      message: 'Supplier created',
-      metadata: { supplierId: supplier.id },
-    });
-    return { ok: true, supplier, message: 'Supplier saved successfully.' };
-  } catch (error) {
-    if (error.code === '23505') return { ok: false, message: 'Supplier already exists.' };
-    throw error;
-  }
-}
-
-async function updateSupplier(id, payload = {}) {
-  const access = await requirePurchaseAccess('write');
-  if (!access.ok) return access;
-  const supplierId = Number(id);
-  const name = String(payload.name || '').trim();
-  if (!Number.isInteger(supplierId) || supplierId <= 0)
-    return { ok: false, message: 'Invalid supplier id.' };
-  if (name.length < 2) return { ok: false, message: 'Supplier name is required.' };
-  try {
-    const supplier = await purchaseRepository.updateSupplier(supplierId, {
-      name,
-      phone: String(payload.phone || '').trim(),
-      email: String(payload.email || '').trim(),
-      address: String(payload.address || '').trim(),
-      isActive: payload.isActive !== false,
-    });
-    if (!supplier) return { ok: false, message: 'Supplier not found.' };
-    await activityRepository.createActivityLog({
-      userId: access.profile.id,
-      action: 'supplier.update',
-      status: 'success',
-      message: 'Supplier updated',
-      metadata: { supplierId },
-    });
-    return { ok: true, supplier, message: 'Supplier updated successfully.' };
-  } catch (error) {
-    if (error.code === '23505') return { ok: false, message: 'Supplier already exists.' };
-    throw error;
-  }
-}
-
-async function deleteSupplier(id) {
-  const access = await requirePurchaseAccess('write');
-  if (!access.ok) return access;
-  const supplierId = Number(id);
-  if (!Number.isInteger(supplierId) || supplierId <= 0)
-    return { ok: false, message: 'Invalid supplier id.' };
-  let deleted;
-  try {
-    deleted = await purchaseRepository.softDeleteSupplier(supplierId);
-  } catch (error) {
-    if (error.code === 'SUPPLIER_BALANCE_DUE')
-      return {
-        ok: false,
-        message: 'Supplier has outstanding balance. Record payment before deleting.',
-      };
-    throw error;
-  }
-  if (!deleted) return { ok: false, message: 'Supplier not found.' };
-  await activityRepository.createActivityLog({
-    userId: access.profile.id,
-    action: 'supplier.delete',
-    status: 'success',
-    message: 'Supplier deleted',
-    metadata: { supplierId },
-  });
-  return { ok: true, message: 'Supplier deleted successfully.' };
-}
-
-async function getSupplierDetails(supplierId) {
-  const access = await requirePurchaseAccess('read');
-  if (!access.ok) return access;
-  const id = Number(supplierId);
-  if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Invalid supplier id.' };
-  const details = await purchaseRepository.getSupplierDetails(id);
-  if (!details) return { ok: false, message: 'Supplier not found.' };
-  return { ok: true, ...details };
-}
-
-async function getSupplierLedger(supplierId) {
-  const access = await requirePurchaseAccess('read');
-  if (!access.ok) return access;
-  const id = Number(supplierId);
-  if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Invalid supplier id.' };
-  return { ok: true, ledger: await purchaseRepository.getSupplierLedger(id) };
-}
-
-async function recordSupplierPayment(supplierId, payload = {}) {
-  const access = await requirePurchaseAccess('write');
-  if (!access.ok) return access;
-  const id = Number(supplierId);
-  const amount = money(payload.amount);
-  if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Invalid supplier id.' };
-  if (amount === null || amount <= 0)
-    return { ok: false, message: 'Payment amount must be greater than zero.' };
-  let result;
-  try {
-    result = await purchaseRepository.recordSupplierPayment(
-      {
-        supplierId: id,
-        amount,
-        paymentMethod: String(payload.paymentMethod || 'Cash').trim() || 'Cash',
-        notes: String(payload.notes || '').trim(),
-      },
-      access.profile.id
-    );
-  } catch (error) {
-    if (error.code === 'SUPPLIER_NO_DUE')
-      return { ok: false, message: 'This supplier has no outstanding balance.' };
-    if (error.code === 'SUPPLIER_PAYMENT_EXCEEDS_BALANCE')
-      return {
-        ok: false,
-        message: `Payment cannot exceed outstanding balance Rs. ${Number(error.balance || 0).toFixed(2)}.`,
-      };
-    throw error;
-  }
-  await activityRepository.createActivityLog({
-    userId: access.profile.id,
-    action: 'supplier.payment',
-    status: 'success',
-    message: 'Supplier payment recorded',
-    metadata: { supplierId: id, amount, paymentId: result.paymentId },
-  });
-  return { ok: true, payment: result, message: 'Supplier payment recorded successfully.' };
 }
 
 async function listPurchases() {
@@ -327,15 +174,8 @@ async function createPurchase(payload = {}) {
 
 module.exports = {
   createPurchase,
-  createSupplier,
   deletePurchase,
-  deleteSupplier,
-  getSupplierDetails,
-  getSupplierLedger,
   getPurchaseDetails,
   listProducts,
   listPurchases,
-  listSuppliers,
-  recordSupplierPayment,
-  updateSupplier,
 };
