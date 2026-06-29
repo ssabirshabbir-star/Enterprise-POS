@@ -1,6 +1,6 @@
 const fs = require('fs/promises');
 const { BrowserWindow } = require('electron');
-const { getPool } = require('../../database/connection');
+const printingRepository = require('./printing.repository');
 
 function line(width, char = '-') {
   return char.repeat(width);
@@ -15,38 +15,29 @@ function receiptWidth(paperWidth) {
 }
 
 async function getPrinterSettings() {
-  const result = await getPool().query('SELECT * FROM printer_settings ORDER BY id ASC LIMIT 1');
-  const row = result.rows[0] || {};
+  const row = await printingRepository.getPrinterSettingsRow();
   return {
     printerName: row.printer_name || '',
     paperWidth: row.paper_width || '80mm',
     autoPrint: Boolean(row.auto_print),
     silentPrint: Boolean(row.silent_print),
     receiptCopies: Number(row.receipt_copies || 1),
-    footerText: row.footer_text || 'Thank you for shopping'
+    footerText: row.footer_text || 'Thank you for shopping',
   };
 }
 
 async function savePrinterSettings(settings = {}) {
-  const paperWidth = ['58mm', '80mm', 'A4'].includes(settings.paperWidth) ? settings.paperWidth : '80mm';
-  const result = await getPool().query(
-    `
-      UPDATE printer_settings
-      SET printer_name = $1, paper_width = $2, silent_print = $3, footer_text = $4,
-          auto_print = $5, receipt_copies = $6, updated_at = NOW()
-      WHERE id = (SELECT id FROM printer_settings ORDER BY id ASC LIMIT 1)
-      RETURNING *
-    `,
-    [
-      String(settings.printerName || '').trim() || null,
-      paperWidth,
-      Boolean(settings.silentPrint),
-      String(settings.footerText || 'Thank you for shopping').trim(),
-      Boolean(settings.autoPrint),
-      Math.max(1, Math.min(5, Number(settings.receiptCopies || 1)))
-    ]
-  );
-  return result.rows[0];
+  const paperWidth = ['58mm', '80mm', 'A4'].includes(settings.paperWidth)
+    ? settings.paperWidth
+    : '80mm';
+  return printingRepository.savePrinterSettingsRow({
+    printerName: String(settings.printerName || '').trim() || null,
+    paperWidth,
+    silentPrint: Boolean(settings.silentPrint),
+    footerText: String(settings.footerText || 'Thank you for shopping').trim(),
+    autoPrint: Boolean(settings.autoPrint),
+    receiptCopies: Math.max(1, Math.min(5, Number(settings.receiptCopies || 1))),
+  });
 }
 
 function buildEscPosReceipt(receipt, settings) {
@@ -63,12 +54,14 @@ function buildEscPosReceipt(receipt, settings) {
     `Date: ${new Date(receipt.createdAt).toLocaleString()}`,
     `Cashier: ${receipt.cashierName || '-'}`,
     `Customer: ${receipt.customerName || 'Walk-in Customer'}`,
-    line(width)
+    line(width),
   ];
 
   for (const item of receipt.items || []) {
     rows.push(item.productName);
-    rows.push(`${item.quantity} x ${formatMoney(item.unitPrice)}  Disc ${formatMoney(item.discount)}  ${formatMoney(item.total)}`);
+    rows.push(
+      `${item.quantity} x ${formatMoney(item.unitPrice)}  Disc ${formatMoney(item.discount)}  ${formatMoney(item.total)}`
+    );
   }
 
   rows.push(line(width));
@@ -97,19 +90,27 @@ function buildEscPosReceipt(receipt, settings) {
 
 function buildReceiptHtml(receipt, settings) {
   const width = settings.paperWidth === '58mm' ? '220px' : '302px';
-  const rows = (receipt.items || []).map((item) => `
+  const rows = (receipt.items || [])
+    .map(
+      (item) => `
     <div class="item">
       <div>${item.productName}</div>
       <div>${item.quantity} x ${formatMoney(item.unitPrice)} - ${formatMoney(item.discount)} = ${formatMoney(item.total)}</div>
     </div>
-  `).join('');
-  const couponRows = (receipt.luckyDrawCoupons || []).map((coupon) => `
+  `
+    )
+    .join('');
+  const couponRows = (receipt.luckyDrawCoupons || [])
+    .map(
+      (coupon) => `
     <div class="item center">
       <strong>${coupon.couponNo}</strong><br/>
       ${coupon.campaignName || 'Lucky Draw'}<br/>
       <span>Barcode/QR: ${coupon.barcodeValue || coupon.qrValue || coupon.couponNo}</span>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
   return `
     <!doctype html>
@@ -153,7 +154,9 @@ function buildReceiptHtml(receipt, settings) {
 }
 
 function buildInvoicePdfHtml(receipt, settings) {
-  const rows = (receipt.items || []).map((item, index) => `
+  const rows = (receipt.items || [])
+    .map(
+      (item, index) => `
     <tr>
       <td>${index + 1}</td>
       <td>
@@ -165,13 +168,19 @@ function buildInvoicePdfHtml(receipt, settings) {
       <td class="right">${formatMoney(item.discount)}</td>
       <td class="right">${formatMoney(item.total)}</td>
     </tr>
-  `).join('');
-  const couponRows = (receipt.luckyDrawCoupons || []).map((coupon) => `
+  `
+    )
+    .join('');
+  const couponRows = (receipt.luckyDrawCoupons || [])
+    .map(
+      (coupon) => `
     <div class="coupon">
       <strong>${coupon.couponNo}</strong>
       <span>${coupon.campaignName || 'Lucky Draw'} - ${coupon.barcodeValue || coupon.qrValue || coupon.couponNo}</span>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
   return `
     <!doctype html>
@@ -270,7 +279,12 @@ async function listPrinters() {
 async function exportReceiptPdf(receipt, filePath, options = {}) {
   const settings = { ...(await getPrinterSettings()), ...options };
   const html = buildInvoicePdfHtml(receipt, settings);
-  const pdfWindow = new BrowserWindow({ show: false, width: 900, height: 1200, webPreferences: { nodeIntegration: false } });
+  const pdfWindow = new BrowserWindow({
+    show: false,
+    width: 900,
+    height: 1200,
+    webPreferences: { nodeIntegration: false },
+  });
   try {
     await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     const buffer = await pdfWindow.webContents.printToPDF({
@@ -280,8 +294,8 @@ async function exportReceiptPdf(receipt, filePath, options = {}) {
         top: 0,
         bottom: 0,
         left: 0,
-        right: 0
-      }
+        right: 0,
+      },
     });
     await fs.writeFile(filePath, buffer);
     return { ok: true, filePath };
@@ -293,16 +307,24 @@ async function exportReceiptPdf(receipt, filePath, options = {}) {
 async function printReceipt(receipt, options = {}) {
   const settings = { ...(await getPrinterSettings()), ...options };
   const html = buildReceiptHtml(receipt, settings);
-  const printWindow = new BrowserWindow({ show: false, width: 420, height: 640, webPreferences: { nodeIntegration: false } });
+  const printWindow = new BrowserWindow({
+    show: false,
+    width: 420,
+    height: 640,
+    webPreferences: { nodeIntegration: false },
+  });
   await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
   const printResult = await new Promise((resolve) => {
-    printWindow.webContents.print({
-      silent: Boolean(settings.silentPrint),
-      deviceName: settings.printerName || undefined,
-      printBackground: true,
-      margins: { marginType: 'none' }
-    }, (success, failureReason) => resolve({ success, failureReason }));
+    printWindow.webContents.print(
+      {
+        silent: Boolean(settings.silentPrint),
+        deviceName: settings.printerName || undefined,
+        printBackground: true,
+        margins: { marginType: 'none' },
+      },
+      (success, failureReason) => resolve({ success, failureReason })
+    );
   });
   printWindow.close();
   return printResult;
@@ -316,5 +338,5 @@ module.exports = {
   getPrinterSettings,
   listPrinters,
   printReceipt,
-  savePrinterSettings
+  savePrinterSettings,
 };
