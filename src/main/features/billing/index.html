@@ -7,7 +7,7 @@
     <div id="heldSalesList"></div>
     <input id="cartTax" type="number" value="0" />
     <input id="customerSearch" class="epos-billing-input" />
-    <button id="quickCustomerFocusButton" type="button">New Customer</button>
+    <button id="quickCustomerFocusButton" type="button">Add Customer</button>
     <div id="posCustomerBalance">Due: 0.00 | Limit: 0.00</div>
     <button id="thermalPrintButton" type="button">Print</button>
     <div id="receiptPreview">No receipt yet.</div>
@@ -96,8 +96,8 @@
                 <path d="M56 38l4 0" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
               </svg>
             </div>
-            <p class="epos-empty-title">Scan or search an item.</p>
-            <p class="epos-empty-sub">Added products will appear here in the billing grid.</p>
+            <p class="epos-empty-title">Scan or search a product.</p>
+            <p class="epos-empty-sub">Products added to the sale appear here.</p>
           </div>
         </div>
       </section>
@@ -177,7 +177,7 @@
           <div><span>Total Quantity</span><strong id="posTotalQuantity">0</strong></div>
           <div class="epos-summary-subtotal"><span>Subtotal</span><strong id="posSubtotal">0.00</strong></div>
           <div class="epos-invoice-discount-row epos-summary-discount">
-            <span>Discounts</span>
+            <span>Discount</span>
             <div class="epos-invoice-summary-discount">
               <select id="posDiscountType" class="epos-billing-select">
                 <option value="amount">Amount</option>
@@ -242,7 +242,7 @@
                 <path d="M17 17l2 2 3-4"/>
               </svg>
             </span>
-            <div class="epos-btn-row"><strong>Credit</strong><kbd>Due</kbd></div>
+            <div class="epos-btn-row"><strong>Credit</strong><kbd>Customer</kbd></div>
           </button>
 
           <!-- Row 2: More payments + actions -->
@@ -260,7 +260,7 @@
                 <line x1="13.5" y1="12" x2="18.5" y2="12"/>
               </svg>
             </span>
-            <div class="epos-btn-row"><strong>Split Payment</strong><kbd>F9</kbd></div>
+            <div class="epos-btn-row"><strong>Split Payment</strong><kbd>Phase 2</kbd></div>
           </button>
 
           <button id="refundSaleButton" type="button" data-pos-shortcut="Ctrl+R">
@@ -270,7 +270,7 @@
                 <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
               </svg>
             </span>
-            <div class="epos-btn-row"><strong>Sales Return</strong><kbd>Ctrl+R</kbd></div>
+            <div class="epos-btn-row"><strong>Return</strong><kbd>Phase 2</kbd></div>
           </button>
 
           <button id="exchangeSaleButton" type="button" data-pos-shortcut="Ctrl+E">
@@ -282,7 +282,7 @@
                 <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
               </svg>
             </span>
-            <div class="epos-btn-row"><strong>Exchange</strong><kbd>Ctrl+E</kbd></div>
+            <div class="epos-btn-row"><strong>Exchange</strong><kbd>Phase 2</kbd></div>
           </button>
 
           <!-- Row 3: Utility + PAY NOW -->
@@ -295,7 +295,7 @@
                 <line x1="9" y1="17" x2="15" y2="17"/>
               </svg>
             </span>
-            <div class="epos-btn-row"><strong>Reprint</strong><kbd>F12</kbd></div>
+            <div class="epos-btn-row"><strong>Reprint Receipt</strong><kbd>F12</kbd></div>
           </button>
 
           <button id="clearCartButton" type="button" data-pos-shortcut="Ctrl+Del">
@@ -306,7 +306,7 @@
                 <line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </span>
-            <div class="epos-btn-row"><strong>Cancel Sale</strong><kbd>Ctrl+Del</kbd></div>
+            <div class="epos-btn-row"><strong>Clear Cart</strong><kbd>Ctrl+Del</kbd></div>
           </button>
 
           <!-- PAY NOW is the 9th button — same size as all others -->
@@ -319,7 +319,7 @@
               </svg>
             </span>
             <div class="epos-btn-row">
-              <strong>PAY NOW</strong>
+              <strong>Pay Now</strong>
               <span id="posPayButtonAmount" class="epos-pay-amount">Rs. 0.00</span>
               <kbd>F4</kbd>
             </div>
@@ -336,7 +336,7 @@
       <div class="epos-pos-modal-head">
         <div>
           <span>Customer</span>
-          <h3 id="posCustomerModalTitle">New Customer</h3>
+          <h3 id="posCustomerModalTitle">Add Customer</h3>
         </div>
         <button type="button" data-pos-customer-close aria-label="Close customer form">×</button>
       </div>
