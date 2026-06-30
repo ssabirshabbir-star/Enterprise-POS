@@ -199,7 +199,7 @@
         .getCustomers()
         .find((c) => String(c.id) === String(selectedCustomerId));
       const res = await window.posApi.pos.completeSale(payload);
-      const { ok, message } = apiOk(res, 'Sale failed. Please try again.');
+      const { ok, message } = apiOk(res, 'Unable to complete the sale. Please try again.');
       if (!ok) {
         C().showMsg(message, true);
         return;
