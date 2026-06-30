@@ -122,7 +122,7 @@
         .join('');
     } catch (err) {
       LOG('Search error:', err);
-      C().showMsg('Product search failed. Please try again.', true); // A2 fix: was silent on IPC error
+      C().showMsg('Unable to search products. Please try again.', true); // A2 fix: was silent on IPC error
     }
   }
 
