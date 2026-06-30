@@ -191,7 +191,7 @@
         return;
       }
       if (payload.paymentMethod === 'Credit' && !payload.customerId) {
-        C().showMsg('Credit sale requires a real selected customer, not Walk-in Customer.', true);
+        C().showMsg('Credit sales require selecting a registered customer.', true);
         return;
       }
       const selectedCustomerId = C().getCart().customerId || $id('customerSelect')?.value;
