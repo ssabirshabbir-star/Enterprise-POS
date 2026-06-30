@@ -287,6 +287,9 @@
       .getElementById('thermalPrintButton')
       ?.addEventListener('click', () => A().printReceipt());
     document
+      .getElementById('thermalPrintMirrorButton')
+      ?.addEventListener('click', () => document.getElementById('thermalPrintButton')?.click());
+    document
       .getElementById('posDownloadPdfButton')
       ?.addEventListener('click', () => A().downloadPdf());
     document
@@ -295,6 +298,9 @@
     document
       .getElementById('clearCartButton')
       ?.addEventListener('click', () => A().clearCartConfirm());
+    document
+      .getElementById('posSaveDraftButton')
+      ?.addEventListener('click', () => document.getElementById('clearCartButton')?.click());
     document
       .getElementById('refundSaleButton')
       ?.addEventListener('click', () => A().validateSaleAction('refund'));
