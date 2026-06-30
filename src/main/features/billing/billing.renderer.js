@@ -43,6 +43,26 @@
   const C = () => window.BillingCart;
   const A = () => window.BillingApi;
 
+  function isHiddenControlTarget(target) {
+    return Boolean(target?.closest?.('.epos-billing-hidden-controls'));
+  }
+
+  function blockHiddenControlEvent(e) {
+    if (!isHiddenControlTarget(e.target)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+
+  function disableHiddenControls() {
+    document
+      .querySelectorAll(
+        '.epos-billing-hidden-controls button, .epos-billing-hidden-controls input, .epos-billing-hidden-controls select, .epos-billing-hidden-controls textarea, .epos-billing-hidden-controls a, .epos-billing-hidden-controls [tabindex]'
+      )
+      .forEach((el) => {
+        el.tabIndex = -1;
+      });
+  }
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
   function onKeyDown(e) {
@@ -79,7 +99,7 @@
     }
     if (e.key === 'F9') {
       e.preventDefault();
-      C().showMsg('Split payment is coming soon. It is not implemented yet.', true);
+      C().showMsg('Split payment is planned for a future phase.', true);
       return;
     }
     if (e.key === 'F10') {
@@ -145,6 +165,9 @@
   function attachEvents() {
     if (eventsAttached) return; // idempotency guard — runs exactly once per session
     eventsAttached = true;
+    disableHiddenControls();
+    document.addEventListener('click', blockHiddenControlEvent, true);
+    document.addEventListener('keydown', blockHiddenControlEvent, true);
     function syncDiscountMode() {
       const mode = document.getElementById('posDiscountType')?.value || 'amount';
       document

@@ -117,7 +117,10 @@
     flex-direction: column;
     color: var(--pos-text);
   }
-  .epos-billing-hidden-controls { display: none; }
+  .epos-billing-hidden-controls {
+    display: none;
+    pointer-events: none;
+  }
   .epos-invoice-left, .epos-invoice-right {
     display: flex;
     min-width: 0;
