@@ -229,7 +229,7 @@
       }
     } catch (err) {
       LOG('completeSale error:', err);
-      C().showMsg('Sale request failed. Please try again.', true);
+      C().showMsg('Unable to process the sale request. Please try again.', true);
     } finally {
       if (btn) {
         btn.disabled = false;
