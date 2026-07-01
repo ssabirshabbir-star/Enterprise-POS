@@ -13,6 +13,7 @@
     listRoles: () => rolesApi().list(),
     createRole: (payload) => rolesApi().create(payload || {}),
     updateRole: (id, payload) => rolesApi().update(id, payload || {}),
+    permissionsByRole: (roleId) => rolesApi().permissions(roleId),
     securityActivity: () => api().securityActivity(),
   };
 })();

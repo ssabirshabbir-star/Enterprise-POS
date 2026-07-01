@@ -8,6 +8,7 @@
   let searchTimer = null;
   let editingUser = null;
   let editingRole = null;
+  let selectedPermissionRoleId = '';
 
   const A = () => window.AccessControlApi;
 
@@ -91,6 +92,7 @@
     const editorRole = $id('userRole');
     if (editorRole) editorRole.innerHTML = roleOptions(editorRole.value);
     renderRoleList();
+    renderPermissionRoleList();
   }
 
   function roleStatus(role) {
@@ -133,6 +135,89 @@
         `
       )
       .join('');
+  }
+
+  function renderPermissionRoleList() {
+    const list = $id('permissionRoleList');
+    if (!list) return;
+    if (!roles.length) {
+      list.innerHTML = '<p class="epos-users-subtext">No roles available.</p>';
+      return;
+    }
+    list.innerHTML = roles
+      .map((role) => {
+        const active = String(selectedPermissionRoleId) === String(role.id);
+        return `
+          <article>
+            <div>
+              <h3>${esc(role.name)}</h3>
+              <p>${role.isSystem ? 'System role' : 'Custom role'} &middot; ${esc(
+                roleStatus(role)
+              )}</p>
+            </div>
+            <button type="button" class="epos-users-icon-action ${
+              active ? 'green' : ''
+            }" data-permission-role-id="${esc(role.id)}" title="View permissions">View</button>
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  function renderPermissionMatrix(role, permissions) {
+    const matrix = $id('permissionMatrix');
+    if (!matrix) return;
+    if (!role) {
+      matrix.textContent = 'Select a role to view permissions.';
+      return;
+    }
+    const groups = permissions.reduce((acc, permission) => {
+      const category = permission.category || 'GENERAL';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(permission);
+      return acc;
+    }, {});
+    const content = Object.keys(groups)
+      .sort()
+      .map(
+        (category) => `
+          <section>
+            <h3>${esc(category)}</h3>
+            ${groups[category]
+              .map(
+                (permission) => `
+                  <label class="epos-users-check">
+                    <input type="checkbox" disabled ${permission.selected ? 'checked' : ''} />
+                    <span>${esc(permission.label || permission.key)}</span>
+                  </label>
+                `
+              )
+              .join('')}
+          </section>
+        `
+      )
+      .join('');
+    matrix.innerHTML = `
+      <div>
+        <h3>${esc(role.name)} Permissions</h3>
+        <p class="epos-users-subtext">Read-only permission view. Editing remains unavailable.</p>
+      </div>
+      ${content || '<p class="epos-users-subtext">No permissions available for this role.</p>'}
+    `;
+  }
+
+  async function loadPermissionsForRole(roleId) {
+    selectedPermissionRoleId = roleId;
+    renderPermissionRoleList();
+    const matrix = $id('permissionMatrix');
+    if (matrix) matrix.textContent = 'Loading permissions...';
+    const role = roles.find((item) => String(item.id) === String(roleId));
+    const result = await A().permissionsByRole(roleId);
+    if (!result?.ok) {
+      if (matrix) matrix.textContent = result?.message || 'Unable to load permissions.';
+      return;
+    }
+    renderPermissionMatrix(role, Array.isArray(result.permissions) ? result.permissions : []);
   }
 
   function renderStats() {
@@ -514,20 +599,21 @@
       panel.classList.toggle('hidden', panel.dataset.userAdminPanel !== tab);
     });
     if (tab === 'roles') loadRoles().catch(() => {});
+    if (tab === 'permissions') {
+      loadRoles()
+        .then(() => renderPermissionRoleList())
+        .catch(() => {});
+    }
     if (tab === 'activity') loadSecurityActivity().catch(() => {});
   }
 
   function disablePhaseTwoControls() {
-    document
-      .querySelectorAll(
-        '[data-user-admin-tab="permissions"], [data-user-admin-tab="map"], [data-page-tool]'
-      )
-      .forEach((button) => {
-        button.disabled = true;
-        button.title = 'Phase 2';
-        if (!button.textContent.includes('Phase 2'))
-          button.textContent = `${button.textContent} · Phase 2`;
-      });
+    document.querySelectorAll('[data-user-admin-tab="map"], [data-page-tool]').forEach((button) => {
+      button.disabled = true;
+      button.title = 'Phase 2';
+      if (!button.textContent.includes('Phase 2'))
+        button.textContent = `${button.textContent} · Phase 2`;
+    });
     const selectAll = document.querySelector('.epos-users-table-wrap thead input[type="checkbox"]');
     if (selectAll) {
       selectAll.disabled = true;
@@ -583,6 +669,14 @@
       const role = roles.find((item) => String(item.id) === String(button.dataset.roleId));
       if (!role) return;
       if (button.dataset.roleAction === 'edit') openRoleEditor(role);
+    });
+    $id('permissionRoleList')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-permission-role-id]');
+      if (!button) return;
+      loadPermissionsForRole(button.dataset.permissionRoleId).catch(() => {
+        const matrix = $id('permissionMatrix');
+        if (matrix) matrix.textContent = 'Unable to load permissions.';
+      });
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {

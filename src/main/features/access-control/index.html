@@ -42,7 +42,7 @@
       <div class="epos-users-actions">
         <button id="userAddButton" type="button" class="epos-users-action violet">+ Add User</button>
         <button type="button" data-user-admin-tab="roles" class="userAdminTab epos-users-action orange">Roles</button>
-        <button type="button" data-user-admin-tab="permissions" class="userAdminTab epos-users-action green" disabled aria-disabled="true" title="Permission management is planned for Phase 2.">Permissions Phase 2</button>
+        <button type="button" data-user-admin-tab="permissions" class="userAdminTab epos-users-action green" title="View role permissions only.">Permissions</button>
         <button type="button" data-page-tool="users" data-tool-action="import" class="epos-users-action blue" disabled aria-disabled="true" title="User import is planned for Phase 2.">Import Phase 2</button>
         <button type="button" data-page-tool="users" data-tool-action="excel" class="epos-users-action pink" disabled aria-disabled="true" title="User export is planned for Phase 2.">Export Phase 2</button>
       </div>
@@ -152,11 +152,11 @@
       <div class="epos-users-permission-head">
         <div>
           <h3>Permissions</h3>
-          <p>Select a role, update permissions, and save changes to the database.</p>
+          <p>Select a role to view assigned permissions. Permission editing remains unavailable.</p>
         </div>
-        <button id="saveRolePermissionsButton" type="button" class="epos-users-action green">Save Permissions</button>
+        <button id="saveRolePermissionsButton" type="button" class="epos-users-action green" disabled aria-disabled="true" title="Permission editing is unavailable.">Read Only</button>
       </div>
-      <div id="permissionMatrix" class="epos-users-permission-matrix">Select a role to manage permissions.</div>
+      <div id="permissionMatrix" class="epos-users-permission-matrix">Select a role to view permissions.</div>
     </section>
   </div>
 
