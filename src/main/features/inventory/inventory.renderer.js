@@ -3,7 +3,7 @@
  *
  * Follows the same pattern as customers.renderer.js / suppliers.renderer.js.
  * Exposes: window.initInventoryModule (called by login.js navigateTo)
- * Load order: inventory.renderer.js (self-contained — calls window.posApi directly)
+ * Load order: inventory.api.js, then inventory.renderer.js
  */
 (function InventoryRendererModule() {
   'use strict';
@@ -18,6 +18,10 @@
   const PAGE_SIZE = 50;
 
   const LOG = () => {};
+
+  function api() {
+    return window.InventoryApi;
+  }
 
   function $id(id) {
     return document.getElementById(id);
@@ -198,12 +202,12 @@
 
   async function loadInventory(filters) {
     try {
-      const res = await window.posApi.inventory.list(filters || {});
+      const res = await api().loadInventory(filters || {});
       if (!res?.ok) {
         showMsg(res?.message || 'Failed to load inventory.', true);
         return;
       }
-      renderTable(res.items || res.inventory || []);
+      renderUI({ items: res.items || res.inventory || [] });
       LOG('loaded', (res.items || res.inventory || []).length, 'items');
     } catch (err) {
       LOG('loadInventory error:', err);
@@ -266,7 +270,7 @@
     const btn = $id('saveAdjustmentButton');
     if (btn) btn.disabled = true;
     try {
-      const res = await window.posApi.inventory.adjust({
+      const res = await api().adjustStock({
         productId,
         movementType: adjustmentType,
         quantity,
@@ -285,6 +289,25 @@
     } finally {
       if (btn) btn.disabled = false;
     }
+  }
+
+  function renderUI(state = {}) {
+    if (Array.isArray(state.items)) {
+      renderTable(state.items);
+    }
+  }
+
+  function updateUI(diff = {}) {
+    renderUI(diff);
+  }
+
+  function destroyUI() {
+    clearTimeout(_searchTimer);
+    _searchTimer = null;
+    clearTimeout(_msgTimer);
+    _msgTimer = null;
+    $id('inventoryMessage')?.classList.add('hidden');
+    closeAdjustModal();
   }
 
   // ── Event binding ─────────────────────────────────────────────────────────
@@ -361,18 +384,18 @@
 
     // Toolbar placeholders
     $id('inventoryBulkButton')?.addEventListener('click', () => {
-      showMsg('Inventory bulk actions are coming soon. They are not implemented yet.', true);
+      showMsg(api().placeholder('bulk').message, true);
     });
     $id('inventoryTransferButton')?.addEventListener('click', () => {
-      showMsg('Stock transfer is coming soon. It is not implemented yet.', true);
+      showMsg(api().placeholder('transfer').message, true);
     });
     $id('inventoryBarcodeButton')?.addEventListener('click', () => {
-      showMsg('Inventory barcode printing is coming soon. It is not implemented yet.', true);
+      showMsg(api().placeholder('barcode').message, true);
     });
     document.querySelectorAll('[data-page-tool="inventory"]').forEach((btn) =>
       btn.addEventListener('click', () => {
         const action = btn.dataset.toolAction === 'import' ? 'import' : 'export';
-        showMsg(`Inventory ${action} is coming soon. It is not implemented yet.`, true);
+        showMsg(api().placeholder(action).message, true);
       })
     );
   }
@@ -400,4 +423,10 @@
   }
 
   window.initInventoryModule = init;
+  window.InventoryRenderer = {
+    renderUI,
+    updateUI,
+    destroyUI,
+    loadInventory,
+  };
 })();
