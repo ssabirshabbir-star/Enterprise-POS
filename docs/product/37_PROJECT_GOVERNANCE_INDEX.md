@@ -56,7 +56,7 @@ specifications and implementation work must follow.
 
 | Number | Official Title                                       | Primary Purpose                                                                                                                                                                          | Current Status | Related Documents                                                  |
 | ------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------ |
-| 00     | Project Constitution                                 | Defines the highest-level project authority, commercial principles, architecture amendment policy, platform security reservations, automation principles, and governance authority.      | Active         | Architecture Rules, Commercial Product Philosophy, Documents 20-37 |
+| 00     | Project Constitution                                 | Defines the highest-level project authority, commercial principles, architecture amendment policy, platform security reservations, automation principles, and governance authority.      | Active         | Architecture Rules, Commercial Product Philosophy, Documents 20-40 |
 | 01     | Architecture Rules                                   | Defines approved system architecture, layer boundaries, module ownership, and architecture compliance expectations.                                                                      | Active         | 00, 28, 30, 31, 33, 36                                             |
 | 02     | Commercial Product Philosophy                        | Defines commercial-first product direction, simple-by-default behavior, progressive complexity, click reduction, zero surprise UX, and licensing principles.                             | Active         | 00, 20, 22, 28, 32                                                 |
 | 03     | Product Requirements / PRD                           | Defines product intent, business goals, and high-level product requirements.                                                                                                             | Active         | 00, 02, 20, 29                                                     |
@@ -93,6 +93,10 @@ specifications and implementation work must follow.
 | 34     | Traceability and Decision Record Standard            | Defines decision record structure, decision lifecycle, traceability matrix, superseding decisions, and audit traceability requirements.                                                  | Active         | 30, 31, 32, 33                                                     |
 | 35     | Project Health and Quality Standard                  | Defines project health dimensions, quality gates, health indicators, reporting expectations, and continuous improvement rules.                                                           | Active         | 30, 31, 32, 33, 34, 36                                             |
 | 36     | Implementation Execution Standard                    | Defines day-to-day implementation workflow, implementation rules, constraints, validation requirements, and completion criteria.                                                         | Active         | 28, 30, 31, 32, 33, 35                                             |
+| 37     | Project Governance Index                             | Defines the master navigation and relationship map for Enterprise POS governance documents.                                                                                              | Active         | 30-36, 38, 39, 40                                                  |
+| 38     | Governance Versioning and Supersession Standard      | Defines governance versioning, amendment, backward compatibility, supersession, change log, and review cycle rules.                                                                      | Active         | 33, 34, 37, 39, 40                                                 |
+| 39     | Project Phase Transition Standard                    | Defines evidence-based project phase transition rules, entry criteria, exit criteria, transition approval, and blocked transition governance.                                            | Active         | 30, 31, 32, 35, 37, 38, 40                                         |
+| 40     | Governance Completion Baseline                       | Establishes the formal Governance Completion Baseline and closes the Governance Foundation milestone.                                                                                    | Active         | 30-39                                                              |
 
 ## 4. Governance Lifecycle Map
 
@@ -116,9 +120,15 @@ Constitution
 
 -> Traceability
 
+-> Governance Versioning
+
 -> Project Health
 
 -> Implementation Execution
+
+-> Phase Transition
+
+-> Governance Completion Baseline
 
 The lifecycle is not a one-time sequence. It is a control system. New work should consult the
 Constitution first, confirm architecture and standards, implement through controlled execution,
@@ -137,7 +147,8 @@ order is:
 3. Commercial Product Philosophy
 4. Product Experience and Product Design Governance
 5. Feature Enablement, Maturity, Certification, and Release Governance
-6. Change Control, Traceability, Health, and Execution Governance
+6. Change Control, Traceability, Health, Execution, Versioning, Phase Transition, and Baseline
+   Governance
 7. Individual module specifications
 8. Runtime implementation files
 
@@ -146,7 +157,7 @@ resolved through change control. Silent overrides are not permitted.
 
 ## 6. Future Expansion Rules
 
-Numbering beyond Document 37 is reserved for future governance expansion.
+Numbering beyond Document 40 is reserved for future governance expansion.
 
 New governance documents must:
 
@@ -180,7 +191,7 @@ Governance maintenance is part of project health.
 
 ## 8. Relationship Summary
 
-Documents 30-36 form the current project governance spine:
+Documents 30-40 form the current project governance spine:
 
 - Document 30 defines module maturity and prevents confusing architecture readiness with feature
   completeness.
@@ -190,6 +201,10 @@ Documents 30-36 form the current project governance spine:
 - Document 34 defines how significant decisions remain traceable.
 - Document 35 defines how overall project health and quality are measured.
 - Document 36 defines how implementation work is executed day to day.
+- Document 37 defines the master governance index.
+- Document 38 defines governance versioning, amendment, and supersession rules.
+- Document 39 defines project phase transition governance.
+- Document 40 defines the Governance Completion Baseline.
 
 Document 37 indexes the governance system and should be the first governance document consulted by
 future contributors and AI agents.
