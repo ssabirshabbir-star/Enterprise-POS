@@ -102,7 +102,7 @@
 
   function roleActions(role) {
     if (role.isSystem) {
-      return '<span class="epos-users-subtext">System role - read-only</span>';
+      return '<span class="epos-users-subtext" title="System roles cannot be edited or deleted.">System role - edit/delete unavailable</span>';
     }
     return `
       <div class="epos-users-row-actions">
@@ -687,9 +687,9 @@
   function disablePhaseTwoControls() {
     document.querySelectorAll('[data-user-admin-tab="map"], [data-page-tool]').forEach((button) => {
       button.disabled = true;
-      button.title = 'Phase 2';
-      if (!button.textContent.includes('Phase 2'))
-        button.textContent = `${button.textContent} · Phase 2`;
+      if (!button.title) button.title = 'Unavailable';
+      if (!button.textContent.includes('Unavailable'))
+        button.textContent = `${button.textContent} · Unavailable`;
     });
     const selectAll = document.querySelector('.epos-users-table-wrap thead input[type="checkbox"]');
     if (selectAll) {
@@ -697,7 +697,7 @@
       selectAll.title = 'Bulk actions are Phase 2';
     }
     document.querySelectorAll('.epos-users-status-pills button[disabled]').forEach((button) => {
-      button.title = 'Phase 2';
+      button.title = 'Unavailable';
       button.setAttribute('aria-disabled', 'true');
     });
   }
