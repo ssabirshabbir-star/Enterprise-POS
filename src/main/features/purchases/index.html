@@ -131,9 +131,9 @@
     </article>
     <article class="pink">
       <div>
-        <p>Overdue Bills</p>
-        <strong id="purchaseStatOverdue">0</strong>
-        <small id="purchaseStatOverdueAmount">Rs. 0.00</small>
+        <p>Overdue Tracking</p>
+        <strong id="purchaseStatOverdue">-</strong>
+        <small id="purchaseStatOverdueAmount">Planned</small>
       </div>
       <span>!</span>
     </article>
@@ -142,7 +142,7 @@
   <section class="epos-purchases-panel">
     <nav class="epos-purchases-tabs" aria-label="Purchase status filters">
       <button type="button" class="active" data-purchase-status-tab="">All Purchases</button>
-      <button type="button" data-purchase-status-tab="DRAFT">Draft (0)</button>
+      <button type="button" data-purchase-status-tab="DRAFT">Draft</button>
       <button type="button" data-purchase-status-tab="PENDING">Pending</button>
       <button type="button" data-purchase-status-tab="PARTIAL">Partial Paid</button>
       <button type="button" data-purchase-status-tab="PAID">Paid</button>
@@ -218,11 +218,11 @@
     <article><span>Paid Amount</span><strong class="green" id="purchaseFooterPaid">Rs. 0.00</strong></article>
     <article><span>Due Amount</span><strong class="red" id="purchaseFooterDue">Rs. 0.00</strong></article>
     <div class="epos-purchases-pagination">
-      <label>Rows per page:<select id="purchaseRowsPerPage"><option>10</option><option>25</option><option>50</option></select></label>
+      <label>Rows per page:<select id="purchaseRowsPerPage" disabled title="Purchase pagination is planned for a future phase."><option>10</option><option>25</option><option>50</option></select></label>
       <span id="purchasePageInfo">0-0 of 0</span>
-      <button type="button" id="purchasePrevPage">&#8249;</button>
+      <button type="button" id="purchasePrevPage" disabled title="Purchase pagination is planned for a future phase.">&#8249;</button>
       <strong id="purchaseCurrentPage">1</strong>
-      <button type="button" id="purchaseNextPage">&#8250;</button>
+      <button type="button" id="purchaseNextPage" disabled title="Purchase pagination is planned for a future phase.">&#8250;</button>
     </div>
   </section>
 

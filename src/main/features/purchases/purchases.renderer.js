@@ -138,8 +138,8 @@
     set('purchaseStatPendingAmount', money(due));
     set('purchaseStatPaid', rows.filter((p) => numeric(p.dueAmount) <= 0).length);
     set('purchaseStatPaidAmount', money(paid));
-    set('purchaseStatOverdue', 0);
-    set('purchaseStatOverdueAmount', money(0));
+    set('purchaseStatOverdue', '-');
+    set('purchaseStatOverdueAmount', 'Planned');
     set('purchaseFooterCount', count);
     set('purchaseFooterTotal', money(spend));
     set('purchaseFooterPaid', money(paid));
@@ -237,17 +237,17 @@
       if (!res?.ok) {
         purchases = [];
         lastLoadError = res?.message || 'Could not load purchases.';
-        renderPurchases();
+        renderUI({ purchases: [] });
         showMessage(lastLoadError, 'error');
         return;
       }
       lastLoadError = '';
       purchases = res.purchases || [];
-      renderPurchases();
+      renderUI({ purchases });
     } catch {
       purchases = [];
       lastLoadError = 'Could not load purchases.';
-      renderPurchases();
+      renderUI({ purchases: [] });
       showMessage(lastLoadError, 'error');
     }
   }
@@ -471,8 +471,34 @@
     showMessage('Purchase draft cleared.');
   }
 
-  function placeholder(text) {
-    showMessage(`${text} is coming soon. It is not implemented yet.`, 'error');
+  function placeholder(action) {
+    showMessage(A().placeholder(action).message, 'error');
+  }
+
+  function renderUI(state = {}) {
+    if (Array.isArray(state.purchases)) {
+      purchases = state.purchases;
+      renderPurchases();
+    }
+    if (Array.isArray(state.suppliers)) {
+      suppliers = state.suppliers;
+      renderLookupData();
+    }
+    if (Array.isArray(state.products)) {
+      products = state.products;
+      renderLookupData();
+    }
+  }
+
+  function updateUI(diff = {}) {
+    renderUI(diff);
+  }
+
+  function destroyUI() {
+    clearTimeout(messageTimer);
+    messageTimer = null;
+    $id('purchaseMessage')?.classList.add('hidden');
+    closeForm();
   }
 
   function bindEvents() {
@@ -526,9 +552,7 @@
       }
     });
     ['purchasePrevPage', 'purchaseNextPage'].forEach((id) =>
-      $id(id)?.addEventListener('click', () =>
-        placeholder(id.replace('purchase', '').replace('Button', '') || 'Purchase action')
-      )
+      $id(id)?.addEventListener('click', () => placeholder('pagination'))
     );
   }
 
@@ -545,4 +569,10 @@
   }
 
   window.initPurchasesModule = initPurchasesModule;
+  window.PurchasesRenderer = {
+    renderUI,
+    updateUI,
+    destroyUI,
+    loadPurchases,
+  };
 })();
