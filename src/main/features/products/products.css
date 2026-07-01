@@ -120,6 +120,12 @@
   .epos-products-btn.violet { background: linear-gradient(135deg, #7c3aed, #5b35e8); }
   .epos-products-btn.orange { background: linear-gradient(135deg, #fb923c, #f97316); }
   .epos-products-btn.green { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .epos-products-btn-phase {
+    border: 1px dashed #cbd5e1;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    color: #64748b;
+    box-shadow: 0 8px 16px rgb(45 53 133 / 0.08);
+  }
 
   .epos-products-stats {
     display: grid;
@@ -225,6 +231,12 @@
     border-radius: 16px;
     background: rgb(255 255 255 / 0.94);
     box-shadow: 0 22px 44px rgb(49 56 120 / 0.1);
+  }
+
+  .epos-products-catalog-empty {
+    color: #9ca3af;
+    font-size: .75rem;
+    padding: 4px;
   }
 
   .epos-products-tabs {

@@ -34,22 +34,71 @@
 
   /** Live reference — resolved at call-time */
   const A = () => window.ProductsApi;
+  const UIX = () => window.EposUI;
+
+  const UI = {
+    ids: {
+      message: 'productMessage',
+      search: 'productSearch',
+      categoryFilter: 'productCategoryFilter',
+      brandFilter: 'productBrandFilter',
+      unitFilter: 'productUnitFilter',
+      stockFilter: 'productStockFilter',
+      resetFiltersButton: 'productResetFiltersButton',
+      newProductButton: 'newProductButton',
+      tableBody: 'productTableBody',
+      emptyState: 'productEmptyState',
+      resultSummary: 'productResultSummary',
+      formPanel: 'productFormPanel',
+      formTitle: 'productFormTitle',
+      form: 'productForm',
+      formMessage: 'productFormMsg',
+      closeFormButton: 'closeProductFormButton',
+      barcodePrintButton: 'barcodePrintButton',
+      catalogToggle: 'pfCatalogToggle',
+      catalogPanel: 'pfCatalogPanel',
+      categoryList: 'categoryList',
+      brandList: 'brandList',
+      unitList: 'unitList',
+    },
+    selectors: {
+      formFooter: '#productForm .pf-footer',
+      tab: '[data-product-tab]',
+      editProduct: '[data-edit-product]',
+      deleteProduct: '[data-delete-product]',
+      catalogForm: '.catalogForm',
+      catalogDelete: '[data-catalog-delete]',
+      pageTool: '[data-page-tool="products"]',
+    },
+    filterIds: [
+      'productCategoryFilter',
+      'productBrandFilter',
+      'productUnitFilter',
+      'productStockFilter',
+    ],
+    resetIds: [
+      'productSearch',
+      'productCategoryFilter',
+      'productBrandFilter',
+      'productUnitFilter',
+      'productStockFilter',
+    ],
+  };
 
   // ── Display state (presentation layer only) ───────────────────────────────
 
   let _canWrite = false; // set from API response permissions field
   let _currentTab = 'all'; // active tab key
   let _searchTimer = null; // debounce handle for search input
-  let _catalog = { categories: [], brands: [], units: [] };
 
   // Current filter state — read by products.api.js via getCurrentFilters()
   function getCurrentFilters() {
     return {
-      search: document.getElementById('productSearch')?.value?.trim() || '',
-      category: document.getElementById('productCategoryFilter')?.value || '',
-      brand: document.getElementById('productBrandFilter')?.value || '',
-      unit: document.getElementById('productUnitFilter')?.value || '',
-      stockStatus: document.getElementById('productStockFilter')?.value || '',
+      search: $id('search')?.value?.trim() || '',
+      category: $id('categoryFilter')?.value || '',
+      brand: $id('brandFilter')?.value || '',
+      unit: $id('unitFilter')?.value || '',
+      stockStatus: $id('stockFilter')?.value || '',
       tab: _currentTab,
     };
   }
@@ -58,10 +107,23 @@
     _canWrite = Boolean(flag);
   }
 
+  function checkFeature(featureId) {
+    if (!window.FeatureGate?.check) {
+      return { ok: false, message: 'Feature activation gate is unavailable.' };
+    }
+    return window.FeatureGate.check(featureId);
+  }
+
+  function requireFeature(featureId) {
+    const gate = checkFeature(featureId);
+    if (!gate.ok && gate.visible !== false) showMsg(gate.message, true);
+    return gate.ok;
+  }
+
   // ── DOM / format utilities ────────────────────────────────────────────────
 
-  function $id(id) {
-    return document.getElementById(id);
+  function $id(key) {
+    return document.getElementById(UI.ids[key] || key);
   }
   function esc(str) {
     return String(str || '')
@@ -79,7 +141,7 @@
   let _msgTimer = null;
 
   function showMsg(text, isError) {
-    const el = $id('productMessage');
+    const el = $id('message');
     if (!el) return;
     el.textContent = text;
     el.className = isError ? 'rounded-md px-3 py-2 text-sm' : 'rounded-md px-3 py-2 text-sm';
@@ -93,8 +155,8 @@
 
   function showFormMsg(text, isError) {
     // Display error inside the product form modal (near save button)
-    const footer = document.querySelector('#productForm .pf-footer');
-    let el = $id('productFormMsg');
+    const footer = document.querySelector(UI.selectors.formFooter);
+    let el = $id('formMessage');
     if (!el && footer) {
       el = document.createElement('p');
       el.id = 'productFormMsg';
@@ -127,9 +189,9 @@
   // ── Product table rendering ───────────────────────────────────────────────
 
   function renderProductTable(products) {
-    const tbody = $id('productTableBody');
-    const empty = $id('productEmptyState');
-    const summary = $id('productResultSummary');
+    const tbody = $id('tableBody');
+    const empty = $id('emptyState');
+    const summary = $id('resultSummary');
     if (!tbody) return;
 
     if (summary)
@@ -151,16 +213,14 @@
               ? '#d97706'
               : '#16a34a';
         const statusBadge = p.isActive
-          ? '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Active</span>'
-          : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Inactive</span>';
+          ? UIX().Badge.render({ label: 'Active', variant: 'active' })
+          : UIX().Badge.render({ label: 'Inactive', variant: 'inactive' });
         const actions = _canWrite
           ? `
-        <button type="button" data-edit-product="${p.id}"
-          style="padding:3px 10px;border:1px solid #3b82f6;color:#3b82f6;background:none;border-radius:5px;cursor:pointer;font-size:.75rem;margin-right:4px">Edit</button>
-        <button type="button" data-delete-product="${p.id}" data-product-name="${esc(p.name)}"
-          style="padding:3px 10px;border:1px solid #ef4444;color:#ef4444;background:none;border-radius:5px;cursor:pointer;font-size:.75rem">Delete</button>
+        ${UIX().Button.render({ label: 'Edit', variant: 'blue', className: 'epos-ui-button-gap', attrs: { 'data-edit-product': p.id } })}
+        ${UIX().Button.render({ label: 'Delete', variant: 'danger', attrs: { 'data-delete-product': p.id, 'data-product-name': p.name } })}
       `
-          : '<span style="color:#9ca3af;font-size:.75rem">View only</span>';
+          : UIX().Badge.render({ label: 'View only', variant: 'muted' });
 
         return `<tr>
         <td style="font-weight:600;font-size:.82rem">${esc(p.name)}</td>
@@ -182,7 +242,6 @@
   // ── Catalog dropdowns + lists ─────────────────────────────────────────────
 
   function renderCatalogDropdowns(catalog) {
-    _catalog = catalog;
     const fill = (id, items, labelKey = 'name', extra = '') => {
       const el = $id(id);
       if (!el) return;
@@ -218,7 +277,10 @@
       const el = $id(elId);
       if (!el) return;
       if (!items?.length) {
-        el.innerHTML = '<p style="color:#9ca3af;font-size:.75rem;padding:4px">None yet.</p>';
+        el.innerHTML = UIX().Panel.render({
+          children: 'None yet.',
+          className: 'epos-products-catalog-empty',
+        });
         return;
       }
       el.innerHTML = items
@@ -244,9 +306,9 @@
   // ── Product form (modal in renderer/index.html shell) ────────────────────
 
   function openProductForm(product) {
-    const panel = $id('productFormPanel');
+    const panel = $id('formPanel');
     if (!panel) return;
-    const title = $id('productFormTitle');
+    const title = $id('formTitle');
     const policySection = $id('productPolicySection');
     if (policySection) policySection.open = false;
     const set = (id, v) => {
@@ -283,7 +345,7 @@
     } else {
       // Add mode — clear form
       if (title) title.textContent = 'Add Product';
-      $id('productForm')?.reset();
+      $id('form')?.reset();
       const idEl = $id('productId');
       if (idEl) idEl.value = '';
       [
@@ -299,7 +361,7 @@
     }
 
     // Clear any previous form msg
-    const msgEl = $id('productFormMsg');
+    const msgEl = $id('formMessage');
     if (msgEl) msgEl.textContent = '';
     panel.style.display = 'flex';
     panel.classList.remove('hidden');
@@ -307,23 +369,183 @@
   }
 
   function closeProductForm() {
-    const panel = $id('productFormPanel');
+    const panel = $id('formPanel');
     if (!panel) return;
     panel.style.display = 'none';
     panel.classList.add('hidden');
-    $id('productForm')?.reset();
+    $id('form')?.reset();
     const idEl = $id('productId');
     if (idEl) idEl.value = '';
-    $id('pfCatalogPanel')?.classList.add('hidden');
+    $id('catalogPanel')?.classList.add('hidden');
   }
 
   // ── Tab state ─────────────────────────────────────────────────────────────
 
   function setActiveTab(tab) {
     _currentTab = tab;
-    document.querySelectorAll('[data-product-tab]').forEach((btn) => {
+    document.querySelectorAll(UI.selectors.tab).forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.productTab === tab);
     });
+  }
+
+  function buildProductPayload() {
+    return {
+      name: ($id('productName')?.value || '').trim(),
+      sku: ($id('productSku')?.value || '').trim() || undefined,
+      barcode: ($id('productBarcode')?.value || '').trim() || undefined,
+      categoryId: Number($id('productCategory')?.value) || null,
+      brandId: Number($id('productBrand')?.value) || null,
+      unitId: Number($id('productUnit')?.value) || null,
+      purchasePrice: parseFloat($id('purchasePrice')?.value || '0') || 0,
+      salePrice: parseFloat($id('salePrice')?.value || '0') || 0,
+      wholesalePrice: parseFloat($id('wholesalePrice')?.value || '0') || 0,
+      minStockLevel: parseFloat($id('minStockLevel')?.value || '0') || 0,
+      currentStock: parseFloat($id('currentStock')?.value || '0') || 0,
+      allowSalePriceOverride: $id('allowSalePriceOverride')?.checked === true,
+      autoUpdateSalePriceFromPurchase: $id('autoUpdateSalePriceFromPurchase')?.checked === true,
+      trackExpiry: $id('trackExpiry')?.checked === true,
+      expiryRequired: $id('expiryRequired')?.checked === true,
+      expiryAlertDays: $id('expiryAlertDays')?.value || null,
+      isActive: $id('productActive')?.checked ?? true,
+    };
+  }
+
+  function buildCatalogPayload(form) {
+    return {
+      name: (form.querySelector('input[name="name"]')?.value || '').trim(),
+      description:
+        (form.querySelector('input[name="description"]')?.value || '').trim() || undefined,
+      shortName: (form.querySelector('input[name="shortName"]')?.value || '').trim() || undefined,
+    };
+  }
+
+  async function refreshProducts(filters) {
+    const res = await A().loadProducts(filters || getCurrentFilters());
+    if (!res?.ok) {
+      showMsg(res?.message || 'Unable to load products. Please try again.', true);
+      return res;
+    }
+    setCanWrite(res.permissions?.canWrite ?? false);
+    renderProductTable(res.products || []);
+    return res;
+  }
+
+  async function refreshStats() {
+    const res = await A().loadStats();
+    if (res?.ok) renderStats(res.count || {});
+    return res;
+  }
+
+  async function refreshCatalog(showError) {
+    const res = await A().loadCatalog();
+    if (!res?.ok) {
+      if (showError) showMsg(res?.message || 'Unable to load categories, brands, and units.', true);
+      return res;
+    }
+    renderCatalogDropdowns(res.catalog);
+    renderCatalogLists(res.catalog);
+    return res;
+  }
+
+  async function saveProductFromForm(e) {
+    e.preventDefault();
+    const productId = $id('productId')?.value;
+    const saveBtn = $id('saveProductButton');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      const res = await A().saveProduct(productId, buildProductPayload());
+      if (!res?.ok) {
+        showFormMsg(res?.message || 'Unable to save product. Please try again.', true);
+        return;
+      }
+      showMsg(res.message || 'Product saved.');
+      closeProductForm();
+      await refreshProducts(getCurrentFilters());
+      await refreshStats();
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  async function loadProductForEdit(productId) {
+    const catalogRes = await refreshCatalog(true);
+    if (!catalogRes?.ok) return;
+    const res = await A().loadProductForEdit(productId);
+    if (!res?.ok) {
+      showMsg(res?.message || 'Unable to load product for editing. Please try again.', true);
+      return;
+    }
+    openProductForm(res.product);
+  }
+
+  async function deleteProductFromTable(productId, productName) {
+    const confirmed = await window.posApi.dialog.confirm(
+      `Delete "${productName}"? This action cannot be undone.`
+    );
+    window.focus?.();
+    if (!confirmed) return;
+    const res = await A().deleteProduct(productId);
+    if (!res?.ok) {
+      showMsg(res?.message || 'Unable to delete product. Please try again.', true);
+      return;
+    }
+    showMsg(res.message || 'Product deleted.');
+    await refreshProducts(getCurrentFilters());
+    await refreshStats();
+  }
+
+  async function printBarcodeFromForm() {
+    const res = await A().printBarcode($id('productId')?.value);
+    showMsg(res?.message || 'Unable to print barcode.', !res?.ok);
+  }
+
+  async function saveCatalogItemFromForm(e) {
+    e.preventDefault();
+    const form = e.target;
+    const submitBtn = form.querySelector('[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const res = await A().saveCatalogItem(form.dataset.type, buildCatalogPayload(form));
+      if (!res?.ok) {
+        showMsg(res?.message || `Unable to save ${form.dataset.type}. Please try again.`, true);
+        return;
+      }
+      showMsg(res.message || `${form.dataset.type} saved.`);
+      form.reset();
+      await refreshCatalog(true);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  async function deleteCatalogItemFromList(type, id, name) {
+    const confirmed = await window.posApi.dialog.confirm(`Delete "${name}"?`);
+    window.focus?.();
+    if (!confirmed) return;
+    const res = await A().deleteCatalogItem(type, id);
+    if (!res?.ok) {
+      showMsg(res?.message || `Unable to delete ${type}. Please try again.`, true);
+      return;
+    }
+    showMsg(res.message || `${type} deleted.`);
+    await refreshCatalog(true);
+  }
+
+  function renderUI(state) {
+    if (state?.products) renderProductTable(state.products);
+    if (state?.stats) renderStats(state.stats);
+    if (state?.catalog) {
+      renderCatalogDropdowns(state.catalog);
+      renderCatalogLists(state.catalog);
+    }
+  }
+
+  function updateUI(diff) {
+    renderUI(diff || {});
+  }
+
+  function destroyUI() {
+    // TODO: Add teardown when Products gains route-level unmounting.
   }
 
   // ── Event binding (idempotent — runs exactly once per session) ─────────────
@@ -332,95 +554,85 @@
     LOG('attachEvents() — runs once per session');
 
     // ── Search with debounce ─────────────────────────────────────────────────
-    $id('productSearch')?.addEventListener('input', (e) => {
+    $id('search')?.addEventListener('input', () => {
       clearTimeout(_searchTimer);
-      _searchTimer = setTimeout(() => A().loadProducts(getCurrentFilters()), 300);
+      _searchTimer = setTimeout(() => refreshProducts(getCurrentFilters()), 300);
     });
 
     // ── Filter selects ────────────────────────────────────────────────────────
-    [
-      'productCategoryFilter',
-      'productBrandFilter',
-      'productUnitFilter',
-      'productStockFilter',
-    ].forEach((id) =>
-      $id(id)?.addEventListener('change', () => A().loadProducts(getCurrentFilters()))
+    UI.filterIds.forEach((id) =>
+      $id(id)?.addEventListener('change', () => refreshProducts(getCurrentFilters()))
     );
 
     // ── Reset filters ─────────────────────────────────────────────────────────
-    $id('productResetFiltersButton')?.addEventListener('click', () => {
-      [
-        'productSearch',
-        'productCategoryFilter',
-        'productBrandFilter',
-        'productUnitFilter',
-        'productStockFilter',
-      ].forEach((id) => {
+    $id('resetFiltersButton')?.addEventListener('click', () => {
+      UI.resetIds.forEach((id) => {
         const el = $id(id);
         if (el) el.value = '';
       });
       setActiveTab('all');
-      A().loadProducts(getCurrentFilters());
+      refreshProducts(getCurrentFilters());
     });
 
     // ── Tab switching ─────────────────────────────────────────────────────────
-    document.querySelectorAll('[data-product-tab]').forEach((btn) =>
+    document.querySelectorAll(UI.selectors.tab).forEach((btn) =>
       btn.addEventListener('click', () => {
         setActiveTab(btn.dataset.productTab);
-        A().loadProducts(getCurrentFilters());
+        refreshProducts(getCurrentFilters());
       })
     );
 
     // ── Add product button ────────────────────────────────────────────────────
     $id('newProductButton')?.addEventListener('click', async () => {
-      await A().loadCatalog(); // ensure dropdowns populated
+      await refreshCatalog(true); // ensure dropdowns populated
       openProductForm(null);
     });
 
     // ── Product table — edit / delete (event delegation) ─────────────────────
-    $id('productTableBody')?.addEventListener('click', (e) => {
-      const editBtn = e.target.closest('[data-edit-product]');
+    $id('tableBody')?.addEventListener('click', (e) => {
+      const editBtn = e.target.closest(UI.selectors.editProduct);
       if (editBtn) {
-        A().loadProductForEdit(Number(editBtn.dataset.editProduct));
+        loadProductForEdit(Number(editBtn.dataset.editProduct));
         return;
       }
 
-      const delBtn = e.target.closest('[data-delete-product]');
+      const delBtn = e.target.closest(UI.selectors.deleteProduct);
       if (delBtn)
-        A().deleteProduct(Number(delBtn.dataset.deleteProduct), delBtn.dataset.productName);
+        deleteProductFromTable(Number(delBtn.dataset.deleteProduct), delBtn.dataset.productName);
     });
 
     // ── Product form save (inside shell modal) ────────────────────────────────
-    $id('productForm')?.addEventListener('submit', (e) => A().saveProduct(e));
+    $id('form')?.addEventListener('submit', saveProductFromForm);
 
     // ── Close product form ────────────────────────────────────────────────────
-    $id('closeProductFormButton')?.addEventListener('click', () => closeProductForm());
+    $id('closeFormButton')?.addEventListener('click', () => closeProductForm());
 
     // ── Barcode print button ──────────────────────────────────────────────────
-    $id('barcodePrintButton')?.addEventListener('click', () => A().printBarcode());
+    $id('barcodePrintButton')?.addEventListener('click', printBarcodeFromForm);
 
     // ── Catalog panel toggle ──────────────────────────────────────────────────
-    $id('pfCatalogToggle')?.addEventListener('click', () => {
-      const panel = $id('pfCatalogPanel');
+    $id('catalogToggle')?.addEventListener('click', () => {
+      if (!requireFeature('products.catalog_management')) return;
+      const panel = $id('catalogPanel');
       if (!panel) return;
       const isHidden = panel.classList.contains('hidden');
       if (isHidden) {
-        A().loadCatalog();
+        refreshCatalog(true);
         panel.classList.remove('hidden');
       } else panel.classList.add('hidden');
     });
 
     // ── Catalog forms — add item (event delegation on each catalogForm) ────────
     document
-      .querySelectorAll('.catalogForm')
-      .forEach((form) => form.addEventListener('submit', (e) => A().saveCatalogItem(e)));
+      .querySelectorAll(UI.selectors.catalogForm)
+      .forEach((form) => form.addEventListener('submit', saveCatalogItemFromForm));
 
     // ── Catalog lists — delete item (event delegation) ────────────────────────
     ['categoryList', 'brandList', 'unitList'].forEach((listId) =>
       $id(listId)?.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-catalog-delete]');
+        const btn = e.target.closest(UI.selectors.catalogDelete);
         if (!btn) return;
-        A().deleteCatalogItem(
+        deleteCatalogItemFromList(
           btn.dataset.catalogDelete,
           Number(btn.dataset.catalogId),
           btn.dataset.catalogName
@@ -429,11 +641,12 @@
     );
 
     // ── Import / Export tool buttons ──────────────────────────────────────────
-    document
-      .querySelectorAll('[data-page-tool="products"]')
-      .forEach((btn) =>
-        btn.addEventListener('click', () => A().handleToolAction(btn.dataset.toolAction))
-      );
+    document.querySelectorAll(UI.selectors.pageTool).forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const res = A().getToolActionMessage(btn.dataset.toolAction);
+        showMsg(res.message, true);
+      })
+    );
   }
 
   // ── Module init ───────────────────────────────────────────────────────────
@@ -447,7 +660,7 @@
   //   subsequent calls (re-navigation)   → skips attachEvents(), only reloads data
 
   function init() {
-    if (!$id('productTableBody')) {
+    if (!$id('tableBody')) {
       if (initPending) return; // a retry is already scheduled
       initPending = true;
       setTimeout(() => {
@@ -464,9 +677,9 @@
 
     // Reload data on every /products navigation (no listeners added here)
     const filters = getCurrentFilters();
-    A().loadCatalog();
-    A().loadProducts(filters);
-    A().loadStats();
+    refreshCatalog();
+    refreshProducts(filters);
+    refreshStats();
     LOG('init() complete — module ready');
   }
 
@@ -491,6 +704,10 @@
     // Utilities (shared with api.js)
     esc,
     fmt,
+    // Lifecycle contract
+    renderUI,
+    updateUI,
+    destroyUI,
   };
 
   window.initProductsModule = init;
