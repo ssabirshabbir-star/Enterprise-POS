@@ -1,0 +1,935 @@
+{
+  "registry_version": "1.0",
+  "status": "foundation_registry",
+  "scope": ["billing", "products", "customers", "dashboard", "suppliers"],
+  "classification": {
+    "core": "Required for POS operation or essential commercial management.",
+    "phase_2": "Enhancements that are useful but not required for the core POS flow.",
+    "experimental": "UI, agent, automation, or variation concepts that are non-critical and may change."
+  },
+  "ui_dependency_levels": {
+    "high": "Feature depends on a visible control, form, table, keyboard path, or cashier workflow placement.",
+    "medium": "Feature depends on screen presentation but can move without changing business flow.",
+    "low": "Feature is mostly data/status driven and can be surfaced in multiple UI compositions."
+  },
+  "business_criticality_levels": {
+    "critical": "Failure blocks sale completion or a required operational workflow.",
+    "high": "Failure materially disrupts daily store operation.",
+    "medium": "Failure reduces productivity or management visibility.",
+    "low": "Failure affects convenience, polish, or non-core visibility."
+  },
+  "features": [
+    {
+      "feature_id": "billing.scan_search_product",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.product_search_results",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_add_product",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_duplicate_quantity_increment",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_quantity_controls",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_price_policy_indicator",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_item_discount",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_total_discount",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_remove_item",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.cart_totals_display",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.payment_cash",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.payment_card",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.payment_bank",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.payment_credit_customer_required",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.pay_now",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.keyboard_shortcuts",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "critical",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.customer_selection",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.add_customer",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.receipt_preview",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.print_receipt",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.clear_cart",
+      "module": "billing",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.hold_sale",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.held_sales_resume_delete",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.reprint_receipt",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.export_receipt_pdf",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.whatsapp_receipt_share",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.split_payment_placeholder",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.return_placeholder",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.exchange_placeholder",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.sync_placeholder",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "billing.retail_wholesale_mode_toggle",
+      "module": "billing",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true,
+      "installer_state": "hidden_off_locked"
+    },
+    {
+      "feature_id": "billing.auto_advance_unit_price_setting",
+      "module": "billing",
+      "priority": "experimental",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": false
+    },
+    {
+      "feature_id": "products.list_products",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.search_products",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.filter_products",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.stats_cards",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.add_product",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.edit_product",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.delete_product",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.product_policy_fields",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.catalog_dropdowns",
+      "module": "products",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.catalog_management",
+      "module": "products",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.print_barcode",
+      "module": "products",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.import_products_placeholder",
+      "module": "products",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.export_products_placeholder",
+      "module": "products",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "products.advanced_policy_section",
+      "module": "products",
+      "priority": "experimental",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": false
+    },
+    {
+      "feature_id": "customers.list_customers",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.search_customers",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.filter_customers",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.stats_summary",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.add_customer",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.edit_customer",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.delete_customer",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.view_details",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.credit_balance_display",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.ledger_view",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.post_payment",
+      "module": "customers",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.delete_inactive_customers",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true,
+      "installer_state": "hidden_off_locked"
+    },
+    {
+      "feature_id": "customers.whatsapp_customer_message",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "suppliers.whatsapp_supplier_message",
+      "module": "suppliers",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.customer_groups_placeholder",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.bulk_actions_placeholder",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.import_customers_placeholder",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.export_customers_placeholder",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "customers.print_customers_placeholder",
+      "module": "customers",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true,
+      "installer_state": "hidden_off_non_executable"
+    },
+    {
+      "feature_id": "customers.custom_whatsapp_message",
+      "module": "customers",
+      "priority": "experimental",
+      "ui_dependency_level": "medium",
+      "business_criticality": "low",
+      "agent_visibility": false
+    },
+    {
+      "feature_id": "dashboard.overview_load",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_today_sales",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_profit",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_orders",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_customers",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_low_stock",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_out_of_stock",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_stock_value",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_products",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_suppliers",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_expenses",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_purchases",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_receivables",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_open_returns",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_pending_purchase_orders",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.kpi_lucky_draw",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.recent_sales",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.low_stock_feed",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "high",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.refresh",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.navigation_cards",
+      "module": "dashboard",
+      "priority": "core",
+      "ui_dependency_level": "high",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.sales_chart",
+      "module": "dashboard",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.payment_methods_chart",
+      "module": "dashboard",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.category_sales_chart",
+      "module": "dashboard",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.top_products",
+      "module": "dashboard",
+      "priority": "phase_2",
+      "ui_dependency_level": "medium",
+      "business_criticality": "medium",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.export_placeholder",
+      "module": "dashboard",
+      "priority": "phase_2",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": true
+    },
+    {
+      "feature_id": "dashboard.auto_refresh",
+      "module": "dashboard",
+      "priority": "experimental",
+      "ui_dependency_level": "low",
+      "business_criticality": "low",
+      "agent_visibility": false
+    }
+  ],
+  "categorized_feature_ids": {
+    "core": [
+      "billing.scan_search_product",
+      "billing.product_search_results",
+      "billing.cart_add_product",
+      "billing.cart_duplicate_quantity_increment",
+      "billing.cart_quantity_controls",
+      "billing.cart_price_policy_indicator",
+      "billing.cart_item_discount",
+      "billing.cart_total_discount",
+      "billing.cart_remove_item",
+      "billing.cart_totals_display",
+      "billing.payment_cash",
+      "billing.payment_card",
+      "billing.payment_bank",
+      "billing.payment_credit_customer_required",
+      "billing.pay_now",
+      "billing.keyboard_shortcuts",
+      "billing.customer_selection",
+      "billing.add_customer",
+      "billing.receipt_preview",
+      "billing.print_receipt",
+      "billing.clear_cart",
+      "products.list_products",
+      "products.search_products",
+      "products.filter_products",
+      "products.stats_cards",
+      "products.add_product",
+      "products.edit_product",
+      "products.delete_product",
+      "products.product_policy_fields",
+      "products.catalog_dropdowns",
+      "customers.list_customers",
+      "customers.search_customers",
+      "customers.filter_customers",
+      "customers.stats_summary",
+      "customers.add_customer",
+      "customers.edit_customer",
+      "customers.delete_customer",
+      "customers.view_details",
+      "customers.credit_balance_display",
+      "customers.ledger_view",
+      "customers.post_payment",
+      "dashboard.overview_load",
+      "dashboard.kpi_today_sales",
+      "dashboard.kpi_profit",
+      "dashboard.kpi_orders",
+      "dashboard.kpi_customers",
+      "dashboard.kpi_low_stock",
+      "dashboard.kpi_out_of_stock",
+      "dashboard.kpi_stock_value",
+      "dashboard.kpi_products",
+      "dashboard.kpi_suppliers",
+      "dashboard.kpi_expenses",
+      "dashboard.kpi_purchases",
+      "dashboard.kpi_receivables",
+      "dashboard.kpi_open_returns",
+      "dashboard.kpi_pending_purchase_orders",
+      "dashboard.kpi_lucky_draw",
+      "dashboard.recent_sales",
+      "dashboard.low_stock_feed",
+      "dashboard.refresh",
+      "dashboard.navigation_cards"
+    ],
+    "phase_2": [
+      "billing.hold_sale",
+      "billing.held_sales_resume_delete",
+      "billing.reprint_receipt",
+      "billing.export_receipt_pdf",
+      "billing.whatsapp_receipt_share",
+      "billing.split_payment_placeholder",
+      "billing.return_placeholder",
+      "billing.exchange_placeholder",
+      "billing.sync_placeholder",
+      "billing.retail_wholesale_mode_toggle",
+      "products.catalog_management",
+      "products.print_barcode",
+      "products.import_products_placeholder",
+      "products.export_products_placeholder",
+      "customers.delete_inactive_customers",
+      "customers.whatsapp_customer_message",
+      "suppliers.whatsapp_supplier_message",
+      "customers.customer_groups_placeholder",
+      "customers.bulk_actions_placeholder",
+      "customers.import_customers_placeholder",
+      "customers.export_customers_placeholder",
+      "customers.print_customers_placeholder",
+      "dashboard.sales_chart",
+      "dashboard.payment_methods_chart",
+      "dashboard.category_sales_chart",
+      "dashboard.top_products",
+      "dashboard.export_placeholder"
+    ],
+    "experimental": [
+      "billing.auto_advance_unit_price_setting",
+      "products.advanced_policy_section",
+      "customers.custom_whatsapp_message",
+      "dashboard.auto_refresh"
+    ]
+  },
+  "runtime_alignment": {
+    "source": "src/renderer/feature-gate.js",
+    "feature_gate_status": {
+      "billing.reprint_receipt": "safe",
+      "billing.export_receipt_pdf": "safe",
+      "dashboard.sales_chart": "safe",
+      "dashboard.payment_methods_chart": "safe",
+      "dashboard.category_sales_chart": "safe",
+      "dashboard.top_products": "safe",
+      "products.print_barcode": "safe",
+      "products.catalog_management": "guarded",
+      "billing.hold_sale": "guarded",
+      "billing.held_sales_resume_delete": "guarded",
+      "billing.whatsapp_receipt_share": "guarded",
+      "billing.retail_wholesale_mode_toggle": "locked",
+      "customers.delete_inactive_customers": "locked",
+      "customers.whatsapp_customer_message": "guarded",
+      "suppliers.whatsapp_supplier_message": "guarded",
+      "billing.split_payment_placeholder": "locked",
+      "billing.return_placeholder": "locked",
+      "billing.exchange_placeholder": "locked",
+      "billing.sync_placeholder": "locked",
+      "products.import_products_placeholder": "locked",
+      "products.export_products_placeholder": "locked",
+      "customers.customer_groups_placeholder": "locked",
+      "customers.bulk_actions_placeholder": "locked",
+      "customers.import_customers_placeholder": "locked",
+      "customers.export_customers_placeholder": "locked",
+      "dashboard.export_placeholder": "locked"
+    },
+    "guarded_optional_after_validation": {
+      "billing.whatsapp_receipt_share": "External receipt sharing only; no database mutation and no core billing-flow dependency.",
+      "customers.whatsapp_customer_message": "External customer messaging only; no database mutation and no core customer-record mutation.",
+      "suppliers.whatsapp_supplier_message": "External supplier messaging only; no database mutation and no supplier-record mutation."
+    },
+    "runtime_only_features_missing_in_registry": [],
+    "registry_only_features": {
+      "core_not_feature_gated_by_design": "Core operational features are governed by this registry but are not runtime-gated by FeatureGate.",
+      "experimental_not_feature_gated": [
+        "billing.auto_advance_unit_price_setting",
+        "products.advanced_policy_section",
+        "customers.custom_whatsapp_message",
+        "dashboard.auto_refresh"
+      ],
+      "disabled_hidden_non_executable_placeholders_not_feature_gated": ["customers.print_customers_placeholder"]
+    }
+  },
+  "missing_feature_detection": {
+    "duplicate_feature_ids": [],
+    "missing_priority": [],
+    "missing_module_mapping": [],
+    "missing_agent_visibility": [],
+    "modules_scanned": ["billing", "products", "customers", "dashboard", "suppliers"],
+    "modules_not_yet_registered": [
+      "sales-history",
+      "inventory",
+      "purchases",
+      "purchase-orders",
+      "returns",
+      "reports",
+      "expenses",
+      "lucky-draw-v2",
+      "access-control",
+      "settings",
+      "sync"
+    ],
+    "notes": [
+      "This registry covers Billing, Products, Customers, Dashboard, and gated Supplier WhatsApp messaging.",
+      "Unregistered modules should be added in later controlled passes before agent-driven UI replacement work.",
+      "Phase 2 placeholder features are intentionally visible to agents so future UI changes do not promote them into core workflows by accident.",
+      "Experimental features are hidden from agent-visible core planning unless explicitly approved."
+    ]
+  }
+}
