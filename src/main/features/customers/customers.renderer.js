@@ -11,10 +11,11 @@
   let initPending = false;
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
-  const LOG = (...args) => console.log('[CustomersRenderer]', ...args);
+  const LOG = () => {};
 
   /** Live reference — resolved at call-time */
   const A = () => window.CustomersApi;
+  const UIX = () => window.EposUI;
 
   let _currentTab = ''; // active tab key ('' = all)
   let _searchTimer = null; // debounce handle
@@ -61,6 +62,19 @@
     el.classList.remove('hidden');
     clearTimeout(_msgTimer);
     _msgTimer = setTimeout(() => el.classList.add('hidden'), 4500);
+  }
+
+  function checkFeature(featureId) {
+    if (!window.FeatureGate?.check) {
+      return { ok: false, message: 'Feature activation gate is unavailable.' };
+    }
+    return window.FeatureGate.check(featureId);
+  }
+
+  function requireFeature(featureId) {
+    const gate = checkFeature(featureId);
+    if (!gate.ok && gate.visible !== false) showMsg(gate.message, true);
+    return gate.ok;
   }
 
   function showFormMsg(text, isError) {
@@ -142,7 +156,7 @@
       summary.textContent = `Showing ${filtered.length} customer${filtered.length !== 1 ? 's' : ''}`;
 
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af;font-size:.82rem">No customers found.</td></tr>`;
+      tbody.innerHTML = UIX().Table.emptyRow({ columns: 11, message: 'No customers found.' });
       return;
     }
 
@@ -334,9 +348,168 @@
     try {
       note = await window.posApi.dialog.prompt('Payment note (optional):', '');
       window.focus?.();
-    } catch (_) {}
+    } catch {}
 
-    A().postPayment(customerId, { amount: parsed, notes: (note || '').trim() || undefined });
+    postPaymentFromUI(customerId, { amount: parsed, notes: (note || '').trim() || undefined });
+  }
+
+  function buildCustomerPayload() {
+    return {
+      name: ($id('customerNameInput')?.value || '').trim(),
+      phone: ($id('customerPhoneInput')?.value || '').trim() || undefined,
+      email: ($id('customerEmailInput')?.value || '').trim() || undefined,
+      cnic: ($id('customerCnicInput')?.value || '').trim() || undefined,
+      address: ($id('customerAddressInput')?.value || '').trim() || undefined,
+      creditLimit: parseFloat($id('customerCreditLimitInput')?.value || '0') || 0,
+      openingBalance: parseFloat($id('customerOpeningBalanceInput')?.value || '0') || 0,
+      isActive: $id('customerActiveInput')?.checked ?? true,
+      group: $id('customerGroupInput')?.value || undefined,
+    };
+  }
+
+  async function refreshCustomers(filters) {
+    const activeFilters = filters || getCurrentFilters();
+    const res = await A().loadCustomers(activeFilters);
+    if (!res?.ok) {
+      showMsg(res?.message || 'Failed to load customers. Please try again.', true);
+      return res;
+    }
+    renderCustomerTable(res.customers || [], activeFilters);
+    return res;
+  }
+
+  async function refreshDueSummary() {
+    const res = await A().loadDueSummary();
+    if (res?.ok) renderStats(res.summary || {});
+    return res;
+  }
+
+  async function saveCustomerFromForm(e) {
+    e.preventDefault();
+    const customerId = $id('customerFormId')?.value;
+    const isEdit = Boolean(customerId);
+    const saveBtn = $id('saveCustomerButton');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      const res = await A().saveCustomer(customerId, buildCustomerPayload());
+      if (!res?.ok) {
+        showFormMsg(res?.message || (isEdit ? 'Update failed.' : 'Create failed.'), true);
+        return;
+      }
+      showMsg(res.message || (isEdit ? 'Customer updated.' : 'Customer saved.'));
+      closeEditorModal();
+      await refreshCustomers(getCurrentFilters());
+      await refreshDueSummary();
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  async function deleteCustomerFromUI(customerId, customerName) {
+    const confirmed = await window.posApi.dialog.confirm(
+      `Delete "${customerName}"? This cannot be undone.`
+    );
+    window.focus?.();
+    if (!confirmed) return;
+    const res = await A().deleteCustomer(customerId);
+    if (!res?.ok) {
+      showMsg(res?.message || 'Delete failed.', true);
+      return;
+    }
+    showMsg(res.message || 'Customer deleted.');
+    await refreshCustomers(getCurrentFilters());
+    await refreshDueSummary();
+  }
+
+  async function deleteInactiveCustomersFromUI() {
+    if (!requireFeature('customers.delete_inactive_customers')) return;
+    const confirmed = await window.posApi.dialog.confirm(
+      'Delete ALL inactive customers? This cannot be undone.'
+    );
+    window.focus?.();
+    if (!confirmed) return;
+    const res = await A().deleteInactiveCustomers();
+    showMsg(res?.message || 'Bulk delete failed. Please try again.', !res?.ok);
+    if (res?.ok && res.deleted) {
+      await refreshCustomers(getCurrentFilters());
+      await refreshDueSummary();
+    }
+  }
+
+  async function loadCustomerDetailsFromUI(customerId) {
+    const res = await A().loadCustomerDetails(customerId);
+    if (!res?.ok) {
+      showMsg(res?.message || 'Failed to load customer details.', true);
+      return;
+    }
+    renderCustomerDetails(res);
+  }
+
+  async function postPaymentFromUI(customerId, payload) {
+    const res = await A().postPayment(customerId, payload);
+    if (!res?.ok) {
+      showMsg(res?.message || 'Payment failed.', true);
+      return;
+    }
+    showMsg(res.message || 'Payment posted.');
+    await loadCustomerDetailsFromUI(customerId);
+    await refreshDueSummary();
+  }
+
+  async function sendWhatsAppFromUI(action, customText) {
+    if (!requireFeature('customers.whatsapp_customer_message')) return;
+    const customer = getSelectedCustomer();
+    if (!customer?.phone) {
+      showMsg('This customer has no phone number registered.', true);
+      return;
+    }
+    const digits = customer.phone.replace(/\D/g, '');
+    if (!digits) {
+      showMsg('Invalid phone number for WhatsApp.', true);
+      return;
+    }
+
+    const messages = {
+      ledger: `Dear ${customer.name},\nYour ledger statement is ready. Due balance: Rs.${Number(customer.currentBalance || 0).toFixed(2)}.\nPlease contact us for details.`,
+      invoices: `Dear ${customer.name},\nYour invoice/purchase history is available. Contact us to get a copy.`,
+      report: `Dear ${customer.name},\nYour customer report has been prepared. Contact us for details.`,
+      due: `Dear ${customer.name},\nReminder: You have a due balance of Rs.${Number(customer.currentBalance || 0).toFixed(2)}. Please clear at your earliest convenience.`,
+      payment: `Dear ${customer.name},\nThank you for your recent payment. Your account has been updated.`,
+      custom: customText || '',
+    };
+    const text = messages[action] || '';
+    if (!text.trim()) {
+      showMsg('Message is empty.', true);
+      return;
+    }
+    const res = await A().sendCustomerWhatsApp(
+      `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+    );
+    if (!res?.ok) {
+      showMsg(res?.message || 'Unable to open link.', true);
+      return;
+    }
+    closeWhatsAppModal();
+  }
+
+  function handleToolActionFromUI(action) {
+    const res = A().getToolActionMessage(action);
+    showMsg(res.message, true);
+  }
+
+  function renderUI(state) {
+    if (state?.customers)
+      renderCustomerTable(state.customers, state.filters || getCurrentFilters());
+    if (state?.summary) renderStats(state.summary);
+    if (state?.details) renderCustomerDetails(state.details);
+  }
+
+  function updateUI(diff) {
+    renderUI(diff || {});
+  }
+
+  function destroyUI() {
+    // TODO: Add teardown when Customers gains route-level unmounting.
   }
 
   // ── Tab state ─────────────────────────────────────────────────────────────
@@ -362,7 +535,7 @@
     // ── Search ────────────────────────────────────────────────────────────────
     $id('customerPageSearch')?.addEventListener('input', () => {
       clearTimeout(_searchTimer);
-      _searchTimer = setTimeout(() => A().loadCustomers(getCurrentFilters()), 300);
+      _searchTimer = setTimeout(() => refreshCustomers(getCurrentFilters()), 300);
     });
 
     // ── Tab buttons ───────────────────────────────────────────────────────────
@@ -377,7 +550,7 @@
     );
 
     // ── Customer form submit ──────────────────────────────────────────────────
-    $id('customerForm')?.addEventListener('submit', (e) => A().saveCustomer(e));
+    $id('customerForm')?.addEventListener('submit', saveCustomerFromForm);
 
     // ── Reset form button ─────────────────────────────────────────────────────
     $id('resetCustomerButton')?.addEventListener('click', () => {
@@ -401,7 +574,7 @@
         const cust = _allCustomers.find((c) => String(c.id) === viewBtn.dataset.viewCustomer);
         if (cust) {
           setSelectedCustomer(cust);
-          A().loadCustomerDetails(Number(cust.id));
+          loadCustomerDetailsFromUI(Number(cust.id));
         }
         return;
       }
@@ -413,7 +586,7 @@
       }
       const delBtn = e.target.closest('[data-delete-customer]');
       if (delBtn) {
-        A().deleteCustomer(Number(delBtn.dataset.deleteCustomer), delBtn.dataset.customerName);
+        deleteCustomerFromUI(Number(delBtn.dataset.deleteCustomer), delBtn.dataset.customerName);
         return;
       }
       // Row click (not a button) — set selected customer and highlight row
@@ -459,12 +632,12 @@
     // ── Delete inactive button (appears in topbar + bottom bar — bind both) ────
     document
       .querySelectorAll('#customerDeleteInactiveButton')
-      .forEach((btn) => btn.addEventListener('click', () => A().deleteInactiveCustomers()));
+      .forEach((btn) => btn.addEventListener('click', deleteInactiveCustomersFromUI));
 
     // ── Customer Groups button (appears in topbar + bottom bar — bind both) ────
     document.querySelectorAll('#openCustomerGroupsButton').forEach((btn) =>
       btn.addEventListener('click', () => {
-        showMsg('Customer groups are coming soon. They are not implemented yet.', true);
+        requireFeature('customers.customer_groups_placeholder');
       })
     );
     $id('closeCustomerGroupsModal')?.addEventListener('click', () =>
@@ -474,6 +647,7 @@
     // ── WhatsApp buttons (topbar + bottom bar — bind both instances) ───────────
     document.querySelectorAll('#customerWhatsAppButton').forEach((btn) =>
       btn.addEventListener('click', () => {
+        if (!requireFeature('customers.whatsapp_customer_message')) return;
         if (_selectedCustomer) {
           openWhatsAppModal(_selectedCustomer);
         } else showMsg('Select a customer first (click View) to use WhatsApp.', true);
@@ -487,7 +661,7 @@
         if (action === 'custom') {
           $id('customerWaCustomBox')?.classList.remove('hidden');
         } else {
-          A().sendWhatsApp(_selectedCustomer?.id, action);
+          sendWhatsAppFromUI(action);
         }
       })
     );
@@ -495,7 +669,7 @@
     // ── Send custom WhatsApp message ──────────────────────────────────────────
     $id('customerWaSendCustom')?.addEventListener('click', () => {
       const text = $id('customerWaCustomText')?.value?.trim();
-      A().sendWhatsApp(_selectedCustomer?.id, 'custom', text);
+      sendWhatsAppFromUI('custom', text);
     });
 
     // ── Close WhatsApp modal ──────────────────────────────────────────────────
@@ -506,7 +680,7 @@
     // ── Customer Ledger shortcut (topbar + bottom bar — bind both) ───────────
     document.querySelectorAll('#customerLedgerShortcut').forEach((btn) =>
       btn.addEventListener('click', () => {
-        if (_selectedCustomer) A().loadCustomerDetails(_selectedCustomer.id);
+        if (_selectedCustomer) loadCustomerDetailsFromUI(_selectedCustomer.id);
         else showMsg('Select a customer first to view their ledger.', true);
       })
     );
@@ -515,12 +689,13 @@
     document
       .querySelectorAll('[data-page-tool="customers"]')
       .forEach((btn) =>
-        btn.addEventListener('click', () => A().handleToolAction(btn.dataset.toolAction))
+        btn.addEventListener('click', () => handleToolActionFromUI(btn.dataset.toolAction))
       );
 
     // ── Bulk actions (topbar + bottom bar — bind both) ────────────────────────
     document.querySelectorAll('#customerBulkActionsButton').forEach((btn) =>
       btn.addEventListener('click', () => {
+        if (!requireFeature('customers.bulk_actions_placeholder')) return;
         if (!_selectedIds.size) {
           showMsg('Select at least one customer for bulk actions.', true);
           return;
@@ -560,8 +735,8 @@
     }
 
     // Reload data on every /customers navigation
-    A().loadCustomers(getCurrentFilters());
-    A().loadDueSummary();
+    refreshCustomers(getCurrentFilters());
+    refreshDueSummary();
     LOG('init() complete — module ready');
   }
 
@@ -587,6 +762,9 @@
     // Utilities
     esc,
     fmt,
+    renderUI,
+    updateUI,
+    destroyUI,
   };
 
   window.initCustomersModule = init;
