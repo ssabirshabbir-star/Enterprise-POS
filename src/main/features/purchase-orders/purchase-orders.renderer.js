@@ -9,6 +9,7 @@
   let pageData = null;
   let messageTimer = null;
   let lastLoadError = '';
+  let eventController = null;
 
   const A = () => window.PurchaseOrdersApi;
 
@@ -117,6 +118,26 @@
     setText('poStatPending', Number(stats.pendingPOs || 0).toLocaleString());
     setText('poStatGrn', Number(stats.grnCompleted || 0).toLocaleString());
     setText('poStatSpent', money(stats.totalSpent));
+  }
+
+  function renderUI(state = {}) {
+    if (Object.prototype.hasOwnProperty.call(state, 'pageData')) pageData = state.pageData;
+    if (Object.prototype.hasOwnProperty.call(state, 'suppliers')) suppliers = state.suppliers || [];
+    if (Object.prototype.hasOwnProperty.call(state, 'products')) products = state.products || [];
+    if (Object.prototype.hasOwnProperty.call(state, 'orders')) orders = state.orders || [];
+    if (Object.prototype.hasOwnProperty.call(state, 'draftItems'))
+      draftItems = state.draftItems || [];
+    if (Object.prototype.hasOwnProperty.call(state, 'lastLoadError'))
+      lastLoadError = state.lastLoadError || '';
+
+    renderStats();
+    renderLookups();
+    renderDraft();
+    renderOrders();
+  }
+
+  function updateUI(diff = {}) {
+    renderUI(diff);
   }
 
   function getFilters() {
@@ -318,53 +339,87 @@
   }
 
   function bindEvents() {
-    $id('resetPoButton')?.addEventListener('click', clearDraft);
-    $id('poGenerateNumberButton')?.addEventListener('click', () => {
-      if ($id('poNumber')) $id('poNumber').value = pageData?.nextNumber || $id('poNumber').value;
-    });
-    $id('poForm')?.addEventListener('submit', (event) => {
-      event.preventDefault();
-      saveOrder('PENDING_APPROVAL').catch(() =>
-        showMessage('Purchase order could not be saved.', 'error')
-      );
-    });
-    $id('savePoButton')?.addEventListener('click', () =>
-      saveOrder('DRAFT').catch(() => showMessage('Purchase order could not be saved.', 'error'))
+    eventController = new window.AbortController();
+    const eventOptions = { signal: eventController.signal };
+
+    $id('resetPoButton')?.addEventListener('click', clearDraft, eventOptions);
+    $id('poGenerateNumberButton')?.addEventListener(
+      'click',
+      () => {
+        if ($id('poNumber')) $id('poNumber').value = pageData?.nextNumber || $id('poNumber').value;
+      },
+      eventOptions
     );
-    $id('poBackButton')?.addEventListener('click', clearDraft);
-    $id('addPoItemButton')?.addEventListener('click', addDraftItem);
-    $id('poBarcodeButton')?.addEventListener('click', addDraftItem);
-    $id('poBarcodeInput')?.addEventListener('change', fillProductFields);
-    $id('poItemProduct')?.addEventListener('change', fillProductFields);
-    $id('poDiscount')?.addEventListener('input', renderDraft);
-    ['poSearch', 'poStatusFilter', 'poFromDate', 'poToDate'].forEach((id) => {
-      $id(id)?.addEventListener('input', () => loadOrders().catch(() => {}));
-      $id(id)?.addEventListener('change', () => loadOrders().catch(() => {}));
-    });
-    $id('poItemsList')?.addEventListener('click', (event) => {
-      const btn = event.target.closest('[data-po-remove-item]');
-      if (!btn) return;
-      draftItems.splice(Number(btn.dataset.poRemoveItem), 1);
-      renderDraft();
-    });
-    $id('poList')?.addEventListener('click', (event) => {
-      const btn = event.target.closest('[data-po-view]');
-      if (btn)
-        viewOrder(btn.dataset.poView).catch(() =>
-          showMessage('Could not load PO details.', 'error')
+    $id('poForm')?.addEventListener(
+      'submit',
+      (event) => {
+        event.preventDefault();
+        saveOrder('PENDING_APPROVAL').catch(() =>
+          showMessage('Purchase order could not be saved.', 'error')
         );
-    });
-    document.querySelectorAll('[data-po-tab]').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        if (btn.disabled) return;
-        document.querySelectorAll('[data-po-tab]').forEach((b) => b.classList.remove('active'));
-        document.querySelectorAll('[data-po-panel]').forEach((p) => p.classList.add('hidden'));
-        btn.classList.add('active');
-        document
-          .querySelector(`[data-po-panel="${btn.dataset.poTab}"]`)
-          ?.classList.remove('hidden');
-      })
+      },
+      eventOptions
     );
+    $id('savePoButton')?.addEventListener(
+      'click',
+      () =>
+        saveOrder('DRAFT').catch(() => showMessage('Purchase order could not be saved.', 'error')),
+      eventOptions
+    );
+    $id('poBackButton')?.addEventListener('click', clearDraft, eventOptions);
+    $id('addPoItemButton')?.addEventListener('click', addDraftItem, eventOptions);
+    $id('poBarcodeButton')?.addEventListener('click', addDraftItem, eventOptions);
+    $id('poBarcodeInput')?.addEventListener('change', fillProductFields, eventOptions);
+    $id('poItemProduct')?.addEventListener('change', fillProductFields, eventOptions);
+    $id('poDiscount')?.addEventListener('input', renderDraft, eventOptions);
+    ['poSearch', 'poStatusFilter', 'poFromDate', 'poToDate'].forEach((id) => {
+      $id(id)?.addEventListener('input', () => loadOrders().catch(() => {}), eventOptions);
+      $id(id)?.addEventListener('change', () => loadOrders().catch(() => {}), eventOptions);
+    });
+    $id('poItemsList')?.addEventListener(
+      'click',
+      (event) => {
+        const btn = event.target.closest('[data-po-remove-item]');
+        if (!btn) return;
+        draftItems.splice(Number(btn.dataset.poRemoveItem), 1);
+        renderDraft();
+      },
+      eventOptions
+    );
+    $id('poList')?.addEventListener(
+      'click',
+      (event) => {
+        const btn = event.target.closest('[data-po-view]');
+        if (btn)
+          viewOrder(btn.dataset.poView).catch(() =>
+            showMessage('Could not load PO details.', 'error')
+          );
+      },
+      eventOptions
+    );
+    document.querySelectorAll('[data-po-tab]').forEach((btn) =>
+      btn.addEventListener(
+        'click',
+        () => {
+          if (btn.disabled) return;
+          document.querySelectorAll('[data-po-tab]').forEach((b) => b.classList.remove('active'));
+          document.querySelectorAll('[data-po-panel]').forEach((p) => p.classList.add('hidden'));
+          btn.classList.add('active');
+          document
+            .querySelector(`[data-po-panel="${btn.dataset.poTab}"]`)
+            ?.classList.remove('hidden');
+        },
+        eventOptions
+      )
+    );
+  }
+
+  function destroyUI() {
+    eventController?.abort();
+    eventController = null;
+    clearTimeout(messageTimer);
+    messageTimer = null;
+    initialized = false;
   }
 
   async function initPurchaseOrdersModule() {
@@ -379,4 +434,9 @@
   }
 
   window.initPurchaseOrdersModule = initPurchaseOrdersModule;
+  window.PurchaseOrdersRenderer = {
+    renderUI,
+    updateUI,
+    destroyUI,
+  };
 })();
