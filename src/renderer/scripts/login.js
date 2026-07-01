@@ -1,5 +1,5 @@
 // ============================================================
-// Enterprise POS — Renderer Controller
+// Enterprise POS - Renderer Controller
 // ============================================================
 
 // ---- DOM References ----------------------------------------
@@ -17,8 +17,6 @@ const routePanels = document.querySelectorAll('[data-route-panel]');
 
 // ---- App State ---------------------------------------------
 let currentProfile = null;
-let dashboardRefreshTimer = null;
-let dashboardLoadPromise = null;
 
 const routeMeta = {
   '/dashboard': { title: 'Dashboard', module: 'dashboard' },
@@ -39,9 +37,6 @@ const routeMeta = {
   '/sync': { title: 'Sync Queue', module: 'sync' },
 };
 
-// ---- Module → Permission Key Map (mirrors backend rbac.js ROUTE_PERMISSIONS) ----
-// Used by applySidebarVisibility() to filter the sidebar using existing profile.permissions[].
-// Never invent new keys here — only use permission_keys that exist in the DB permissions table.
 const MODULE_PERMISSIONS = Object.freeze({
   dashboard: 'dashboard.view',
   pos: 'pos.view',
@@ -90,15 +85,12 @@ function showLogin() {
   setTimeout(() => loginUsernameInput?.focus(), 50);
 }
 
-// Apply role-based sidebar visibility using existing profile.permissions[].
-// Hides any sidebar item whose required permission is not in the user's permission list.
-// Dashboard is always visible as the safe fallback — never hidden.
 function applySidebarVisibility(profile) {
   const permissions = Array.isArray(profile?.permissions) ? profile.permissions : [];
   document.querySelectorAll('#sidebarNav [data-module]').forEach((btn) => {
     const mod = btn.dataset.module;
     if (mod === 'dashboard') {
-      btn.classList.remove('hidden'); // always accessible
+      btn.classList.remove('hidden');
       return;
     }
     const required = MODULE_PERMISSIONS[mod];
@@ -131,8 +123,8 @@ function setNavActive(route) {
   });
 }
 
-// Lazy-load each fragment HTML once
 const fragmentCache = new Set();
+let dashboardRendererLoadPromise = null;
 
 async function loadFragment(panel) {
   const src = panel.dataset.fragment;
@@ -141,26 +133,36 @@ async function loadFragment(panel) {
   try {
     const res = await fetch(src);
     if (res.ok) panel.innerHTML = await res.text();
-  } catch (_) {
-    // fragment unavailable — leave panel empty, do not crash
+  } catch {
+    // fragment unavailable - leave panel empty, do not crash
   }
+}
+
+async function ensureDashboardRenderer() {
+  if (window.DashboardRenderer) return window.DashboardRenderer;
+  if (!dashboardRendererLoadPromise) {
+    dashboardRendererLoadPromise = new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = './dashboard/dashboard.renderer.js';
+      script.onload = () => resolve(window.DashboardRenderer || null);
+      script.onerror = () => resolve(null);
+      document.body.appendChild(script);
+    });
+  }
+  return dashboardRendererLoadPromise;
 }
 
 async function navigateTo(route) {
   const target = routeMeta[route] ? route : '/dashboard';
   const meta = routeMeta[target];
 
-  // Access check via IPC — FAIL CLOSED: any error or denial blocks navigation
   if (target !== '/dashboard') {
     try {
       const access = await window.posApi.auth.canAccess(meta.module);
       if (!access?.allowed) {
-        console.warn(`[Nav] Access denied for module "${meta.module}" — redirecting to dashboard.`);
         return navigateTo('/dashboard');
       }
-    } catch (err) {
-      // canAccess IPC failed (DB down, process error) — deny and redirect, never allow
-      console.warn(`[Nav] canAccess() threw for module "${meta.module}" — failing closed.`, err);
+    } catch {
       return navigateTo('/dashboard');
     }
   }
@@ -174,276 +176,23 @@ async function navigateTo(route) {
   setNavActive(target);
 
   if (target === '/dashboard') {
-    startDashboardAutoRefresh();
-    loadDashboardStats().catch(() => {});
+    const dashboardRenderer = await ensureDashboardRenderer();
+    dashboardRenderer?.start({ profile: currentProfile, navigateTo });
   } else {
-    stopDashboardAutoRefresh();
+    window.DashboardRenderer?.destroyUI();
   }
 
-  if (target === '/pos') {
-    window.initBillingModule?.();
-  }
-
-  if (target === '/sales-history') {
-    window.initSalesHistoryModule?.();
-  }
-
-  if (target === '/products') {
-    window.initProductsModule?.();
-  }
-
-  if (target === '/customers') {
-    window.initCustomersModule?.();
-  }
-
-  if (target === '/lucky-draw') {
-    window.initLuckyDrawV2Module?.();
-  }
-
-  if (target === '/suppliers') {
-    window.initSuppliersModule?.();
-  }
-
-  if (target === '/inventory') {
-    window.initInventoryModule?.();
-  }
-
-  if (target === '/purchases') {
-    window.initPurchasesModule?.();
-  }
-
-  if (target === '/purchase-orders') {
-    window.initPurchaseOrdersModule?.();
-  }
-
-  if (target === '/returns') {
-    window.initReturnsModule?.();
-  }
-
-  if (target === '/users') {
-    window.initAccessControlModule?.();
-  }
-}
-
-// ---- Dashboard Stats ---------------------------------------
-
-function $setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-function $money(v) {
-  return `Rs. ${Number(v || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-async function loadDashboardStats() {
-  if (!window.posApi?.dashboard?.overview) return;
-  if (dashboardLoadPromise) return dashboardLoadPromise;
-  dashboardLoadPromise = loadDashboardStatsInternal().finally(() => {
-    dashboardLoadPromise = null;
-  });
-  return dashboardLoadPromise;
-}
-
-function startDashboardAutoRefresh() {
-  if (dashboardRefreshTimer) return;
-  dashboardRefreshTimer = window.setInterval(() => {
-    const panel = document.getElementById('dashboardRoute');
-    if (panel && !panel.classList.contains('hidden')) {
-      loadDashboardStats().catch(() => {});
-    }
-  }, 60000);
-}
-
-function stopDashboardAutoRefresh() {
-  if (!dashboardRefreshTimer) return;
-  window.clearInterval(dashboardRefreshTimer);
-  dashboardRefreshTimer = null;
-}
-
-async function loadDashboardStatsInternal() {
-  try {
-    const result = await window.posApi.dashboard.overview();
-    if (!result?.ok) return;
-
-    const stats = result.stats || {};
-    const recentSales = result.recentSales || [];
-    const lowStock = result.lowStock || [];
-    const topProducts = result.topProducts || [];
-    const paymentMethods = result.paymentMethods || [];
-    const categorySales = result.categorySales || [];
-    const salesTrend = result.salesTrend || [];
-
-    // ── KPI cards ────────────────────────────────────────────────────────────
-    $setText('dashboardTodaySales', $money(stats.todaySales));
-    $setText('dashboardProfitTotal', $money(stats.totalProfit));
-    $setText('dashboardOrderCount', Number(stats.todayOrders || 0).toLocaleString());
-    $setText('dashboardCustomerCount', Number(stats.customerCount || 0).toLocaleString());
-    $setText('dashboardLowStockCount', Number(stats.lowStockCount || 0).toLocaleString());
-    $setText('dashboardPurchaseTotal', $money(stats.duePurchases ?? stats.todayPurchases ?? 0));
-    $setText('dashboardProductCount', Number(stats.productCount || 0).toLocaleString());
-    $setText('dashboardStockValue', $money(stats.stockValue));
-    $setText('dashboardSupplierCount', Number(stats.supplierCount || 0).toLocaleString());
-    $setText('dashboardExpenseTotal', $money(stats.todayExpenses));
-    $setText('dashboardTodayPurchases', $money(stats.todayPurchases));
-    $setText('dashboardReceivableTotal', $money(stats.customerDueTotal));
-    $setText('dashboardOutOfStockCount', Number(stats.outOfStockCount || 0).toLocaleString());
-    $setText('dashboardOpenReturns', Number(stats.openReturns || 0).toLocaleString());
-    $setText(
-      'dashboardPendingPurchaseOrders',
-      Number(stats.pendingPurchaseOrders || 0).toLocaleString()
-    );
-    $setText(
-      'dashboardLuckyDrawCount',
-      `${Number(stats.activeLuckyDrawCampaigns || 0).toLocaleString()} / ${Number(stats.luckyDrawCoupons || 0).toLocaleString()}`
-    );
-    $setText('dashboardMiniSales', $money(stats.todaySales));
-    $setText('dashboardMiniProfit', $money(stats.totalProfit));
-    $setText('dashboardMiniOrders', Number(stats.todayOrders || 0).toLocaleString());
-    $setText('dashboardMiniCustomers', Number(stats.customersWithDue || 0).toLocaleString());
-    $setText('dashboardReportDate', new Date().toLocaleDateString());
-
-    // Average Order Value — computed client-side from existing stats, no new query needed
-    const avgOrder =
-      stats.todayOrders > 0 ? Number(stats.todaySales || 0) / Number(stats.todayOrders) : 0;
-    $setText('dashboardAverageOrder', $money(avgOrder));
-
-    // Hidden personalization spans (IDs present in dashboard/index.html hidden-feeds section)
-    $setText(
-      'dashboardGreeting',
-      `Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}, ${currentProfile?.fullName || currentProfile?.username || 'Admin'}`
-    );
-    $setText('dashboardUserName', currentProfile?.fullName || currentProfile?.username || '-');
-    $setText('dashboardUserRole', currentProfile?.role || '-');
-
-    // ── Recent sales table ────────────────────────────────────────────────────
-    const salesEl = document.getElementById('dashboardRecentSales');
-    if (salesEl) {
-      salesEl.innerHTML =
-        recentSales
-          .map(
-            (s) =>
-              `<div><span>${s.invoiceNumber || '-'}</span><span>${s.customerName || 'Walk-in'}</span>` +
-              `<strong>${$money(s.grandTotal)}</strong><span>${s.paymentMethod || 'Cash'}</span></div>`
-          )
-          .join('') || '<p class="text-zinc-500">No sales yet.</p>';
-    }
-
-    // ── Low stock list (hidden feeds — used by other parts) ───────────────────
-    const lowEl = document.getElementById('dashboardLowStock');
-    if (lowEl) {
-      lowEl.innerHTML =
-        lowStock
-          .map(
-            (i) =>
-              `<div class="flex justify-between"><span>${i.name}</span>` +
-              `<strong>${i.currentStock}/${i.minStockLevel}</strong></div>`
-          )
-          .join('') || '<p class="text-zinc-500">No low stock items.</p>';
-    }
-
-    // ── Sales sparkline chart ─────────────────────────────────────────────────
-    const chart = document.getElementById('dashboardSalesChart');
-    if (chart) {
-      const vals = salesTrend.map((s) => Number(s.total || 0));
-      const max = Math.max(...vals, 1);
-      chart.innerHTML = vals.length
-        ? vals
-            .map(
-              (v) =>
-                `<span class="epos-dashboard-line-bar" title="${$money(v)}" style="height:${Math.max(8, Math.round((v / max) * 100))}%"></span>`
-            )
-            .join('')
-        : '<p class="epos-dashboard-empty">No sales data.</p>';
-    }
-
-    const comparison = document.getElementById('dashboardComparisonChart');
-    if (comparison) {
-      const values = [
-        Number(stats.todaySales || 0),
-        Number(stats.weekSales || 0),
-        Number(stats.monthlySales || 0),
-        Number(stats.todayPurchases || 0),
-        Number(stats.todayExpenses || 0),
-      ];
-      const labels = ['Today', 'Week', 'Month', 'Purch', 'Exp'];
-      const max = Math.max(...values, 1);
-      comparison.innerHTML = values
-        .map(
-          (value, index) =>
-            `<span class="epos-dashboard-bar" title="${labels[index]}: ${$money(value)}" style="height:${Math.max(8, Math.round((value / max) * 100))}%"></span>`
-        )
-        .join('');
-    }
-
-    // ── Top Selling Products ──────────────────────────────────────────────────
-    const topEl = document.getElementById('dashboardTopProducts');
-    if (topEl) {
-      if (topProducts.length) {
-        topEl.innerHTML = topProducts
-          .map(
-            (p, i) =>
-              `<div><b>${i + 1}</b><span>${p.name}</span><strong>${$money(p.total)}</strong></div>`
-          )
-          .join('');
-      } else {
-        topEl.innerHTML =
-          '<div style="color:#94a3b8;font-size:12px;padding:12px 0">No sales today.</div>';
-      }
-    }
-
-    // ── Payment Methods legend ────────────────────────────────────────────────
-    const payEl = document.getElementById('dashboardPaymentMethods');
-    const payTotalEl = document.getElementById('dashboardPaymentTotal');
-    if (payEl) {
-      const payTotal = paymentMethods.reduce((s, m) => s + Number(m.total || 0), 0);
-      if (payTotalEl) payTotalEl.textContent = $money(payTotal);
-      if (paymentMethods.length) {
-        payEl.innerHTML = paymentMethods
-          .map((m) => `<div><span>${m.method}</span><strong>${$money(m.total)}</strong></div>`)
-          .join('');
-      } else {
-        payEl.innerHTML =
-          '<div style="color:#94a3b8;font-size:12px;padding:12px 0">No sales today.</div>';
-      }
-    }
-
-    // ── Category Sales legend ─────────────────────────────────────────────────
-    const catEl = document.getElementById('dashboardCategorySales');
-    const catTotalEl = document.getElementById('dashboardCategoryTotal');
-    if (catEl) {
-      const catTotal = categorySales.reduce((s, c) => s + Number(c.total || 0), 0);
-      if (catTotalEl) catTotalEl.textContent = $money(catTotal);
-      if (categorySales.length) {
-        catEl.innerHTML = categorySales
-          .map((c) => `<div><span>${c.category}</span><strong>${$money(c.total)}</strong></div>`)
-          .join('');
-      } else {
-        catEl.innerHTML =
-          '<div style="color:#94a3b8;font-size:12px;padding:12px 0">No sales today.</div>';
-      }
-    }
-
-    // ── Wire dashboard-internal "View All" buttons to navigation ─────────────
-    // These buttons have data-route="/reports" but lack the navLink class used
-    // by the global click delegation, so they are wired here on each load.
-    document.querySelectorAll('#dashboardRoute [data-route]').forEach((btn) => {
-      if (!btn._dashboardRouteWired) {
-        btn._dashboardRouteWired = true;
-        btn.addEventListener('click', () => navigateTo(btn.dataset.route).catch(() => {}));
-      }
-    });
-    const refreshButton = document.getElementById('dashboardRefreshButton');
-    if (refreshButton && !refreshButton._dashboardRefreshWired) {
-      refreshButton._dashboardRefreshWired = true;
-      refreshButton.addEventListener('click', () => loadDashboardStats().catch(() => {}));
-    }
-  } catch {
-    // Keep Dashboard failures local; the controller already returns a safe response shape.
-  }
+  if (target === '/pos') window.initBillingModule?.();
+  if (target === '/sales-history') window.initSalesHistoryModule?.();
+  if (target === '/products') window.initProductsModule?.();
+  if (target === '/customers') window.initCustomersModule?.();
+  if (target === '/lucky-draw') window.initLuckyDrawV2Module?.();
+  if (target === '/suppliers') window.initSuppliersModule?.();
+  if (target === '/inventory') window.initInventoryModule?.();
+  if (target === '/purchases') window.initPurchasesModule?.();
+  if (target === '/purchase-orders') window.initPurchaseOrdersModule?.();
+  if (target === '/returns') window.initReturnsModule?.();
+  if (target === '/users') window.initAccessControlModule?.();
 }
 
 // ---- Login Handler -----------------------------------------
@@ -477,8 +226,7 @@ loginButton?.addEventListener('click', async () => {
     } else {
       showLoginMessage(result?.message || 'Login failed. Please try again.');
     }
-  } catch (err) {
-    console.error('[Login] Error:', err);
+  } catch {
     showLoginMessage('Cannot connect. Please check the system.');
   } finally {
     loginButton.disabled = false;
@@ -494,9 +242,8 @@ loginPasswordInput?.addEventListener('keydown', (e) => {
 logoutButton?.addEventListener('click', async () => {
   try {
     await window.posApi.auth.logout();
-  } catch (_) {}
+  } catch {}
   currentProfile = null;
-  // Reset sidebar to fully visible so the next login re-applies the correct role.
   document
     .querySelectorAll('#sidebarNav [data-module]')
     .forEach((btn) => btn.classList.remove('hidden'));
@@ -512,7 +259,7 @@ document.addEventListener('click', (e) => {
   navigateTo(link.dataset.route).catch(() => {});
 });
 
-// ---- Session Restore (called by boot stub below) -----------
+// ---- Session Restore ---------------------------------------
 
 async function restoreSession() {
   try {
@@ -524,8 +271,7 @@ async function restoreSession() {
     } else {
       showLogin();
     }
-  } catch (err) {
-    console.error('[restoreSession] Error:', err);
+  } catch {
     showLogin();
   } finally {
     setCheckingSession(false);
