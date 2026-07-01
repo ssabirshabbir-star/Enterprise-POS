@@ -115,6 +115,10 @@
       status: STATUS.LOCKED,
       message: 'Customer export is planned for a future phase.',
     },
+    'customers.print_customers_placeholder': {
+      status: STATUS.LOCKED,
+      message: 'Customer print is planned for a future phase.',
+    },
     'dashboard.export_placeholder': {
       status: STATUS.LOCKED,
       message: 'Dashboard export is planned for a future phase.',

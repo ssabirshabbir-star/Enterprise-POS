@@ -540,7 +540,7 @@
       "ui_dependency_level": "low",
       "business_criticality": "low",
       "agent_visibility": true,
-      "installer_state": "hidden_off_non_executable"
+      "installer_state": "hidden_off_locked_non_executable"
     },
     {
       "feature_id": "customers.custom_whatsapp_message",
@@ -887,6 +887,7 @@
       "customers.bulk_actions_placeholder": "locked",
       "customers.import_customers_placeholder": "locked",
       "customers.export_customers_placeholder": "locked",
+      "customers.print_customers_placeholder": "locked",
       "dashboard.export_placeholder": "locked"
     },
     "guarded_optional_after_validation": {
@@ -903,7 +904,7 @@
         "customers.custom_whatsapp_message",
         "dashboard.auto_refresh"
       ],
-      "disabled_hidden_non_executable_placeholders_not_feature_gated": ["customers.print_customers_placeholder"]
+      "disabled_hidden_non_executable_feature_gated_placeholders": ["customers.print_customers_placeholder"]
     }
   },
   "missing_feature_detection": {
