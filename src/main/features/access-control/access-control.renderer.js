@@ -7,6 +7,7 @@
   let messageTimer = null;
   let searchTimer = null;
   let editingUser = null;
+  let editingRole = null;
 
   const A = () => window.AccessControlApi;
 
@@ -89,6 +90,49 @@
 
     const editorRole = $id('userRole');
     if (editorRole) editorRole.innerHTML = roleOptions(editorRole.value);
+    renderRoleList();
+  }
+
+  function roleStatus(role) {
+    return role.isActive ? 'Active' : 'Inactive';
+  }
+
+  function roleActions(role) {
+    if (role.isSystem) {
+      return '<span class="epos-users-subtext">System role - read-only</span>';
+    }
+    return `
+      <div class="epos-users-row-actions">
+        <button type="button" class="epos-users-icon-action" data-role-action="edit" data-role-id="${esc(
+          role.id
+        )}" title="Edit role">Edit</button>
+      </div>
+    `;
+  }
+
+  function renderRoleList() {
+    const list = $id('roleList');
+    if (!list) return;
+    if (!roles.length) {
+      list.innerHTML = '<p class="epos-users-subtext">No roles available.</p>';
+      return;
+    }
+    list.innerHTML = roles
+      .map(
+        (role) => `
+          <article>
+            <div>
+              <h3>${esc(role.name)}</h3>
+              <p>${esc(role.description || 'No description')}</p>
+              <small>${esc(roleStatus(role))} &middot; ${esc(role.userCount || 0)} assigned user${
+                Number(role.userCount || 0) === 1 ? '' : 's'
+              }${role.isSystem ? ' &middot; System' : ''}</small>
+            </div>
+            ${roleActions(role)}
+          </article>
+        `
+      )
+      .join('');
   }
 
   function renderStats() {
@@ -231,6 +275,84 @@
             )
             .join('')
         : 'No security activity yet.';
+    }
+  }
+
+  function resetRoleForm() {
+    editingRole = null;
+    $id('roleId').value = '';
+    $id('roleName').value = '';
+    $id('roleDescription').value = '';
+    $id('roleActive').checked = true;
+    $id('roleActive').disabled = true;
+    $id('roleActive').title = 'Role status can be changed when editing a custom role.';
+    $id('saveRoleButton').textContent = 'Save Role';
+    $id('roleMessage')?.classList.add('hidden');
+    recoverFocus($id('roleName'));
+  }
+
+  function openRoleEditor(role) {
+    if (!role || role.isSystem) return;
+    editingRole = role;
+    $id('roleId').value = role.id;
+    $id('roleName').value = role.name || '';
+    $id('roleDescription').value = role.description || '';
+    $id('roleActive').checked = role.isActive !== false;
+    $id('roleActive').disabled = false;
+    $id('roleActive').title = '';
+    $id('saveRoleButton').textContent = 'Update Role';
+    $id('roleMessage')?.classList.add('hidden');
+    recoverFocus($id('roleName'));
+  }
+
+  function rolePayload() {
+    return {
+      name: $id('roleName')?.value || '',
+      description: $id('roleDescription')?.value || '',
+      isActive: Boolean($id('roleActive')?.checked),
+    };
+  }
+
+  async function saveRole(event) {
+    event.preventDefault();
+    const id = $id('roleId')?.value;
+    const isEdit = Boolean(id);
+    const payload = rolePayload();
+    if (!payload.name.trim()) {
+      showMessage('Role name is required.', 'error', 'roleMessage');
+      return;
+    }
+    if (isEdit && editingRole?.isSystem) {
+      showMessage('System roles are read-only.', 'error', 'roleMessage');
+      return;
+    }
+    const button = $id('saveRoleButton');
+    if (button?.disabled) return;
+    if (button) button.disabled = true;
+    try {
+      if (isEdit && editingRole?.isActive !== false && payload.isActive === false) {
+        const assignedUsers = Number(editingRole.userCount || 0);
+        const confirmed = await window.posApi.dialog.confirm(
+          assignedUsers > 0
+            ? `Deactivate ${editingRole.name}? ${assignedUsers} assigned user${
+                assignedUsers === 1 ? '' : 's'
+              } may lose access.`
+            : `Deactivate ${editingRole.name}?`
+        );
+        recoverFocus($id('roleActive'));
+        if (!confirmed) return;
+      }
+      const result = isEdit ? await A().updateRole(id, payload) : await A().createRole(payload);
+      if (!result?.ok) {
+        showMessage(result?.message || 'Unable to save role.', 'error', 'roleMessage');
+        return;
+      }
+      resetRoleForm();
+      showMessage(result.message || 'Role saved.');
+      await loadRoles();
+      await loadUsers();
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
@@ -391,13 +513,14 @@
     document.querySelectorAll('.userAdminPanel').forEach((panel) => {
       panel.classList.toggle('hidden', panel.dataset.userAdminPanel !== tab);
     });
+    if (tab === 'roles') loadRoles().catch(() => {});
     if (tab === 'activity') loadSecurityActivity().catch(() => {});
   }
 
   function disablePhaseTwoControls() {
     document
       .querySelectorAll(
-        '[data-user-admin-tab="roles"], [data-user-admin-tab="permissions"], [data-user-admin-tab="map"], [data-page-tool]'
+        '[data-user-admin-tab="permissions"], [data-user-admin-tab="map"], [data-page-tool]'
       )
       .forEach((button) => {
         button.disabled = true;
@@ -423,6 +546,8 @@
     $id('closeUserPasswordButton')?.addEventListener('click', closePasswordModal);
     $id('cancelUserPasswordButton')?.addEventListener('click', closePasswordModal);
     $id('userPasswordForm')?.addEventListener('submit', savePassword);
+    $id('roleForm')?.addEventListener('submit', saveRole);
+    $id('resetRoleButton')?.addEventListener('click', resetRoleForm);
     $id('resetUserButton')?.addEventListener('click', () => {
       const id = $id('userId')?.value;
       const user = users.find((item) => String(item.id) === String(id));
@@ -451,6 +576,13 @@
       if (button.dataset.userAction === 'edit') openUserEditor(user);
       if (button.dataset.userAction === 'status') setUserStatus(user);
       if (button.dataset.userAction === 'password') openPasswordModal(user);
+    });
+    $id('roleList')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-role-action]');
+      if (!button) return;
+      const role = roles.find((item) => String(item.id) === String(button.dataset.roleId));
+      if (!role) return;
+      if (button.dataset.roleAction === 'edit') openRoleEditor(role);
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
