@@ -14,6 +14,8 @@
     createRole: (payload) => rolesApi().create(payload || {}),
     updateRole: (id, payload) => rolesApi().update(id, payload || {}),
     permissionsByRole: (roleId) => rolesApi().permissions(roleId),
+    saveRolePermissions: (roleId, permissionIds) =>
+      rolesApi().savePermissions(roleId, permissionIds || []),
     securityActivity: () => api().securityActivity(),
   };
 })();

@@ -9,6 +9,7 @@
   let editingUser = null;
   let editingRole = null;
   let selectedPermissionRoleId = '';
+  let selectedPermissionRole = null;
 
   const A = () => window.AccessControlApi;
 
@@ -164,13 +165,30 @@
       .join('');
   }
 
+  function canEditPermissions(role) {
+    return Boolean(role && !role.isSystem && role.isActive);
+  }
+
+  function updatePermissionSaveButton(role) {
+    const button = $id('saveRolePermissionsButton');
+    if (!button) return;
+    const enabled = canEditPermissions(role);
+    button.disabled = !enabled;
+    button.setAttribute('aria-disabled', String(!enabled));
+    button.title = enabled
+      ? 'Save permissions for this role.'
+      : 'Permission editing is available only for custom active roles.';
+  }
+
   function renderPermissionMatrix(role, permissions) {
     const matrix = $id('permissionMatrix');
     if (!matrix) return;
     if (!role) {
       matrix.textContent = 'Select a role to view permissions.';
+      updatePermissionSaveButton(null);
       return;
     }
+    const editable = canEditPermissions(role);
     const groups = permissions.reduce((acc, permission) => {
       const category = permission.category || 'GENERAL';
       if (!acc[category]) acc[category] = [];
@@ -187,7 +205,9 @@
               .map(
                 (permission) => `
                   <label class="epos-users-check">
-                    <input type="checkbox" disabled ${permission.selected ? 'checked' : ''} />
+                    <input type="checkbox" data-permission-id="${esc(permission.id)}" ${
+                      editable ? '' : 'disabled'
+                    } ${permission.selected ? 'checked' : ''} />
                     <span>${esc(permission.label || permission.key)}</span>
                   </label>
                 `
@@ -200,24 +220,76 @@
     matrix.innerHTML = `
       <div>
         <h3>${esc(role.name)} Permissions</h3>
-        <p class="epos-users-subtext">Read-only permission view. Editing remains unavailable.</p>
+        <p class="epos-users-subtext">${
+          editable
+            ? 'Permission editing is enabled for this custom active role.'
+            : 'Read-only permission view. System and inactive roles cannot be edited.'
+        }</p>
       </div>
       ${content || '<p class="epos-users-subtext">No permissions available for this role.</p>'}
     `;
+    updatePermissionSaveButton(role);
   }
 
   async function loadPermissionsForRole(roleId) {
     selectedPermissionRoleId = roleId;
+    selectedPermissionRole = roles.find((item) => String(item.id) === String(roleId)) || null;
     renderPermissionRoleList();
+    updatePermissionSaveButton(null);
     const matrix = $id('permissionMatrix');
     if (matrix) matrix.textContent = 'Loading permissions...';
-    const role = roles.find((item) => String(item.id) === String(roleId));
     const result = await A().permissionsByRole(roleId);
     if (!result?.ok) {
       if (matrix) matrix.textContent = result?.message || 'Unable to load permissions.';
       return;
     }
-    renderPermissionMatrix(role, Array.isArray(result.permissions) ? result.permissions : []);
+    renderPermissionMatrix(
+      selectedPermissionRole,
+      Array.isArray(result.permissions) ? result.permissions : []
+    );
+  }
+
+  function selectedPermissionIds() {
+    return Array.from(
+      document.querySelectorAll('#permissionMatrix input[data-permission-id]:checked')
+    )
+      .map((input) => Number(input.dataset.permissionId))
+      .filter((id) => Number.isInteger(id) && id > 0);
+  }
+
+  async function saveRolePermissions() {
+    if (!selectedPermissionRoleId || !canEditPermissions(selectedPermissionRole)) {
+      showMessage('Select a custom active role before saving permissions.', 'error');
+      return;
+    }
+    const button = $id('saveRolePermissionsButton');
+    if (button?.disabled) return;
+    const permissionIds = selectedPermissionIds();
+    const confirmed = await window.posApi.dialog.confirm(
+      `Save permission changes for ${selectedPermissionRole.name}? This may change user access.`
+    );
+    recoverFocus(button);
+    if (!confirmed) return;
+    if (button) button.disabled = true;
+    try {
+      const result = await A().saveRolePermissions(selectedPermissionRoleId, permissionIds);
+      if (!result?.ok) {
+        showMessage(result?.message || 'Unable to save permissions.', 'error');
+        return;
+      }
+      showMessage(result.message || 'Permissions saved.');
+      const roleId = selectedPermissionRoleId;
+      await loadRoles();
+      if (roles.some((role) => String(role.id) === String(roleId))) {
+        await loadPermissionsForRole(roleId);
+      } else {
+        selectedPermissionRoleId = '';
+        selectedPermissionRole = null;
+        renderPermissionMatrix(null, []);
+      }
+    } finally {
+      updatePermissionSaveButton(selectedPermissionRole);
+    }
   }
 
   function renderStats() {
@@ -601,7 +673,12 @@
     if (tab === 'roles') loadRoles().catch(() => {});
     if (tab === 'permissions') {
       loadRoles()
-        .then(() => renderPermissionRoleList())
+        .then(() => {
+          renderPermissionRoleList();
+          if (selectedPermissionRoleId) return loadPermissionsForRole(selectedPermissionRoleId);
+          updatePermissionSaveButton(null);
+          return null;
+        })
         .catch(() => {});
     }
     if (tab === 'activity') loadSecurityActivity().catch(() => {});
@@ -634,6 +711,7 @@
     $id('userPasswordForm')?.addEventListener('submit', savePassword);
     $id('roleForm')?.addEventListener('submit', saveRole);
     $id('resetRoleButton')?.addEventListener('click', resetRoleForm);
+    $id('saveRolePermissionsButton')?.addEventListener('click', saveRolePermissions);
     $id('resetUserButton')?.addEventListener('click', () => {
       const id = $id('userId')?.value;
       const user = users.find((item) => String(item.id) === String(id));
