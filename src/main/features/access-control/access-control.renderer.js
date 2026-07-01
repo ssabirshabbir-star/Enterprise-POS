@@ -342,6 +342,11 @@
       showMessage('Passwords do not match.', 'error', 'userPasswordMessage');
       return;
     }
+    const confirmed = await window.posApi.dialog.confirm(
+      'Reset this user password now? The current password will no longer work.'
+    );
+    recoverFocus($id('newUserPassword'));
+    if (!confirmed) return;
     const button = $id('saveUserPasswordButton');
     if (button) button.disabled = true;
     const result = await A().resetPassword(userId, password);
