@@ -6,10 +6,10 @@
             <button type="button" data-settings-tab="store" class="settingsTab epos-btn epos-btn-sm epos-btn-primary">Store</button>
             <button type="button" data-settings-tab="tax" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Tax</button>
             <button type="button" data-settings-tab="printer" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Printer</button>
-            <button type="button" data-settings-tab="backup" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Backup & Restore</button>
+            <button type="button" data-settings-tab="backup" class="settingsTab epos-btn epos-btn-sm epos-btn-outline" disabled aria-disabled="true" title="Backup and restore are disabled until installer certification.">Backup & Restore Disabled</button>
             <button type="button" data-settings-tab="system" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">System</button>
-            <button type="button" data-settings-tab="updates" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">Updates</button>
-            <button type="button" data-settings-tab="license" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">License</button>
+            <button type="button" data-settings-tab="updates" class="settingsTab epos-btn epos-btn-sm epos-btn-outline" disabled aria-disabled="true" title="Updates are disabled until installer certification.">Updates Disabled</button>
+            <button type="button" data-settings-tab="license" class="settingsTab epos-btn epos-btn-sm epos-btn-outline" disabled aria-disabled="true" title="License actions are disabled until installer certification.">License Disabled</button>
             <button type="button" data-settings-tab="about" class="settingsTab epos-btn epos-btn-sm epos-btn-outline">About</button>
           </div>
 
@@ -37,14 +37,14 @@
               <label class="flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-2 text-sm"><input id="silentPrint" type="checkbox" /> Silent print</label>
               <input id="receiptCopies" type="number" min="1" max="5" step="1" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Receipt copies" />
               <input id="printerFooter" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Printer footer" />
-              <button id="testPrintButton" type="button" class="epos-btn epos-btn-outline">Test Print Foundation</button>
+              <button id="testPrintButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Test print is disabled until settings certification.">Test Print Disabled</button>
             </div>
 
             <div data-settings-panel="backup" class="settingsPanel hidden">
               <div class="flex flex-wrap gap-2">
-                <button id="createBackupButton" type="button" class="epos-btn epos-btn-primary">Manual Backup</button>
-                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error">Restore Backup</button>
-                <button id="refreshBackupHistoryButton" type="button" class="epos-btn epos-btn-outline">Refresh History</button>
+                <button id="createBackupButton" type="button" class="epos-btn epos-btn-primary" disabled aria-disabled="true" title="Manual backup is disabled until Backup/Restore certification.">Manual Backup Disabled</button>
+                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error" disabled aria-disabled="true" title="Restore is disabled until Backup/Restore certification.">Restore Disabled</button>
+                <button id="refreshBackupHistoryButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Backup history is unavailable until Backup/Restore certification.">Refresh Disabled</button>
               </div>
               <div class="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
                 <table class="min-w-full divide-y divide-zinc-200 text-sm">
@@ -72,7 +72,7 @@
               </div>
               <p id="updateMessage" class="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">Manual provider ready.</p>
               <div class="mt-3 flex flex-wrap gap-2">
-                <button id="checkUpdatesButton" type="button" class="epos-btn epos-btn-primary">Check for Updates</button>
+                <button id="checkUpdatesButton" type="button" class="epos-btn epos-btn-primary" disabled aria-disabled="true" title="Update checks are disabled until installer certification.">Check Disabled</button>
                 <button id="restartUpdateButton" type="button" class="epos-btn epos-btn-outline" disabled>Restart Required</button>
               </div>
             </div>
@@ -89,8 +89,8 @@
               </div>
               <div class="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
                 <input id="licenseKeyInput" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Enter license key" />
-                <button id="activateLicenseButton" type="button" class="epos-btn epos-btn-primary">Activate License</button>
-                <button id="refreshLicenseButton" type="button" class="epos-btn epos-btn-outline">Refresh Activation</button>
+                <button id="activateLicenseButton" type="button" class="epos-btn epos-btn-primary" disabled aria-disabled="true" title="License activation is disabled until licensing certification.">Activate Disabled</button>
+                <button id="refreshLicenseButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="License refresh is disabled until licensing certification.">Refresh Disabled</button>
               </div>
               <p id="licenseMessage" class="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-600">License cache is protected locally and ready for server verification integration.</p>
             </div>
@@ -102,10 +102,10 @@
                 <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Environment</p><strong id="aboutEnvironment">-</strong></div>
                 <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Sync Status</p><strong id="aboutSyncStatus">-</strong></div>
               </div>
-              <button id="aboutDialogButton" type="button" class="epos-btn epos-btn-outline mt-3">About Dialog Foundation</button>
+              <button id="aboutDialogButton" type="button" class="epos-btn epos-btn-outline mt-3" disabled aria-disabled="true" title="About dialog is disabled until settings certification.">About Dialog Disabled</button>
             </div>
           </div>
-          <button id="savePrinterSettingsButton" type="button" class="epos-btn epos-btn-primary mt-4">Save Settings</button>
+          <button id="savePrinterSettingsButton" type="button" class="epos-btn epos-btn-primary mt-4" disabled aria-disabled="true" title="Settings save is disabled until settings certification.">Save Settings Disabled</button>
         </div>
       </section>
       </main>

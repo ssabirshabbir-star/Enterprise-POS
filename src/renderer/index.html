@@ -67,8 +67,8 @@
             <button type="button" data-route="/customers" data-module="customers" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128100;</span><span class="epos-sidebar-label">Customers</span></button>
             <button type="button" data-route="/returns" data-module="returns" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#8634;</span><span class="epos-sidebar-label">Returns</span></button>
             <button type="button" data-route="/reports" data-module="reports" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128200;</span><span class="epos-sidebar-label">Reports</span></button>
-            <button type="button" data-route="/expenses" data-module="expenses" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128176;</span><span class="epos-sidebar-label">Expenses</span></button>
-            <button type="button" data-route="/lucky-draw" data-module="lucky_draw" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#127873;</span><span class="epos-sidebar-label">Lucky Draw</span></button>
+            <button type="button" data-route="/expenses" data-module="expenses" class="navLink epos-sidebar-item" hidden aria-hidden="true" title="Expenses are disabled until installer parity review is complete."><span class="epos-sidebar-icon">&#128176;</span><span class="epos-sidebar-label">Expenses</span></button>
+            <button type="button" data-route="/lucky-draw" data-module="lucky_draw" class="navLink epos-sidebar-item" hidden aria-hidden="true" title="Lucky Draw is on HOLD until certification."><span class="epos-sidebar-icon">&#127873;</span><span class="epos-sidebar-label">Lucky Draw</span></button>
             <button type="button" data-route="/users" data-module="users" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#128101;</span><span class="epos-sidebar-label">User Management</span></button>
             <button type="button" data-route="/settings" data-module="settings" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#9881;</span><span class="epos-sidebar-label">Settings</span></button>
             <button type="button" data-route="/sync" data-module="sync" class="navLink epos-sidebar-item"><span class="epos-sidebar-icon">&#8644;</span><span class="epos-sidebar-label">Sync Queue</span></button>
@@ -95,6 +95,9 @@
               type="button"
               data-route="/sync"
               class="navLink rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
+              disabled
+              aria-disabled="true"
+              title="Sync is read-only until installer certification."
             >
               Online
             </button>
@@ -119,9 +122,9 @@
       <section id="purchaseModule" data-route-panel="/purchases" data-fragment="../main/features/purchases/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="purchaseOrdersModule" data-route-panel="/purchase-orders" data-fragment="../main/features/purchase-orders/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="reportsModule" data-route-panel="/reports" data-fragment="../main/features/reports/index.html" class="mx-auto hidden max-w-7xl"></section>
-      <section id="luckyDrawModule" data-route-panel="/lucky-draw" data-fragment="../main/features/luckydraw_v2/ui/index.html" class="w-full h-full hidden"></section>
+      <section id="luckyDrawModule" data-route-panel="/lucky-draw" data-fragment="../main/features/luckydraw_v2/ui/index.html" class="w-full h-full hidden" hidden aria-hidden="true"></section>
       <section id="suppliersModule" data-route-panel="/suppliers" data-fragment="../main/features/suppliers/index.html" class="mx-auto hidden max-w-7xl"></section>
-      <section id="expensesModule" data-route-panel="/expenses" data-fragment="../main/features/expenses/index.html" class="mx-auto hidden max-w-7xl"></section>
+      <section id="expensesModule" data-route-panel="/expenses" data-fragment="../main/features/expenses/index.html" class="mx-auto hidden max-w-7xl" hidden aria-hidden="true"></section>
       <section id="customersModule" data-route-panel="/customers" data-fragment="../main/features/customers/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="returnsModule" data-route-panel="/returns" data-fragment="../main/features/returns/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="syncModule" data-route-panel="/sync" data-fragment="../main/features/sync/index.html" class="mx-auto hidden max-w-7xl"></section>

@@ -6,9 +6,9 @@
               <p id="syncTerminalCode" class="mt-1 text-sm text-zinc-500">Terminal: -</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button id="runSyncButton" type="button" class="epos-btn epos-btn-primary">Run Sync</button>
-              <button id="retrySyncButton" type="button" class="epos-btn epos-btn-outline">Retry Failed</button>
-              <button id="refreshSyncButton" type="button" class="epos-btn epos-btn-outline">Refresh</button>
+              <button id="runSyncButton" type="button" class="epos-btn epos-btn-primary" disabled aria-disabled="true" title="Sync execution is disabled until workflow certification.">Run Sync Disabled</button>
+              <button id="retrySyncButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Sync retry is disabled until workflow certification.">Retry Disabled</button>
+              <button id="refreshSyncButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Sync refresh is unavailable until workflow certification.">Refresh Disabled</button>
             </div>
           </div>
           <p id="syncMessage" class="mt-3 hidden rounded-md px-3 py-2 text-sm"></p>

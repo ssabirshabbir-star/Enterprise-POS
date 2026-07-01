@@ -267,6 +267,13 @@
       showMsg('Enter a reason for adjustment.', true);
       return;
     }
+    const confirmed = window.confirm(
+      'Stock adjustment changes inventory quantities. Continue only after verifying product, quantity, and reason.'
+    );
+    if (!confirmed) {
+      showMsg('Stock adjustment cancelled.', true);
+      return;
+    }
     const btn = $id('saveAdjustmentButton');
     if (btn) btn.disabled = true;
     try {

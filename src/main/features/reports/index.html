@@ -7,9 +7,9 @@
             <div class="flex gap-3">
               <input id="reportDateFrom" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
               <input id="reportDateTo" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" />
-              <button id="loadReportsButton" type="button" class="epos-btn epos-btn-primary">Load</button>
-              <button id="exportPdfButton" type="button" class="epos-btn epos-btn-outline">PDF</button>
-              <button id="exportExcelButton" type="button" class="epos-btn epos-btn-outline">Excel</button>
+              <button id="loadReportsButton" type="button" class="epos-btn epos-btn-primary" disabled aria-disabled="true" title="Reports are unavailable until installer parity completion.">Load Unavailable</button>
+              <button id="exportPdfButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="PDF export is disabled until implemented and certified.">PDF Disabled</button>
+              <button id="exportExcelButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Excel export is disabled until implemented and certified.">Excel Disabled</button>
             </div>
           </div>
           <p id="reportsMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>

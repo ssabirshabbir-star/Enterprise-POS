@@ -244,6 +244,11 @@
   }
 
   async function processReturn() {
+    const button = $id('processReturnButton');
+    if (button?.disabled || button?.getAttribute('aria-disabled') === 'true') {
+      showMessage('Process Return is disabled until Returns certification is complete.', 'error');
+      return;
+    }
     if (!currentInvoice?.sale) {
       showMessage('Lookup an invoice first.', 'error');
       return;
@@ -258,7 +263,6 @@
       showMessage('Return reason is required.', 'error');
       return;
     }
-    const button = $id('processReturnButton');
     if (button) button.disabled = true;
     try {
       const res = await A().create({

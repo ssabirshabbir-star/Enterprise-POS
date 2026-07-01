@@ -72,9 +72,9 @@
             style="height:38px;border:1px solid #d4d4d8;border-radius:6px;padding:0 10px;font-size:13px" />
         </label>
         <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
-          <button id="returnExchangeButton" type="button" class="epos-btn epos-btn-outline">Exchange</button>
+          <button id="returnExchangeButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Exchange is unavailable until implemented and certified.">Exchange Unavailable</button>
           <button id="returnFullButton" type="button" class="epos-btn epos-btn-outline">Full Return</button>
-          <button id="processReturnButton" type="button" class="epos-btn epos-btn-primary">Process Return</button>
+          <button id="processReturnButton" type="button" class="epos-btn epos-btn-primary" disabled aria-disabled="true" title="Process Return is disabled until certified against Document 43.">Process Return Disabled</button>
         </div>
       </div>
     </div>
