@@ -99,7 +99,7 @@
         <table class="epos-users-table">
           <thead>
             <tr>
-              <th><input type="checkbox" aria-label="Select all users" /></th>
+              <th><input type="checkbox" aria-label="Select all users" disabled /></th>
               <th>#</th>
               <th>User</th>
               <th>Role</th>
@@ -194,7 +194,7 @@
         <input id="userEmail" type="email" class="epos-users-input" placeholder="Email" required />
         <input id="userPhone" class="epos-users-input" placeholder="Phone" />
         <select id="userRole" class="epos-users-input" required></select>
-        <input id="userPassword" type="password" class="epos-users-input" placeholder="Password for new user" />
+        <input id="userPassword" type="password" class="epos-users-input" placeholder="Password for new user" minlength="8" autocomplete="new-password" />
         <label class="epos-users-check"><input id="userActive" type="checkbox" checked /> Active account</label>
         <div class="epos-users-form-actions">
           <button id="saveUserButton" type="submit" class="epos-users-wide-action green">Save User</button>

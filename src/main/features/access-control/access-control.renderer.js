@@ -247,6 +247,7 @@
     $id('userRole').innerHTML = roleOptions(user?.roleId || '');
     $id('userPassword').value = '';
     $id('userPassword').disabled = Boolean(user);
+    $id('userPassword').required = !user;
     $id('userPassword').placeholder = user
       ? 'Use Pass action to reset password'
       : 'Password for new user';
@@ -280,15 +281,39 @@
   async function saveUser(event) {
     event.preventDefault();
     const id = $id('userId')?.value;
-    const payload = userPayload(Boolean(id));
-    const result = id ? await A().updateUser(id, payload) : await A().createUser(payload);
-    if (!result?.ok) {
-      showMessage(result?.message || 'Unable to save user.', 'error', 'userMessage');
+    const isEdit = Boolean(id);
+    const password = $id('userPassword')?.value || '';
+    if (!isEdit && !password.trim()) {
+      showMessage('Password is required for a new user.', 'error', 'userMessage');
       return;
     }
-    closeUserEditor();
-    showMessage(result.message || 'User saved.');
-    await loadUsers();
+    if (!isEdit && password.length < 8) {
+      showMessage('Password must be at least 8 characters.', 'error', 'userMessage');
+      return;
+    }
+    const payload = userPayload(isEdit);
+    const button = $id('saveUserButton');
+    if (button?.disabled) return;
+    if (button) button.disabled = true;
+    try {
+      if (isEdit && editingUser && String(payload.roleId) !== String(editingUser.roleId || '')) {
+        const confirmed = await window.posApi.dialog.confirm(
+          `Change role for ${editingUser.fullName || editingUser.username}? This may change their access.`
+        );
+        recoverFocus($id('userRole'));
+        if (!confirmed) return;
+      }
+      const result = id ? await A().updateUser(id, payload) : await A().createUser(payload);
+      if (!result?.ok) {
+        showMessage(result?.message || 'Unable to save user.', 'error', 'userMessage');
+        return;
+      }
+      closeUserEditor();
+      showMessage(result.message || 'User saved.');
+      await loadUsers();
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   async function setUserStatus(user) {
