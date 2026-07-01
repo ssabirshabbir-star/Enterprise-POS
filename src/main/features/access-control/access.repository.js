@@ -2,31 +2,47 @@ const bcrypt = require('bcryptjs');
 const { getPool, withTransaction } = require('../../database/connection');
 
 function mapUser(row) {
-  return row && {
-    id: row.id,
-    username: row.username,
-    email: row.email,
-    fullName: row.full_name,
-    phone: row.phone,
-    roleId: row.role_id,
-    role: row.role_name,
-    isActive: row.is_active,
-    failedLoginAttempts: Number(row.failed_login_attempts || 0),
-    lockedUntil: row.locked_until,
-    lastLoginAt: row.last_login_at,
-    createdAt: row.created_at
-  };
+  return (
+    row && {
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      fullName: row.full_name,
+      phone: row.phone,
+      roleId: row.role_id,
+      role: row.role_name,
+      isActive: row.is_active,
+      failedLoginAttempts: Number(row.failed_login_attempts || 0),
+      lockedUntil: row.locked_until,
+      lastLoginAt: row.last_login_at,
+      createdAt: row.created_at,
+    }
+  );
 }
 
 function mapRole(row) {
-  return row && {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    isSystem: row.is_system,
-    isActive: row.is_active,
-    userCount: Number(row.user_count || 0)
-  };
+  return (
+    row && {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      isSystem: row.is_system,
+      isActive: row.is_active,
+      userCount: Number(row.user_count || 0),
+    }
+  );
+}
+
+function mapPermission(row) {
+  return (
+    row && {
+      id: row.id,
+      key: row.permission_key,
+      category: row.category,
+      label: row.label,
+      isActive: row.is_active,
+    }
+  );
 }
 
 async function listUsers(filters = {}) {
@@ -76,6 +92,16 @@ async function roleName(roleId) {
   return result.rows[0]?.name || null;
 }
 
+async function roleById(roleId) {
+  const result = await getPool().query('SELECT * FROM roles WHERE id = $1 LIMIT 1', [roleId]);
+  return mapRole(result.rows[0]);
+}
+
+async function userRoleId(userId) {
+  const result = await getPool().query('SELECT role_id FROM users WHERE id = $1 LIMIT 1', [userId]);
+  return result.rows[0]?.role_id || null;
+}
+
 async function createUser(payload) {
   const passwordHash = await bcrypt.hash(payload.password, 12);
   const result = await getPool().query(
@@ -84,7 +110,15 @@ async function createUser(payload) {
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [payload.username, payload.email, payload.fullName, payload.phone || null, passwordHash, payload.roleId, payload.isActive !== false]
+    [
+      payload.username,
+      payload.email,
+      payload.fullName,
+      payload.phone || null,
+      passwordHash,
+      payload.roleId,
+      payload.isActive !== false,
+    ]
   );
   return result.rows[0].id;
 }
@@ -97,13 +131,24 @@ async function updateUser(id, payload) {
       WHERE id = $1
       RETURNING id
     `,
-    [id, payload.username, payload.email, payload.fullName, payload.phone || null, payload.roleId, payload.isActive !== false]
+    [
+      id,
+      payload.username,
+      payload.email,
+      payload.fullName,
+      payload.phone || null,
+      payload.roleId,
+      payload.isActive !== false,
+    ]
   );
   return result.rowCount > 0;
 }
 
 async function setUserActive(id, isActive) {
-  const result = await getPool().query('UPDATE users SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING id', [id, isActive]);
+  const result = await getPool().query(
+    'UPDATE users SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING id',
+    [id, isActive]
+  );
   return result.rowCount > 0;
 }
 
@@ -143,7 +188,7 @@ async function listSecurityActivity(limit = 100) {
     metadata: row.metadata || {},
     username: row.username,
     fullName: row.full_name,
-    createdAt: row.created_at
+    createdAt: row.created_at,
   }));
 }
 
@@ -178,8 +223,10 @@ async function updateRole(id, payload) {
 
 async function permissionsByRole(roleId) {
   const [permissions, selected] = await Promise.all([
-    getPool().query('SELECT * FROM permissions WHERE is_active = TRUE ORDER BY category, permission_key'),
-    getPool().query('SELECT permission_id FROM role_permissions WHERE role_id = $1', [roleId])
+    getPool().query(
+      'SELECT * FROM permissions WHERE is_active = TRUE ORDER BY category, permission_key'
+    ),
+    getPool().query('SELECT permission_id FROM role_permissions WHERE role_id = $1', [roleId]),
   ]);
   const selectedIds = new Set(selected.rows.map((row) => row.permission_id));
   return permissions.rows.map((row) => ({
@@ -187,15 +234,44 @@ async function permissionsByRole(roleId) {
     key: row.permission_key,
     category: row.category,
     label: row.label,
-    selected: selectedIds.has(row.id)
+    selected: selectedIds.has(row.id),
   }));
+}
+
+async function permissionIdsByRole(roleId) {
+  const result = await getPool().query(
+    'SELECT permission_id FROM role_permissions WHERE role_id = $1 ORDER BY permission_id ASC',
+    [roleId]
+  );
+  return result.rows.map((row) => Number(row.permission_id));
+}
+
+async function activePermissionsByIds(permissionIds) {
+  if (!permissionIds.length) return [];
+  const result = await getPool().query(
+    'SELECT * FROM permissions WHERE id = ANY($1::int[]) AND is_active = TRUE ORDER BY id ASC',
+    [permissionIds]
+  );
+  return result.rows.map(mapPermission);
+}
+
+async function permissionIdsByKeys(permissionKeys) {
+  if (!permissionKeys.length) return [];
+  const result = await getPool().query(
+    'SELECT id FROM permissions WHERE permission_key = ANY($1::text[]) AND is_active = TRUE ORDER BY id ASC',
+    [permissionKeys]
+  );
+  return result.rows.map((row) => Number(row.id));
 }
 
 async function assignPermissions(roleId, permissionIds) {
   await withTransaction(async (client) => {
     await client.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
     for (const permissionId of permissionIds) {
-      await client.query('INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [roleId, permissionId]);
+      await client.query(
+        'INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [roleId, permissionId]
+      );
     }
   });
 }
@@ -203,16 +279,21 @@ async function assignPermissions(roleId, permissionIds) {
 module.exports = {
   activeAdminCount,
   assignPermissions,
+  activePermissionsByIds,
   createRole,
   createUser,
   listRoles,
   listSecurityActivity,
   listUsers,
+  permissionIdsByKeys,
+  permissionIdsByRole,
   permissionsByRole,
+  roleById,
   resetPassword,
   setUserActive,
   updateRole,
   updateUser,
+  userRoleId,
   userRoleName,
-  roleName
+  roleName,
 };

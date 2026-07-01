@@ -2,6 +2,13 @@ const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const accessRepository = require('./access.repository');
 
+const REQUIRED_SELF_MANAGEMENT_PERMISSIONS = [
+  'roles.view',
+  'roles.assignPermissions',
+  'users.view',
+  'users.update',
+];
+
 async function requirePermission(permissionKey) {
   const profileResult = await authService.getProfile();
   if (!profileResult.ok) return { ok: false, message: 'Authentication required.' };
@@ -56,6 +63,28 @@ function cleanUser(payload = {}, requirePassword = false) {
       isActive: payload.isActive !== false,
     },
   };
+}
+
+function normalizePermissionIds(permissionIds = []) {
+  return [
+    ...new Set(permissionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)),
+  ].sort((a, b) => a - b);
+}
+
+function difference(left = [], right = []) {
+  const rightSet = new Set(right.map(Number));
+  return left.map(Number).filter((id) => !rightSet.has(id));
+}
+
+async function auditPermissionBlock(access, roleId, reason, metadata = {}) {
+  if (!access?.profile?.id) return;
+  await activityRepository.createActivityLog({
+    userId: access.profile.id,
+    action: 'roles.permissions',
+    status: 'blocked',
+    message: reason,
+    metadata: { roleId, reason, ...metadata },
+  });
 }
 
 async function listUsers(filters = {}) {
@@ -241,14 +270,102 @@ async function permissionsByRole(roleId) {
 async function assignPermissions(roleId, permissionIds = []) {
   const access = await requirePermission('roles.assignPermissions');
   if (!access.ok) return access;
-  const cleanIds = permissionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0);
-  await accessRepository.assignPermissions(Number(roleId), cleanIds);
+  const targetRoleId = Number(roleId);
+  if (!Number.isInteger(targetRoleId) || targetRoleId <= 0) {
+    await auditPermissionBlock(access, roleId, 'Invalid role id.');
+    return { ok: false, message: 'Invalid role id.' };
+  }
+
+  const targetRole = await accessRepository.roleById(targetRoleId);
+  if (!targetRole) {
+    await auditPermissionBlock(access, targetRoleId, 'Role not found.');
+    return { ok: false, message: 'Role not found.' };
+  }
+  if (!targetRole.isActive) {
+    await auditPermissionBlock(
+      access,
+      targetRoleId,
+      'Inactive role permissions cannot be changed.',
+      {
+        targetRoleName: targetRole.name,
+      }
+    );
+    return { ok: false, message: 'Inactive role permissions cannot be changed.' };
+  }
+  if (targetRole.isSystem || targetRole.name === 'Admin') {
+    await auditPermissionBlock(access, targetRoleId, 'System role permissions cannot be changed.', {
+      targetRoleName: targetRole.name,
+      isSystem: targetRole.isSystem,
+    });
+    return { ok: false, message: 'System role permissions cannot be changed.' };
+  }
+
+  const cleanIds = normalizePermissionIds(permissionIds);
+  if (!cleanIds.length) {
+    await auditPermissionBlock(access, targetRoleId, 'At least one permission is required.', {
+      targetRoleName: targetRole.name,
+    });
+    return { ok: false, message: 'At least one permission is required.' };
+  }
+
+  const activePermissions = await accessRepository.activePermissionsByIds(cleanIds);
+  const activeIds = activePermissions
+    .map((permission) => Number(permission.id))
+    .sort((a, b) => a - b);
+  if (activeIds.length !== cleanIds.length) {
+    await auditPermissionBlock(
+      access,
+      targetRoleId,
+      'One or more permissions are invalid or inactive.',
+      {
+        targetRoleName: targetRole.name,
+        requestedPermissionIds: cleanIds,
+        validPermissionIds: activeIds,
+      }
+    );
+    return { ok: false, message: 'One or more permissions are invalid or inactive.' };
+  }
+
+  const currentUserRoleId = await accessRepository.userRoleId(access.profile.id);
+  if (Number(currentUserRoleId) === targetRoleId) {
+    const requiredIds = await accessRepository.permissionIdsByKeys(
+      REQUIRED_SELF_MANAGEMENT_PERMISSIONS
+    );
+    const missingRequiredIds = difference(requiredIds, activeIds);
+    if (missingRequiredIds.length) {
+      await auditPermissionBlock(
+        access,
+        targetRoleId,
+        'You cannot remove your own user management access.',
+        {
+          targetRoleName: targetRole.name,
+          requiredPermissionKeys: REQUIRED_SELF_MANAGEMENT_PERMISSIONS,
+          missingRequiredPermissionIds: missingRequiredIds,
+        }
+      );
+      return { ok: false, message: 'You cannot remove your own user management access.' };
+    }
+  }
+
+  const beforeIds = await accessRepository.permissionIdsByRole(targetRoleId);
+  const addedIds = difference(activeIds, beforeIds);
+  const removedIds = difference(beforeIds, activeIds);
+
+  await accessRepository.assignPermissions(targetRoleId, activeIds);
   await activityRepository.createActivityLog({
     userId: access.profile.id,
     action: 'roles.permissions',
     status: 'success',
     message: 'Role permissions assigned',
-    metadata: { roleId, count: cleanIds.length },
+    metadata: {
+      roleId: targetRoleId,
+      targetRoleName: targetRole.name,
+      beforePermissionIds: beforeIds,
+      afterPermissionIds: activeIds,
+      addedPermissionIds: addedIds,
+      removedPermissionIds: removedIds,
+      count: activeIds.length,
+    },
   });
   return { ok: true, message: 'Permissions updated successfully.' };
 }
