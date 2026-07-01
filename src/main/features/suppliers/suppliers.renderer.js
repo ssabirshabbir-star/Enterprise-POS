@@ -3,7 +3,7 @@
  *
  * Follows the same pattern as customers.renderer.js / products.renderer.js.
  * Exposes: window.initSuppliersModule (called by login.js navigateTo)
- * Load order: suppliers.renderer.js (self-contained — calls window.posApi directly)
+ * Load order: suppliers.api.js, then suppliers.renderer.js
  */
 (function SuppliersRendererModule() {
   'use strict';
@@ -15,24 +15,8 @@
   let _searchTimer = null;
   let _selectedSupplierId = null;
 
-  const LOG = (...a) => console.log('[SuppliersRenderer]', ...a);
-
-  function checkFeature(featureId) {
-    if (!window.FeatureGate?.check) {
-      return { ok: false, message: 'Feature activation gate is unavailable.' };
-    }
-    return window.FeatureGate.check(featureId);
-  }
-
-  async function openExternalWhatsApp(featureId, url) {
-    const gate = checkFeature(featureId);
-    if (!gate.ok) return false;
-    try {
-      await window.posApi.shell.openExternal(url);
-      return true;
-    } catch {
-      return false;
-    }
+  function api() {
+    return window.SuppliersApi;
   }
 
   function $id(id) {
@@ -213,16 +197,13 @@
 
   async function loadSuppliers() {
     try {
-      const res = await window.posApi.suppliers.list();
+      const res = await api().loadSuppliers();
       if (!res?.ok) {
         showMsg(res?.message || 'Failed to load suppliers.', true);
         return;
       }
-      populateCityFilter(res.suppliers || []);
-      renderTable(res.suppliers || []);
-      LOG('loaded', (res.suppliers || []).length, 'suppliers');
-    } catch (err) {
-      LOG('loadSuppliers error:', err);
+      renderUI({ suppliers: res.suppliers || [] });
+    } catch {
       showMsg('Failed to load suppliers. Please try again.', true);
     }
   }
@@ -281,9 +262,7 @@
     const btn = $id('saveSupplierButton');
     if (btn) btn.disabled = true;
     try {
-      const res = isEdit
-        ? await window.posApi.suppliers.update(Number(supplierId), payload)
-        : await window.posApi.suppliers.create(payload);
+      const res = await api().saveSupplier(supplierId, payload);
       if (!res?.ok) {
         if (!isEdit && payload.openingBalance > 0 && /request failed/i.test(res?.message || '')) {
           showMsg(
@@ -298,8 +277,7 @@
       showMsg(res.message || (isEdit ? 'Supplier updated.' : 'Supplier saved.'));
       closeEditor();
       await loadSuppliers();
-    } catch (err) {
-      LOG('saveSupplier error:', err);
+    } catch {
       showMsg('Save failed. Please try again.', true);
     } finally {
       if (btn) btn.disabled = false;
@@ -307,19 +285,18 @@
   }
 
   async function deleteSupplier(id, name) {
-    const ok = await window.posApi.dialog.confirm(`Delete "${name}"? This cannot be undone.`);
+    const ok = await api().confirm(`Delete "${name}"? This cannot be undone.`);
     window.focus?.();
     if (!ok) return;
     try {
-      const res = await window.posApi.suppliers.delete(id);
+      const res = await api().deleteSupplier(id);
       if (!res?.ok) {
         showMsg(res?.message || 'Delete failed.', true);
         return;
       }
       showMsg(res.message || 'Supplier deleted.');
       await loadSuppliers();
-    } catch (err) {
-      LOG('deleteSupplier error:', err);
+    } catch {
       showMsg('Delete failed. Please try again.', true);
     }
   }
@@ -379,7 +356,7 @@
     const btn = $id('saveSupplierPaymentButton');
     if (btn) btn.disabled = true;
     try {
-      const res = await window.posApi.suppliers.payment(supplierId, payload);
+      const res = await api().recordPayment(supplierId, payload);
       if (!res?.ok) {
         showMsg(res?.message || 'Payment failed.', true);
         return;
@@ -387,8 +364,7 @@
       showMsg(res.message || 'Payment recorded.');
       closePaymentModal();
       await loadSuppliers();
-    } catch (err) {
-      LOG('savePayment error:', err);
+    } catch {
       showMsg('Payment failed. Please try again.', true);
     } finally {
       if (btn) btn.disabled = false;
@@ -514,8 +490,8 @@
   function openSupplierDetails(supplierId) {
     _selectedSupplierId = supplierId ? String(supplierId) : null;
     renderTable(_allSuppliers);
-    return window.posApi.suppliers
-      .details(_selectedSupplierId)
+    return api()
+      .loadSupplierDetails(_selectedSupplierId)
       .then((res) => {
         if (!res?.ok) {
           showMsg(res?.message || 'Could not load supplier details.', true);
@@ -529,6 +505,11 @@
   function openWhatsAppModal(supplierId) {
     if (!supplierId) {
       showMsg('Please select a supplier first.', 'warning');
+      return;
+    }
+    const gate = api().checkFeature('suppliers.whatsapp_supplier_message');
+    if (!gate.ok) {
+      showMsg(gate.message || 'Supplier WhatsApp is unavailable.', 'warning');
       return;
     }
     _selectedSupplierId = String(supplierId);
@@ -552,11 +533,29 @@
     $id('supplierEditorModal')?.classList.add('hidden');
   }
 
+  function renderUI(state = {}) {
+    if (Array.isArray(state.suppliers)) {
+      populateCityFilter(state.suppliers);
+      renderTable(state.suppliers);
+    }
+    if (state.details) renderSupplierDetails(state.details);
+    if (state.ledger) renderSupplierLedger(state.supplierId, state.ledger);
+  }
+
+  function updateUI(diff = {}) {
+    renderUI(diff);
+  }
+
+  function destroyUI() {
+    clearTimeout(_searchTimer);
+    _searchTimer = null;
+    clearMsg();
+    closeSupplierOverlays();
+  }
+
   // ── Event binding ─────────────────────────────────────────────────────────
 
   function attachEvents() {
-    LOG('attachEvents()');
-
     // Search / filter
     $id('supplierInlineSearch')?.addEventListener('input', () => {
       clearMsg();
@@ -573,7 +572,7 @@
     });
     ['supplierFromDateFilter', 'supplierToDateFilter'].forEach((id) =>
       $id(id)?.addEventListener('change', () =>
-        showMsg('Advanced supplier filters are coming soon. They are not implemented yet.', 'info')
+        showMsg(api().placeholder('advancedFilters').message, 'info')
       )
     );
     $id('supplierResetFilterButton')?.addEventListener('click', () => {
@@ -599,7 +598,7 @@
           renderTable(_allSuppliers);
           return;
         }
-        showMsg('Supplier tabs are coming soon. They are not implemented yet.', 'info');
+        showMsg(api().placeholder('tabs').message, 'info');
       })
     );
 
@@ -655,10 +654,10 @@
 
     // Ledger picker
     $id('supplierAgingButton')?.addEventListener('click', () =>
-      showMsg('Supplier aging report is coming soon. It is not implemented yet.', 'info')
+      showMsg(api().placeholder('aging').message, 'info')
     );
     $id('supplierStatementButton')?.addEventListener('click', () =>
-      showMsg('Supplier statement is coming soon. It is not implemented yet.', 'info')
+      showMsg(api().placeholder('statement').message, 'info')
     );
     document
       .querySelectorAll('[data-ledger-picker-close]')
@@ -672,7 +671,7 @@
       const supplierId = li.dataset.ledgerPick;
       closeLedgerPicker();
       try {
-        const res = await window.posApi.suppliers.ledger(supplierId);
+        const res = await api().loadSupplierLedger(supplierId);
         if (!res?.ok) {
           showMsg('Could not load ledger.', true);
           return;
@@ -680,17 +679,16 @@
         const ledger = res.ledger || res.entries || [];
         renderSupplierLedger(supplierId, ledger);
         showMsg(`Ledger loaded for supplier. ${ledger.length} entries.`);
-        LOG('ledger entries:', ledger.length);
-      } catch (err) {
+      } catch {
         showMsg('Ledger request failed.', true);
       }
     });
 
     $id('supplierExportButton')?.addEventListener('click', () =>
-      showMsg('Supplier export is coming soon. It is not implemented yet.', 'info')
+      showMsg(api().placeholder('export').message, 'info')
     );
     $id('supplierPrintButton')?.addEventListener('click', () =>
-      showMsg('Supplier print is coming soon. It is not implemented yet.', 'info')
+      showMsg(api().placeholder('print').message, 'info')
     );
     // WhatsApp modal
     $id('supplierWhatsAppButton')?.addEventListener('click', () => {
@@ -718,13 +716,14 @@
           $id('supplierWaCustomBox')?.classList.remove('hidden');
           return;
         }
-        try {
-          await openExternalWhatsApp(
-            'suppliers.whatsapp_supplier_message',
-            `https://wa.me/${digits}?text=${encodeURIComponent(messages[action] || '')}`
-          );
-          $id('supplierWhatsAppModal')?.classList.add('hidden');
-        } catch {}
+        const res = await api().sendSupplierWhatsApp(
+          `https://wa.me/${digits}?text=${encodeURIComponent(messages[action] || '')}`
+        );
+        if (!res.ok) {
+          showMsg(res.message || 'Supplier WhatsApp is unavailable.', 'warning');
+          return;
+        }
+        $id('supplierWhatsAppModal')?.classList.add('hidden');
       })
     );
     $id('supplierWaSendCustom')?.addEventListener('click', async () => {
@@ -732,10 +731,14 @@
       const supplier = _allSuppliers.find((s) => String(s.id) === String(_selectedSupplierId));
       if (!text || !supplier?.phone) return;
       const digits = supplier.phone.replace(/\D/g, '');
-      await openExternalWhatsApp(
-        'suppliers.whatsapp_supplier_message',
+      const res = await api().sendSupplierWhatsApp(
         `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
       );
+      if (!res.ok) {
+        showMsg(res.message || 'Supplier WhatsApp is unavailable.', 'warning');
+        return;
+      }
+      $id('supplierWhatsAppModal')?.classList.add('hidden');
     });
 
     // Row click — select supplier
@@ -783,8 +786,13 @@
       attachEvents();
     }
     loadSuppliers();
-    LOG('init() complete');
   }
 
   window.initSuppliersModule = init;
+  window.SuppliersRenderer = {
+    renderUI,
+    updateUI,
+    destroyUI,
+    loadSuppliers,
+  };
 })();
