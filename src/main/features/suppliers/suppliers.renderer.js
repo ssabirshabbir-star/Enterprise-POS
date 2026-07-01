@@ -353,6 +353,10 @@
       paymentMethod: $id('supplierPaymentStandaloneMethod')?.value || 'Cash',
       notes: $id('supplierPaymentStandaloneNotes')?.value?.trim() || undefined,
     };
+    const confirmed = await api().confirm(
+      `Record supplier payment of ${money(amount)} now? This will update the supplier ledger.`
+    );
+    if (!confirmed) return;
     const btn = $id('saveSupplierPaymentButton');
     if (btn) btn.disabled = true;
     try {

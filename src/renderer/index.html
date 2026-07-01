@@ -13,13 +13,13 @@
 
         <input id="password" name="password" class="overlay-field password-field" type="password" placeholder="Password" autocomplete="current-password" />
 
-        <button id="toggleLoginPassword" class="hotspot eye-hotspot" type="button" title="Show password"></button>
+        <button id="toggleLoginPassword" class="hotspot eye-hotspot" type="button" disabled aria-disabled="true" title="Password visibility toggle is unavailable in this installer."></button>
 
-        <label class="hotspot remember-hotspot">
-          <input id="rememberMe" type="checkbox" />
+        <label class="hotspot remember-hotspot" title="Remember me is unavailable in this installer.">
+          <input id="rememberMe" type="checkbox" disabled aria-disabled="true" />
         </label>
 
-        <button id="forgotPasswordButton" class="hotspot forgot-hotspot" type="button"></button>
+        <button id="forgotPasswordButton" class="hotspot forgot-hotspot" type="button" disabled aria-disabled="true" title="Password recovery is unavailable in this installer."></button>
 
         <p id="message" class="login-message hidden"></p>
 
@@ -27,11 +27,11 @@
           <span data-login-button-label class="sr-only">Login</span>
         </button>
 
-        <button class="hotspot staff-hotspot" type="button" data-login-option="Staff Login"></button>
+        <button class="hotspot staff-hotspot" type="button" data-login-option="Staff Login" disabled aria-disabled="true" title="Staff login shortcut is unavailable in this installer."></button>
 
-        <button class="hotspot biometric-hotspot" type="button" data-login-option="Biometric"></button>
+        <button class="hotspot biometric-hotspot" type="button" data-login-option="Biometric" disabled aria-disabled="true" title="Biometric login is unavailable in this installer."></button>
 
-        <button class="hotspot qr-hotspot" type="button" data-login-option="QR Login"></button>
+        <button class="hotspot qr-hotspot" type="button" data-login-option="QR Login" disabled aria-disabled="true" title="QR login is unavailable in this installer."></button>
       </div>
     </main>
 <section id="loadingScreen" class="flex min-h-screen items-center justify-center bg-stone-100">

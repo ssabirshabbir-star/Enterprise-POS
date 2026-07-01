@@ -177,6 +177,11 @@
       }
       if (k === 'w') {
         e.preventDefault();
+        const whatsAppButton = $id('posWhatsappButton');
+        if (whatsAppButton?.disabled || whatsAppButton?.getAttribute('aria-disabled') === 'true') {
+          C().showMsg('WhatsApp sharing is not available in Core Release.', true);
+          return;
+        }
         sendWhatsAppFromUI();
         return;
       }

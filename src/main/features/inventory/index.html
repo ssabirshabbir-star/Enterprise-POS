@@ -68,14 +68,14 @@
 
     <div class="epos-inventory-action-row">
       <div class="epos-inventory-action-buttons">
-        <button type="button" class="violet" id="inventoryBulkButton">Bulk Actions⌄</button>
+        <button type="button" class="violet" id="inventoryBulkButton" disabled aria-disabled="true" title="Inventory bulk actions are unavailable until certification.">Bulk Actions Unavailable</button>
         <button type="button" class="amber" id="openInventoryAdjustmentButton">Stock Adjustment</button>
-        <button type="button" class="green" id="inventoryTransferButton">Stock Transfer</button>
-        <button type="button" class="blue" id="inventoryBarcodeButton">Print Barcode</button>
+        <button type="button" class="green" id="inventoryTransferButton" disabled aria-disabled="true" title="Stock transfer is unavailable until certification.">Stock Transfer Unavailable</button>
+        <button type="button" class="blue" id="inventoryBarcodeButton" disabled aria-disabled="true" title="Inventory barcode printing is unavailable until certification.">Print Barcode Unavailable</button>
         <button type="button" class="indigo navLink" data-route="/pos">Quick Sale</button>
         <button type="button" class="emerald navLink" data-route="/purchases">New Purchase</button>
-        <button type="button" class="slate" data-page-tool="inventory" data-tool-action="import">Import</button>
-        <button type="button" class="cyan" data-page-tool="inventory" data-tool-action="excel">Export</button>
+        <button type="button" class="slate" data-page-tool="inventory" data-tool-action="import" disabled aria-disabled="true" title="Inventory import is unavailable until certification.">Import Unavailable</button>
+        <button type="button" class="cyan" data-page-tool="inventory" data-tool-action="excel" disabled aria-disabled="true" title="Inventory export is unavailable until certification.">Export Unavailable</button>
         <button type="button" class="rose navLink" id="inventoryAddProductButton" data-route="/products">Add New Product</button>
       </div>
     </div>
@@ -106,9 +106,9 @@
       <div class="epos-inventory-page-controls">
         <button type="button" disabled>‹</button>
         <button type="button" class="active">1</button>
-        <button type="button">2</button>
-        <button type="button">3</button>
-        <button type="button">...</button>
+        <button type="button" disabled aria-disabled="true" title="Inventory pagination is unavailable until certification.">2</button>
+        <button type="button" disabled aria-disabled="true" title="Inventory pagination is unavailable until certification.">3</button>
+        <button type="button" disabled aria-disabled="true" title="Inventory pagination is unavailable until certification.">...</button>
         <select id="inventoryRowsPerPage">
           <option value="25">25</option>
           <option value="50" selected>50</option>

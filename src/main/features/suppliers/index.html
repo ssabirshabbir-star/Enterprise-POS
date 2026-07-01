@@ -15,8 +15,8 @@
     <button type="button" data-supplier-view="due">Due / Outstanding</button>
     <button type="button" data-supplier-view="ledger">Supplier Ledger</button>
     <button type="button" data-supplier-view="last">Last Purchases</button>
-    <button type="button" data-supplier-view="statements">Statements</button>
-    <button type="button" data-supplier-view="analytics">Analytics</button>
+    <button type="button" data-supplier-view="statements" disabled aria-disabled="true" title="Supplier statements are unavailable until certification.">Statements Unavailable</button>
+    <button type="button" data-supplier-view="analytics" disabled aria-disabled="true" title="Supplier analytics are unavailable until certification.">Analytics Unavailable</button>
   </nav>
 
   <div class="epos-suppliers-filters">
@@ -60,11 +60,11 @@
     <button id="supplierBottomNewButton" type="button" class="green">New Supplier</button>
     <button id="supplierNewPurchaseButton" type="button" class="blue navLink" data-route="/purchases">New Purchase</button>
     <button id="supplierBottomPaymentButton" type="button" class="purple">Make Payment</button>
-    <button id="supplierStatementButton" type="button" class="orange">Suppliers Statement</button>
-    <button id="supplierAgingButton" type="button" class="teal">Aging Report</button>
+    <button id="supplierStatementButton" type="button" class="orange" disabled aria-disabled="true" title="Supplier statement is unavailable until certification.">Statement Unavailable</button>
+    <button id="supplierAgingButton" type="button" class="teal" disabled aria-disabled="true" title="Supplier aging report is unavailable until certification.">Aging Unavailable</button>
     <button id="supplierWhatsAppButton" type="button" class="whatsapp">📲 WhatsApp</button>
-    <button id="supplierExportButton" type="button" class="sky" title="Export supplier list">Export</button>
-    <button id="supplierPrintButton" type="button" class="slate" title="Print suppliers">Print</button>
+    <button id="supplierExportButton" type="button" class="sky" disabled aria-disabled="true" title="Supplier export is unavailable until certification.">Export Unavailable</button>
+    <button id="supplierPrintButton" type="button" class="slate" disabled aria-disabled="true" title="Supplier print is unavailable until certification.">Print Unavailable</button>
   </div>
 
   <div id="supplierEditorModal" class="epos-suppliers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierEditorTitle">
