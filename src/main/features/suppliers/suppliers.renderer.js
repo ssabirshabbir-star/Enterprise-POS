@@ -17,6 +17,24 @@
 
   const LOG = (...a) => console.log('[SuppliersRenderer]', ...a);
 
+  function checkFeature(featureId) {
+    if (!window.FeatureGate?.check) {
+      return { ok: false, message: 'Feature activation gate is unavailable.' };
+    }
+    return window.FeatureGate.check(featureId);
+  }
+
+  async function openExternalWhatsApp(featureId, url) {
+    const gate = checkFeature(featureId);
+    if (!gate.ok) return false;
+    try {
+      await window.posApi.shell.openExternal(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function $id(id) {
     return document.getElementById(id);
   }
@@ -701,11 +719,12 @@
           return;
         }
         try {
-          await window.posApi.shell.openExternal(
+          await openExternalWhatsApp(
+            'suppliers.whatsapp_supplier_message',
             `https://wa.me/${digits}?text=${encodeURIComponent(messages[action] || '')}`
           );
           $id('supplierWhatsAppModal')?.classList.add('hidden');
-        } catch (_) {}
+        } catch {}
       })
     );
     $id('supplierWaSendCustom')?.addEventListener('click', async () => {
@@ -713,11 +732,10 @@
       const supplier = _allSuppliers.find((s) => String(s.id) === String(_selectedSupplierId));
       if (!text || !supplier?.phone) return;
       const digits = supplier.phone.replace(/\D/g, '');
-      try {
-        await window.posApi.shell.openExternal(
-          `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
-        );
-      } catch (_) {}
+      await openExternalWhatsApp(
+        'suppliers.whatsapp_supplier_message',
+        `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+      );
     });
 
     // Row click — select supplier
