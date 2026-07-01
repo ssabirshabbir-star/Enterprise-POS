@@ -30,6 +30,52 @@
   let paidAmountManual = false;
   let autoAdvanceUnitPrice = true;
 
+  const UI = {
+    ids: {
+      message: 'posMessage',
+      modalMessage: 'posCustomerModalMessage',
+      scanInput: 'posBarcodeInput',
+      searchResults: 'posSearchResults',
+      cartTableBody: 'cartTableBody',
+      cartEmptyState: 'cartEmptyState',
+      cartCountLabel: 'posCartCountLabel',
+      discountInput: 'cartDiscount',
+      discountType: 'posDiscountType',
+      taxInput: 'cartTax',
+      paidAmount: 'paidAmount',
+      grandTotal: 'posGrandTotal',
+      payButtonAmount: 'posPayButtonAmount',
+      subtotal: 'posSubtotal',
+      changeAmount: 'changeAmount',
+      totalItems: 'posTotalItems',
+      totalQuantity: 'posTotalQuantity',
+      paymentMethod: 'paymentMethod',
+      retailModeButton: 'retailModeButton',
+      wholesaleModeButton: 'wholesaleModeButton',
+      customerSelect: 'customerSelect',
+      customerBalance: 'posCustomerBalance',
+      customerModal: 'posCustomerModal',
+      customerModalForm: 'posCustomerModalForm',
+      customerNameInput: 'posCustomerNameInput',
+      receiptPreview: 'receiptPreview',
+      heldSalesList: 'heldSalesList',
+    },
+    selectors: {
+      cartTab: '[data-pos-cart]',
+      paymentButton: '[data-payment-set]',
+      cartRow: (index) => `tr[data-cart-row="${index}"]`,
+      cartQty: (index) => `[data-cart-qty="${index}"]`,
+      cartDisc: (index) => `[data-cart-disc="${index}"]`,
+      cartLineTotal: '[data-cart-line-total]',
+      cartLineTotalWrap: '.epos-cart-line-total',
+      discountModeWrap: '.epos-invoice-summary-discount',
+      searchResultButton: '[data-product-id]',
+    },
+    data: {
+      productId: 'productId',
+    },
+  };
+
   function makeEmptyCart() {
     return { items: [], customerId: null, paymentMethod: 'Cash' };
   }
@@ -38,6 +84,14 @@
 
   function $id(id) {
     return document.getElementById(id);
+  }
+
+  function ui(idKey) {
+    return $id(UI.ids[idKey]);
+  }
+
+  function uiAll(selectorKey) {
+    return document.querySelectorAll(UI.selectors[selectorKey]);
   }
 
   function esc(str) {
@@ -63,7 +117,7 @@
   let _msgTimer = null;
 
   function showMsg(text, isError) {
-    const el = $id('posMessage');
+    const el = ui('message');
     if (!el) return;
     el.textContent = text;
     el.className = `epos-pos-message ${isError ? 'epos-pos-message-error' : 'epos-pos-message-success'}`;
@@ -76,15 +130,15 @@
   function getPayableTotal() {
     const items = getCart().items;
     const displaySub = items.reduce((s, i) => s + (Number(i.displayTotal) || 0), 0);
-    const rawDiscount = parseFloat($id('cartDiscount')?.value || '0') || 0;
-    const discType = $id('posDiscountType')?.value || 'amount';
+    const rawDiscount = parseFloat(ui('discountInput')?.value || '0') || 0;
+    const discType = ui('discountType')?.value || 'amount';
     const displayDisc = discType === 'percentage' ? (displaySub * rawDiscount) / 100 : rawDiscount;
-    const displayTax = parseFloat($id('cartTax')?.value || '0') || 0;
+    const displayTax = parseFloat(ui('taxInput')?.value || '0') || 0;
     return Math.max(displaySub - displayDisc + displayTax, 0);
   }
 
   function showModalMsg(text, isError) {
-    const el = $id('posCustomerModalMessage');
+    const el = ui('modalMessage');
     if (!el) return;
     el.textContent = text;
     el.style.cssText = isError ? 'color:#b91c1c' : 'color:#166534';
@@ -130,6 +184,33 @@
     carts[activeCart].customerId = id || null;
   }
 
+  function readyScanInput() {
+    const si = ui('scanInput');
+    if (!si) return;
+    si.value = '';
+    si.focus({ preventScroll: true });
+  }
+
+  function pulseElement(el, className) {
+    if (!el) return;
+    el.classList.remove(className);
+    void el.offsetWidth;
+    el.classList.add(className);
+    clearTimeout(el._eposPulseTimer);
+    el._eposPulseTimer = setTimeout(() => el.classList.remove(className), 700);
+  }
+
+  function pulseCartRow(index) {
+    const row = ui('cartTableBody')?.querySelector(UI.selectors.cartRow(index));
+    pulseElement(row, 'epos-cart-row-updated');
+    pulseElement(row?.querySelector(UI.selectors.cartLineTotalWrap), 'epos-cart-total-updated');
+  }
+
+  function pulseSummaryTotals() {
+    pulseElement(ui('grandTotal'), 'epos-cart-total-updated');
+    pulseElement(ui('payButtonAmount'), 'epos-cart-total-updated');
+  }
+
   // ── Cart mutations ────────────────────────────────────────────────────────
 
   function addToCart(product) {
@@ -143,7 +224,9 @@
         ? Number(product.wholesalePrice)
         : Number(product.salePrice);
 
-    const existing = getCart().items.find((i) => i.productId === product.id);
+    const existingIndex = getCart().items.findIndex((i) => i.productId === product.id);
+    const existing = getCart().items[existingIndex];
+    let changedIndex = existingIndex;
     if (existing) {
       if (Number.isFinite(stock) && existing.quantity + 1 > stock) {
         showMsg('Quantity cannot exceed available stock.', true);
@@ -155,6 +238,7 @@
         0
       );
     } else {
+      changedIndex = getCart().items.length;
       getCart().items.push({
         productId: product.id,
         name: product.name,
@@ -171,12 +255,10 @@
       });
     }
     renderCart();
+    pulseCartRow(changedIndex);
+    pulseSummaryTotals();
     clearSearchResults();
-    const si = $id('posBarcodeInput');
-    if (si) {
-      si.value = '';
-      si.focus();
-    }
+    readyScanInput();
   }
 
   function removeCartItem(index) {
@@ -189,21 +271,21 @@
     paidAmountManual = false;
     renderCart();
     renderCustomerSelect();
-    ['cartDiscount', 'cartTax', 'paidAmount'].forEach((id) => {
+    [UI.ids.discountInput, UI.ids.taxInput, UI.ids.paidAmount].forEach((id) => {
       const e = $id(id);
       if (e) e.value = '0';
     });
     setPaymentMethod('Cash');
     // Always clear stale feedback messages on full cart reset
     clearTimeout(_msgTimer);
-    const msgEl = $id('posMessage');
+    const msgEl = ui('message');
     if (msgEl) msgEl.classList.add('hidden');
   }
 
   function switchToCart(index) {
     activeCart = Math.max(0, Math.min(index, MAX_CARTS - 1));
     paidAmountManual = false;
-    document.querySelectorAll('[data-pos-cart]').forEach((btn) => {
+    uiAll('cartTab').forEach((btn) => {
       const on = Number(btn.dataset.posCart) === activeCart;
       btn.classList.toggle('epos-cart-tab-active', on);
       btn.setAttribute('aria-pressed', String(on));
@@ -211,7 +293,7 @@
     renderCart();
     renderCustomerSelect();
     setPaymentMethod(getCart().paymentMethod);
-    ['cartDiscount', 'paidAmount'].forEach((id) => {
+    [UI.ids.discountInput, UI.ids.paidAmount].forEach((id) => {
       const e = $id(id);
       if (e) e.value = '0';
     });
@@ -224,11 +306,11 @@
    */
   function updateCartRowDisplay(index) {
     const item = getCart().items[index];
-    const row = $id('cartTableBody')?.querySelector(`tr[data-cart-row="${index}"]`);
+    const row = ui('cartTableBody')?.querySelector(UI.selectors.cartRow(index));
     if (!item || !row) return;
-    const qtyInput = row.querySelector(`[data-cart-qty="${index}"]`);
-    const discInput = row.querySelector(`[data-cart-disc="${index}"]`);
-    const totalEl = row.querySelector('[data-cart-line-total]');
+    const qtyInput = row.querySelector(UI.selectors.cartQty(index));
+    const discInput = row.querySelector(UI.selectors.cartDisc(index));
+    const totalEl = row.querySelector(UI.selectors.cartLineTotal);
     if (qtyInput) qtyInput.value = item.quantity;
     if (discInput) discInput.value = item.discount;
     if (totalEl) totalEl.textContent = fmt(item.displayTotal);
@@ -261,22 +343,28 @@
     item.displayTotal = Math.max(item.quantity * item.unitPrice - item.discount, 0);
     updateCartRowDisplay(index);
     updateDisplayTotals();
+    if (field === 'qty' || field === 'disc') {
+      pulseCartRow(index);
+      pulseSummaryTotals();
+    }
     if (field === 'price' && autoAdvanceUnitPrice) renderCart();
   }
 
   // ── Cart rendering ────────────────────────────────────────────────────────
 
   function renderCart() {
-    const tbody = $id('cartTableBody');
-    const emptyEl = $id('cartEmptyState');
-    const countLbl = $id('posCartCountLabel');
+    const tbody = ui('cartTableBody');
+    const emptyEl = ui('cartEmptyState');
+    const countLbl = ui('cartCountLabel');
     if (!tbody) return;
 
     const items = getCart().items;
     const count = items.length;
 
     if (countLbl) countLbl.textContent = `(${count} Item${count !== 1 ? 's' : ''})`;
-    const badge = document.querySelector(`[data-pos-cart="${activeCart}"] strong`);
+    const badge = document.querySelector(
+      `${UI.selectors.cartTab}[data-pos-cart="${activeCart}"] strong`
+    );
     if (badge) badge.textContent = String(count);
 
     if (!count) {
@@ -339,12 +427,12 @@
   function updateDisplayTotals() {
     const items = getCart().items;
     const displaySub = items.reduce((s, i) => s + (Number(i.displayTotal) || 0), 0);
-    const rawDiscount = parseFloat($id('cartDiscount')?.value || '0') || 0;
-    const discType = $id('posDiscountType')?.value || 'amount';
+    const rawDiscount = parseFloat(ui('discountInput')?.value || '0') || 0;
+    const discType = ui('discountType')?.value || 'amount';
     const displayDisc = discType === 'percentage' ? (displaySub * rawDiscount) / 100 : rawDiscount;
-    const displayTax = parseFloat($id('cartTax')?.value || '0') || 0;
+    const displayTax = parseFloat(ui('taxInput')?.value || '0') || 0;
     const displayGrand = Math.max(displaySub - displayDisc + displayTax, 0);
-    const paidInput = $id('paidAmount');
+    const paidInput = ui('paidAmount');
     if (
       paidInput &&
       ['Cash', 'Card', 'Bank'].includes(getCart().paymentMethod) &&
@@ -355,13 +443,13 @@
     const displayPaid = parseFloat(paidInput?.value || '0') || 0;
     const displayChange = Math.max(displayPaid - displayGrand, 0);
 
-    setEl('posSubtotal', fmt(displaySub));
-    setEl('posGrandTotal', fmt(displayGrand));
-    setEl('changeAmount', fmt(displayChange));
-    setEl('posTotalItems', String(items.length));
-    setEl('posTotalQuantity', fmt(items.reduce((s, i) => s + Number(i.quantity || 0), 0)));
+    setEl(UI.ids.subtotal, fmt(displaySub));
+    setEl(UI.ids.grandTotal, fmt(displayGrand));
+    setEl(UI.ids.changeAmount, fmt(displayChange));
+    setEl(UI.ids.totalItems, String(items.length));
+    setEl(UI.ids.totalQuantity, fmt(items.reduce((s, i) => s + Number(i.quantity || 0), 0)));
 
-    const payBtn = $id('posPayButtonAmount');
+    const payBtn = ui('payButtonAmount');
     if (payBtn)
       payBtn.textContent = `Rs. ${displayGrand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
@@ -370,19 +458,19 @@
 
   function setPaymentMethod(method) {
     if (method === 'Mixed') {
-      showMsg('Split payment is coming soon. It is not implemented yet.', true);
+      showMsg('Split payment is planned for a future phase.', true);
       return;
     }
     getCart().paymentMethod = method;
-    const sel = $id('paymentMethod');
+    const sel = ui('paymentMethod');
     if (sel) sel.value = method;
-    document.querySelectorAll('[data-payment-set]').forEach((btn) => {
+    uiAll('paymentButton').forEach((btn) => {
       const on = btn.dataset.paymentSet === method;
       btn.classList.toggle('epos-payment-selected', on);
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     if (['Cash', 'Card', 'Bank'].includes(method)) {
-      const paid = $id('paidAmount');
+      const paid = ui('paidAmount');
       if (paid) {
         paidAmountManual = false;
         paid.value = getPayableTotal().toFixed(2);
@@ -390,7 +478,7 @@
       }
     }
     if (method === 'Credit') {
-      const paid = $id('paidAmount');
+      const paid = ui('paidAmount');
       if (paid) {
         paidAmountManual = false;
         paid.value = '0.00';
@@ -407,15 +495,15 @@
 
   function setBillingMode(mode) {
     billingMode = mode;
-    $id('retailModeButton')?.classList.toggle('epos-billing-mode-active', mode === 'retail');
-    $id('wholesaleModeButton')?.classList.toggle('epos-billing-mode-active', mode === 'wholesale');
+    ui('retailModeButton')?.classList.toggle('epos-billing-mode-active', mode === 'retail');
+    ui('wholesaleModeButton')?.classList.toggle('epos-billing-mode-active', mode === 'wholesale');
     renderCart();
   }
 
   // ── Customer display ──────────────────────────────────────────────────────
 
   function renderCustomerSelect() {
-    const sel = $id('customerSelect');
+    const sel = ui('customerSelect');
     if (!sel) return;
     const savedId = String(getCart().customerId || '');
     sel.innerHTML =
@@ -430,8 +518,8 @@
   }
 
   function updateCustomerBalanceDisplay() {
-    const sel = $id('customerSelect');
-    const el = $id('posCustomerBalance');
+    const sel = ui('customerSelect');
+    const el = ui('customerBalance');
     if (!sel || !el) return;
     const c = customers.find((c) => String(c.id) === String(sel.value));
     el.textContent = c
@@ -448,26 +536,26 @@
   // ── Customer modal display ────────────────────────────────────────────────
 
   function openCustomerModal() {
-    const m = $id('posCustomerModal');
+    const m = ui('customerModal');
     if (!m) return;
     m.classList.remove('hidden');
-    $id('posCustomerModalMessage')?.classList.add('hidden');
-    $id('posCustomerModalForm')?.reset();
-    setTimeout(() => $id('posCustomerNameInput')?.focus(), 40);
+    ui('modalMessage')?.classList.add('hidden');
+    ui('customerModalForm')?.reset();
+    setTimeout(() => ui('customerNameInput')?.focus(), 40);
   }
 
   function closeCustomerModal() {
-    $id('posCustomerModal')?.classList.add('hidden');
-    $id('posCustomerModalForm')?.reset();
+    ui('customerModal')?.classList.add('hidden');
+    ui('customerModalForm')?.reset();
   }
 
   // ── Receipt preview display ───────────────────────────────────────────────
 
   function renderReceiptPreview(receipt) {
-    const el = $id('receiptPreview');
+    const el = ui('receiptPreview');
     if (!el || !receipt) return;
     const coupons = receipt.luckyDrawCoupons || [];
-    el.innerHTML = `<div style="font-family:Consolas,monospace;font-size:.72rem;line-height:1.7;white-space:pre-wrap;background:#fafaf9;border:1px solid #e5e7eb;border-radius:7px;padding:10px">Invoice:  ${esc(receipt.invoiceNumber || '')}
+    el.innerHTML = `<div style="font-family:Consolas,monospace;font-size:.72rem;line-height:1.7;white-space:pre-wrap;background:#fafaf9;border:1px solid #e5e7eb;border-radius:7px;padding:10px">Receipt:  ${esc(receipt.invoiceNumber || '')}
 Date:     ${receipt.createdAt ? new Date(receipt.createdAt).toLocaleString() : new Date().toLocaleString()}
 Customer: ${esc(receipt.customerName || 'Walk-in')}
 ────────────────────────
@@ -493,7 +581,7 @@ Method: ${receipt.paymentMethod || 'Cash'}${
   // ── Held sales display ────────────────────────────────────────────────────
 
   function renderHeldSalesList(holds) {
-    const el = $id('heldSalesList');
+    const el = ui('heldSalesList');
     if (!el) return;
     el._holds = holds;
     if (!holds.length) {
@@ -542,11 +630,44 @@ Method: ${receipt.paymentMethod || 'Cash'}${
   // ── Search results ────────────────────────────────────────────────────────
 
   function clearSearchResults() {
-    const el = $id('posSearchResults');
+    const el = ui('searchResults');
     if (el) {
       el.innerHTML = '';
       el._products = null;
     }
+  }
+
+  function renderSearchResults(query, products) {
+    const el = ui('searchResults');
+    if (!el) return;
+    const list = Array.isArray(products) ? products : [];
+    if (!list.length) {
+      el.innerHTML = `<p style="padding:10px 14px;color:#6b7280;font-size:.83rem">No products found for "${esc(query)}".</p>`;
+      el._products = [];
+      return;
+    }
+
+    el._products = list;
+    el.innerHTML = list
+      .slice(0, 15)
+      .map((p) => {
+        const price =
+          billingMode === 'wholesale' && Number(p.wholesalePrice) > 0
+            ? Number(p.wholesalePrice)
+            : Number(p.salePrice);
+        const sc = p.currentStock <= 0 ? '#dc2626' : p.currentStock < 5 ? '#d97706' : '#16a34a';
+        return `<button type="button" data-product-id="${p.id}"
+          style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:none;background:none;cursor:pointer;text-align:left;border-bottom:1px solid #f3f4f6"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"
+        ><span style="flex:1;min-width:0">
+            <span style="display:block;font-weight:600;font-size:.83rem">${esc(p.name)}</span>
+            ${p.sku ? `<span style="font-size:.7rem;color:#9ca3af">${esc(p.sku)}</span>` : ''}
+          </span>
+          <span style="font-weight:700;color:#1d4ed8;font-size:.83rem;white-space:nowrap">Rs.${fmt(price)}</span>
+          <span style="font-size:.72rem;color:${sc};font-weight:600">${p.currentStock}</span>
+        </button>`;
+      })
+      .join('');
   }
 
   // ── API payload builder ───────────────────────────────────────────────────
@@ -556,13 +677,13 @@ Method: ${receipt.paymentMethod || 'Cash'}${
   function getCartPayload() {
     const items = getCart().items;
     const subtotal = items.reduce((s, i) => s + (Number(i.displayTotal) || 0), 0);
-    const rawDiscount = parseFloat($id('cartDiscount')?.value || '0') || 0;
-    const discType = $id('posDiscountType')?.value || 'amount';
+    const rawDiscount = parseFloat(ui('discountInput')?.value || '0') || 0;
+    const discType = ui('discountType')?.value || 'amount';
     const discount = discType === 'percentage' ? (subtotal * rawDiscount) / 100 : rawDiscount;
-    const tax = parseFloat($id('cartTax')?.value || '0') || 0;
+    const tax = parseFloat(ui('taxInput')?.value || '0') || 0;
     const grandTotal = Math.max(subtotal - discount + tax, 0);
-    const paidAmount = parseFloat($id('paidAmount')?.value || '0') || 0;
-    const customerId = $id('customerSelect')?.value;
+    const paidAmount = parseFloat(ui('paidAmount')?.value || '0') || 0;
+    const customerId = ui('customerSelect')?.value;
 
     return {
       items: items.map((i) => ({
@@ -618,6 +739,7 @@ Method: ${receipt.paymentMethod || 'Cash'}${
     renderHeldSalesList,
     restoreHeldItemsToCart,
     clearSearchResults,
+    renderSearchResults,
     // Payload + utilities
     getCartPayload,
     getPayableTotal,

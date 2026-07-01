@@ -43,8 +43,48 @@
   const C = () => window.BillingCart;
   const A = () => window.BillingApi;
 
+  const UI = {
+    ids: {
+      posPanel: 'posModule',
+      cartTableBody: 'cartTableBody',
+      scanInput: 'posBarcodeInput',
+      searchFocusButton: 'posSearchFocusButton',
+      searchResults: 'posSearchResults',
+      discountInput: 'cartDiscount',
+      discountType: 'posDiscountType',
+      taxInput: 'cartTax',
+      paidAmount: 'paidAmount',
+      autoAdvanceUnitPrice: 'posAutoAdvanceUnitPrice',
+      subtotalDiscountButton: 'posSubtotalDiscountButton',
+      holdSaleButton: 'holdSaleButton',
+      heldSalesList: 'heldSalesList',
+      customerSelect: 'customerSelect',
+      customerSearch: 'customerSearch',
+      completeSaleButton: 'completeSaleButton',
+      clearCartButton: 'clearCartButton',
+      thermalPrintButton: 'thermalPrintButton',
+    },
+    selectors: {
+      hiddenControls: '.epos-billing-hidden-controls',
+      hiddenInteractive:
+        '.epos-billing-hidden-controls button, .epos-billing-hidden-controls input, .epos-billing-hidden-controls select, .epos-billing-hidden-controls textarea, .epos-billing-hidden-controls a, .epos-billing-hidden-controls [tabindex]',
+      searchResultButton: '[data-product-id]',
+      removeItem: '[data-remove-item]',
+      incItem: '[data-inc-item]',
+      decItem: '[data-dec-item]',
+      paymentButton: '[data-payment-set]',
+      cartTab: '[data-pos-cart]',
+      customerClose: '[data-pos-customer-close]',
+      discountModeWrap: '.epos-invoice-summary-discount',
+    },
+  };
+
+  function $id(key) {
+    return document.getElementById(UI.ids[key] || key);
+  }
+
   function isHiddenControlTarget(target) {
-    return Boolean(target?.closest?.('.epos-billing-hidden-controls'));
+    return Boolean(target?.closest?.(UI.selectors.hiddenControls));
   }
 
   function blockHiddenControlEvent(e) {
@@ -54,20 +94,29 @@
   }
 
   function disableHiddenControls() {
-    document
-      .querySelectorAll(
-        '.epos-billing-hidden-controls button, .epos-billing-hidden-controls input, .epos-billing-hidden-controls select, .epos-billing-hidden-controls textarea, .epos-billing-hidden-controls a, .epos-billing-hidden-controls [tabindex]'
-      )
-      .forEach((el) => {
-        el.tabIndex = -1;
-      });
+    document.querySelectorAll(UI.selectors.hiddenInteractive).forEach((el) => {
+      el.tabIndex = -1;
+    });
+  }
+
+  function checkFeature(featureId) {
+    if (!window.FeatureGate?.check) {
+      return { ok: false, message: 'Feature activation gate is unavailable.' };
+    }
+    return window.FeatureGate.check(featureId);
+  }
+
+  function requireFeature(featureId) {
+    const gate = checkFeature(featureId);
+    if (!gate.ok && gate.visible !== false) C().showMsg(gate.message, true);
+    return gate.ok;
   }
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
   function onKeyDown(e) {
     // Only active when the POS panel is visible
-    if (document.getElementById('posModule')?.classList.contains('hidden')) return;
+    if ($id('posPanel')?.classList.contains('hidden')) return;
 
     const tag = (document.activeElement?.tagName || '').toLowerCase();
     const inInput =
@@ -77,7 +126,7 @@
     // Function keys — always captured when POS is visible
     if (e.key === 'F4') {
       e.preventDefault();
-      A().completeSale();
+      completeSaleFromUI();
       return;
     }
     if (e.key === 'F6') {
@@ -92,29 +141,29 @@
     }
     if (e.key === 'F8') {
       e.preventDefault();
-      const el = document.getElementById('cartDiscount');
+      const el = $id('discountInput');
       el?.focus();
       el?.select();
       return;
     }
     if (e.key === 'F9') {
       e.preventDefault();
-      C().showMsg('Split payment is planned for a future phase.', true);
+      requireFeature('billing.split_payment_placeholder');
       return;
     }
     if (e.key === 'F10') {
       e.preventDefault();
-      A().printReceipt();
+      printReceiptFromUI();
       return;
     }
     if (e.key === 'F11') {
       e.preventDefault();
-      A().downloadPdf();
+      downloadPdfFromUI();
       return;
     }
     if (e.key === 'F12') {
       e.preventDefault();
-      A().reprintLastBill();
+      reprintLastBillFromUI();
       return;
     }
 
@@ -128,36 +177,307 @@
       }
       if (k === 'w') {
         e.preventDefault();
-        A().sendWhatsApp();
+        sendWhatsAppFromUI();
         return;
       }
       if (k === 's') {
         e.preventDefault();
-        A().holdSale();
+        holdSaleFromUI();
         return;
       }
       if (k === 'r') {
         e.preventDefault();
-        A().validateSaleAction('refund');
+        validateSaleAction('refund');
         return;
       }
       if (k === 'e') {
         e.preventDefault();
-        A().validateSaleAction('exchange');
+        validateSaleAction('exchange');
         return;
       }
       if (e.key === 'Delete') {
         e.preventDefault();
-        A().clearCartConfirm();
+        clearCartConfirmFromUI();
         return;
       }
     }
 
     // Auto-focus search bar on any printable key when not in a different input
     if (!inInput && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
-      const src = document.getElementById('posBarcodeInput');
+      const src = $id('scanInput');
       if (src && document.activeElement !== src) src.focus();
     }
+  }
+
+  async function searchProductsFromUI(query) {
+    const q = String(query || '').trim();
+    if (!q) {
+      C().clearSearchResults();
+      return;
+    }
+    const res = await A().searchProducts(q);
+    if (!res?.ok) {
+      C().clearSearchResults();
+      C().showMsg(res?.message || 'Unable to search products. Please try again.', true);
+      return;
+    }
+    const products = res.products || [];
+    if (res.exact && res.product) {
+      C().addToCart(res.product);
+      return;
+    }
+    if (!products.length) {
+      C().renderSearchResults(q, []);
+      return;
+    }
+    if (products.length === 1) {
+      C().addToCart(products[0]);
+      return;
+    }
+    C().renderSearchResults(q, products);
+  }
+
+  async function loadCustomersFromUI(search) {
+    const res = await A().loadCustomers(search || '');
+    if (!res?.ok) return;
+    C().setCustomers(res.customers || []);
+    C().renderCustomerSelect();
+  }
+
+  async function saveCustomerFromUI(e) {
+    e.preventDefault();
+    const btn = $id('posCustomerModalSaveButton');
+    if (btn) btn.disabled = true;
+    const payload = {
+      name: ($id('posCustomerNameInput')?.value || '').trim(),
+      phone: ($id('posCustomerPhoneInput')?.value || '').trim() || undefined,
+      email: ($id('posCustomerEmailInput')?.value || '').trim() || undefined,
+      address: ($id('posCustomerAddressInput')?.value || '').trim() || undefined,
+      creditLimit: parseFloat($id('posCustomerCreditLimitInput')?.value || '0') || 0,
+    };
+    try {
+      const res = await A().createCustomer(payload);
+      if (!res?.ok) {
+        C().showModalMsg(res?.message || 'Unable to add customer. Please try again.', true);
+        return;
+      }
+      C().loadCustomerIntoCart(res.customer);
+      C().closeCustomerModal();
+      C().showMsg(`Customer "${C().esc(res.customer.name)}" added and selected.`);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function completeSaleFromUI() {
+    const btn = $id('completeSaleButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '.7';
+    }
+    try {
+      const payload = C().getCartPayload();
+      if (!['Cash', 'Card', 'Bank', 'Credit'].includes(payload.paymentMethod)) {
+        C().showMsg('Please select a valid payment method.', true);
+        return;
+      }
+      if (payload.paymentMethod === 'Credit' && !payload.customerId) {
+        C().showMsg('Credit payment requires selecting a registered customer.', true);
+        return;
+      }
+      const selectedCustomerId = C().getCart().customerId || $id('customerSelect')?.value;
+      const receiptCustomer = C()
+        .getCustomers()
+        .find((c) => String(c.id) === String(selectedCustomerId));
+      const res = await A().completeSale(payload);
+      if (!res?.ok) {
+        C().showMsg(res?.message || 'Unable to complete the sale. Please try again.', true);
+        return;
+      }
+      if (receiptCustomer && res.receipt) {
+        res.receipt.customerId = receiptCustomer.id;
+        res.receipt.customerName = res.receipt.customerName || receiptCustomer.name;
+        res.receipt.customerPhone = receiptCustomer.phone || '';
+      }
+      C().setLastReceipt(res.receipt);
+      C().renderReceiptPreview(res.receipt);
+      tryAutoPrint(res.receipt);
+      C().clearCartDisplay();
+      const invoicePart = `Sale complete. Receipt: ${res.receipt?.invoiceNumber || ''}`;
+      if (res.receipt?.luckyDrawCoupons?.length) {
+        const coupon = res.receipt.luckyDrawCoupons[0];
+        C().showMsg(`${invoicePart} Lucky Draw entry: ${coupon.couponNo} - ${coupon.campaignName}`);
+      } else {
+        C().showMsg(invoicePart);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+      }
+    }
+  }
+
+  async function holdSaleFromUI() {
+    if (!requireFeature('billing.hold_sale')) return;
+    const cart = C().getCart();
+    const holdPayload = {
+      items: cart.items.map((i) => ({
+        productId: i.productId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        discount: i.discount,
+        total: Number(i.displayTotal) || 0,
+      })),
+      customerId: cart.customerId || null,
+      note: `Cart ${C().getActiveCart() + 1} - ${cart.items.length} items`,
+    };
+    const res = await A().holdSale(holdPayload);
+    if (!res?.ok) {
+      C().showMsg(res?.message || 'Unable to hold this sale. Please try again.', true);
+      return;
+    }
+    C().showMsg('Sale held. Use the held sales list to resume it.');
+    C().clearCartDisplay();
+    loadHeldSalesFromUI();
+  }
+
+  async function loadHeldSalesFromUI() {
+    const res = await A().loadHeldSales();
+    if (res?.ok) C().renderHeldSalesList(res.holds || []);
+  }
+
+  async function restoreHoldFromUI(holdId) {
+    if (!requireFeature('billing.held_sales_resume_delete')) return;
+    const holds = $id('heldSalesList')?._holds || [];
+    const hold = holds.find((h) => String(h.id) === String(holdId));
+    if (!hold?.payload?.items?.length) return;
+    C().restoreHeldItemsToCart(hold);
+    await A().deleteHeldSale(holdId);
+    loadHeldSalesFromUI();
+    C().showMsg(`Sale restored (${hold.payload.items.length} items).`);
+  }
+
+  async function deleteHoldFromUI(holdId) {
+    if (!requireFeature('billing.held_sales_resume_delete')) return;
+    let ok = false;
+    try {
+      ok = await window.posApi.dialog.confirm('Delete held sale?');
+    } catch {
+      ok = true;
+    }
+    if (!ok) return;
+    const res = await A().deleteHeldSale(holdId);
+    if (!res?.ok) {
+      C().showMsg(res?.message || 'Unable to delete held sale.', true);
+      return;
+    }
+    loadHeldSalesFromUI();
+    C().showMsg('Held sale deleted.');
+  }
+
+  async function tryAutoPrint(receipt) {
+    const res = await A().getPrintSettings();
+    const settings = res?.settings?.settings || res?.settings;
+    if (settings?.autoPrint) await printReceiptFromUI(receipt);
+  }
+
+  async function printReceiptFromUI(receipt) {
+    const r = receipt || C().getLastReceipt();
+    if (!r) {
+      C().showMsg('No receipt available to print.', true);
+      return;
+    }
+    const res = await A().printReceipt(r);
+    C().showMsg(res?.message || 'Unable to print receipt.', !res?.ok);
+  }
+
+  async function downloadPdfFromUI() {
+    if (!requireFeature('billing.export_receipt_pdf')) return;
+    const receipt = C().getLastReceipt();
+    if (!receipt) {
+      C().showMsg('Complete a sale first.', true);
+      return;
+    }
+    const res = await A().downloadReceiptPdf(receipt);
+    if (res?.canceled) return;
+    C().showMsg(res?.message || 'Unable to export receipt PDF.', !res?.ok);
+  }
+
+  async function reprintLastBillFromUI() {
+    if (!requireFeature('billing.reprint_receipt')) return;
+    if (C().getLastReceipt()) {
+      await printReceiptFromUI(C().getLastReceipt());
+      return;
+    }
+    const res = await A().getLastReceipt();
+    if (!res?.ok || !res.receipt) {
+      C().showMsg(res?.message || 'No previous sale found.', true);
+      return;
+    }
+    C().setLastReceipt(res.receipt);
+    C().renderReceiptPreview(res.receipt);
+    await printReceiptFromUI(res.receipt);
+  }
+
+  function validateSaleAction(action) {
+    requireFeature(
+      action === 'refund' ? 'billing.return_placeholder' : 'billing.exchange_placeholder'
+    );
+  }
+
+  async function sendWhatsAppFromUI() {
+    if (!requireFeature('billing.whatsapp_receipt_share')) return;
+    const r = C().getLastReceipt();
+    if (!r) {
+      C().showMsg('Complete a sale first.', true);
+      return;
+    }
+    const customerId = r.customerId || $id('customerSelect')?.value;
+    const customer = C()
+      .getCustomers()
+      .find((c) => String(c.id) === String(customerId));
+    const customerName = r.customerName || customer?.name || 'Customer';
+    const customerPhone = r.customerPhone || customer?.phone || '';
+    if (!customerPhone) {
+      C().showMsg('Receipt customer has no phone number.', true);
+      return;
+    }
+    const digits = customerPhone.replace(/\D/g, '');
+    const text = encodeURIComponent(
+      `Dear ${customerName},\nReceipt: ${r.invoiceNumber}\nTotal: Rs.${C().fmt(r.grandTotal)}\nDate: ${new Date(r.createdAt || Date.now()).toLocaleDateString()}\nThank you!`
+    );
+    const res = await A().sendReceiptWhatsApp(`https://wa.me/${digits}?text=${text}`);
+    if (!res?.ok) C().showMsg(res?.message || 'Unable to open link.', true);
+  }
+
+  async function clearCartConfirmFromUI() {
+    if (!C().getCart().items.length) return;
+    let ok = false;
+    try {
+      ok = await window.posApi.dialog.confirm('Clear current cart?');
+    } catch {
+      ok = true;
+    }
+    if (ok) {
+      C().clearCartDisplay();
+      C().showMsg('Cart cleared.');
+    }
+  }
+
+  function renderUI() {
+    C().renderCart();
+    C().updateDisplayTotals();
+  }
+
+  function updateUI(diff) {
+    if (diff?.paymentMethod) C().setPaymentMethod(diff.paymentMethod);
+    renderUI();
+  }
+
+  function destroyUI() {
+    // TODO: Add teardown when Billing gains route-level unmounting.
   }
 
   // ── Event binding (idempotent) ────────────────────────────────────────────
@@ -169,15 +489,15 @@
     document.addEventListener('click', blockHiddenControlEvent, true);
     document.addEventListener('keydown', blockHiddenControlEvent, true);
     function syncDiscountMode() {
-      const mode = document.getElementById('posDiscountType')?.value || 'amount';
+      const mode = $id('discountType')?.value || 'amount';
       document
-        .querySelector('.epos-invoice-summary-discount')
+        .querySelector(UI.selectors.discountModeWrap)
         ?.setAttribute('data-discount-mode', mode);
     }
     LOG('attachEvents() running — will not repeat this session');
 
     // ── Search ──────────────────────────────────────────────────────────────
-    const si = document.getElementById('posBarcodeInput');
+    const si = $id('scanInput');
     if (si) {
       si.addEventListener('input', (e) => {
         clearTimeout(searchTimer);
@@ -186,12 +506,12 @@
           C().clearSearchResults();
           return;
         }
-        searchTimer = setTimeout(() => A().searchProducts(v), 220);
+        searchTimer = setTimeout(() => searchProductsFromUI(v), 220);
       });
       si.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           clearTimeout(searchTimer);
-          A().searchProducts(e.target.value.trim());
+          searchProductsFromUI(e.target.value.trim());
         }
         if (e.key === 'Escape') {
           e.target.value = '';
@@ -199,22 +519,22 @@
         }
         if (e.key === 'ArrowDown') {
           const first = document
-            .getElementById('posSearchResults')
-            ?.querySelector('[data-product-id]');
+            .getElementById(UI.ids.searchResults)
+            ?.querySelector(UI.selectors.searchResultButton);
           if (first) {
             e.preventDefault();
             first.focus();
           }
         }
       });
-      document.getElementById('posSearchFocusButton')?.addEventListener('click', () => si.focus());
+      $id('searchFocusButton')?.addEventListener('click', () => si.focus());
     }
 
     // ── Search results (event delegation) ───────────────────────────────────
-    document.getElementById('posSearchResults')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-product-id]');
+    $id('searchResults')?.addEventListener('click', (e) => {
+      const btn = e.target.closest(UI.selectors.searchResultButton);
       if (!btn) return;
-      const products = document.getElementById('posSearchResults')?._products || [];
+      const products = $id('searchResults')?._products || [];
       const product = products.find((p) => String(p.id) === btn.dataset.productId);
       if (product) {
         C().addToCart(product);
@@ -223,7 +543,7 @@
     });
 
     // ── Cart table (event delegation) ────────────────────────────────────────
-    const tbody = document.getElementById('cartTableBody');
+    const tbody = $id('cartTableBody');
     if (tbody) {
       const updateCartInput = (e) => {
         const el = e.target;
@@ -237,13 +557,13 @@
       tbody.addEventListener('input', updateCartInput);
       tbody.addEventListener('change', updateCartInput);
       tbody.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-remove-item]');
+        const btn = e.target.closest(UI.selectors.removeItem);
         if (btn) {
           C().removeCartItem(Number(btn.dataset.removeItem));
           return;
         }
 
-        const inc = e.target.closest('[data-inc-item]');
+        const inc = e.target.closest(UI.selectors.incItem);
         if (inc) {
           const idx = Number(inc.dataset.incItem);
           const item = C().getCart().items[idx];
@@ -251,7 +571,7 @@
           return;
         }
 
-        const dec = e.target.closest('[data-dec-item]');
+        const dec = e.target.closest(UI.selectors.decItem);
         if (dec) {
           const idx = Number(dec.dataset.decItem);
           const item = C().getCart().items[idx];
@@ -265,18 +585,18 @@
     }
 
     // ── Display total triggers ───────────────────────────────────────────────
-    ['cartDiscount', 'cartTax'].forEach((id) =>
+    [UI.ids.discountInput, UI.ids.taxInput].forEach((id) =>
       document.getElementById(id)?.addEventListener('input', () => C().updateDisplayTotals())
     );
-    document.getElementById('paidAmount')?.addEventListener('input', () => {
+    $id('paidAmount')?.addEventListener('input', () => {
       C().markPaidAmountManual();
       C().updateDisplayTotals();
     });
-    document.getElementById('posDiscountType')?.addEventListener('change', () => {
+    $id('discountType')?.addEventListener('change', () => {
       syncDiscountMode();
       C().updateDisplayTotals();
     });
-    const autoAdvanceToggle = document.getElementById('posAutoAdvanceUnitPrice');
+    const autoAdvanceToggle = $id('autoAdvanceUnitPrice');
     if (autoAdvanceToggle) {
       C().setAutoAdvanceUnitPrice(autoAdvanceToggle.checked);
       autoAdvanceToggle.addEventListener('change', () =>
@@ -286,68 +606,60 @@
 
     // ── Payment method buttons ───────────────────────────────────────────────
     document
-      .querySelectorAll('[data-payment-set]')
+      .querySelectorAll(UI.selectors.paymentButton)
       .forEach((btn) =>
         btn.addEventListener('click', () => C().setPaymentMethod(btn.dataset.paymentSet))
       );
-    document.getElementById('posSubtotalDiscountButton')?.addEventListener('click', () => {
-      const el = document.getElementById('cartDiscount');
+    $id('subtotalDiscountButton')?.addEventListener('click', () => {
+      const el = $id('discountInput');
       el?.focus();
       el?.select();
     });
     document
       .getElementById('syncPosButton')
-      ?.addEventListener('click', () =>
-        C().showMsg('POS sync is coming soon. It is not implemented yet.', true)
-      );
+      ?.addEventListener('click', () => requireFeature('billing.sync_placeholder'));
 
     // ── Sale action buttons ──────────────────────────────────────────────────
     document
-      .getElementById('completeSaleButton')
-      ?.addEventListener('click', () => A().completeSale());
-    document.getElementById('holdSaleButton')?.addEventListener('click', () => A().holdSale());
+      .getElementById(UI.ids.completeSaleButton)
+      ?.addEventListener('click', completeSaleFromUI);
+    $id('holdSaleButton')?.addEventListener('click', holdSaleFromUI);
     document
       .getElementById('thermalPrintButton')
-      ?.addEventListener('click', () => A().printReceipt());
+      ?.addEventListener('click', () => printReceiptFromUI());
     document
       .getElementById('thermalPrintMirrorButton')
-      ?.addEventListener('click', () => document.getElementById('thermalPrintButton')?.click());
-    document
-      .getElementById('posDownloadPdfButton')
-      ?.addEventListener('click', () => A().downloadPdf());
+      ?.addEventListener('click', () => $id('thermalPrintButton')?.click());
+    document.getElementById('posDownloadPdfButton')?.addEventListener('click', downloadPdfFromUI);
     document
       .getElementById('reprintLastBillButton')
-      ?.addEventListener('click', () => A().reprintLastBill());
-    document
-      .getElementById('clearCartButton')
-      ?.addEventListener('click', () => A().clearCartConfirm());
+      ?.addEventListener('click', reprintLastBillFromUI);
+    document.getElementById('clearCartButton')?.addEventListener('click', clearCartConfirmFromUI);
     document
       .getElementById('posSaveDraftButton')
-      ?.addEventListener('click', () => document.getElementById('clearCartButton')?.click());
+      ?.addEventListener('click', () => $id('clearCartButton')?.click());
     document
       .getElementById('refundSaleButton')
-      ?.addEventListener('click', () => A().validateSaleAction('refund'));
+      ?.addEventListener('click', () => validateSaleAction('refund'));
     document
       .getElementById('exchangeSaleButton')
-      ?.addEventListener('click', () => A().validateSaleAction('exchange'));
-    document
-      .getElementById('posWhatsappButton')
-      ?.addEventListener('click', () => A().sendWhatsApp());
+      ?.addEventListener('click', () => validateSaleAction('exchange'));
+    document.getElementById('posWhatsappButton')?.addEventListener('click', sendWhatsAppFromUI);
 
     // ── Held sales list (event delegation) ───────────────────────────────────
-    document.getElementById('heldSalesList')?.addEventListener('click', (e) => {
+    $id('heldSalesList')?.addEventListener('click', (e) => {
       const r = e.target.closest('[data-restore-hold]');
       if (r) {
-        A().restoreHold(r.dataset.restoreHold);
+        restoreHoldFromUI(r.dataset.restoreHold);
         return;
       }
       const d = e.target.closest('[data-delete-hold]');
-      if (d) A().deleteHold(d.dataset.deleteHold);
+      if (d) deleteHoldFromUI(d.dataset.deleteHold);
     });
 
     // ── Cart switcher ────────────────────────────────────────────────────────
     document
-      .querySelectorAll('[data-pos-cart]')
+      .querySelectorAll(UI.selectors.cartTab)
       .forEach((btn) =>
         btn.addEventListener('click', () => C().switchToCart(Number(btn.dataset.posCart)))
       );
@@ -356,21 +668,23 @@
     document
       .getElementById('retailModeButton')
       ?.addEventListener('click', () => C().setBillingMode('retail'));
-    document
-      .getElementById('wholesaleModeButton')
-      ?.addEventListener('click', () => C().setBillingMode('wholesale'));
+    document.getElementById('wholesaleModeButton')?.addEventListener('click', () => {
+      if (requireFeature('billing.retail_wholesale_mode_toggle')) {
+        C().setBillingMode('wholesale');
+      }
+    });
 
     // ── Customer select ───────────────────────────────────────────────────────
-    document.getElementById('customerSelect')?.addEventListener('change', (e) => {
+    $id('customerSelect')?.addEventListener('change', (e) => {
       C().setCartCustomer(e.target.value); // controlled setter — no raw cart mutation
       C().updateCustomerBalanceDisplay();
     });
 
     // ── Customer live search (hidden input) ───────────────────────────────────
     // cTimer is module-scoped (declared above) for clarity — not closure-local
-    document.getElementById('customerSearch')?.addEventListener('input', (e) => {
+    $id('customerSearch')?.addEventListener('input', (e) => {
       clearTimeout(cTimer);
-      cTimer = setTimeout(() => A().loadCustomers(e.target.value), 300);
+      cTimer = setTimeout(() => loadCustomersFromUI(e.target.value), 300);
     });
 
     // ── Customer modal ────────────────────────────────────────────────────────
@@ -380,11 +694,9 @@
     document
       .getElementById('quickCustomerFocusButton')
       ?.addEventListener('click', () => C().openCustomerModal());
+    document.getElementById('posCustomerModalForm')?.addEventListener('submit', saveCustomerFromUI);
     document
-      .getElementById('posCustomerModalForm')
-      ?.addEventListener('submit', (e) => A().saveCustomer(e));
-    document
-      .querySelectorAll('[data-pos-customer-close]')
+      .querySelectorAll(UI.selectors.customerClose)
       .forEach((el) => el.addEventListener('click', () => C().closeCustomerModal()));
 
     // ── Global keyboard handler ───────────────────────────────────────────────
@@ -403,7 +715,7 @@
 
   function init() {
     // F1 fix: prevent multiple concurrent retry chains on fast re-navigation
-    if (!document.getElementById('cartTableBody')) {
+    if (!$id('cartTableBody')) {
       if (initPending) return; // a retry is already scheduled — bail out
       initPending = true;
       setTimeout(() => {
@@ -420,21 +732,23 @@
     }
 
     // Refresh display state on every /pos navigation (safe — no listeners added)
-    C().renderCart();
-    C().updateDisplayTotals();
+    renderUI();
     C().setBillingMode(C().getBillingMode());
     document
-      .querySelector('.epos-invoice-summary-discount')
-      ?.setAttribute(
-        'data-discount-mode',
-        document.getElementById('posDiscountType')?.value || 'amount'
-      );
+      .querySelector(UI.selectors.discountModeWrap)
+      ?.setAttribute('data-discount-mode', $id('discountType')?.value || 'amount');
     C().setPaymentMethod(C().getCart().paymentMethod || 'Cash');
-    A().loadCustomers('');
-    A().loadHeldSales();
-    setTimeout(() => document.getElementById('posBarcodeInput')?.focus(), 40);
+    loadCustomersFromUI('');
+    loadHeldSalesFromUI();
+    setTimeout(() => $id('scanInput')?.focus(), 40);
     LOG('init() complete — module ready');
   }
+
+  window.BillingRenderer = {
+    renderUI,
+    updateUI,
+    destroyUI,
+  };
 
   window.initBillingModule = init;
 })();
