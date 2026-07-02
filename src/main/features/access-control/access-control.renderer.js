@@ -12,6 +12,7 @@
   let selectedPermissionRole = null;
   let activityRecords = [];
   let activityPolicy = null;
+  let sessionRecords = [];
 
   const A = () => window.AccessControlApi;
 
@@ -469,6 +470,15 @@
     });
   }
 
+  function sessionStatusFilter() {
+    return $id('sessionStatusFilter')?.value || 'Active';
+  }
+
+  function filteredSessionRecords() {
+    const status = sessionStatusFilter();
+    return sessionRecords.filter((session) => !status || session.status === status);
+  }
+
   function renderSecurityActivity() {
     const log = $id('userActivityLog');
     if (!log) return;
@@ -492,6 +502,49 @@
         `
       )
       .join('');
+  }
+
+  function renderActiveSessions() {
+    const list = $id('userSessionList');
+    if (!list) return;
+    const sessions = filteredSessionRecords();
+    if (!sessionRecords.length) {
+      list.textContent = 'No sessions found.';
+      return;
+    }
+    if (!sessions.length) {
+      list.textContent = 'No sessions match the current filter.';
+      return;
+    }
+    list.innerHTML = sessions
+      .map(
+        (session) => `
+          <div>
+            <h3>${esc(session.fullName || session.username || 'User')} <small>${esc(
+              session.status
+            )}</small></h3>
+            <p>${esc(session.email || session.username || '-')}</p>
+            <small>Created ${esc(dateOnly(session.createdAt))} - Last used ${esc(
+              dateOnly(session.lastUsedAt)
+            )} - Expires ${esc(dateOnly(session.expiresAt))}</small>
+            <p class="epos-users-subtext">Session actions unavailable. Token data is hidden.</p>
+          </div>
+        `
+      )
+      .join('');
+  }
+
+  async function loadActiveSessions() {
+    const list = $id('userSessionList');
+    if (list) list.textContent = 'Loading sessions...';
+    const result = await A().activeSessions();
+    if (!result?.ok) {
+      sessionRecords = [];
+      if (list) list.textContent = result?.message || 'Unable to load active sessions.';
+      return;
+    }
+    sessionRecords = Array.isArray(result.sessions) ? result.sessions : [];
+    renderActiveSessions();
   }
 
   async function loadSecurityActivity() {
@@ -787,6 +840,7 @@
         .catch(() => {});
     }
     if (tab === 'activity') loadSecurityActivity().catch(() => {});
+    if (tab === 'sessions') loadActiveSessions().catch(() => {});
   }
 
   function disablePhaseTwoControls() {
@@ -828,6 +882,13 @@
     $id('activityStatusFilter')?.addEventListener('change', renderSecurityActivity);
     $id('activityDateFrom')?.addEventListener('change', renderSecurityActivity);
     $id('activityDateTo')?.addEventListener('change', renderSecurityActivity);
+    $id('refreshUserSessionsButton')?.addEventListener('click', () => {
+      loadActiveSessions().catch(() => {
+        const list = $id('userSessionList');
+        if (list) list.textContent = 'Unable to refresh sessions.';
+      });
+    });
+    $id('sessionStatusFilter')?.addEventListener('change', renderActiveSessions);
     $id('resetUserButton')?.addEventListener('click', () => {
       const id = $id('userId')?.value;
       const user = users.find((item) => String(item.id) === String(id));

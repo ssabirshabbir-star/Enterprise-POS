@@ -50,6 +50,7 @@
     <div class="epos-users-tabs epos-users-tabs-secondary">
       <button type="button" data-user-admin-tab="map" class="userAdminTab" disabled aria-disabled="true" title="Role Permission Map is unavailable until separately approved.">Role Permission Map Unavailable</button>
       <button type="button" data-user-admin-tab="activity" class="userAdminTab">Activity Log</button>
+      <button type="button" data-user-admin-tab="sessions" class="userAdminTab">Active Sessions</button>
     </div>
   </section>
   <p id="userToolbarMessage" class="hidden epos-users-message"></p>
@@ -191,6 +192,28 @@
     </div>
     <div id="userSecurityPolicy" class="epos-users-security-policy"></div>
     <div id="userActivityLog" class="epos-users-permission-matrix">Activity logs will appear here.</div>
+  </div>
+
+  <div data-user-admin-panel="sessions" class="userAdminPanel hidden epos-users-main-card">
+    <div class="epos-users-permission-head">
+      <div>
+        <h3>Active Sessions</h3>
+        <p>Read-only refresh-token sessions. Force logout and session revocation remain unavailable.</p>
+      </div>
+      <button id="refreshUserSessionsButton" type="button" class="epos-users-action green">Refresh</button>
+    </div>
+    <div class="epos-users-toolbar">
+      <select id="sessionStatusFilter" class="epos-users-input">
+        <option value="Active">Active Sessions</option>
+        <option value="">All Sessions</option>
+        <option value="Expired">Expired</option>
+        <option value="Revoked">Revoked</option>
+      </select>
+      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Force logout is unavailable until session governance is approved.">Force Logout Unavailable</button>
+      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Logout all sessions is unavailable until session governance is approved.">Logout All Unavailable</button>
+      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Session export is unavailable.">Export Unavailable</button>
+    </div>
+    <div id="userSessionList" class="epos-users-permission-matrix">Active sessions will appear here.</div>
   </div>
 
   <div id="userEditorModal" class="epos-users-modal hidden" role="dialog" aria-modal="true" aria-labelledby="userEditorTitle">

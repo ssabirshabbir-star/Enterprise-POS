@@ -353,10 +353,31 @@ async function canAccess(route) {
   };
 }
 
+async function listActiveSessions() {
+  const profileResult = await getProfile();
+
+  if (!profileResult.ok) {
+    return { ok: false, message: 'Authentication required.' };
+  }
+
+  const permissions = Array.isArray(profileResult.profile.permissions)
+    ? profileResult.profile.permissions
+    : [];
+  if (!permissions.includes('users.view')) {
+    return { ok: false, message: 'Access denied.' };
+  }
+
+  return {
+    ok: true,
+    sessions: await authRepository.listActiveSessions(),
+  };
+}
+
 module.exports = {
   login,
   refreshSession,
   getProfile,
+  listActiveSessions,
   logout,
   canAccess,
 };

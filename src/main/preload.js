@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('posApi', {
     profile: () => ipcRenderer.invoke('/auth/profile'),
     refresh: () => ipcRenderer.invoke('/auth/refresh'),
     logout: () => ipcRenderer.invoke('/auth/logout'),
+    sessions: () => ipcRenderer.invoke('/auth/sessions'),
     canAccess: (route) => ipcRenderer.invoke('/auth/can-access', route),
   },
   users: {
@@ -42,6 +43,7 @@ contextBridge.exposeInMainWorld('posApi', {
     setUserActive: (id, isActive) => ipcRenderer.invoke('/users/status', { id, isActive }),
     resetPassword: (id, password) => ipcRenderer.invoke('/users/reset-password', { id, password }),
     securityActivity: () => ipcRenderer.invoke('/users/security-activity'),
+    activeSessions: () => ipcRenderer.invoke('/auth/sessions'),
     listRoles: () => ipcRenderer.invoke('/roles/list'),
   },
   products: {

@@ -17,5 +17,6 @@
     saveRolePermissions: (roleId, permissionIds) =>
       rolesApi().savePermissions(roleId, permissionIds || []),
     securityActivity: () => api().securityActivity(),
+    activeSessions: () => api().activeSessions(),
   };
 })();

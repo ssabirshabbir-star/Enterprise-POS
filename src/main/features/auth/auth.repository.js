@@ -189,6 +189,44 @@ async function cleanupStaleRefreshTokens({ revokedRetentionDays = 7 } = {}) {
   });
 }
 
+async function listActiveSessions() {
+  const result = await getPool().query(
+    `
+      SELECT refresh_tokens.id, refresh_tokens.user_id, refresh_tokens.expires_at,
+             refresh_tokens.revoked_at, refresh_tokens.created_at, refresh_tokens.last_used_at,
+             users.username, users.full_name, users.email, users.is_active
+      FROM refresh_tokens
+      INNER JOIN users ON users.id = refresh_tokens.user_id
+      ORDER BY
+        CASE
+          WHEN refresh_tokens.revoked_at IS NOT NULL THEN 2
+          WHEN refresh_tokens.expires_at < NOW() THEN 1
+          ELSE 0
+        END ASC,
+        refresh_tokens.created_at DESC
+      LIMIT 200
+    `
+  );
+  const now = new Date();
+  return result.rows.map((row) => {
+    const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
+    const status = row.revoked_at ? 'Revoked' : expiresAt && expiresAt < now ? 'Expired' : 'Active';
+    return {
+      sessionId: row.id,
+      userId: row.user_id,
+      username: row.username,
+      fullName: row.full_name,
+      email: row.email,
+      userActive: row.is_active,
+      status,
+      createdAt: row.created_at,
+      lastUsedAt: row.last_used_at,
+      expiresAt: row.expires_at,
+      revokedAt: row.revoked_at,
+    };
+  });
+}
+
 module.exports = {
   cleanupStaleRefreshTokens,
   createRefreshToken,
@@ -196,6 +234,7 @@ module.exports = {
   findUserByUsername,
   getUserPermissions,
   findUserById,
+  listActiveSessions,
   markLoginFailure,
   markLoginSuccess,
   revokeRefreshToken,

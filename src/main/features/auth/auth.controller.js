@@ -54,6 +54,18 @@ function registerAuthRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/auth/sessions', async () => {
+    try {
+      if (!authService?.listActiveSessions) {
+        return safeError('Auth service not initialized.');
+      }
+      return await authService.listActiveSessions();
+    } catch (error) {
+      logError('Auth sessions error:', error);
+      return safeError('Unable to load active sessions.');
+    }
+  });
+
   ipcMain.handle('/auth/can-access', async (_event, route) => {
     try {
       if (!authService?.canAccess) {
