@@ -97,6 +97,31 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/assess-restore-eligibility', async (event) => {
+    try {
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Assess Restore Eligibility',
+        properties: ['openFile'],
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return {
+          ok: false,
+          eligibilityStatus: 'blocked',
+          restoreEligible: false,
+          message: 'Eligibility assessment cancelled. Restore remains unavailable.',
+          passedConditions: [],
+          failedConditions: [],
+          blockingReasons: ['No backup package was selected.'],
+          warnings: [],
+        };
+      }
+      return await settingsService.assessRestoreEligibility(result.filePaths[0]);
+    } catch (error) {
+      return safeError(error, 'Restore eligibility assessment error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

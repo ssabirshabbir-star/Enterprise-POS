@@ -182,6 +182,8 @@ contextBridge.exposeInMainWorld('posApi', {
     createBackup: () => ipcRenderer.invoke('/settings/backups/create'),
     inspectRestorePackage: () => ipcRenderer.invoke('/settings/backups/inspect-restore-package'),
     verifyRestorePackage: () => ipcRenderer.invoke('/settings/backups/verify-restore-package'),
+    assessRestoreEligibility: () =>
+      ipcRenderer.invoke('/settings/backups/assess-restore-eligibility'),
     restoreBackup: () => ipcRenderer.invoke('/settings/backups/restore'),
   },
   sync: {

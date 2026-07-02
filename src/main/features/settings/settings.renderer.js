@@ -189,6 +189,52 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderEligibilityAssessment(result = {}) {
+    const panel = $id('restoreEligibilityAssessment');
+    if (!panel) return;
+    if (!result.eligibilityStatus) {
+      panel.textContent = 'Eligibility Assessment Only - Restore is not available.';
+      return;
+    }
+    const summary = result.summary || {};
+    const passedConditions = Array.isArray(result.passedConditions) ? result.passedConditions : [];
+    const failedConditions = Array.isArray(result.failedConditions) ? result.failedConditions : [];
+    const blockingReasons = Array.isArray(result.blockingReasons) ? result.blockingReasons : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const lines = [
+      result.message || 'Eligibility assessment completed. Restore remains unavailable.',
+      `Eligibility Status: ${text(result.eligibilityStatus)}`,
+      `Verification Status: ${text(result.verificationStatus)}`,
+      `File: ${text(result.fileName || summary.fileName)}`,
+      `Backup ID: ${text(summary.backupId)}`,
+      `Correlation ID: ${text(summary.correlationId)}`,
+      `Backup Class: ${text(summary.backupClass)}`,
+      `Workflow Version: ${text(summary.workflowVersion)}`,
+      `Manifest Version: ${text(summary.manifestVersion)}`,
+      `Schema Version: ${text(summary.schemaVersion)}`,
+      `Application Version: ${text(summary.applicationVersion)}`,
+      `Certification Status: ${text(summary.certificationStatus)}`,
+      `Passed Conditions: ${passedConditions.length}`,
+      `Failed Conditions: ${failedConditions.length}`,
+      `Blocking Reasons: ${blockingReasons.length}`,
+      `Warnings: ${warnings.length}`,
+      'Restore: Not available',
+    ];
+    if (blockingReasons.length) {
+      lines.push('Blocking Reasons:', ...blockingReasons.map((reason) => `- ${text(reason)}`));
+    }
+    if (failedConditions.length) {
+      lines.push(
+        'Failed Conditions:',
+        ...failedConditions.map((item) => `- ${text(item.name)}: ${text(item.message)}`)
+      );
+    }
+    if (warnings.length) {
+      lines.push('Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function setBackupBusy(isBusy) {
     const button = $id('createBackupButton');
     if (!button) return;
@@ -287,6 +333,19 @@
     }
   }
 
+  async function handleAssessRestoreEligibility() {
+    try {
+      const result = await A().assessRestoreEligibility();
+      renderEligibilityAssessment(result || {});
+      showMessage(
+        result?.message || 'Eligibility assessment completed. Restore remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Eligibility assessment failed. Restore remains unavailable.', 'error');
+    }
+  }
+
   function addListener(target, eventName, handler, options) {
     if (!target) return;
     target.addEventListener(eventName, handler, options);
@@ -320,6 +379,7 @@
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
       addListener($id('inspectRestorePackageButton'), 'click', handleInspectRestorePackage);
       addListener($id('verifyRestorePackageButton'), 'click', handleVerifyRestorePackage);
+      addListener($id('assessRestoreEligibilityButton'), 'click', handleAssessRestoreEligibility);
     }
     loadReadOnlyData().catch(() => {});
   }
@@ -331,6 +391,7 @@
     if (diff.backups) renderBackups({ backups: diff.backups });
     if (diff.packageInspection) renderPackageInspection(diff.packageInspection);
     if (diff.packageVerification) renderPackageVerification(diff.packageVerification);
+    if (diff.restoreEligibility) renderEligibilityAssessment(diff.restoreEligibility);
     if (diff.message) showMessage(diff.message, diff.type || 'success');
   }
 

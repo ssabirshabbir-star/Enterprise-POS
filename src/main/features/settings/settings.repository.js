@@ -650,6 +650,16 @@ function verificationResult(status, message, details = {}) {
   };
 }
 
+function eligibilityResult(status, message, details = {}) {
+  return {
+    ok: status === 'eligible_for_authorization',
+    eligibilityStatus: status,
+    message,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
 function summarizePackage(filePath, backup) {
   const manifest = backup.manifest || {};
   const metadata = backup.metadata || {};
@@ -703,6 +713,15 @@ function packageSummary(filePath, backup) {
 
 function check(name, passed, message) {
   return { name, passed: Boolean(passed), message };
+}
+
+function condition(name, passed, message, blockingReason) {
+  return {
+    name,
+    passed: Boolean(passed),
+    message,
+    blockingReason: passed ? null : blockingReason || message,
+  };
 }
 
 function validateCertifiedBackup(filePath, backup) {
@@ -940,7 +959,125 @@ async function verifyRestorePackage(filePath) {
   return validateCertifiedBackup(filePath, backup);
 }
 
+async function assessRestoreEligibility(filePath) {
+  const verification = await verifyRestorePackage(filePath);
+  const summary = verification.summary || {};
+  const passedCheckNames = new Set(
+    (Array.isArray(verification.passedChecks) ? verification.passedChecks : []).map(
+      (item) => item.name
+    )
+  );
+  const conditions = [
+    condition(
+      'package.read',
+      verification.packageStatus !== 'package_unreadable' && verification.verificationStatus,
+      'Package read result is available.',
+      'Package could not be read.'
+    ),
+    condition(
+      'package.verified',
+      verification.verificationStatus === 'passed',
+      'Package verification passed.',
+      'Package verification did not pass.'
+    ),
+    condition(
+      'manifest.version',
+      passedCheckNames.has('manifest.version'),
+      'Manifest version is supported.',
+      'Manifest version is missing or unsupported.'
+    ),
+    condition(
+      'workflow.version',
+      passedCheckNames.has('workflow.version'),
+      'Workflow version is supported.',
+      'Workflow version is missing or unsupported.'
+    ),
+    condition(
+      'backup.class',
+      passedCheckNames.has('backup.class'),
+      'Backup class is supported.',
+      'Backup class is missing or unsupported.'
+    ),
+    condition(
+      'integrity.hash',
+      passedCheckNames.has('integrity.hash'),
+      'SHA-256 verification passed.',
+      'SHA-256 verification failed.'
+    ),
+    condition(
+      'metadata.complete',
+      passedCheckNames.has('metadata.present') &&
+        Boolean(summary.createdAt) &&
+        Boolean(summary.schemaVersion) &&
+        Boolean(summary.applicationVersion),
+      'Metadata contains required compatibility information.',
+      'Metadata is missing required compatibility information.'
+    ),
+    condition(
+      'required.identifiers',
+      passedCheckNames.has('backup.uuid') && passedCheckNames.has('correlation.id'),
+      'Required identifiers are present.',
+      'Required backup or correlation identifiers are missing.'
+    ),
+    condition(
+      'table.coverage',
+      passedCheckNames.has('coverage.included') && passedCheckNames.has('coverage.excluded'),
+      'Table coverage declaration is acceptable.',
+      'Table coverage declaration is missing or unacceptable.'
+    ),
+    condition(
+      'payload.consistency',
+      passedCheckNames.has('payload.present') &&
+        passedCheckNames.has('payload.inventory') &&
+        passedCheckNames.has('row.counts'),
+      'Payload consistency is acceptable.',
+      'Payload/table inventory consistency failed.'
+    ),
+    condition(
+      'certification.status',
+      passedCheckNames.has('certification.status') &&
+        summary.certificationStatus === 'Backup Certified',
+      'Backup certification status is acceptable.',
+      'Backup certification status is missing or unacceptable.'
+    ),
+    condition(
+      'schema.compatibility',
+      Boolean(summary.schemaVersion),
+      'Schema compatibility information is present.',
+      'Schema compatibility information is missing.'
+    ),
+    condition(
+      'application.compatibility',
+      Boolean(summary.applicationVersion),
+      'Application version compatibility information is present.',
+      'Application version compatibility information is missing.'
+    ),
+  ];
+  const failedConditions = conditions.filter((item) => !item.passed);
+  const passedConditions = conditions.filter((item) => item.passed);
+  const blockingReasons = failedConditions.map((item) => item.blockingReason);
+  const warnings = Array.isArray(verification.warnings) ? verification.warnings : [];
+  const eligible = failedConditions.length === 0;
+  return eligibilityResult(
+    eligible ? 'eligible_for_authorization' : 'blocked',
+    eligible
+      ? 'Package satisfies eligibility checks but Restore remains unavailable pending authorization and certification.'
+      : 'Package is blocked from authorization. Restore remains unavailable.',
+    {
+      fileName: verification.fileName || summary.fileName,
+      filePath: verification.filePath || summary.filePath,
+      summary,
+      verificationStatus: verification.verificationStatus,
+      passedConditions,
+      failedConditions,
+      blockingReasons,
+      warnings,
+    }
+  );
+}
+
 module.exports = {
+  assessRestoreEligibility,
   exportBackup,
   getSettings,
   inspectRestorePackage,

@@ -34,7 +34,12 @@
     return api().settings.verifyRestorePackage();
   }
 
+  async function assessRestoreEligibility() {
+    return api().settings.assessRestoreEligibility();
+  }
+
   window.SettingsApi = {
+    assessRestoreEligibility,
     appInfo,
     createBackup,
     getSettings,
