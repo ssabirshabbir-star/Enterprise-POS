@@ -18,6 +18,8 @@ const routePanels = document.querySelectorAll('[data-route-panel]');
 // ---- App State ---------------------------------------------
 let currentProfile = null;
 
+const AuthApi = () => window.AuthApi;
+
 const routeMeta = {
   '/dashboard': { title: 'Dashboard', module: 'dashboard' },
   '/pos': { title: 'Billing', module: 'pos' },
@@ -158,7 +160,7 @@ async function navigateTo(route) {
 
   if (target !== '/dashboard') {
     try {
-      const access = await window.posApi.auth.canAccess(meta.module);
+      const access = await AuthApi().canAccess(meta.module);
       if (!access?.allowed) {
         return navigateTo('/dashboard');
       }
@@ -220,7 +222,7 @@ loginButton?.addEventListener('click', async () => {
   clearLoginMessage();
   loginButton.disabled = true;
   try {
-    const result = await window.posApi.auth.login({ username, password });
+    const result = await AuthApi().login({ username, password });
     if (result?.ok) {
       loginPasswordInput.value = '';
       showDashboard(result.profile);
@@ -242,7 +244,7 @@ loginPasswordInput?.addEventListener('keydown', (e) => {
 
 logoutButton?.addEventListener('click', async () => {
   try {
-    await window.posApi.auth.logout();
+    await AuthApi().logout();
   } catch {}
   currentProfile = null;
   document
@@ -265,7 +267,7 @@ document.addEventListener('click', (e) => {
 async function restoreSession() {
   try {
     setCheckingSession(true);
-    const result = await window.posApi.auth.profile();
+    const result = await AuthApi().profile();
     if (result?.ok) {
       setAuthUser(result.profile);
       showDashboard(result.profile);
