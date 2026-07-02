@@ -376,6 +376,118 @@ function restoreTransactionResult(state, message, details = {}) {
   };
 }
 
+function buildRestoreTransactionBoundaryMetadata(state, blockers = []) {
+  const blocked = blockers.length > 0 || state !== 'transaction_ready';
+  return {
+    assessmentOnly: true,
+    transactionBoundaryStatus: blocked ? 'boundary_blocked' : 'boundary_ready_for_future_planning',
+    entryBoundary: {
+      state: blocked ? 'blocked' : 'ready_for_future_planning',
+      message: blocked
+        ? 'Transaction entry boundary is blocked by governance or foundation evidence.'
+        : 'Transaction entry boundary metadata is ready for future planning only.',
+    },
+    pauseBoundary: {
+      state: 'metadata_only',
+      message:
+        'Pause boundary is metadata only. No transaction can pause because no transaction executes.',
+    },
+    abortBoundary: {
+      state: blocked ? 'available_before_execution' : 'available_before_future_execution',
+      message: 'Abort boundary is metadata only before any Restore transaction execution.',
+    },
+    commitBoundary: {
+      state: 'blocked',
+      message: 'Commit boundary is blocked. No restored data may be committed in this phase.',
+    },
+    failureBoundary: {
+      state: blocked ? 'active' : 'monitoring',
+      message:
+        'Failure boundary maps assessment failures only. No Restore transaction execution exists.',
+    },
+  };
+}
+
+function buildRestoreTransactionCheckpointSequence(state, blockers = []) {
+  const blocked = blockers.length > 0 || state !== 'transaction_ready';
+  return [
+    restoreTransactionCheckpoint(
+      'checkpoint_context_created',
+      'transaction_not_started',
+      'Assessment context created without entering a Restore transaction.'
+    ),
+    restoreTransactionCheckpoint(
+      'checkpoint_governance_precheck',
+      'transaction_precheck',
+      'Governance and foundation evidence reviewed for transaction planning only.'
+    ),
+    restoreTransactionCheckpoint(
+      'checkpoint_boundary_mapping',
+      blocked ? 'transaction_blocked' : 'transaction_ready',
+      blocked
+        ? 'Transaction boundary metadata remains blocked by governance evidence.'
+        : 'Transaction boundary metadata is ready for future orchestration planning only.'
+    ),
+    restoreTransactionCheckpoint(
+      'checkpoint_commit_guard',
+      'transaction_blocked',
+      'Commit boundary remains blocked. No Restore data can be committed.'
+    ),
+    restoreTransactionCheckpoint(
+      'checkpoint_rollback_metadata',
+      'transaction_not_started',
+      'Rollback plan metadata recorded only. No rollback execution exists.'
+    ),
+  ];
+}
+
+function buildRestoreTransactionFailureMap(state, blockers = []) {
+  const blocked = blockers.length > 0 || state !== 'transaction_ready';
+  return {
+    preTransaction: {
+      state: blocked ? 'blocked' : 'clear_for_future_planning',
+      reasons: blockers,
+      response: blocked
+        ? 'Stop before transaction entry.'
+        : 'Future transaction entry remains unavailable until later approval.',
+    },
+    transactionStart: {
+      state: 'blocked',
+      response: 'Transaction start is blocked in Phase 3B.2.',
+    },
+    midTransaction: {
+      state: 'not_applicable',
+      response: 'No mid-transaction failure can occur because no transaction executes.',
+    },
+    postTransaction: {
+      state: 'not_applicable',
+      response: 'No post-transaction failure can occur because no transaction commits.',
+    },
+    auditFinalization: {
+      state: 'audit_only',
+      response: 'Assessment audit evidence is recorded without Restore execution.',
+    },
+    unexpectedFailure: {
+      state: 'blocked',
+      response: 'Unexpected assessment failure must stop before any transaction boundary.',
+    },
+  };
+}
+
+function buildRestoreRollbackPlanMetadata(state, blockers = []) {
+  const blocked = blockers.length > 0 || state !== 'transaction_ready';
+  return {
+    rollbackPlanStatus: 'metadata_only',
+    rollbackExecutionAvailable: false,
+    rollbackRequired: false,
+    rollbackBlocked: true,
+    rollbackImpossible: false,
+    rollbackBoundary: blocked ? 'pre_transaction_blocked' : 'pre_transaction_planning_only',
+    message:
+      'Rollback plan is metadata only. No rollback execution exists because no Restore transaction executes.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -628,6 +740,19 @@ async function assessRestoreTransactionFoundation() {
           transactionPrecheckResult: 'blocked',
           checkpoints,
           blockingReasons: ['Authentication is required.'],
+          transactionBoundaryMetadata: buildRestoreTransactionBoundaryMetadata(
+            'transaction_blocked',
+            ['Authentication is required.']
+          ),
+          checkpointSequence: buildRestoreTransactionCheckpointSequence('transaction_blocked', [
+            'Authentication is required.',
+          ]),
+          failureStateMap: buildRestoreTransactionFailureMap('transaction_blocked', [
+            'Authentication is required.',
+          ]),
+          rollbackPlanMetadata: buildRestoreRollbackPlanMetadata('transaction_blocked', [
+            'Authentication is required.',
+          ]),
         }
       );
     } else {
@@ -655,17 +780,25 @@ async function assessRestoreTransactionFoundation() {
         blockers.push(...foundation.blockingReasons);
       }
       const ready = blockers.length === 0;
+      const transactionState = ready ? 'transaction_ready' : 'transaction_blocked';
+      const boundaryMetadata = buildRestoreTransactionBoundaryMetadata(transactionState, blockers);
+      const checkpointSequence = buildRestoreTransactionCheckpointSequence(
+        transactionState,
+        blockers
+      );
+      const failureStateMap = buildRestoreTransactionFailureMap(transactionState, blockers);
+      const rollbackPlanMetadata = buildRestoreRollbackPlanMetadata(transactionState, blockers);
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
-          ready ? 'transaction_ready' : 'transaction_blocked',
+          transactionState,
           ready
             ? 'Transaction foundation precheck passed for future orchestration planning only.'
             : 'Transaction foundation precheck is blocked by governance or foundation evidence.'
         )
       );
       result = restoreTransactionResult(
-        ready ? 'transaction_ready' : 'transaction_blocked',
+        transactionState,
         ready
           ? 'Restore transaction foundation is ready for future orchestration planning only. No Restore transaction was executed, no data was committed, and Restore remains unavailable.'
           : 'Restore transaction foundation assessment blocked. No Restore transaction was executed, no data was committed, and Restore remains unavailable.',
@@ -681,6 +814,10 @@ async function assessRestoreTransactionFoundation() {
             ? foundation.outstandingRequirements
             : [],
           blockingReasons: Array.from(new Set(blockers)),
+          transactionBoundaryMetadata: boundaryMetadata,
+          checkpointSequence,
+          failureStateMap,
+          rollbackPlanMetadata,
         }
       );
     }
@@ -700,6 +837,18 @@ async function assessRestoreTransactionFoundation() {
         transactionPrecheckResult: 'failed',
         checkpoints,
         blockingReasons: ['Transaction foundation assessment failed before Restore transaction.'],
+        transactionBoundaryMetadata: buildRestoreTransactionBoundaryMetadata('transaction_failed', [
+          'Transaction foundation assessment failed before Restore transaction.',
+        ]),
+        checkpointSequence: buildRestoreTransactionCheckpointSequence('transaction_failed', [
+          'Transaction foundation assessment failed before Restore transaction.',
+        ]),
+        failureStateMap: buildRestoreTransactionFailureMap('transaction_failed', [
+          'Transaction foundation assessment failed before Restore transaction.',
+        ]),
+        rollbackPlanMetadata: buildRestoreRollbackPlanMetadata('transaction_failed', [
+          'Transaction foundation assessment failed before Restore transaction.',
+        ]),
       }
     );
   }
@@ -720,6 +869,10 @@ async function assessRestoreTransactionFoundation() {
       restoreUnavailable: true,
       restoreEligible: false,
       checkpoints: result.checkpoints,
+      checkpointSequence: result.checkpointSequence || [],
+      transactionBoundaryMetadata: result.transactionBoundaryMetadata || null,
+      failureStateMap: result.failureStateMap || null,
+      rollbackPlanMetadata: result.rollbackPlanMetadata || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],

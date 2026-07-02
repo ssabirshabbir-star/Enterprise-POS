@@ -554,11 +554,19 @@
     const outstanding = Array.isArray(result.outstandingRequirements)
       ? result.outstandingRequirements
       : [];
+    const boundary = result.transactionBoundaryMetadata || {};
+    const entryBoundary = boundary.entryBoundary || {};
+    const commitBoundary = boundary.commitBoundary || {};
+    const failureBoundary = boundary.failureBoundary || {};
+    const sequence = Array.isArray(result.checkpointSequence) ? result.checkpointSequence : [];
+    const failureMap = result.failureStateMap || {};
+    const rollbackPlan = result.rollbackPlanMetadata || {};
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
       `Transaction Foundation Status: ${text(result.transactionState)}`,
       `Transaction Precheck Result: ${text(result.transactionPrecheckResult)}`,
+      `Transaction Boundary Status: ${text(boundary.transactionBoundaryStatus)}`,
       `Foundation State: ${text(result.foundationState)}`,
       `Audit Correlation ID: ${text(result.auditCorrelationId)}`,
       `Foundation Audit Correlation ID: ${text(result.foundationAuditCorrelationId)}`,
@@ -575,6 +583,38 @@
       ...checkpoints.map(
         (item) => `- ${text(item.name)}: ${text(item.state)} - ${text(item.message)}`
       ),
+      '',
+      'Boundary Metadata:',
+      `- Entry Boundary: ${text(entryBoundary.state)} - ${text(entryBoundary.message)}`,
+      `- Commit Boundary: ${text(commitBoundary.state)} - ${text(commitBoundary.message)}`,
+      `- Failure Boundary: ${text(failureBoundary.state)} - ${text(failureBoundary.message)}`,
+      '',
+      'Checkpoint Sequence:',
+      ...sequence.map(
+        (item) => `- ${text(item.name)}: ${text(item.state)} - ${text(item.message)}`
+      ),
+      '',
+      'Failure-State Mapping:',
+      `- Pre-Transaction: ${text(failureMap.preTransaction?.state)} - ${text(
+        failureMap.preTransaction?.response
+      )}`,
+      `- Transaction Start: ${text(failureMap.transactionStart?.state)} - ${text(
+        failureMap.transactionStart?.response
+      )}`,
+      `- Mid-Transaction: ${text(failureMap.midTransaction?.state)} - ${text(
+        failureMap.midTransaction?.response
+      )}`,
+      `- Post-Transaction: ${text(failureMap.postTransaction?.state)} - ${text(
+        failureMap.postTransaction?.response
+      )}`,
+      '',
+      'Rollback Plan Metadata:',
+      `- Status: ${text(rollbackPlan.rollbackPlanStatus)}`,
+      `- Execution Available: ${rollbackPlan.rollbackExecutionAvailable === true ? 'Yes' : 'No'}`,
+      `- Required: ${rollbackPlan.rollbackRequired === true ? 'Yes' : 'No'}`,
+      `- Blocked: ${rollbackPlan.rollbackBlocked === true ? 'Yes' : 'No'}`,
+      `- Boundary: ${text(rollbackPlan.rollbackBoundary)}`,
+      `- ${text(rollbackPlan.message)}`,
     ];
     if (blockers.length) {
       lines.push(
