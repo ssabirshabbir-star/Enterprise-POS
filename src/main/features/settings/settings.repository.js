@@ -1,41 +1,469 @@
 const fs = require('fs/promises');
+const crypto = require('crypto');
+const os = require('os');
 const path = require('path');
 const { getPool, withTransaction } = require('../../database/connection');
+const packageJson = require('../../../../package.json');
 
 const SETTING_KEYS = ['store', 'tax', 'system'];
-const BACKUP_TABLES = [
-  'categories',
-  'brands',
-  'units',
-  'products',
-  'warehouses',
-  'inventory',
-  'stock_movements',
-  'suppliers',
-  'purchases',
-  'purchase_items',
-  'supplier_ledger',
-  'customers',
-  'sales',
-  'sale_items',
-  'payments',
-  'customer_ledger',
-  'customer_payments',
-  'returns',
-  'return_items',
-  'refund_payments',
-  'held_sales',
-  'offline_queue',
-  'printer_settings',
-  'app_settings'
-];
-const RESTORE_SEQUENCE_TABLES = BACKUP_TABLES.filter((table) => table !== 'app_settings');
+const BACKUP_WORKFLOW_VERSION = 'certified-backup-phase-1';
+const BACKUP_MANIFEST_VERSION = '1.0';
+const BACKUP_FORMAT_VERSION = '1.0';
+const SCHEMA_VERSION = 'current';
+const INTEGRITY_ALGORITHM = 'sha256';
+const BACKUP_COVERAGE_POLICY = {
+  policyDocument: '45_TABLE_COVERAGE_POLICY.md',
+  backupClass: 'Operational Backup',
+  restoreEligibility: 'Restore blocked until certification',
+  tables: [
+    {
+      name: 'roles',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Parent',
+    },
+    {
+      name: 'users',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'permissions',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Parent',
+    },
+    {
+      name: 'role_permissions',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'activity_logs',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Audit',
+    },
+    {
+      name: 'categories',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
+      name: 'brands',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
+      name: 'units',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
+      name: 'products',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'warehouses',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
+      name: 'inventory',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'stock_movements',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'suppliers',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
+      name: 'supplier_ledger',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'supplier_payments',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'purchases',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'purchase_items',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'purchase_requisitions',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'purchase_requisition_items',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'purchase_orders',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'purchase_order_items',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'goods_receipts',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'goods_receipt_items',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'customers',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
+      name: 'sales',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'sale_items',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'payments',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'customer_ledger',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'customer_payments',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Child',
+    },
+    {
+      name: 'returns',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'return_items',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'refund_payments',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Critical',
+      dependency: 'Child',
+    },
+    {
+      name: 'expense_categories',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Parent',
+    },
+    {
+      name: 'expenses',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'held_sales',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Child',
+    },
+    {
+      name: 'printer_settings',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Configuration',
+    },
+    {
+      name: 'app_settings',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Configuration',
+    },
+    {
+      name: 'backup_logs',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Audit',
+    },
+    {
+      name: 'terminals',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Operational',
+    },
+    {
+      name: 'sync_logs',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Audit',
+    },
+    {
+      name: 'offline_queue',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Operational',
+    },
+    {
+      name: 'device_registrations',
+      classification: 'Mandatory',
+      recoveryCriticality: 'Medium',
+      dependency: 'Operational',
+    },
+    {
+      name: 'licenses',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Configuration',
+    },
+    {
+      name: 'update_checks',
+      classification: 'Optional',
+      recoveryCriticality: 'Low',
+      dependency: 'Audit',
+    },
+    {
+      name: 'lucky_draw_campaigns',
+      classification: 'Optional',
+      recoveryCriticality: 'Low',
+      dependency: 'Future Reserved',
+    },
+    {
+      name: 'lucky_draw_entries',
+      classification: 'Optional',
+      recoveryCriticality: 'Low',
+      dependency: 'Future Reserved',
+    },
+    {
+      name: 'lucky_draw_winners',
+      classification: 'Optional',
+      recoveryCriticality: 'Low',
+      dependency: 'Future Reserved',
+    },
+    {
+      name: 'coupon_logs',
+      classification: 'Optional',
+      recoveryCriticality: 'Low',
+      dependency: 'Future Reserved',
+    },
+  ],
+  excludedTables: [
+    {
+      name: 'refresh_tokens',
+      classification: 'Runtime Cache',
+      recoveryCriticality: 'Rebuildable',
+      reason: 'Authentication runtime state must be revalidated after Restore.',
+    },
+  ],
+};
+const BACKUP_TABLES = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name);
 
 function quoteIdentifier(identifier) {
   if (!/^[a-z_][a-z0-9_]*$/i.test(identifier)) {
     throw new Error('Invalid database identifier.');
   }
   return `"${identifier}"`;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function hashValue(value) {
+  return crypto.createHash(INTEGRITY_ALGORITHM).update(stableStringify(value)).digest('hex');
+}
+
+function createBackupId() {
+  return crypto.randomUUID();
+}
+
+async function databaseVersion() {
+  const result = await getPool().query('SELECT version() AS version');
+  return result.rows[0]?.version || 'unknown';
+}
+
+async function collectBackupData() {
+  const data = {};
+  const tableEvidence = [];
+  for (const table of BACKUP_COVERAGE_POLICY.tables) {
+    const result = await getPool().query(
+      `SELECT * FROM ${quoteIdentifier(table.name)} ORDER BY 1 ASC`
+    );
+    data[table.name] = result.rows;
+    tableEvidence.push({
+      ...table,
+      rowCount: result.rowCount,
+    });
+  }
+  return { data, tableEvidence };
+}
+
+function createManifest({ backupId, correlationId, createdAt, dataHash, tableEvidence }) {
+  return {
+    backupIdentity: {
+      backupId,
+      correlationId,
+    },
+    backupClass: BACKUP_COVERAGE_POLICY.backupClass,
+    manifestVersion: BACKUP_MANIFEST_VERSION,
+    compatibilityDeclaration: {
+      application: 'Enterprise POS',
+      applicationVersion: packageJson.version,
+      backupFormatVersion: BACKUP_FORMAT_VERSION,
+      workflowVersion: BACKUP_WORKFLOW_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+    },
+    coverageDeclaration: {
+      policyDocument: BACKUP_COVERAGE_POLICY.policyDocument,
+      includedTables: tableEvidence,
+      excludedTables: BACKUP_COVERAGE_POLICY.excludedTables,
+    },
+    integrityDeclaration: {
+      algorithm: INTEGRITY_ALGORITHM,
+      dataHash,
+    },
+    recoveryDeclaration: {
+      restoreEligible: false,
+      restoreStatus: 'Blocked',
+      restoreBlockReason:
+        'Restore remains blocked until Documents 48 and 49 certification gates are implemented.',
+    },
+    createdAt,
+  };
+}
+
+async function createMetadata({ backupId, correlationId, createdAt, userId }) {
+  return {
+    backupUuid: backupId,
+    createdAt,
+    operator: {
+      userId,
+    },
+    applicationVersion: packageJson.version,
+    schemaVersion: SCHEMA_VERSION,
+    workflowVersion: BACKUP_WORKFLOW_VERSION,
+    databaseVersion: await databaseVersion(),
+    edition: 'Desktop POS',
+    machine: os.hostname(),
+    terminal: null,
+    correlationId,
+  };
+}
+
+function createVerification({ backup, parsedBackup }) {
+  const expectedHash = backup.manifest.integrityDeclaration.dataHash;
+  const actualHash = hashValue(parsedBackup.data);
+  const coverageTables = backup.manifest.coverageDeclaration.includedTables.map(
+    (table) => table.name
+  );
+  const parsedTables = Object.keys(parsedBackup.data || {}).sort();
+  const expectedTables = [...coverageTables].sort();
+  const rowCountsMatch = backup.manifest.coverageDeclaration.includedTables.every(
+    (table) =>
+      Array.isArray(parsedBackup.data?.[table.name]) &&
+      parsedBackup.data[table.name].length === table.rowCount
+  );
+  const tablesMatch = stableStringify(parsedTables) === stableStringify(expectedTables);
+  const passed =
+    parsedBackup?.metadata?.backupUuid === backup.metadata.backupUuid &&
+    parsedBackup?.manifest?.manifestVersion === BACKUP_MANIFEST_VERSION &&
+    parsedBackup?.manifest?.backupClass === BACKUP_COVERAGE_POLICY.backupClass &&
+    parsedBackup?.manifest?.recoveryDeclaration?.restoreEligible === false &&
+    actualHash === expectedHash &&
+    tablesMatch &&
+    rowCountsMatch;
+
+  return {
+    status: passed ? 'Passed' : 'Failed',
+    verifiedAt: new Date().toISOString(),
+    checks: {
+      manifestPresent: Boolean(parsedBackup.manifest),
+      metadataPresent: Boolean(parsedBackup.metadata),
+      backupIdentityMatch: parsedBackup?.metadata?.backupUuid === backup.metadata.backupUuid,
+      manifestVersionMatch: parsedBackup?.manifest?.manifestVersion === BACKUP_MANIFEST_VERSION,
+      backupClassMatch: parsedBackup?.manifest?.backupClass === BACKUP_COVERAGE_POLICY.backupClass,
+      restoreBlocked: parsedBackup?.manifest?.recoveryDeclaration?.restoreEligible === false,
+      integrityHashMatch: actualHash === expectedHash,
+      coverageTablesMatch: tablesMatch,
+      rowCountsMatch,
+    },
+  };
+}
+
+async function verifyWrittenBackup(filePath, backup) {
+  const raw = await fs.readFile(filePath, 'utf8');
+  const parsedBackup = JSON.parse(raw);
+  const verification = createVerification({ backup, parsedBackup });
+  if (verification.status !== 'Passed') {
+    throw Object.assign(new Error('BACKUP_VERIFICATION_FAILED'), { verification });
+  }
+  return verification;
 }
 
 function mapPrinter(row = {}) {
@@ -45,19 +473,24 @@ function mapPrinter(row = {}) {
     autoPrint: Boolean(row.auto_print),
     silentPrint: Boolean(row.silent_print),
     receiptCopies: Number(row.receipt_copies || 1),
-    footerText: row.footer_text || 'Thank you for shopping'
+    footerText: row.footer_text || 'Thank you for shopping',
   };
 }
 
 async function getSettings() {
-  const settingsResult = await getPool().query('SELECT key, value FROM app_settings WHERE key = ANY($1)', [SETTING_KEYS]);
-  const printerResult = await getPool().query('SELECT * FROM printer_settings ORDER BY id ASC LIMIT 1');
+  const settingsResult = await getPool().query(
+    'SELECT key, value FROM app_settings WHERE key = ANY($1)',
+    [SETTING_KEYS]
+  );
+  const printerResult = await getPool().query(
+    'SELECT * FROM printer_settings ORDER BY id ASC LIMIT 1'
+  );
   const settings = Object.fromEntries(settingsResult.rows.map((row) => [row.key, row.value]));
   return {
     store: settings.store || {},
     tax: settings.tax || {},
     printer: mapPrinter(printerResult.rows[0]),
-    system: settings.system || {}
+    system: settings.system || {},
   };
 }
 
@@ -88,42 +521,61 @@ async function saveSettings(payload, userId) {
         Boolean(payload.printer.silentPrint),
         payload.printer.footerText,
         Boolean(payload.printer.autoPrint),
-        payload.printer.receiptCopies
+        payload.printer.receiptCopies,
       ]
     );
-
   });
   return getSettings();
 }
 
 async function exportBackup(filePath, userId) {
-  const data = {};
-  for (const table of BACKUP_TABLES) {
-    const result = await getPool().query(`SELECT * FROM ${quoteIdentifier(table)} ORDER BY 1 ASC`);
-    data[table] = result.rows;
-  }
+  const backupId = createBackupId();
+  const correlationId = createBackupId();
+  const createdAt = new Date().toISOString();
+  const { data, tableEvidence } = await collectBackupData();
+  const dataHash = hashValue(data);
+  const metadata = await createMetadata({ backupId, correlationId, createdAt, userId });
+  const manifest = createManifest({ backupId, correlationId, createdAt, dataHash, tableEvidence });
 
   const backup = {
-    metadata: {
-      app: 'Enterprise POS',
-      version: 1,
-      createdAt: new Date().toISOString(),
-      tables: BACKUP_TABLES
-    },
-    data
+    manifest,
+    metadata,
+    data,
   };
 
   await fs.writeFile(filePath, JSON.stringify(backup, null, 2), 'utf8');
+  const verification = await verifyWrittenBackup(filePath, backup);
+  const certifiedBackup = {
+    ...backup,
+    verification,
+    certification: {
+      status: 'Backup Certified',
+      certifiedAt: verification.verifiedAt,
+      scope: 'Certified Backup Phase 1',
+      restoreEligible: false,
+    },
+  };
+  await fs.writeFile(filePath, JSON.stringify(certifiedBackup, null, 2), 'utf8');
   const fileName = path.basename(filePath);
   const log = await createBackupLog({
     fileName,
     filePath,
     action: 'BACKUP',
     status: 'SUCCESS',
-    message: 'Backup created successfully.',
-    userId
+    message: `Certified backup created. ${BACKUP_TABLES.length} tables captured. Restore remains blocked.`,
+    userId,
   });
-  return { fileName, filePath, logId: log.id };
+  return {
+    backupId,
+    correlationId,
+    fileName,
+    filePath,
+    logId: log.id,
+    tableCount: BACKUP_TABLES.length,
+    integrityHash: dataHash,
+    verificationStatus: verification.status,
+    restoreEligible: false,
+  };
 }
 
 async function createBackupLog({ fileName, filePath, action, status, message, userId }) {
@@ -156,54 +608,26 @@ async function listBackupLogs() {
     status: row.status,
     message: row.message,
     createdBy: row.created_by_name || 'System',
-    createdAt: row.created_at
+    createdAt: row.created_at,
   }));
 }
 
 async function restoreBackup(filePath, userId) {
-  const raw = await fs.readFile(filePath, 'utf8');
-  const backup = JSON.parse(raw);
-  if (!backup?.metadata || backup.metadata.app !== 'Enterprise POS' || backup.metadata.version !== 1) {
-    throw new Error('INVALID_BACKUP_FILE');
-  }
-  for (const table of BACKUP_TABLES) {
-    if (!Array.isArray(backup.data?.[table])) throw new Error('INVALID_BACKUP_FILE');
-  }
-
-  await withTransaction(async (client) => {
-    await client.query(`TRUNCATE ${BACKUP_TABLES.map(quoteIdentifier).join(', ')} RESTART IDENTITY CASCADE`);
-    for (const table of BACKUP_TABLES) {
-      for (const row of backup.data[table]) {
-        const columns = Object.keys(row);
-        if (columns.length === 0) continue;
-        const placeholders = columns.map((_, index) => `$${index + 1}`);
-        const values = columns.map((column) => row[column]);
-        await client.query(
-          `INSERT INTO ${quoteIdentifier(table)} (${columns.map(quoteIdentifier).join(', ')}) VALUES (${placeholders.join(', ')})`,
-          values
-        );
-      }
-      if (RESTORE_SEQUENCE_TABLES.includes(table)) {
-        await client.query(
-          `
-            SELECT setval(pg_get_serial_sequence($1, 'id'), COALESCE((SELECT MAX(id) FROM ${quoteIdentifier(table)}), 1), COALESCE((SELECT MAX(id) FROM ${quoteIdentifier(table)}), 0) > 0)
-            WHERE pg_get_serial_sequence($1, 'id') IS NOT NULL
-          `,
-          [table]
-        );
-      }
-    }
-  });
-
   await createBackupLog({
-    fileName: path.basename(filePath),
+    fileName: filePath ? path.basename(filePath) : 'restore-blocked',
     filePath,
     action: 'RESTORE',
-    status: 'SUCCESS',
-    message: 'Backup restored successfully.',
-    userId
+    status: 'BLOCKED',
+    message:
+      'Restore blocked. Restore certification and recovery-state governance are not implemented.',
+    userId,
   });
-  return { fileName: path.basename(filePath), filePath };
+  return {
+    ok: false,
+    restoreEligible: false,
+    message:
+      'Restore is blocked until certification, verification, authorization, and recovery-state gates are implemented.',
+  };
 }
 
 module.exports = {
@@ -211,5 +635,5 @@ module.exports = {
   getSettings,
   listBackupLogs,
   restoreBackup,
-  saveSettings
+  saveSettings,
 };

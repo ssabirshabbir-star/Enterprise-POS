@@ -56,16 +56,9 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
-  ipcMain.handle('/settings/backups/restore', async (event) => {
+  ipcMain.handle('/settings/backups/restore', async () => {
     try {
-      const result = await dialog.showOpenDialog(windowFromEvent(event), {
-        title: 'Select POS Backup to Restore',
-        properties: ['openFile'],
-        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
-      });
-      if (result.canceled || !result.filePaths[0])
-        return { ok: false, message: 'Restore cancelled.' };
-      return await settingsService.restoreBackup(result.filePaths[0]);
+      return await settingsService.restoreBackup(null);
     } catch (error) {
       return safeError(error, 'Backup restore error:');
     }

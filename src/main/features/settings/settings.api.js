@@ -22,8 +22,13 @@
     return api().settings.listBackups();
   }
 
+  async function createBackup() {
+    return api().settings.createBackup();
+  }
+
   window.SettingsApi = {
     appInfo,
+    createBackup,
     getSettings,
     listBackups,
     unavailable,

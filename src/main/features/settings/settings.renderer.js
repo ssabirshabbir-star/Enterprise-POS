@@ -125,16 +125,76 @@
       .join('');
   }
 
+  function setBackupBusy(isBusy) {
+    const button = $id('createBackupButton');
+    if (!button) return;
+    button.disabled = Boolean(isBusy);
+    button.setAttribute('aria-disabled', String(Boolean(isBusy)));
+    button.textContent = isBusy ? 'Creating Backup...' : 'Create Certified Backup';
+  }
+
   function showUnavailable(featureName) {
     const result = A().unavailable(featureName);
     showMessage(result.message, 'error');
   }
 
   function handleBlockedAction(event) {
-    const target = event.target.closest('[data-settings-tab], button[disabled]');
+    const target = event.target.closest('[data-settings-tab][disabled], button[disabled]');
     if (!target || !$id('settingsModule')?.contains(target)) return;
     const label = target.textContent?.trim() || target.title || 'This action';
     showUnavailable(label.replace(/\s+Disabled$/i, ''));
+  }
+
+  function switchSettingsTab(tabName) {
+    document.querySelectorAll('#settingsModule [data-settings-tab]').forEach((tab) => {
+      const isActive = tab.dataset.settingsTab === tabName;
+      tab.classList.toggle('epos-btn-primary', isActive);
+      tab.classList.toggle('epos-btn-outline', !isActive);
+    });
+    document.querySelectorAll('#settingsModule [data-settings-panel]').forEach((panel) => {
+      panel.classList.toggle('hidden', panel.dataset.settingsPanel !== tabName);
+    });
+  }
+
+  function handleTabClick(event) {
+    const target = event.target.closest('[data-settings-tab]');
+    if (!target || target.disabled || !$id('settingsModule')?.contains(target)) return;
+    switchSettingsTab(target.dataset.settingsTab);
+  }
+
+  async function handleCreateBackup() {
+    setBackupBusy(true);
+    try {
+      const result = await A().createBackup();
+      if (!result?.ok) {
+        showMessage(result?.message || 'Certified backup failed.', 'error');
+        return;
+      }
+      showMessage(
+        result.message || 'Certified backup created and verified successfully.',
+        'success'
+      );
+      const backups = await A().listBackups();
+      if (backups?.ok) renderBackups(backups);
+    } catch {
+      showMessage('Certified backup failed. Review audit logs before retrying.', 'error');
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function handleRefreshBackups() {
+    try {
+      const backups = await A().listBackups();
+      if (backups?.ok) {
+        renderBackups(backups);
+        showMessage('Backup history refreshed.', 'success');
+        return;
+      }
+      showMessage(backups?.message || 'Unable to refresh backup history.', 'error');
+    } catch {
+      showMessage('Unable to refresh backup history.', 'error');
+    }
   }
 
   function addListener(target, eventName, handler, options) {
@@ -165,6 +225,9 @@
     if (!initialized) {
       initialized = true;
       addListener(document, 'click', handleBlockedAction, true);
+      addListener($id('settingsModule'), 'click', handleTabClick);
+      addListener($id('createBackupButton'), 'click', handleCreateBackup);
+      addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
     }
     loadReadOnlyData().catch(() => {});
   }
