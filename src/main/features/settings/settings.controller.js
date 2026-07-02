@@ -122,6 +122,29 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/assess-restore-authorization', async (event, payload = {}) => {
+    try {
+      const acknowledgementText = payload.acknowledgementText || '';
+      if (!acknowledgementText) {
+        return await settingsService.assessRestoreAuthorization(null, acknowledgementText);
+      }
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Assess Restore Authorization',
+        properties: ['openFile'],
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return await settingsService.assessRestoreAuthorization(null, acknowledgementText);
+      }
+      return await settingsService.assessRestoreAuthorization(
+        result.filePaths[0],
+        acknowledgementText
+      );
+    } catch (error) {
+      return safeError(error, 'Restore authorization assessment error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

@@ -38,8 +38,13 @@
     return api().settings.assessRestoreEligibility();
   }
 
+  async function assessRestoreAuthorization(acknowledgementText) {
+    return api().settings.assessRestoreAuthorization({ acknowledgementText });
+  }
+
   window.SettingsApi = {
     assessRestoreEligibility,
+    assessRestoreAuthorization,
     appInfo,
     createBackup,
     getSettings,

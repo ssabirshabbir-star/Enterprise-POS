@@ -1,8 +1,11 @@
+const crypto = require('crypto');
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const settingsRepository = require('./settings.repository');
 
 const SETTINGS_ROLES = new Set(['Admin']);
+const RESTORE_AUTHORIZATION_ACKNOWLEDGEMENT =
+  'I understand Restore is not available yet and this is authorization assessment only.';
 
 async function requireSettingsAccess(permissionKey, adminOnly = false) {
   const profileResult = await authService.getProfile();
@@ -144,6 +147,164 @@ async function assessRestoreEligibility(filePath) {
   return settingsRepository.assessRestoreEligibility(filePath);
 }
 
+function authorizationCheck(name, passed, message, blockingReason) {
+  return {
+    name,
+    passed: Boolean(passed),
+    message,
+    blockingReason: passed ? null : blockingReason || message,
+  };
+}
+
+function authorizationResult(status, message, details = {}) {
+  return {
+    ok: status === 'authorization_assessment_passed',
+    authorizationStatus: status,
+    message,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
+async function assessRestoreAuthorization(filePath, acknowledgementText = '') {
+  const auditCorrelationId = crypto.randomUUID();
+  const profileResult = await authService.getProfile();
+  const profile = profileResult.ok ? profileResult.profile : null;
+  const role = profile?.role || null;
+  const permissions = Array.isArray(profile?.permissions) ? profile.permissions : [];
+  const acknowledgementMatches =
+    String(acknowledgementText || '').trim() === RESTORE_AUTHORIZATION_ACKNOWLEDGEMENT;
+  const accessAllowed =
+    Boolean(profile) &&
+    role === 'Admin' &&
+    (SETTINGS_ROLES.has(role) || permissions.includes('backup.restore'));
+  const shouldAssessPackage = accessAllowed && acknowledgementMatches && Boolean(filePath);
+  const eligibility = shouldAssessPackage
+    ? await settingsRepository.assessRestoreEligibility(filePath)
+    : null;
+  const summary = eligibility?.summary || {};
+  const checks = [
+    authorizationCheck(
+      'user.authenticated',
+      Boolean(profile),
+      'Authenticated user is present.',
+      'Authentication is required.'
+    ),
+    authorizationCheck(
+      'user.permission',
+      accessAllowed,
+      'User has restore authorization assessment permission.',
+      'User does not have permission to assess Restore authorization.'
+    ),
+    authorizationCheck(
+      'user.admin',
+      role === 'Admin',
+      'Admin role requirement is satisfied.',
+      'Admin role is required for Restore authorization assessment.'
+    ),
+    authorizationCheck(
+      'confirmation.acknowledged',
+      acknowledgementMatches,
+      'Required confirmation acknowledgement was provided.',
+      'Required confirmation acknowledgement was not provided.'
+    ),
+  ];
+  if (accessAllowed && acknowledgementMatches) {
+    checks.push(
+      authorizationCheck(
+        'package.eligibility',
+        eligibility?.eligibilityStatus === 'eligible_for_authorization',
+        'Package is eligible for future authorization.',
+        'Package is not eligible for future authorization.'
+      ),
+      authorizationCheck(
+        'package.verification',
+        eligibility?.verificationStatus === 'passed',
+        'Package verification passed.',
+        'Package verification did not pass.'
+      ),
+      authorizationCheck(
+        'backup.certified',
+        summary.certificationStatus === 'Backup Certified',
+        'Backup Certified status is present.',
+        'Backup Certified status is missing or unacceptable.'
+      ),
+      authorizationCheck(
+        'restore.blocked',
+        eligibility?.restoreEligible === false,
+        'Restore remains blocked for this phase.',
+        'Restore block declaration is missing.'
+      )
+    );
+  }
+  if (accessAllowed && acknowledgementMatches && !filePath) {
+    checks.push(
+      authorizationCheck(
+        'package.selected',
+        false,
+        'Backup package was selected.',
+        'Backup package was not selected.'
+      )
+    );
+  }
+  const failedChecks = checks.filter((item) => !item.passed);
+  const passedChecks = checks.filter((item) => item.passed);
+  const blockingReasons = Array.from(
+    new Set(
+      [
+        ...failedChecks.map((item) => item.blockingReason),
+        ...(Array.isArray(eligibility?.blockingReasons) ? eligibility.blockingReasons : []),
+      ].filter(Boolean)
+    )
+  );
+  const warnings = [
+    'Authorization assessment does not approve, enable, or execute Restore.',
+    ...(Array.isArray(eligibility?.warnings) ? eligibility.warnings : []),
+  ];
+  const passed = failedChecks.length === 0;
+  const result = authorizationResult(
+    passed ? 'authorization_assessment_passed' : 'authorization_assessment_blocked',
+    passed
+      ? 'Authorization assessment passed. Restore remains unavailable pending certification and activation.'
+      : 'Authorization assessment blocked. Restore remains unavailable.',
+    {
+      auditCorrelationId,
+      fileName: eligibility?.fileName || summary.fileName || null,
+      filePath: eligibility?.filePath || summary.filePath || filePath || null,
+      summary,
+      eligibilityStatus: eligibility?.eligibilityStatus || 'blocked',
+      verificationStatus: eligibility?.verificationStatus || null,
+      passedAuthorizationChecks: passedChecks,
+      failedAuthorizationChecks: failedChecks,
+      warnings,
+      blockingReasons,
+    }
+  );
+
+  await activityRepository.createActivityLog({
+    userId: profile?.id || null,
+    action: 'backup.restore.authorization_assessment',
+    status: passed ? 'success' : 'blocked',
+    message: passed
+      ? 'Restore authorization assessment passed; Restore remains unavailable.'
+      : 'Restore authorization assessment blocked; Restore remains unavailable.',
+    metadata: {
+      auditCorrelationId,
+      userId: profile?.id || null,
+      role,
+      permissionOutcome: accessAllowed ? 'passed' : 'blocked',
+      packageId: summary.backupId || null,
+      packageCorrelationId: summary.correlationId || null,
+      eligibilityStatus: result.eligibilityStatus,
+      verificationStatus: result.verificationStatus,
+      authorizationStatus: result.authorizationStatus,
+      blockingReasons,
+    },
+  });
+
+  return result;
+}
+
 async function restoreBackup(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -160,6 +321,7 @@ async function restoreBackup(filePath) {
 
 module.exports = {
   assessRestoreEligibility,
+  assessRestoreAuthorization,
   createBackup,
   getSettings,
   inspectRestorePackage,

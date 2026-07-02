@@ -235,6 +235,53 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderAuthorizationAssessment(result = {}) {
+    const panel = $id('restoreAuthorizationAssessment');
+    if (!panel) return;
+    if (!result.authorizationStatus) {
+      panel.textContent = 'Authorization Assessment Only - Restore is not available.';
+      return;
+    }
+    const summary = result.summary || {};
+    const passedChecks = Array.isArray(result.passedAuthorizationChecks)
+      ? result.passedAuthorizationChecks
+      : [];
+    const failedChecks = Array.isArray(result.failedAuthorizationChecks)
+      ? result.failedAuthorizationChecks
+      : [];
+    const blockingReasons = Array.isArray(result.blockingReasons) ? result.blockingReasons : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const lines = [
+      result.message || 'Authorization assessment completed. Restore remains unavailable.',
+      `Authorization Status: ${text(result.authorizationStatus)}`,
+      `Eligibility Status: ${text(result.eligibilityStatus)}`,
+      `Verification Status: ${text(result.verificationStatus)}`,
+      `Audit Correlation ID: ${text(result.auditCorrelationId)}`,
+      `File: ${text(result.fileName || summary.fileName)}`,
+      `Backup ID: ${text(summary.backupId)}`,
+      `Correlation ID: ${text(summary.correlationId)}`,
+      `Certification Status: ${text(summary.certificationStatus)}`,
+      `Passed Authorization Checks: ${passedChecks.length}`,
+      `Failed Authorization Checks: ${failedChecks.length}`,
+      `Blocking Reasons: ${blockingReasons.length}`,
+      `Warnings: ${warnings.length}`,
+      'Restore: Not available',
+    ];
+    if (blockingReasons.length) {
+      lines.push('Blocking Reasons:', ...blockingReasons.map((reason) => `- ${text(reason)}`));
+    }
+    if (failedChecks.length) {
+      lines.push(
+        'Failed Authorization Checks:',
+        ...failedChecks.map((item) => `- ${text(item.name)}: ${text(item.message)}`)
+      );
+    }
+    if (warnings.length) {
+      lines.push('Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function setBackupBusy(isBusy) {
     const button = $id('createBackupButton');
     if (!button) return;
@@ -346,6 +393,20 @@
     }
   }
 
+  async function handleAssessRestoreAuthorization() {
+    try {
+      const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
+      const result = await A().assessRestoreAuthorization(acknowledgementText);
+      renderAuthorizationAssessment(result || {});
+      showMessage(
+        result?.message || 'Authorization assessment completed. Restore remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Authorization assessment failed. Restore remains unavailable.', 'error');
+    }
+  }
+
   function addListener(target, eventName, handler, options) {
     if (!target) return;
     target.addEventListener(eventName, handler, options);
@@ -380,6 +441,11 @@
       addListener($id('inspectRestorePackageButton'), 'click', handleInspectRestorePackage);
       addListener($id('verifyRestorePackageButton'), 'click', handleVerifyRestorePackage);
       addListener($id('assessRestoreEligibilityButton'), 'click', handleAssessRestoreEligibility);
+      addListener(
+        $id('assessRestoreAuthorizationButton'),
+        'click',
+        handleAssessRestoreAuthorization
+      );
     }
     loadReadOnlyData().catch(() => {});
   }
@@ -392,6 +458,7 @@
     if (diff.packageInspection) renderPackageInspection(diff.packageInspection);
     if (diff.packageVerification) renderPackageVerification(diff.packageVerification);
     if (diff.restoreEligibility) renderEligibilityAssessment(diff.restoreEligibility);
+    if (diff.restoreAuthorization) renderAuthorizationAssessment(diff.restoreAuthorization);
     if (diff.message) showMessage(diff.message, diff.type || 'success');
   }
 
