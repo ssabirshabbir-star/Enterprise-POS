@@ -176,6 +176,18 @@
         <h3>Activity Log</h3>
         <p>Password policy, login attempts, blocks, user activity, and user/role changes from the database.</p>
       </div>
+      <button id="refreshUserActivityButton" type="button" class="epos-users-action green">Refresh</button>
+    </div>
+    <div class="epos-users-toolbar">
+      <input id="activitySearch" class="epos-users-input" placeholder="Search activity" />
+      <select id="activityActionFilter" class="epos-users-input">
+        <option value="">All Actions</option>
+      </select>
+      <select id="activityStatusFilter" class="epos-users-input">
+        <option value="">All Statuses</option>
+      </select>
+      <input id="activityDateFrom" type="date" class="epos-users-input" aria-label="Activity from date" />
+      <input id="activityDateTo" type="date" class="epos-users-input" aria-label="Activity to date" />
     </div>
     <div id="userSecurityPolicy" class="epos-users-security-policy"></div>
     <div id="userActivityLog" class="epos-users-permission-matrix">Activity logs will appear here.</div>

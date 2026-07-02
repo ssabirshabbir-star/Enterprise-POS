@@ -10,6 +10,8 @@
   let editingRole = null;
   let selectedPermissionRoleId = '';
   let selectedPermissionRole = null;
+  let activityRecords = [];
+  let activityPolicy = null;
 
   const A = () => window.AccessControlApi;
 
@@ -29,6 +31,13 @@
     if (!value) return '-';
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : date.toLocaleDateString();
+  }
+
+  function dateKey(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+    return date.toISOString().slice(0, 10);
   }
 
   function showMessage(text, type = 'info', targetId = 'userToolbarMessage') {
@@ -397,17 +406,111 @@
     renderRoleFilters();
   }
 
+  function activityFilters() {
+    return {
+      search: ($id('activitySearch')?.value || '').trim().toLowerCase(),
+      action: $id('activityActionFilter')?.value || '',
+      status: $id('activityStatusFilter')?.value || '',
+      dateFrom: $id('activityDateFrom')?.value || '',
+      dateTo: $id('activityDateTo')?.value || '',
+    };
+  }
+
+  function updateActivityFilterOptions() {
+    const actionFilter = $id('activityActionFilter');
+    const statusFilter = $id('activityStatusFilter');
+    const actions = [...new Set(activityRecords.map((item) => item.action).filter(Boolean))].sort();
+    const statuses = [
+      ...new Set(activityRecords.map((item) => item.status).filter(Boolean)),
+    ].sort();
+    if (actionFilter) {
+      const current = actionFilter.value;
+      actionFilter.innerHTML =
+        '<option value="">All Actions</option>' +
+        actions
+          .map(
+            (action) =>
+              `<option value="${esc(action)}"${current === action ? ' selected' : ''}>${esc(
+                action
+              )}</option>`
+          )
+          .join('');
+    }
+    if (statusFilter) {
+      const current = statusFilter.value;
+      statusFilter.innerHTML =
+        '<option value="">All Statuses</option>' +
+        statuses
+          .map(
+            (status) =>
+              `<option value="${esc(status)}"${current === status ? ' selected' : ''}>${esc(
+                status
+              )}</option>`
+          )
+          .join('');
+    }
+  }
+
+  function filteredActivityRecords() {
+    const filters = activityFilters();
+    return activityRecords.filter((item) => {
+      const action = String(item.action || '');
+      const status = String(item.status || '');
+      const itemDate = dateKey(item.createdAt);
+      const searchable = [action, status, item.message, item.fullName, item.username]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+      if (filters.search && !searchable.includes(filters.search)) return false;
+      if (filters.action && action !== filters.action) return false;
+      if (filters.status && status !== filters.status) return false;
+      if (filters.dateFrom && itemDate && itemDate < filters.dateFrom) return false;
+      if (filters.dateTo && itemDate && itemDate > filters.dateTo) return false;
+      return true;
+    });
+  }
+
+  function renderSecurityActivity() {
+    const log = $id('userActivityLog');
+    if (!log) return;
+    const activity = filteredActivityRecords();
+    if (!activityRecords.length) {
+      log.textContent = 'No security activity yet.';
+      return;
+    }
+    if (!activity.length) {
+      log.textContent = 'No activity matches the current filters.';
+      return;
+    }
+    log.innerHTML = activity
+      .map(
+        (item) => `
+          <div>
+            <h3>${esc(item.action)} <small>${esc(item.status)}</small></h3>
+            <p>${esc(item.message || '-')}</p>
+            <small>${esc(item.fullName || item.username || 'System')} - ${esc(dateOnly(item.createdAt))}</small>
+          </div>
+        `
+      )
+      .join('');
+  }
+
   async function loadSecurityActivity() {
     const policy = $id('userSecurityPolicy');
     const log = $id('userActivityLog');
     if (policy) policy.innerHTML = '<article><span>Status</span><strong>Loading</strong></article>';
+    if (log) log.textContent = 'Loading activity...';
     const result = await A().securityActivity();
     if (!result?.ok) {
+      activityRecords = [];
+      activityPolicy = null;
       if (policy) policy.innerHTML = '';
       if (log) log.textContent = result?.message || 'Unable to load activity.';
       return;
     }
-    const p = result.policy || {};
+    activityPolicy = result.policy || {};
+    activityRecords = Array.isArray(result.activity) ? result.activity : [];
+    updateActivityFilterOptions();
+    const p = activityPolicy;
     if (policy) {
       policy.innerHTML = `
         <article><span>Password Length</span><strong>${esc(p.minPasswordLength || 8)}+</strong></article>
@@ -415,7 +518,7 @@
         <article><span>Lock Window</span><strong>${esc(p.lockMinutes || 15)} min</strong></article>
       `;
     }
-    const activity = Array.isArray(result.activity) ? result.activity : [];
+    const activity = filteredActivityRecords();
     if (log) {
       log.innerHTML = activity.length
         ? activity
@@ -431,7 +534,9 @@
               `
             )
             .join('')
-        : 'No security activity yet.';
+        : activityRecords.length
+          ? 'No activity matches the current filters.'
+          : 'No security activity yet.';
     }
   }
 
@@ -712,6 +817,17 @@
     $id('roleForm')?.addEventListener('submit', saveRole);
     $id('resetRoleButton')?.addEventListener('click', resetRoleForm);
     $id('saveRolePermissionsButton')?.addEventListener('click', saveRolePermissions);
+    $id('refreshUserActivityButton')?.addEventListener('click', () => {
+      loadSecurityActivity().catch(() => {
+        const log = $id('userActivityLog');
+        if (log) log.textContent = 'Unable to refresh activity.';
+      });
+    });
+    $id('activitySearch')?.addEventListener('input', renderSecurityActivity);
+    $id('activityActionFilter')?.addEventListener('change', renderSecurityActivity);
+    $id('activityStatusFilter')?.addEventListener('change', renderSecurityActivity);
+    $id('activityDateFrom')?.addEventListener('change', renderSecurityActivity);
+    $id('activityDateTo')?.addEventListener('change', renderSecurityActivity);
     $id('resetUserButton')?.addEventListener('click', () => {
       const id = $id('userId')?.value;
       const user = users.find((item) => String(item.id) === String(id));
