@@ -145,6 +145,35 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/dry-run-certification-report', async (event, payload = {}) => {
+    try {
+      const acknowledgementText = payload.acknowledgementText || '';
+      if (!acknowledgementText) {
+        return await settingsService.generateRestoreDryRunCertificationReport(
+          null,
+          acknowledgementText
+        );
+      }
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Generate Restore Dry-Run Certification Report',
+        properties: ['openFile'],
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return await settingsService.generateRestoreDryRunCertificationReport(
+          null,
+          acknowledgementText
+        );
+      }
+      return await settingsService.generateRestoreDryRunCertificationReport(
+        result.filePaths[0],
+        acknowledgementText
+      );
+    } catch (error) {
+      return safeError(error, 'Restore dry-run certification report error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

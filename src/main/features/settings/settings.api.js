@@ -42,11 +42,16 @@
     return api().settings.assessRestoreAuthorization({ acknowledgementText });
   }
 
+  async function dryRunCertificationReport(acknowledgementText) {
+    return api().settings.dryRunCertificationReport({ acknowledgementText });
+  }
+
   window.SettingsApi = {
     assessRestoreEligibility,
     assessRestoreAuthorization,
     appInfo,
     createBackup,
+    dryRunCertificationReport,
     getSettings,
     inspectRestorePackage,
     listBackups,

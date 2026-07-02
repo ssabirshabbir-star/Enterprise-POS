@@ -282,6 +282,67 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderDryRunCertificationReport(result = {}) {
+    const panel = $id('restoreDryRunCertificationReport');
+    if (!panel) return;
+    if (!result.certificationStatus) {
+      panel.textContent = 'Dry-Run Certification Report Only - Restore is not available.';
+      return;
+    }
+    const packageSummary = result.packageSummary || {};
+    const reader = result.packageReaderSummary || {};
+    const verification = result.verificationSummary || {};
+    const eligibility = result.eligibilitySummary || {};
+    const authorization = result.authorizationSummary || {};
+    const passedChecks = Array.isArray(result.passedChecks) ? result.passedChecks : [];
+    const failedChecks = Array.isArray(result.failedChecks) ? result.failedChecks : [];
+    const blockingReasons = Array.isArray(result.blockingReasons) ? result.blockingReasons : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const lines = [
+      result.message || 'Dry-run certification report completed. Restore remains unavailable.',
+      `Overall Certification Status: ${text(result.certificationStatus)}`,
+      `Report Correlation ID: ${text(result.reportCorrelationId)}`,
+      `File: ${text(packageSummary.fileName)}`,
+      `Backup ID: ${text(packageSummary.backupId)}`,
+      `Correlation ID: ${text(packageSummary.correlationId)}`,
+      `Backup Class: ${text(packageSummary.backupClass)}`,
+      `Workflow Version: ${text(packageSummary.workflowVersion)}`,
+      `Manifest Version: ${text(packageSummary.manifestVersion)}`,
+      `Schema Version: ${text(packageSummary.schemaVersion)}`,
+      `Application Version: ${text(packageSummary.applicationVersion)}`,
+      `Certification Status: ${text(packageSummary.certificationStatus)}`,
+      `Included Tables: ${text(packageSummary.includedTableCount)}`,
+      `Excluded Tables: ${text(packageSummary.excludedTableCount)}`,
+      `Payload Tables: ${text(packageSummary.payloadTableCount)}`,
+      `Package Reader: ${text(reader.status)}`,
+      `Verification: ${text(verification.status)} (${text(verification.passedChecks)} passed / ${text(verification.failedChecks)} failed)`,
+      `Eligibility: ${text(eligibility.status)} (${text(eligibility.passedConditions)} passed / ${text(eligibility.failedConditions)} failed)`,
+      `Authorization Governance: ${text(authorization.authorizationAssessmentStatus)}`,
+      `Permission Outcome: ${text(authorization.permissionOutcome)}`,
+      `Acknowledgement Provided: ${authorization.acknowledgementProvided ? 'Yes' : 'No'}`,
+      `Passed Checks: ${passedChecks.length}`,
+      `Failed Checks: ${failedChecks.length}`,
+      `Blocking Reasons: ${blockingReasons.length}`,
+      `Warnings: ${warnings.length}`,
+      `Future Restore Qualification: ${text(result.futureRestoreQualification)}`,
+      `No Restore Executed: ${result.noRestoreExecuted ? 'Yes' : 'No'}`,
+      'Restore: Not available',
+    ];
+    if (blockingReasons.length) {
+      lines.push('Blocking Reasons:', ...blockingReasons.map((reason) => `- ${text(reason)}`));
+    }
+    if (failedChecks.length) {
+      lines.push(
+        'Failed Checks:',
+        ...failedChecks.map((item) => `- ${text(item.name)}: ${text(item.message)}`)
+      );
+    }
+    if (warnings.length) {
+      lines.push('Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function setBackupBusy(isBusy) {
     const button = $id('createBackupButton');
     if (!button) return;
@@ -407,6 +468,20 @@
     }
   }
 
+  async function handleDryRunCertificationReport() {
+    try {
+      const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
+      const result = await A().dryRunCertificationReport(acknowledgementText);
+      renderDryRunCertificationReport(result || {});
+      showMessage(
+        result?.message || 'Dry-run certification report completed. Restore remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Dry-run certification report failed. Restore remains unavailable.', 'error');
+    }
+  }
+
   function addListener(target, eventName, handler, options) {
     if (!target) return;
     target.addEventListener(eventName, handler, options);
@@ -446,6 +521,7 @@
         'click',
         handleAssessRestoreAuthorization
       );
+      addListener($id('dryRunCertificationReportButton'), 'click', handleDryRunCertificationReport);
     }
     loadReadOnlyData().catch(() => {});
   }
@@ -459,6 +535,9 @@
     if (diff.packageVerification) renderPackageVerification(diff.packageVerification);
     if (diff.restoreEligibility) renderEligibilityAssessment(diff.restoreEligibility);
     if (diff.restoreAuthorization) renderAuthorizationAssessment(diff.restoreAuthorization);
+    if (diff.dryRunCertificationReport) {
+      renderDryRunCertificationReport(diff.dryRunCertificationReport);
+    }
     if (diff.message) showMessage(diff.message, diff.type || 'success');
   }
 

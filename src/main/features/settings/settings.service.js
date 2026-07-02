@@ -166,6 +166,27 @@ function authorizationResult(status, message, details = {}) {
   };
 }
 
+function reportCheck(name, passed, message, blockingReason) {
+  return {
+    name,
+    passed: Boolean(passed),
+    message,
+    blockingReason: passed ? null : blockingReason || message,
+  };
+}
+
+function dryRunReportResult(status, message, details = {}) {
+  return {
+    ok: status === 'dry_run_certification_passed',
+    certificationStatus: status,
+    message,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
 async function assessRestoreAuthorization(filePath, acknowledgementText = '') {
   const auditCorrelationId = crypto.randomUUID();
   const profileResult = await authService.getProfile();
@@ -305,6 +326,171 @@ async function assessRestoreAuthorization(filePath, acknowledgementText = '') {
   return result;
 }
 
+async function generateRestoreDryRunCertificationReport(filePath, acknowledgementText = '') {
+  const reportCorrelationId = crypto.randomUUID();
+  const profileResult = await authService.getProfile();
+  const profile = profileResult.ok ? profileResult.profile : null;
+  const role = profile?.role || null;
+  const permissions = Array.isArray(profile?.permissions) ? profile.permissions : [];
+  const acknowledgementMatches =
+    String(acknowledgementText || '').trim() === RESTORE_AUTHORIZATION_ACKNOWLEDGEMENT;
+  const accessAllowed =
+    Boolean(profile) &&
+    role === 'Admin' &&
+    (SETTINGS_ROLES.has(role) || permissions.includes('backup.restore'));
+  const shouldReadPackage = accessAllowed && acknowledgementMatches && Boolean(filePath);
+  const packageInspection = shouldReadPackage
+    ? await settingsRepository.inspectRestorePackage(filePath)
+    : null;
+  const verification = shouldReadPackage
+    ? await settingsRepository.verifyRestorePackage(filePath)
+    : null;
+  const eligibility = shouldReadPackage
+    ? await settingsRepository.assessRestoreEligibility(filePath)
+    : null;
+  const summary = eligibility?.summary || verification?.summary || packageInspection || {};
+  const authorizationSummary = {
+    userAuthenticated: Boolean(profile),
+    role,
+    permissionOutcome: accessAllowed ? 'passed' : 'blocked',
+    acknowledgementProvided: acknowledgementMatches,
+    authorizationAssessmentStatus:
+      accessAllowed &&
+      acknowledgementMatches &&
+      eligibility?.eligibilityStatus === 'eligible_for_authorization'
+        ? 'authorization_assessment_would_pass'
+        : 'authorization_assessment_would_block',
+  };
+  const checks = [
+    reportCheck(
+      'user.authenticated',
+      Boolean(profile),
+      'Authenticated user is present.',
+      'Authentication is required.'
+    ),
+    reportCheck(
+      'user.admin',
+      role === 'Admin',
+      'Admin role requirement is satisfied.',
+      'Admin role is required.'
+    ),
+    reportCheck(
+      'user.permission',
+      accessAllowed,
+      'User has dry-run report permission.',
+      'User does not have permission to generate this report.'
+    ),
+    reportCheck(
+      'confirmation.acknowledged',
+      acknowledgementMatches,
+      'Required acknowledgement was provided.',
+      'Required acknowledgement was not provided.'
+    ),
+    reportCheck(
+      'package.selected',
+      Boolean(filePath),
+      'Backup package was selected.',
+      'Backup package was not selected.'
+    ),
+    reportCheck(
+      'package.readable',
+      packageInspection?.ok === true,
+      'Package reader completed successfully.',
+      'Package reader did not complete successfully.'
+    ),
+    reportCheck(
+      'verification.passed',
+      verification?.verificationStatus === 'passed',
+      'Verification engine passed.',
+      'Verification engine did not pass.'
+    ),
+    reportCheck(
+      'eligibility.passed',
+      eligibility?.eligibilityStatus === 'eligible_for_authorization',
+      'Eligibility engine passed.',
+      'Eligibility engine did not pass.'
+    ),
+    reportCheck(
+      'restore.blocked',
+      eligibility?.restoreEligible === false || !shouldReadPackage,
+      'Restore remains unavailable.',
+      'Restore blocking declaration is missing.'
+    ),
+  ];
+  const failedChecks = checks.filter((item) => !item.passed);
+  const passedChecks = checks.filter((item) => item.passed);
+  const blockingReasons = Array.from(
+    new Set(
+      [
+        ...failedChecks.map((item) => item.blockingReason),
+        ...(Array.isArray(eligibility?.blockingReasons) ? eligibility.blockingReasons : []),
+      ].filter(Boolean)
+    )
+  );
+  const warnings = [
+    'Dry-run certification report only. No recovery operation was performed.',
+    'Future Restore requires separate certification, authorization, recovery-state validation, and activation.',
+    ...(Array.isArray(eligibility?.warnings) ? eligibility.warnings : []),
+    ...(Array.isArray(verification?.warnings) ? verification.warnings : []),
+  ];
+  const passed = failedChecks.length === 0;
+  return dryRunReportResult(
+    passed ? 'dry_run_certification_passed' : 'dry_run_certification_blocked',
+    passed
+      ? 'Dry-run certification report passed. Package may proceed to future Restore certification review. No Restore was executed and Restore remains unavailable.'
+      : 'Dry-run certification report blocked. No Restore was executed and Restore remains unavailable.',
+    {
+      reportCorrelationId,
+      packageSummary: {
+        fileName: summary.fileName || null,
+        filePath: summary.filePath || filePath || null,
+        backupId: summary.backupId || null,
+        correlationId: summary.correlationId || null,
+        backupClass: summary.backupClass || null,
+        workflowVersion: summary.workflowVersion || null,
+        manifestVersion: summary.manifestVersion || null,
+        schemaVersion: summary.schemaVersion || null,
+        applicationVersion: summary.applicationVersion || null,
+        certificationStatus: summary.certificationStatus || null,
+        includedTableCount: summary.includedTableCount ?? summary.tableCount ?? null,
+        excludedTableCount: summary.excludedTableCount ?? null,
+        payloadTableCount: summary.payloadTableCount ?? null,
+      },
+      packageReaderSummary: {
+        status: packageInspection?.status || 'not_run',
+        ok: packageInspection?.ok === true,
+        message: packageInspection?.message || null,
+      },
+      verificationSummary: {
+        status: verification?.verificationStatus || 'not_run',
+        passedChecks: Array.isArray(verification?.passedChecks)
+          ? verification.passedChecks.length
+          : 0,
+        failedChecks: Array.isArray(verification?.failedChecks)
+          ? verification.failedChecks.length
+          : 0,
+      },
+      eligibilitySummary: {
+        status: eligibility?.eligibilityStatus || 'not_run',
+        passedConditions: Array.isArray(eligibility?.passedConditions)
+          ? eligibility.passedConditions.length
+          : 0,
+        failedConditions: Array.isArray(eligibility?.failedConditions)
+          ? eligibility.failedConditions.length
+          : 0,
+      },
+      authorizationSummary,
+      passedChecks,
+      failedChecks,
+      blockingReasons,
+      warnings,
+      futureRestoreQualification: passed
+        ? 'Package qualifies for future Restore certification review only. Restore remains unavailable until all governance requirements are completed.'
+        : 'Package does not qualify for future Restore certification review until blocking reasons are resolved.',
+    }
+  );
+}
+
 async function restoreBackup(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -323,6 +509,7 @@ module.exports = {
   assessRestoreEligibility,
   assessRestoreAuthorization,
   createBackup,
+  generateRestoreDryRunCertificationReport,
   getSettings,
   inspectRestorePackage,
   listBackups,

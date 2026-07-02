@@ -186,6 +186,8 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/assess-restore-eligibility'),
     assessRestoreAuthorization: (payload) =>
       ipcRenderer.invoke('/settings/backups/assess-restore-authorization', payload),
+    dryRunCertificationReport: (payload) =>
+      ipcRenderer.invoke('/settings/backups/dry-run-certification-report', payload),
     restoreBackup: () => ipcRenderer.invoke('/settings/backups/restore'),
   },
   sync: {
