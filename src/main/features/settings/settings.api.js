@@ -58,6 +58,10 @@
     return api().settings.restoreReadinessDashboard();
   }
 
+  async function restoreGovernanceAssessment() {
+    return api().settings.restoreGovernanceAssessment();
+  }
+
   window.SettingsApi = {
     assessRestoreEligibility,
     assessRestoreAuthorization,
@@ -69,6 +73,7 @@
     inspectRestorePackage,
     listDryRunCertificationReports,
     listBackups,
+    restoreGovernanceAssessment,
     restoreReadinessDashboard,
     unavailable,
     verifyRestorePackage,

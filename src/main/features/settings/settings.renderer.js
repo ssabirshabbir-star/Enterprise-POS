@@ -432,6 +432,72 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderRestoreGovernanceAssessment(result = {}) {
+    const panel = $id('restoreGovernanceAssessment');
+    if (!panel) return;
+    const assessment = result.assessment || result;
+    if (!assessment.governanceAssessment) {
+      panel.textContent =
+        'Governance Assessment - Read Only - No Restore Executed - Restore Unavailable - Activation Blocked.';
+      return;
+    }
+    const completion = Array.isArray(assessment.governanceCompletionSummary)
+      ? assessment.governanceCompletionSummary
+      : [];
+    const checklist = Array.isArray(assessment.governanceChecklist)
+      ? assessment.governanceChecklist
+      : [];
+    const blockers = Array.isArray(assessment.blockingAssessment)
+      ? assessment.blockingAssessment
+      : [];
+    const outstanding = Array.isArray(assessment.outstandingRequirements)
+      ? assessment.outstandingRequirements
+      : [];
+    const activation = assessment.activationReadinessAssessment || {};
+    const technical = assessment.technicalReadiness || {};
+    const lines = [
+      'Governance Assessment - Read Only - No Restore Executed - Restore Unavailable - Activation Blocked.',
+      `Governance Decision: ${text(assessment.governanceDecision)}`,
+      `Activation Readiness: ${text(activation.status)}`,
+      `Restore Technically Executable: ${technical.restoreTechnicallyExecutable ? 'Yes' : 'No'}`,
+      `Restore Permitted: ${assessment.activationBlocked ? 'No' : 'Yes'}`,
+      '',
+      'Governance Completion Summary:',
+      ...completion.map(
+        (item) => `- ${text(item.name)}: ${text(item.status)} - ${text(item.evidence)}`
+      ),
+      '',
+      'Governance Checklist:',
+      ...checklist.map(
+        (item) => `- ${text(item.name)}: ${text(item.status)} - ${text(item.evidence)}`
+      ),
+      '',
+      'Activation Readiness Assessment:',
+      `- Governance Ready: ${activation.governanceReady ? 'Yes' : 'No'}`,
+      `- Governance Incomplete: ${activation.governanceIncomplete ? 'Yes' : 'No'}`,
+      `- Activation Blocked: ${activation.activationBlocked ? 'Yes' : 'No'}`,
+      `- ${text(activation.message)}`,
+      '',
+      'Technical Readiness:',
+      `- Non-Destructive Infrastructure: ${text(technical.nonDestructiveInfrastructure)}`,
+      `- Package Reader: ${text(technical.packageReader)}`,
+      `- Verification Engine: ${text(technical.verificationEngine)}`,
+      `- Eligibility Engine: ${text(technical.eligibilityEngine)}`,
+      `- Authorization Engine: ${text(technical.authorizationEngine)}`,
+      `- Dry-Run Reporting: ${text(technical.dryRunReporting)}`,
+      `- Audit History: ${text(technical.auditHistory)}`,
+      `- Readiness Dashboard: ${text(technical.readinessDashboard)}`,
+      `- ${text(technical.note)}`,
+    ];
+    if (blockers.length) {
+      lines.push('', 'Blocking Assessment:', ...blockers.map((reason) => `- ${text(reason)}`));
+    }
+    if (outstanding.length) {
+      lines.push('', 'Outstanding Requirements:', ...outstanding.map((item) => `- ${text(item)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function renderDryRunReportHistory(result = {}) {
     const tbody = $id('dryRunReportHistoryBody');
     if (!tbody) return;
@@ -718,6 +784,23 @@
     }
   }
 
+  async function handleRefreshRestoreGovernanceAssessment() {
+    try {
+      const result = await A().restoreGovernanceAssessment();
+      if (result?.ok) {
+        renderRestoreGovernanceAssessment(result);
+        showMessage(
+          'Restore governance assessment refreshed. Activation remains blocked.',
+          'success'
+        );
+        return;
+      }
+      showMessage(result?.message || 'Unable to refresh Restore governance assessment.', 'error');
+    } catch {
+      showMessage('Unable to refresh Restore governance assessment.', 'error');
+    }
+  }
+
   function scheduleDryRunReportSearch() {
     clearTimeout(reportSearchTimer);
     reportSearchTimer = setTimeout(() => {
@@ -788,6 +871,12 @@
         })
         .catch(() => {});
       A()
+        .restoreGovernanceAssessment()
+        .then((assessment) => {
+          if (assessment?.ok) renderRestoreGovernanceAssessment(assessment);
+        })
+        .catch(() => {});
+      A()
         .listDryRunCertificationReports(collectDryRunReportFilters())
         .then((reports) => {
           if (reports?.ok) renderDryRunReportHistory(reports);
@@ -820,6 +909,11 @@
         $id('refreshRestoreReadinessDashboardButton'),
         'click',
         handleRefreshRestoreReadinessDashboard
+      );
+      addListener(
+        $id('refreshRestoreGovernanceAssessmentButton'),
+        'click',
+        handleRefreshRestoreGovernanceAssessment
       );
       addListener(
         $id('refreshDryRunReportHistoryButton'),
@@ -856,6 +950,9 @@
     }
     if (diff.restoreReadinessDashboard) {
       renderRestoreReadinessDashboard(diff.restoreReadinessDashboard);
+    }
+    if (diff.restoreGovernanceAssessment) {
+      renderRestoreGovernanceAssessment(diff.restoreGovernanceAssessment);
     }
     if (diff.dryRunReportHistory) renderDryRunReportHistory(diff.dryRunReportHistory);
     if (diff.savedDryRunReport) renderSavedDryRunReportDetail(diff.savedDryRunReport);

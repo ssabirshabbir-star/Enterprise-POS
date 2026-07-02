@@ -201,6 +201,14 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/restore-governance-assessment', async () => {
+    try {
+      return await settingsService.getRestoreGovernanceAssessment();
+    } catch (error) {
+      return safeError(error, 'Restore governance assessment error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

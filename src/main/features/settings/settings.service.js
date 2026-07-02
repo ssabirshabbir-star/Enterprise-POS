@@ -328,6 +328,125 @@ async function getRestoreReadinessDashboard() {
   };
 }
 
+function governanceItem(name, status, evidence) {
+  return { name, status, evidence };
+}
+
+function restoreGovernanceDecision(dashboard = {}) {
+  const totalReports = dashboard.certificationHistorySummary?.totalReports || 0;
+  const latestStatus = dashboard.overallReadiness?.latestCertificationResult || null;
+  if (!totalReports) return 'Governance Pending - Activation Blocked';
+  if (latestStatus === 'dry_run_certification_passed') {
+    return 'Governance Complete for non-destructive Restore management - Activation Blocked';
+  }
+  return 'Governance Pending - Activation Blocked';
+}
+
+async function getRestoreGovernanceAssessment() {
+  const dashboardResult = await getRestoreReadinessDashboard();
+  if (!dashboardResult.ok) return dashboardResult;
+  const dashboard = dashboardResult.dashboard || {};
+  const history = dashboard.certificationHistorySummary || {};
+  const blockers = Array.isArray(dashboard.blockingConditions) ? dashboard.blockingConditions : [];
+  const latestStatus = dashboard.overallReadiness?.latestCertificationResult || null;
+  const hasReportEvidence = Number(history.totalReports || 0) > 0;
+  const latestPassed = latestStatus === 'dry_run_certification_passed';
+  const completionSummary = [
+    governanceItem('Package Reader', 'Completed', 'Certified package inspection is implemented.'),
+    governanceItem('Verification', 'Completed', 'Restore package verification is implemented.'),
+    governanceItem('Eligibility', 'Completed', 'Restore eligibility assessment is implemented.'),
+    governanceItem(
+      'Authorization',
+      'Completed',
+      'Authorization and confirmation governance assessment is implemented.'
+    ),
+    governanceItem(
+      'Dry-Run Certification',
+      hasReportEvidence ? 'Completed' : 'Pending',
+      hasReportEvidence
+        ? 'Dry-run certification report evidence exists.'
+        : 'No dry-run certification report evidence exists.'
+    ),
+    governanceItem(
+      'Audit Persistence',
+      hasReportEvidence ? 'Completed' : 'Pending',
+      hasReportEvidence
+        ? 'Dry-run certification reports are persisted as audit evidence.'
+        : 'Audit evidence is pending dry-run report generation.'
+    ),
+    governanceItem(
+      'Certification History',
+      'Completed',
+      'Certification history management is implemented.'
+    ),
+    governanceItem(
+      'Readiness Dashboard',
+      'Completed',
+      'Restore readiness dashboard is implemented.'
+    ),
+  ];
+  const checklist = [
+    ...completionSummary,
+    governanceItem(
+      'Latest Dry-Run Certification Result',
+      latestPassed ? 'Completed' : 'Blocked',
+      latestStatus || 'No latest dry-run certification result.'
+    ),
+    governanceItem(
+      'Restore Execution Authorization',
+      'Blocked',
+      'Restore execution has not been approved for activation.'
+    ),
+    governanceItem(
+      'Runtime Recovery Execution',
+      'Blocked',
+      'Recovery-state execution remains outside completed Restore management phases.'
+    ),
+  ];
+  const outstandingRequirements = [
+    'Controlled Restore Engine phase must be completed and approved before execution can be considered.',
+    'Recovery-state execution and runtime reconciliation must be completed and approved before execution can be considered.',
+    'Final Restore activation approval must be granted before Restore can become available.',
+  ];
+  return {
+    ok: true,
+    assessment: {
+      readOnly: true,
+      governanceAssessment: true,
+      noRestoreExecuted: true,
+      restoreUnavailable: true,
+      activationBlocked: true,
+      restoreEligible: false,
+      governanceCompletionSummary: completionSummary,
+      governanceChecklist: checklist,
+      blockingAssessment: blockers,
+      activationReadinessAssessment: {
+        status: latestPassed ? 'Governance Ready - Activation Blocked' : 'Governance Incomplete',
+        governanceReady: latestPassed,
+        governanceIncomplete: !latestPassed,
+        activationBlocked: true,
+        message:
+          'Assessment only. Restore remains unavailable until future execution, recovery-state, and activation approvals are complete.',
+      },
+      technicalReadiness: {
+        nonDestructiveInfrastructure: 'Completed',
+        restoreTechnicallyExecutable: false,
+        packageReader: 'Completed',
+        verificationEngine: 'Completed',
+        eligibilityEngine: 'Completed',
+        authorizationEngine: 'Completed',
+        dryRunReporting: 'Completed',
+        auditHistory: 'Completed',
+        readinessDashboard: 'Completed',
+        note: 'Non-destructive Restore management infrastructure exists. Restore execution is not exposed or implemented for activation.',
+      },
+      outstandingRequirements,
+      governanceDecision: restoreGovernanceDecision(dashboard),
+      dashboard,
+    },
+  };
+}
+
 async function inspectRestorePackage(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -752,6 +871,7 @@ module.exports = {
   inspectRestorePackage,
   getRestoreDryRunReport,
   getRestoreReadinessDashboard,
+  getRestoreGovernanceAssessment,
   listRestoreDryRunReports,
   listBackups,
   restoreBackup,

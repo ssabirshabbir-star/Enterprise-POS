@@ -194,6 +194,8 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/dry-run-certification-reports/get', id),
     restoreReadinessDashboard: () =>
       ipcRenderer.invoke('/settings/backups/restore-readiness-dashboard'),
+    restoreGovernanceAssessment: () =>
+      ipcRenderer.invoke('/settings/backups/restore-governance-assessment'),
     restoreBackup: () => ipcRenderer.invoke('/settings/backups/restore'),
   },
   sync: {
