@@ -66,6 +66,10 @@
     return api().settings.restoreEngineFoundationAssessment();
   }
 
+  async function restoreTransactionFoundationAssessment() {
+    return api().settings.restoreTransactionFoundationAssessment();
+  }
+
   window.SettingsApi = {
     assessRestoreEligibility,
     assessRestoreAuthorization,
@@ -80,6 +84,7 @@
     restoreEngineFoundationAssessment,
     restoreGovernanceAssessment,
     restoreReadinessDashboard,
+    restoreTransactionFoundationAssessment,
     unavailable,
     verifyRestorePackage,
   };

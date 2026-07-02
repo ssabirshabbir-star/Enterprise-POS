@@ -217,6 +217,14 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/restore-transaction-foundation-assessment', async () => {
+    try {
+      return await settingsService.assessRestoreTransactionFoundation();
+    } catch (error) {
+      return safeError(error, 'Restore transaction foundation assessment error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

@@ -541,6 +541,54 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderRestoreTransactionFoundationStatus(result = {}) {
+    const panel = $id('restoreTransactionFoundationStatus');
+    if (!panel) return;
+    if (!result.transactionState) {
+      panel.textContent =
+        'Transaction Foundation Status: transaction_not_started. No Restore transaction executed. No data committed. Restore remains unavailable.';
+      return;
+    }
+    const checkpoints = Array.isArray(result.checkpoints) ? result.checkpoints : [];
+    const blockers = Array.isArray(result.blockingReasons) ? result.blockingReasons : [];
+    const outstanding = Array.isArray(result.outstandingRequirements)
+      ? result.outstandingRequirements
+      : [];
+    const lines = [
+      result.message ||
+        'Restore transaction foundation assessment completed. Restore remains unavailable.',
+      `Transaction Foundation Status: ${text(result.transactionState)}`,
+      `Transaction Precheck Result: ${text(result.transactionPrecheckResult)}`,
+      `Foundation State: ${text(result.foundationState)}`,
+      `Audit Correlation ID: ${text(result.auditCorrelationId)}`,
+      `Foundation Audit Correlation ID: ${text(result.foundationAuditCorrelationId)}`,
+      `Governance Decision: ${text(result.governanceDecision)}`,
+      `Activation Readiness: ${text(result.activationReadiness)}`,
+      `Audit Logged: ${result.auditLogged ? 'Yes' : 'No'}`,
+      `No Restore Transaction Executed: ${result.noRestoreTransactionExecuted ? 'Yes' : 'No'}`,
+      `No Data Committed: ${result.noDataCommitted ? 'Yes' : 'No'}`,
+      `No Restore Executed: ${result.noRestoreExecuted ? 'Yes' : 'No'}`,
+      `Restore Unavailable: ${result.restoreUnavailable ? 'Yes' : 'No'}`,
+      `Restore Eligible: ${result.restoreEligible === true ? 'Yes' : 'No'}`,
+      '',
+      'Transaction Lifecycle Checkpoints:',
+      ...checkpoints.map(
+        (item) => `- ${text(item.name)}: ${text(item.state)} - ${text(item.message)}`
+      ),
+    ];
+    if (blockers.length) {
+      lines.push(
+        '',
+        'Transaction Blocking Reasons:',
+        ...blockers.map((reason) => `- ${text(reason)}`)
+      );
+    }
+    if (outstanding.length) {
+      lines.push('', 'Outstanding Requirements:', ...outstanding.map((item) => `- ${text(item)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function renderDryRunReportHistory(result = {}) {
     const tbody = $id('dryRunReportHistoryBody');
     if (!tbody) return;
@@ -861,6 +909,23 @@
     }
   }
 
+  async function handleRestoreTransactionFoundationAssessment() {
+    try {
+      const result = await A().restoreTransactionFoundationAssessment();
+      renderRestoreTransactionFoundationStatus(result || {});
+      showMessage(
+        result?.message ||
+          'Restore transaction foundation assessment completed. Restore remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage(
+        'Restore transaction foundation assessment failed. No data was committed and Restore remains unavailable.',
+        'error'
+      );
+    }
+  }
+
   function scheduleDryRunReportSearch() {
     clearTimeout(reportSearchTimer);
     reportSearchTimer = setTimeout(() => {
@@ -981,6 +1046,11 @@
         handleRestoreEngineFoundationAssessment
       );
       addListener(
+        $id('restoreTransactionFoundationAssessmentButton'),
+        'click',
+        handleRestoreTransactionFoundationAssessment
+      );
+      addListener(
         $id('refreshDryRunReportHistoryButton'),
         'click',
         handleRefreshDryRunReportHistory
@@ -1021,6 +1091,9 @@
     }
     if (diff.restoreEngineFoundationStatus) {
       renderRestoreEngineFoundationStatus(diff.restoreEngineFoundationStatus);
+    }
+    if (diff.restoreTransactionFoundationStatus) {
+      renderRestoreTransactionFoundationStatus(diff.restoreTransactionFoundationStatus);
     }
     if (diff.dryRunReportHistory) renderDryRunReportHistory(diff.dryRunReportHistory);
     if (diff.savedDryRunReport) renderSavedDryRunReportDetail(diff.savedDryRunReport);

@@ -358,6 +358,24 @@ function restoreFoundationResult(state, message, details = {}) {
   };
 }
 
+function restoreTransactionCheckpoint(name, state, message) {
+  return { name, state, message };
+}
+
+function restoreTransactionResult(state, message, details = {}) {
+  return {
+    ok: state === 'transaction_ready',
+    transactionState: state,
+    message,
+    noRestoreTransactionExecuted: true,
+    noDataCommitted: true,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -564,6 +582,140 @@ async function assessControlledRestoreEngineFoundation() {
     metadata: {
       auditCorrelationId,
       foundationState: result.foundationState,
+      noRestoreExecuted: true,
+      restoreUnavailable: true,
+      restoreEligible: false,
+      checkpoints: result.checkpoints,
+      governanceDecision: result.governanceDecision || null,
+      activationReadiness: result.activationReadiness || null,
+      blockingReasons: result.blockingReasons || [],
+    },
+  });
+
+  return {
+    ...result,
+    auditLogged: true,
+  };
+}
+
+async function assessRestoreTransactionFoundation() {
+  const auditCorrelationId = crypto.randomUUID();
+  const profileResult = await authService.getProfile();
+  const profile = profileResult.ok ? profileResult.profile : null;
+  const checkpoints = [
+    restoreTransactionCheckpoint(
+      'transaction_initialize',
+      'transaction_not_started',
+      'Restore transaction foundation assessment initialized.'
+    ),
+  ];
+
+  let result;
+  try {
+    if (!profile) {
+      checkpoints.push(
+        restoreTransactionCheckpoint(
+          'transaction_authentication',
+          'transaction_blocked',
+          'Authentication is required before transaction precheck can continue.'
+        )
+      );
+      result = restoreTransactionResult(
+        'transaction_blocked',
+        'Restore transaction foundation assessment blocked. No Restore transaction was executed, no data was committed, and Restore remains unavailable.',
+        {
+          auditCorrelationId,
+          transactionPrecheckResult: 'blocked',
+          checkpoints,
+          blockingReasons: ['Authentication is required.'],
+        }
+      );
+    } else {
+      checkpoints.push(
+        restoreTransactionCheckpoint(
+          'transaction_precheck',
+          'transaction_precheck',
+          'Existing governance and Phase 3A foundation evidence is being evaluated.'
+        )
+      );
+      const foundation = await assessControlledRestoreEngineFoundation();
+      const blockers = [];
+      if (foundation.foundationState !== 'ready_for_future_execution') {
+        blockers.push(
+          'Controlled Restore Engine foundation is not ready for future execution planning.'
+        );
+      }
+      if (foundation.restoreUnavailable !== true) {
+        blockers.push('Restore unavailable declaration is missing.');
+      }
+      if (foundation.restoreEligible !== false) {
+        blockers.push('Restore eligibility blocking declaration is missing.');
+      }
+      if (Array.isArray(foundation.blockingReasons) && foundation.blockingReasons.length) {
+        blockers.push(...foundation.blockingReasons);
+      }
+      const ready = blockers.length === 0;
+      checkpoints.push(
+        restoreTransactionCheckpoint(
+          'transaction_precheck_result',
+          ready ? 'transaction_ready' : 'transaction_blocked',
+          ready
+            ? 'Transaction foundation precheck passed for future orchestration planning only.'
+            : 'Transaction foundation precheck is blocked by governance or foundation evidence.'
+        )
+      );
+      result = restoreTransactionResult(
+        ready ? 'transaction_ready' : 'transaction_blocked',
+        ready
+          ? 'Restore transaction foundation is ready for future orchestration planning only. No Restore transaction was executed, no data was committed, and Restore remains unavailable.'
+          : 'Restore transaction foundation assessment blocked. No Restore transaction was executed, no data was committed, and Restore remains unavailable.',
+        {
+          auditCorrelationId,
+          transactionPrecheckResult: ready ? 'passed_for_future_planning' : 'blocked',
+          checkpoints,
+          foundationState: foundation.foundationState || null,
+          foundationAuditCorrelationId: foundation.auditCorrelationId || null,
+          governanceDecision: foundation.governanceDecision || null,
+          activationReadiness: foundation.activationReadiness || null,
+          outstandingRequirements: Array.isArray(foundation.outstandingRequirements)
+            ? foundation.outstandingRequirements
+            : [],
+          blockingReasons: Array.from(new Set(blockers)),
+        }
+      );
+    }
+  } catch {
+    checkpoints.push(
+      restoreTransactionCheckpoint(
+        'transaction_error',
+        'transaction_failed',
+        'Restore transaction foundation assessment failed before any Restore transaction.'
+      )
+    );
+    result = restoreTransactionResult(
+      'transaction_failed',
+      'Restore transaction foundation assessment failed. No Restore transaction was executed, no data was committed, and Restore remains unavailable.',
+      {
+        auditCorrelationId,
+        transactionPrecheckResult: 'failed',
+        checkpoints,
+        blockingReasons: ['Transaction foundation assessment failed before Restore transaction.'],
+      }
+    );
+  }
+
+  await activityRepository.createActivityLog({
+    userId: profile?.id || null,
+    action: 'backup.restore.transaction_foundation_assessment',
+    status: result.transactionState === 'transaction_ready' ? 'success' : result.transactionState,
+    message: `${result.message} Transaction foundation assessment only.`,
+    metadata: {
+      auditCorrelationId,
+      transactionState: result.transactionState,
+      transactionPrecheckResult: result.transactionPrecheckResult,
+      foundationState: result.foundationState || null,
+      noRestoreTransactionExecuted: true,
+      noDataCommitted: true,
       noRestoreExecuted: true,
       restoreUnavailable: true,
       restoreEligible: false,
@@ -1006,6 +1158,7 @@ module.exports = {
   getRestoreReadinessDashboard,
   getRestoreGovernanceAssessment,
   assessControlledRestoreEngineFoundation,
+  assessRestoreTransactionFoundation,
   listRestoreDryRunReports,
   listBackups,
   restoreBackup,
