@@ -498,6 +498,49 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderRestoreEngineFoundationStatus(result = {}) {
+    const panel = $id('restoreEngineFoundationStatus');
+    if (!panel) return;
+    if (!result.foundationState) {
+      panel.textContent =
+        'Engine Foundation Status: idle. No Restore executed. Restore remains unavailable.';
+      return;
+    }
+    const checkpoints = Array.isArray(result.checkpoints) ? result.checkpoints : [];
+    const blockers = Array.isArray(result.blockingReasons) ? result.blockingReasons : [];
+    const outstanding = Array.isArray(result.outstandingRequirements)
+      ? result.outstandingRequirements
+      : [];
+    const lines = [
+      result.message ||
+        'Controlled Restore Engine foundation assessment completed. Restore remains unavailable.',
+      `Engine Foundation Status: ${text(result.foundationState)}`,
+      `Audit Correlation ID: ${text(result.auditCorrelationId)}`,
+      `Governance Decision: ${text(result.governanceDecision)}`,
+      `Activation Readiness: ${text(result.activationReadiness)}`,
+      `Audit Logged: ${result.auditLogged ? 'Yes' : 'No'}`,
+      `No Restore Executed: ${result.noRestoreExecuted ? 'Yes' : 'No'}`,
+      `Restore Unavailable: ${result.restoreUnavailable ? 'Yes' : 'No'}`,
+      `Restore Eligible: ${result.restoreEligible === true ? 'Yes' : 'No'}`,
+      '',
+      'Lifecycle Checkpoints:',
+      ...checkpoints.map(
+        (item) => `- ${text(item.name)}: ${text(item.state)} - ${text(item.message)}`
+      ),
+    ];
+    if (blockers.length) {
+      lines.push(
+        '',
+        'Governance Blocking Reasons:',
+        ...blockers.map((reason) => `- ${text(reason)}`)
+      );
+    }
+    if (outstanding.length) {
+      lines.push('', 'Outstanding Requirements:', ...outstanding.map((item) => `- ${text(item)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function renderDryRunReportHistory(result = {}) {
     const tbody = $id('dryRunReportHistoryBody');
     if (!tbody) return;
@@ -801,6 +844,23 @@
     }
   }
 
+  async function handleRestoreEngineFoundationAssessment() {
+    try {
+      const result = await A().restoreEngineFoundationAssessment();
+      renderRestoreEngineFoundationStatus(result || {});
+      showMessage(
+        result?.message ||
+          'Controlled Restore Engine foundation assessment completed. Restore remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage(
+        'Controlled Restore Engine foundation assessment failed. Restore remains unavailable.',
+        'error'
+      );
+    }
+  }
+
   function scheduleDryRunReportSearch() {
     clearTimeout(reportSearchTimer);
     reportSearchTimer = setTimeout(() => {
@@ -916,6 +976,11 @@
         handleRefreshRestoreGovernanceAssessment
       );
       addListener(
+        $id('restoreEngineFoundationAssessmentButton'),
+        'click',
+        handleRestoreEngineFoundationAssessment
+      );
+      addListener(
         $id('refreshDryRunReportHistoryButton'),
         'click',
         handleRefreshDryRunReportHistory
@@ -953,6 +1018,9 @@
     }
     if (diff.restoreGovernanceAssessment) {
       renderRestoreGovernanceAssessment(diff.restoreGovernanceAssessment);
+    }
+    if (diff.restoreEngineFoundationStatus) {
+      renderRestoreEngineFoundationStatus(diff.restoreEngineFoundationStatus);
     }
     if (diff.dryRunReportHistory) renderDryRunReportHistory(diff.dryRunReportHistory);
     if (diff.savedDryRunReport) renderSavedDryRunReportDetail(diff.savedDryRunReport);

@@ -342,6 +342,22 @@ function restoreGovernanceDecision(dashboard = {}) {
   return 'Governance Pending - Activation Blocked';
 }
 
+function restoreFoundationCheckpoint(name, state, message) {
+  return { name, state, message };
+}
+
+function restoreFoundationResult(state, message, details = {}) {
+  return {
+    ok: state === 'ready_for_future_execution',
+    foundationState: state,
+    message,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -444,6 +460,123 @@ async function getRestoreGovernanceAssessment() {
       governanceDecision: restoreGovernanceDecision(dashboard),
       dashboard,
     },
+  };
+}
+
+async function assessControlledRestoreEngineFoundation() {
+  const auditCorrelationId = crypto.randomUUID();
+  const profileResult = await authService.getProfile();
+  const profile = profileResult.ok ? profileResult.profile : null;
+  const checkpoints = [
+    restoreFoundationCheckpoint(
+      'initialize',
+      'initializing',
+      'Controlled Restore Engine foundation assessment initialized.'
+    ),
+  ];
+
+  let result;
+  try {
+    if (!profile) {
+      checkpoints.push(
+        restoreFoundationCheckpoint(
+          'authentication',
+          'blocked',
+          'Authentication is required before foundation assessment can continue.'
+        )
+      );
+      result = restoreFoundationResult(
+        'blocked',
+        'Controlled Restore Engine foundation assessment blocked. No Restore was executed and Restore remains unavailable.',
+        {
+          auditCorrelationId,
+          checkpoints,
+          blockingReasons: ['Authentication is required.'],
+        }
+      );
+    } else {
+      checkpoints.push(
+        restoreFoundationCheckpoint(
+          'governance',
+          'validating_governance',
+          'Existing Restore governance evidence is being evaluated.'
+        )
+      );
+      const governance = await getRestoreGovernanceAssessment();
+      const assessment = governance.assessment || {};
+      const activation = assessment.activationReadinessAssessment || {};
+      const blockers = Array.isArray(assessment.blockingAssessment)
+        ? assessment.blockingAssessment
+        : [];
+      const ready = activation.governanceReady === true && assessment.activationBlocked === true;
+      checkpoints.push(
+        restoreFoundationCheckpoint(
+          'governance_result',
+          ready ? 'ready_for_future_execution' : 'blocked',
+          ready
+            ? 'Governance evidence supports future execution planning only; Restore remains unavailable.'
+            : 'Governance evidence blocks future execution planning until blockers are resolved.'
+        )
+      );
+      result = restoreFoundationResult(
+        ready ? 'ready_for_future_execution' : 'blocked',
+        ready
+          ? 'Controlled Restore Engine foundation is ready for future execution planning only. No Restore was executed and Restore remains unavailable.'
+          : 'Controlled Restore Engine foundation assessment blocked. No Restore was executed and Restore remains unavailable.',
+        {
+          auditCorrelationId,
+          checkpoints,
+          governanceDecision: assessment.governanceDecision || null,
+          activationReadiness: activation.status || null,
+          technicalReadiness: assessment.technicalReadiness || {},
+          outstandingRequirements: Array.isArray(assessment.outstandingRequirements)
+            ? assessment.outstandingRequirements
+            : [],
+          blockingReasons: blockers,
+        }
+      );
+    }
+  } catch {
+    checkpoints.push(
+      restoreFoundationCheckpoint(
+        'foundation_error',
+        'failed',
+        'Controlled Restore Engine foundation assessment failed before any Restore execution.'
+      )
+    );
+    result = restoreFoundationResult(
+      'failed',
+      'Controlled Restore Engine foundation assessment failed. No Restore was executed and Restore remains unavailable.',
+      {
+        auditCorrelationId,
+        checkpoints,
+        blockingReasons: ['Foundation assessment failed before Restore execution.'],
+      }
+    );
+  }
+
+  await activityRepository.createActivityLog({
+    userId: profile?.id || null,
+    action: 'backup.restore.engine_foundation_assessment',
+    status:
+      result.foundationState === 'ready_for_future_execution' ? 'success' : result.foundationState,
+    message: `${result.message} Foundation assessment only.`,
+    metadata: {
+      auditCorrelationId,
+      foundationState: result.foundationState,
+      noRestoreExecuted: true,
+      restoreUnavailable: true,
+      restoreEligible: false,
+      checkpoints: result.checkpoints,
+      governanceDecision: result.governanceDecision || null,
+      activationReadiness: result.activationReadiness || null,
+      blockingReasons: result.blockingReasons || [],
+    },
+  });
+
+  return {
+    ...result,
+    auditLogged: true,
   };
 }
 
@@ -872,6 +1005,7 @@ module.exports = {
   getRestoreDryRunReport,
   getRestoreReadinessDashboard,
   getRestoreGovernanceAssessment,
+  assessControlledRestoreEngineFoundation,
   listRestoreDryRunReports,
   listBackups,
   restoreBackup,
