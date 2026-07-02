@@ -15,7 +15,7 @@ function mapUser(row) {
     role: row.role,
     isActive: row.is_active,
     failedLoginAttempts: Number(row.failed_login_attempts || 0),
-    lockedUntil: row.locked_until
+    lockedUntil: row.locked_until,
   };
 }
 
@@ -122,7 +122,13 @@ async function findRefreshTokenById(tokenId) {
   return result.rows[0] || null;
 }
 
-async function rotateRefreshToken({ oldTokenId, newTokenId = randomUUID(), userId, tokenHash, expiresAt }) {
+async function rotateRefreshToken({
+  oldTokenId,
+  newTokenId = randomUUID(),
+  userId,
+  tokenHash,
+  expiresAt,
+}) {
   await withTransaction(async (client) => {
     await client.query(
       'UPDATE refresh_tokens SET revoked_at = NOW(), last_used_at = NOW() WHERE id = $1 AND user_id = $2',
@@ -152,7 +158,39 @@ async function revokeRefreshToken(tokenId) {
   );
 }
 
+async function cleanupStaleRefreshTokens({ revokedRetentionDays = 7 } = {}) {
+  const retentionDays = Number.isFinite(Number(revokedRetentionDays))
+    ? Math.max(1, Number(revokedRetentionDays))
+    : 7;
+  return await withTransaction(async (client) => {
+    const expired = await client.query(
+      `
+        DELETE FROM refresh_tokens
+        WHERE expires_at < NOW()
+        RETURNING id
+      `
+    );
+    const revoked = await client.query(
+      `
+        DELETE FROM refresh_tokens
+        WHERE revoked_at IS NOT NULL
+          AND revoked_at < NOW() - ($1::text || ' days')::interval
+        RETURNING id
+      `,
+      [retentionDays]
+    );
+    const expiredCount = expired.rowCount || 0;
+    const revokedCount = revoked.rowCount || 0;
+    return {
+      expired: expiredCount,
+      revoked: revokedCount,
+      total: expiredCount + revokedCount,
+    };
+  });
+}
+
 module.exports = {
+  cleanupStaleRefreshTokens,
   createRefreshToken,
   findRefreshTokenById,
   findUserByUsername,
@@ -161,5 +199,5 @@ module.exports = {
   markLoginFailure,
   markLoginSuccess,
   revokeRefreshToken,
-  rotateRefreshToken
+  rotateRefreshToken,
 };

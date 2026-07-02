@@ -65,6 +65,26 @@ async function auditAuthEvent({ userId = null, action, status, message, metadata
   }
 }
 
+async function cleanupStaleRefreshTokensSafely() {
+  try {
+    const result = await authRepository.cleanupStaleRefreshTokens();
+    if (result?.total > 0) {
+      await auditAuthEvent({
+        action: 'auth.refreshToken.cleanup',
+        status: 'success',
+        message: 'Stale refresh tokens cleaned up',
+        metadata: {
+          expired: result.expired || 0,
+          revoked: result.revoked || 0,
+          total: result.total,
+        },
+      });
+    }
+  } catch (err) {
+    logError('Refresh token cleanup failed:', err);
+  }
+}
+
 async function persistFreshSession(user, oldRefreshTokenId = null) {
   try {
     const accessToken = createAccessToken(user);
@@ -166,6 +186,7 @@ async function login({ username, password }) {
       message: 'Login successful',
       metadata: { username: user.username },
     });
+    await cleanupStaleRefreshTokensSafely();
 
     return {
       ok: true,
@@ -245,6 +266,7 @@ async function refreshSession() {
       message: 'Session refreshed',
       metadata: { username: user.username },
     });
+    await cleanupStaleRefreshTokensSafely();
 
     return {
       ok: true,
@@ -306,6 +328,7 @@ async function logout() {
       });
     }
 
+    await cleanupStaleRefreshTokensSafely();
     sessionStore.clearSession();
     return { ok: true };
   } catch (err) {
