@@ -26,10 +26,15 @@
     return api().settings.createBackup();
   }
 
+  async function inspectRestorePackage() {
+    return api().settings.inspectRestorePackage();
+  }
+
   window.SettingsApi = {
     appInfo,
     createBackup,
     getSettings,
+    inspectRestorePackage,
     listBackups,
     unavailable,
   };

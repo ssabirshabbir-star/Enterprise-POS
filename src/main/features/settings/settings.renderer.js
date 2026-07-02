@@ -125,6 +125,29 @@
       .join('');
   }
 
+  function renderPackageInspection(result = {}) {
+    const panel = $id('restorePackageInspection');
+    if (!panel) return;
+    if (!result.status) {
+      panel.textContent = 'Package Inspection Only — Restore is not available.';
+      return;
+    }
+    const lines = [
+      result.message || 'Package inspection completed.',
+      `Status: ${text(result.status)}`,
+      `File: ${text(result.fileName)}`,
+      `Backup ID: ${text(result.backupId)}`,
+      `Correlation ID: ${text(result.correlationId)}`,
+      `Backup Class: ${text(result.backupClass)}`,
+      `Workflow Version: ${text(result.workflowVersion)}`,
+      `Manifest Version: ${text(result.manifestVersion)}`,
+      `Tables Declared: ${text(result.tableCount)}`,
+      `Integrity Declared: ${result.integrityDeclared ? 'Yes' : 'No'}`,
+      'Restore: Not available',
+    ];
+    panel.textContent = lines.join('\n');
+  }
+
   function setBackupBusy(isBusy) {
     const button = $id('createBackupButton');
     if (!button) return;
@@ -197,6 +220,19 @@
     }
   }
 
+  async function handleInspectRestorePackage() {
+    try {
+      const result = await A().inspectRestorePackage();
+      renderPackageInspection(result || {});
+      showMessage(
+        result?.message || 'Package inspection completed.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Package inspection failed. Restore remains unavailable.', 'error');
+    }
+  }
+
   function addListener(target, eventName, handler, options) {
     if (!target) return;
     target.addEventListener(eventName, handler, options);
@@ -228,6 +264,7 @@
       addListener($id('settingsModule'), 'click', handleTabClick);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
+      addListener($id('inspectRestorePackageButton'), 'click', handleInspectRestorePackage);
     }
     loadReadOnlyData().catch(() => {});
   }
@@ -237,6 +274,7 @@
     if (diff.appInfo) renderAppInfo(diff.appInfo);
     if (diff.licenseUnavailable) renderLicenseUnavailable();
     if (diff.backups) renderBackups({ backups: diff.backups });
+    if (diff.packageInspection) renderPackageInspection(diff.packageInspection);
     if (diff.message) showMessage(diff.message, diff.type || 'success');
   }
 

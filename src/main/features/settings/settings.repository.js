@@ -630,9 +630,149 @@ async function restoreBackup(filePath, userId) {
   };
 }
 
+function packageReaderResult(status, message, details = {}) {
+  return {
+    ok: status === 'package_readable',
+    status,
+    message,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
+function summarizePackage(filePath, backup) {
+  const manifest = backup.manifest || {};
+  const metadata = backup.metadata || {};
+  const coverage = manifest.coverageDeclaration || {};
+  const integrity = manifest.integrityDeclaration || {};
+  const identity = manifest.backupIdentity || {};
+  const includedTables = Array.isArray(coverage.includedTables) ? coverage.includedTables : [];
+  const data = backup.data && typeof backup.data === 'object' ? backup.data : {};
+
+  return {
+    fileName: path.basename(filePath),
+    filePath,
+    packageReadable: true,
+    backupId: identity.backupId || metadata.backupUuid || null,
+    correlationId: identity.correlationId || metadata.correlationId || null,
+    backupClass: manifest.backupClass || null,
+    workflowVersion:
+      metadata.workflowVersion || manifest.compatibilityDeclaration?.workflowVersion || null,
+    manifestVersion: manifest.manifestVersion || null,
+    applicationVersion:
+      metadata.applicationVersion || manifest.compatibilityDeclaration?.applicationVersion || null,
+    schemaVersion:
+      metadata.schemaVersion || manifest.compatibilityDeclaration?.schemaVersion || null,
+    createdAt: metadata.createdAt || manifest.createdAt || null,
+    tableCount: includedTables.length,
+    payloadTableCount: Object.keys(data).length,
+    integrityAlgorithm: integrity.algorithm || null,
+    integrityDeclared: Boolean(integrity.dataHash),
+    restoreEligible: false,
+    restoreStatus: manifest.recoveryDeclaration?.restoreStatus || 'Blocked',
+  };
+}
+
+async function inspectRestorePackage(filePath) {
+  if (!filePath) {
+    return packageReaderResult('package_unreadable', 'No backup package was selected.');
+  }
+
+  let raw;
+  try {
+    raw = await fs.readFile(filePath, 'utf8');
+  } catch {
+    return packageReaderResult('package_unreadable', 'Backup package could not be read.', {
+      fileName: path.basename(filePath),
+      filePath,
+    });
+  }
+
+  let backup;
+  try {
+    backup = JSON.parse(raw);
+  } catch {
+    return packageReaderResult('malformed_package', 'Backup package is not valid JSON.', {
+      fileName: path.basename(filePath),
+      filePath,
+    });
+  }
+
+  if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+    return packageReaderResult('malformed_package', 'Backup package structure is invalid.', {
+      fileName: path.basename(filePath),
+      filePath,
+    });
+  }
+
+  if (!backup.manifest && backup.metadata?.app === 'Enterprise POS') {
+    return packageReaderResult(
+      'unsupported_format',
+      'Legacy backup package format is unsupported for certified restore inspection.',
+      {
+        fileName: path.basename(filePath),
+        filePath,
+      }
+    );
+  }
+
+  const missing = [];
+  if (!backup.manifest) missing.push('manifest');
+  if (!backup.metadata) missing.push('metadata');
+  if (!backup.data || typeof backup.data !== 'object' || Array.isArray(backup.data)) {
+    missing.push('backup payload');
+  }
+  if (!backup.manifest?.coverageDeclaration?.includedTables) missing.push('table inventory');
+  if (!backup.manifest?.integrityDeclaration) missing.push('integrity section');
+  if (!backup.manifest?.backupIdentity?.backupId && !backup.metadata?.backupUuid) {
+    missing.push('backup identifier');
+  }
+  if (!backup.manifest?.backupIdentity?.correlationId && !backup.metadata?.correlationId) {
+    missing.push('correlation identifier');
+  }
+  if (
+    !backup.metadata?.workflowVersion &&
+    !backup.manifest?.compatibilityDeclaration?.workflowVersion
+  ) {
+    missing.push('workflow version');
+  }
+  if (!backup.manifest?.manifestVersion) missing.push('manifest version');
+
+  if (missing.length > 0) {
+    return packageReaderResult(
+      'missing_required_section',
+      `Backup package is missing required section(s): ${missing.join(', ')}.`,
+      {
+        fileName: path.basename(filePath),
+        filePath,
+        missing,
+      }
+    );
+  }
+
+  if (
+    backup.manifest.backupClass !== BACKUP_COVERAGE_POLICY.backupClass ||
+    backup.metadata.workflowVersion !== BACKUP_WORKFLOW_VERSION ||
+    backup.manifest.manifestVersion !== BACKUP_MANIFEST_VERSION
+  ) {
+    return packageReaderResult(
+      'unsupported_format',
+      'Backup package is not a supported Certified Backup v1 package.',
+      summarizePackage(filePath, backup)
+    );
+  }
+
+  return packageReaderResult(
+    'package_readable',
+    'Package Inspection Only - Restore is not available.',
+    summarizePackage(filePath, backup)
+  );
+}
+
 module.exports = {
   exportBackup,
   getSettings,
+  inspectRestorePackage,
   listBackupLogs,
   restoreBackup,
   saveSettings,

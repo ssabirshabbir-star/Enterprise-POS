@@ -56,6 +56,26 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/inspect-restore-package', async (event) => {
+    try {
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Inspect Certified Backup Package',
+        properties: ['openFile'],
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return {
+          ok: false,
+          status: 'package_unreadable',
+          message: 'Package inspection cancelled.',
+        };
+      }
+      return await settingsService.inspectRestorePackage(result.filePaths[0]);
+    } catch (error) {
+      return safeError(error, 'Backup package inspection error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

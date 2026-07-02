@@ -126,6 +126,12 @@ async function listBackups() {
   return { ok: true, backups: await settingsRepository.listBackupLogs() };
 }
 
+async function inspectRestorePackage(filePath) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  return settingsRepository.inspectRestorePackage(filePath);
+}
+
 async function restoreBackup(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -143,6 +149,7 @@ async function restoreBackup(filePath) {
 module.exports = {
   createBackup,
   getSettings,
+  inspectRestorePackage,
   listBackups,
   restoreBackup,
   saveSettings,
