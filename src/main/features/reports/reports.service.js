@@ -6,14 +6,30 @@ const REPORT_ROLES = new Set(['Admin', 'Manager']);
 async function requireReportsAccess() {
   const profileResult = await authService.getProfile();
   if (!profileResult.ok) return { ok: false, message: 'Authentication required.' };
-  if (!REPORT_ROLES.has(profileResult.profile.role)) return { ok: false, message: 'You do not have permission to view reports.' };
+  if (!REPORT_ROLES.has(profileResult.profile.role))
+    return { ok: false, message: 'You do not have permission to view reports.' };
   return { ok: true, profile: profileResult.profile };
 }
 
 async function getReports(filters = {}) {
   const access = await requireReportsAccess();
   if (!access.ok) return access;
-  const [summary, sales, purchases, purchaseOrders, inventory, cashiers, customerDue, creditSales, returns, refundSummary, customerLedger, supplierBalances, supplierPayments, expenseReport] = await Promise.all([
+  const [
+    summary,
+    sales,
+    purchases,
+    purchaseOrders,
+    inventory,
+    cashiers,
+    customerDue,
+    creditSales,
+    returns,
+    refundSummary,
+    customerLedger,
+    supplierBalances,
+    supplierPayments,
+    expenseReport,
+  ] = await Promise.all([
     reportsRepository.getSummary(filters),
     reportsRepository.getSalesReport(filters),
     reportsRepository.getPurchaseReport(filters),
@@ -27,7 +43,7 @@ async function getReports(filters = {}) {
     reportsRepository.getCustomerLedgerReport(filters),
     reportsRepository.getSupplierBalanceReport(),
     reportsRepository.getSupplierPaymentReport(filters),
-    reportsRepository.getExpenseReport(filters)
+    reportsRepository.getExpenseReport(filters),
   ]);
   return {
     ok: true,
@@ -42,7 +58,9 @@ async function getReports(filters = {}) {
     pendingPurchaseInvoices: purchaseOrders.pendingInvoices,
     supplierPayables: purchaseOrders.supplierPayables,
     inventory,
-    lowStock: inventory.filter((item) => item.status === 'LOW_STOCK' || item.status === 'OUT_OF_STOCK'),
+    lowStock: inventory.filter(
+      (item) => item.status === 'LOW_STOCK' || item.status === 'OUT_OF_STOCK'
+    ),
     cashiers,
     customerDue,
     creditSales,
@@ -58,13 +76,13 @@ async function getReports(filters = {}) {
       costOfGoodsSold: Number((summary.totalSales - summary.grossProfit).toFixed(2)),
       grossProfit: summary.grossProfit,
       expenses: summary.totalExpenses,
-      netProfit: summary.totalProfit
+      netProfit: summary.totalProfit,
     },
     cashFlow: summary.cashFlow,
-    export: { pdfReady: true, excelReady: true },
+    export: { pdfReady: false, excelReady: false },
     charts: {
-      salesByCashier: cashiers.map((item) => ({ label: item.cashierName, value: item.totalSales }))
-    }
+      salesByCashier: cashiers.map((item) => ({ label: item.cashierName, value: item.totalSales })),
+    },
   };
 }
 
