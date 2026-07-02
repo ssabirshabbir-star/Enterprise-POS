@@ -258,7 +258,7 @@ async function assessRestoreAuthorization(filePath, acknowledgementText = '') {
     )
   );
   const warnings = [
-    'Authorization assessment does not approve, enable, or execute Restore.',
+    'Authorization assessment only. This assessment does not grant approval for any recovery operation. Restore remains unavailable until all governance and certification requirements have been completed.',
     ...(Array.isArray(eligibility?.warnings) ? eligibility.warnings : []),
   ];
   const passed = failedChecks.length === 0;
