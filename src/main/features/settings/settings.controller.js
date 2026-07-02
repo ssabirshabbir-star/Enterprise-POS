@@ -193,6 +193,14 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/restore-readiness-dashboard', async () => {
+    try {
+      return await settingsService.getRestoreReadinessDashboard();
+    } catch (error) {
+      return safeError(error, 'Restore readiness dashboard error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

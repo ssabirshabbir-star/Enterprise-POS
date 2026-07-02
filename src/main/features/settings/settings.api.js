@@ -54,6 +54,10 @@
     return api().settings.getDryRunCertificationReport(id);
   }
 
+  async function restoreReadinessDashboard() {
+    return api().settings.restoreReadinessDashboard();
+  }
+
   window.SettingsApi = {
     assessRestoreEligibility,
     assessRestoreAuthorization,
@@ -65,6 +69,7 @@
     inspectRestorePackage,
     listDryRunCertificationReports,
     listBackups,
+    restoreReadinessDashboard,
     unavailable,
     verifyRestorePackage,
   };

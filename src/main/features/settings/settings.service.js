@@ -216,6 +216,118 @@ async function getRestoreDryRunReport(reportId) {
   };
 }
 
+function restoreDashboardStatus(latestReport) {
+  if (!latestReport) return 'No dry-run certification evidence available';
+  if (latestReport.certificationStatus === 'dry_run_certification_passed') {
+    return 'Dry-run certification evidence available - Restore unavailable';
+  }
+  return 'Restore readiness blocked - Restore unavailable';
+}
+
+function latestReportSummary(reportRow) {
+  if (!reportRow) return null;
+  const report = reportRow.report || {};
+  return {
+    id: reportRow.id,
+    createdAt: reportRow.createdAt,
+    createdBy: reportRow.createdBy,
+    certificationStatus: reportRow.certificationStatus,
+    reportCorrelationId: reportRow.reportCorrelationId,
+    packageSummary: report.packageSummary || {},
+    verificationSummary: report.verificationSummary || {},
+    eligibilitySummary: report.eligibilitySummary || {},
+    authorizationSummary: report.authorizationSummary || {},
+    blockingReasons: Array.isArray(report.blockingReasons) ? report.blockingReasons : [],
+    warnings: Array.isArray(report.warnings) ? report.warnings : [],
+    futureRestoreQualification: report.futureRestoreQualification || null,
+    noRestoreExecuted: reportRow.noRestoreExecuted === true,
+    restoreUnavailable: reportRow.restoreUnavailable === true,
+    restoreEligible: reportRow.restoreEligible === true ? true : false,
+  };
+}
+
+async function getRestoreReadinessDashboard() {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const evidence = await settingsRepository.getRestoreReadinessDashboardEvidence();
+  const aggregate = evidence.aggregate || {};
+  const reports = Array.isArray(evidence.reports) ? evidence.reports : [];
+  const latest = reports[0] || null;
+  const latestCertified =
+    reports.find((report) => report.certificationStatus === 'dry_run_certification_passed') || null;
+  const latestReport = latestReportSummary(latest);
+  const latestCertifiedReport = latestReportSummary(latestCertified);
+  const blockingReasons = latestReport?.blockingReasons || [];
+  const warnings = latestReport?.warnings || [];
+  return {
+    ok: true,
+    dashboard: {
+      readOnly: true,
+      governanceDashboard: true,
+      noRestoreExecuted: true,
+      restoreUnavailable: true,
+      restoreEligible: false,
+      overallReadiness: {
+        currentRestoreReadiness: restoreDashboardStatus(latest),
+        currentCertificationState: latest?.certificationStatus || 'no_certification_reports',
+        latestCertificationDate: latest?.createdAt || null,
+        latestCertificationResult: latest?.certificationStatus || null,
+      },
+      packageStatus: latestCertifiedReport?.packageSummary || latestReport?.packageSummary || {},
+      verificationStatus: latestReport?.verificationSummary || {},
+      eligibilityStatus: latestReport?.eligibilitySummary || {},
+      authorizationStatus: latestReport?.authorizationSummary || {},
+      blockingConditions: blockingReasons,
+      warnings,
+      certificationHistorySummary: {
+        totalReports: aggregate.total_reports || 0,
+        certified: aggregate.certified_reports || 0,
+        blocked: aggregate.blocked_reports || 0,
+        failedVerification: aggregate.failed_verification_reports || 0,
+        failedEligibility: aggregate.failed_eligibility_reports || 0,
+        authorizationBlocked: aggregate.authorization_blocked_reports || 0,
+        latestReport: latestReport
+          ? {
+              id: latestReport.id,
+              status: latestReport.certificationStatus,
+              createdAt: latestReport.createdAt,
+              packageName: latestReport.packageSummary.fileName || null,
+            }
+          : null,
+      },
+      auditSummary: {
+        lastDryRun: latestReport
+          ? {
+              id: latestReport.id,
+              createdAt: latestReport.createdAt,
+              createdBy: latestReport.createdBy,
+              status: latestReport.certificationStatus,
+            }
+          : null,
+        lastCertification: latestCertifiedReport
+          ? {
+              id: latestCertifiedReport.id,
+              createdAt: latestCertifiedReport.createdAt,
+              createdBy: latestCertifiedReport.createdBy,
+              status: latestCertifiedReport.certificationStatus,
+            }
+          : null,
+        lastVerification: latestReport
+          ? {
+              reportId: latestReport.id,
+              status: latestReport.verificationSummary.status || null,
+              warnings: warnings.length,
+            }
+          : null,
+      },
+      latestReport,
+      latestCertifiedReport,
+      message:
+        'Restore readiness dashboard loaded as read-only governance evidence. Restore remains unavailable.',
+    },
+  };
+}
+
 async function inspectRestorePackage(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -639,6 +751,7 @@ module.exports = {
   getSettings,
   inspectRestorePackage,
   getRestoreDryRunReport,
+  getRestoreReadinessDashboard,
   listRestoreDryRunReports,
   listBackups,
   restoreBackup,

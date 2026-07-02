@@ -355,6 +355,83 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderRestoreReadinessDashboard(result = {}) {
+    const panel = $id('restoreReadinessDashboard');
+    if (!panel) return;
+    const dashboard = result.dashboard || result;
+    if (!dashboard.overallReadiness) {
+      panel.textContent =
+        'Read Only Governance Dashboard - No Restore Executed - Restore Unavailable.';
+      return;
+    }
+    const overall = dashboard.overallReadiness || {};
+    const packageStatus = dashboard.packageStatus || {};
+    const verification = dashboard.verificationStatus || {};
+    const eligibility = dashboard.eligibilityStatus || {};
+    const authorization = dashboard.authorizationStatus || {};
+    const history = dashboard.certificationHistorySummary || {};
+    const audit = dashboard.auditSummary || {};
+    const blockingConditions = Array.isArray(dashboard.blockingConditions)
+      ? dashboard.blockingConditions
+      : [];
+    const warnings = Array.isArray(dashboard.warnings) ? dashboard.warnings : [];
+    const lines = [
+      'Read Only Governance Dashboard - No Restore Executed - Restore Unavailable.',
+      `Current Restore Readiness: ${text(overall.currentRestoreReadiness)}`,
+      `Current Certification State: ${text(overall.currentCertificationState)}`,
+      `Latest Certification Date: ${text(overall.latestCertificationDate)}`,
+      `Latest Certification Result: ${text(overall.latestCertificationResult)}`,
+      '',
+      'Package Status',
+      `Package: ${text(packageStatus.fileName)}`,
+      `Backup ID: ${text(packageStatus.backupId)}`,
+      `Package Correlation ID: ${text(packageStatus.correlationId)}`,
+      `Backup Class: ${text(packageStatus.backupClass)}`,
+      `Workflow Version: ${text(packageStatus.workflowVersion)}`,
+      `Manifest Version: ${text(packageStatus.manifestVersion)}`,
+      '',
+      'Verification Status',
+      `Status: ${text(verification.status)}`,
+      `Passed Checks: ${text(verification.passedChecks)}`,
+      `Failed Checks: ${text(verification.failedChecks)}`,
+      '',
+      'Eligibility Status',
+      `Status: ${text(eligibility.status)}`,
+      `Passed Conditions: ${text(eligibility.passedConditions)}`,
+      `Failed Conditions: ${text(eligibility.failedConditions)}`,
+      '',
+      'Authorization Status',
+      `Status: ${text(authorization.authorizationAssessmentStatus)}`,
+      `Permission Outcome: ${text(authorization.permissionOutcome)}`,
+      `Acknowledgement Provided: ${authorization.acknowledgementProvided ? 'Yes' : 'No'}`,
+      '',
+      'Certification History Summary',
+      `Total Reports: ${text(history.totalReports, '0')}`,
+      `Certified: ${text(history.certified, '0')}`,
+      `Blocked: ${text(history.blocked, '0')}`,
+      `Failed Verification: ${text(history.failedVerification, '0')}`,
+      `Failed Eligibility: ${text(history.failedEligibility, '0')}`,
+      `Authorization Blocked: ${text(history.authorizationBlocked, '0')}`,
+      '',
+      'Audit Summary',
+      `Last Dry-Run: ${text(audit.lastDryRun?.createdAt)}`,
+      `Last Certification: ${text(audit.lastCertification?.createdAt)}`,
+      `Last Verification: ${text(audit.lastVerification?.status)}`,
+      `Restore Eligible: ${dashboard.restoreEligible === true ? 'Yes' : 'No'}`,
+    ];
+    if (blockingConditions.length) {
+      lines.push(
+        '',
+        'Blocking Conditions:',
+        ...blockingConditions.map((reason) => `- ${text(reason)}`)
+      );
+    }
+    if (warnings.length) {
+      lines.push('', 'Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function renderDryRunReportHistory(result = {}) {
     const tbody = $id('dryRunReportHistoryBody');
     if (!tbody) return;
@@ -599,6 +676,8 @@
       renderDryRunCertificationReport(result || {});
       const reports = await A().listDryRunCertificationReports(collectDryRunReportFilters(1));
       if (reports?.ok) renderDryRunReportHistory(reports);
+      const dashboard = await A().restoreReadinessDashboard();
+      if (dashboard?.ok) renderRestoreReadinessDashboard(dashboard);
       showMessage(
         result?.message || 'Dry-run certification report completed. Restore remains unavailable.',
         result?.ok ? 'success' : 'error'
@@ -619,6 +698,23 @@
       showMessage(result?.message || 'Unable to refresh dry-run report history.', 'error');
     } catch {
       showMessage('Unable to refresh dry-run report history.', 'error');
+    }
+  }
+
+  async function handleRefreshRestoreReadinessDashboard() {
+    try {
+      const result = await A().restoreReadinessDashboard();
+      if (result?.ok) {
+        renderRestoreReadinessDashboard(result);
+        showMessage(
+          'Restore readiness dashboard refreshed. Restore remains unavailable.',
+          'success'
+        );
+        return;
+      }
+      showMessage(result?.message || 'Unable to refresh Restore readiness dashboard.', 'error');
+    } catch {
+      showMessage('Unable to refresh Restore readiness dashboard.', 'error');
     }
   }
 
@@ -686,6 +782,12 @@
       if (appInfo?.ok) renderAppInfo(appInfo);
       if (backups?.ok) renderBackups(backups);
       A()
+        .restoreReadinessDashboard()
+        .then((dashboard) => {
+          if (dashboard?.ok) renderRestoreReadinessDashboard(dashboard);
+        })
+        .catch(() => {});
+      A()
         .listDryRunCertificationReports(collectDryRunReportFilters())
         .then((reports) => {
           if (reports?.ok) renderDryRunReportHistory(reports);
@@ -714,6 +816,11 @@
         handleAssessRestoreAuthorization
       );
       addListener($id('dryRunCertificationReportButton'), 'click', handleDryRunCertificationReport);
+      addListener(
+        $id('refreshRestoreReadinessDashboardButton'),
+        'click',
+        handleRefreshRestoreReadinessDashboard
+      );
       addListener(
         $id('refreshDryRunReportHistoryButton'),
         'click',
@@ -746,6 +853,9 @@
     if (diff.restoreAuthorization) renderAuthorizationAssessment(diff.restoreAuthorization);
     if (diff.dryRunCertificationReport) {
       renderDryRunCertificationReport(diff.dryRunCertificationReport);
+    }
+    if (diff.restoreReadinessDashboard) {
+      renderRestoreReadinessDashboard(diff.restoreReadinessDashboard);
     }
     if (diff.dryRunReportHistory) renderDryRunReportHistory(diff.dryRunReportHistory);
     if (diff.savedDryRunReport) renderSavedDryRunReportDetail(diff.savedDryRunReport);

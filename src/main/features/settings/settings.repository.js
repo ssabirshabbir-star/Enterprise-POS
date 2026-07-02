@@ -753,6 +753,43 @@ async function getRestoreDryRunReport(reportId) {
   return mapDryRunReportRow(result.rows[0]);
 }
 
+async function getRestoreReadinessDashboardEvidence() {
+  const aggregateResult = await getPool().query(`
+    SELECT
+      COUNT(*)::int AS total_reports,
+      COUNT(*) FILTER (
+        WHERE activity_logs.metadata->>'certificationStatus' = 'dry_run_certification_passed'
+      )::int AS certified_reports,
+      COUNT(*) FILTER (
+        WHERE activity_logs.metadata->>'certificationStatus' = 'dry_run_certification_blocked'
+      )::int AS blocked_reports,
+      COUNT(*) FILTER (
+        WHERE activity_logs.metadata #>> '{verificationSummary,status}' = 'failed'
+      )::int AS failed_verification_reports,
+      COUNT(*) FILTER (
+        WHERE activity_logs.metadata #>> '{eligibilitySummary,status}' = 'blocked'
+      )::int AS failed_eligibility_reports,
+      COUNT(*) FILTER (
+        WHERE activity_logs.metadata #>> '{authorizationSummary,authorizationAssessmentStatus}' = 'authorization_assessment_would_block'
+      )::int AS authorization_blocked_reports,
+      MAX(activity_logs.created_at) AS latest_report_at
+    FROM activity_logs
+    WHERE activity_logs.action = 'backup.restore.dry_run_certification_report'
+  `);
+  const reportsResult = await getPool().query(`
+    SELECT activity_logs.*, users.full_name AS created_by_name
+    FROM activity_logs
+    LEFT JOIN users ON users.id = activity_logs.user_id
+    WHERE activity_logs.action = 'backup.restore.dry_run_certification_report'
+    ORDER BY activity_logs.created_at DESC
+    LIMIT 25
+  `);
+  return {
+    aggregate: aggregateResult.rows[0] || {},
+    reports: reportsResult.rows.map(mapDryRunReportRow),
+  };
+}
+
 async function restoreBackup(filePath, userId) {
   await createBackupLog({
     fileName: filePath ? path.basename(filePath) : 'restore-blocked',
@@ -1223,6 +1260,7 @@ module.exports = {
   getSettings,
   inspectRestorePackage,
   getRestoreDryRunReport,
+  getRestoreReadinessDashboardEvidence,
   listRestoreDryRunReports,
   listBackupLogs,
   restoreBackup,
