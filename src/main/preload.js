@@ -188,8 +188,8 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/assess-restore-authorization', payload),
     dryRunCertificationReport: (payload) =>
       ipcRenderer.invoke('/settings/backups/dry-run-certification-report', payload),
-    listDryRunCertificationReports: () =>
-      ipcRenderer.invoke('/settings/backups/dry-run-certification-reports/list'),
+    listDryRunCertificationReports: (filters) =>
+      ipcRenderer.invoke('/settings/backups/dry-run-certification-reports/list', filters),
     getDryRunCertificationReport: (id) =>
       ipcRenderer.invoke('/settings/backups/dry-run-certification-reports/get', id),
     restoreBackup: () => ipcRenderer.invoke('/settings/backups/restore'),

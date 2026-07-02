@@ -46,8 +46,8 @@
     return api().settings.dryRunCertificationReport({ acknowledgementText });
   }
 
-  async function listDryRunCertificationReports() {
-    return api().settings.listDryRunCertificationReports();
+  async function listDryRunCertificationReports(filters) {
+    return api().settings.listDryRunCertificationReports(filters || {});
   }
 
   async function getDryRunCertificationReport(id) {

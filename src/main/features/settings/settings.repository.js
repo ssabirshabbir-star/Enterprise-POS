@@ -644,23 +644,97 @@ function mapDryRunReportRow(row = {}) {
   };
 }
 
-async function listRestoreDryRunReports(limit = 50) {
+function dryRunReportHistoryFilters(filters = {}) {
+  const where = ["activity_logs.action = 'backup.restore.dry_run_certification_report'"];
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const search = String(filters.search || '').trim();
+  if (search) {
+    const token = `%${search.toLowerCase()}%`;
+    const placeholder = addParam(token);
+    where.push(`(
+      LOWER(COALESCE(activity_logs.metadata #>> '{packageSummary,fileName}', '')) LIKE ${placeholder}
+      OR LOWER(COALESCE(activity_logs.metadata #>> '{packageSummary,backupId}', '')) LIKE ${placeholder}
+      OR LOWER(COALESCE(activity_logs.metadata #>> '{report,packageSummary,backupId}', '')) LIKE ${placeholder}
+      OR LOWER(COALESCE(activity_logs.metadata #>> '{certificationStatus}', '')) LIKE ${placeholder}
+      OR LOWER(COALESCE(activity_logs.metadata #>> '{reportCorrelationId}', '')) LIKE ${placeholder}
+    )`);
+  }
+
+  if (filters.status === 'certified') {
+    where.push("activity_logs.metadata->>'certificationStatus' = 'dry_run_certification_passed'");
+  } else if (filters.status === 'blocked') {
+    where.push("activity_logs.metadata->>'certificationStatus' = 'dry_run_certification_blocked'");
+  } else if (filters.status === 'failed_verification') {
+    where.push("activity_logs.metadata #>> '{verificationSummary,status}' = 'failed'");
+  } else if (filters.status === 'failed_eligibility') {
+    where.push("activity_logs.metadata #>> '{eligibilitySummary,status}' = 'blocked'");
+  } else if (filters.status === 'authorization_blocked') {
+    where.push(
+      "activity_logs.metadata #>> '{authorizationSummary,authorizationAssessmentStatus}' = 'authorization_assessment_would_block'"
+    );
+  }
+
+  if (filters.dateFrom) {
+    where.push(`activity_logs.created_at >= ${addParam(filters.dateFrom)}`);
+  }
+  if (filters.dateTo) {
+    where.push(`activity_logs.created_at < ${addParam(filters.dateTo)}`);
+  }
+
+  return { where: where.join(' AND '), params };
+}
+
+function dryRunReportSort(sort = 'newest') {
+  if (sort === 'oldest') return 'activity_logs.created_at ASC';
+  if (sort === 'status') return "activity_logs.metadata->>'certificationStatus' ASC";
+  if (sort === 'package_name') {
+    return "LOWER(COALESCE(activity_logs.metadata #>> '{packageSummary,fileName}', '')) ASC";
+  }
+  return 'activity_logs.created_at DESC';
+}
+
+async function listRestoreDryRunReports(filters = {}) {
+  const pageSize = Math.max(1, Math.min(50, Number(filters.pageSize) || 10));
+  const page = Math.max(1, Number(filters.page) || 1);
+  const offset = (page - 1) * pageSize;
+  const filterSql = dryRunReportHistoryFilters(filters);
+  const limitPlaceholder = `$${filterSql.params.length + 1}`;
+  const offsetPlaceholder = `$${filterSql.params.length + 2}`;
+  const queryParams = [...filterSql.params, pageSize, offset];
+  const countResult = await getPool().query(
+    `
+      SELECT COUNT(*)::int AS total
+      FROM activity_logs
+      WHERE ${filterSql.where}
+    `,
+    filterSql.params
+  );
   const result = await getPool().query(
     `
       SELECT activity_logs.*, users.full_name AS created_by_name
       FROM activity_logs
       LEFT JOIN users ON users.id = activity_logs.user_id
-      WHERE activity_logs.action = 'backup.restore.dry_run_certification_report'
-      ORDER BY activity_logs.created_at DESC
-      LIMIT $1
+      WHERE ${filterSql.where}
+      ORDER BY ${dryRunReportSort(filters.sort)}
+      LIMIT ${limitPlaceholder}
+      OFFSET ${offsetPlaceholder}
     `,
-    [Math.max(1, Math.min(100, Number(limit) || 50))]
+    queryParams
   );
-  return result.rows.map((row) => {
-    const mapped = mapDryRunReportRow(row);
-    delete mapped.report;
-    return mapped;
-  });
+  return {
+    reports: result.rows.map((row) => {
+      const mapped = mapDryRunReportRow(row);
+      delete mapped.report;
+      return mapped;
+    }),
+    page,
+    pageSize,
+    total: countResult.rows[0]?.total || 0,
+  };
 }
 
 async function getRestoreDryRunReport(reportId) {

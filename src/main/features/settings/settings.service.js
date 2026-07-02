@@ -129,12 +129,71 @@ async function listBackups() {
   return { ok: true, backups: await settingsRepository.listBackupLogs() };
 }
 
-async function listRestoreDryRunReports() {
+function dateOnly(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : null;
+}
+
+function nextDate(value) {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString();
+}
+
+function sanitizeDryRunReportFilters(filters = {}) {
+  const allowedStatuses = new Set([
+    'all',
+    'certified',
+    'blocked',
+    'failed_verification',
+    'failed_eligibility',
+    'authorization_blocked',
+  ]);
+  const allowedDatePresets = new Set(['all', 'today', 'last_7_days', 'last_30_days', 'custom']);
+  const allowedSorts = new Set(['newest', 'oldest', 'status', 'package_name']);
+  const status = allowedStatuses.has(filters.status) ? filters.status : 'all';
+  const datePreset = allowedDatePresets.has(filters.datePreset) ? filters.datePreset : 'all';
+  const now = new Date();
+  let dateFrom = null;
+  let dateTo = null;
+
+  if (datePreset === 'today') {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    dateFrom = start.toISOString();
+  } else if (datePreset === 'last_7_days' || datePreset === 'last_30_days') {
+    const days = datePreset === 'last_7_days' ? 7 : 30;
+    const start = new Date(now);
+    start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
+    dateFrom = start.toISOString();
+  } else if (datePreset === 'custom') {
+    const customFrom = dateOnly(filters.dateFrom);
+    const customTo = dateOnly(filters.dateTo);
+    if (customFrom) dateFrom = `${customFrom}T00:00:00.000Z`;
+    if (customTo) dateTo = nextDate(customTo);
+  }
+
+  return {
+    search: cleanText(filters.search, 140),
+    status,
+    datePreset,
+    dateFrom,
+    dateTo,
+    sort: allowedSorts.has(filters.sort) ? filters.sort : 'newest',
+    page: Math.max(1, Math.trunc(Number(filters.page) || 1)),
+    pageSize: Math.max(5, Math.min(50, Math.trunc(Number(filters.pageSize) || 10))),
+  };
+}
+
+async function listRestoreDryRunReports(filters = {}) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
+  const result = await settingsRepository.listRestoreDryRunReports(
+    sanitizeDryRunReportFilters(filters)
+  );
   return {
     ok: true,
-    reports: await settingsRepository.listRestoreDryRunReports(),
+    ...result,
     message: 'Restore dry-run certification report history loaded. Restore remains unavailable.',
   };
 }

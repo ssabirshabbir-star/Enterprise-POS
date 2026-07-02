@@ -174,13 +174,16 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
-  ipcMain.handle('/settings/backups/dry-run-certification-reports/list', async () => {
-    try {
-      return await settingsService.listRestoreDryRunReports();
-    } catch (error) {
-      return safeError(error, 'Restore dry-run certification report history error:');
+  ipcMain.handle(
+    '/settings/backups/dry-run-certification-reports/list',
+    async (_event, filters) => {
+      try {
+        return await settingsService.listRestoreDryRunReports(filters || {});
+      } catch (error) {
+        return safeError(error, 'Restore dry-run certification report history error:');
+      }
     }
-  });
+  );
 
   ipcMain.handle('/settings/backups/dry-run-certification-reports/get', async (_event, id) => {
     try {

@@ -3,6 +3,18 @@
 
   let initialized = false;
   const listeners = [];
+  let reportSearchTimer = null;
+  const dryRunReportState = {
+    search: '',
+    status: 'all',
+    datePreset: 'all',
+    dateFrom: '',
+    dateTo: '',
+    sort: 'newest',
+    page: 1,
+    pageSize: 10,
+    total: 0,
+  };
 
   const A = () => window.SettingsApi;
 
@@ -347,9 +359,13 @@
     const tbody = $id('dryRunReportHistoryBody');
     if (!tbody) return;
     const reports = Array.isArray(result.reports) ? result.reports : [];
+    dryRunReportState.page = Number(result.page || dryRunReportState.page || 1);
+    dryRunReportState.pageSize = Number(result.pageSize || dryRunReportState.pageSize || 10);
+    dryRunReportState.total = Number(result.total || 0);
     if (!reports.length) {
       tbody.innerHTML =
         '<tr><td colspan="7" class="px-3 py-6 text-center text-zinc-500">No saved dry-run certification reports available.</td></tr>';
+      renderDryRunReportHistorySummary();
       return;
     }
     tbody.innerHTML = reports
@@ -365,6 +381,42 @@
         </tr>`
       )
       .join('');
+    renderDryRunReportHistorySummary();
+  }
+
+  function renderDryRunReportHistorySummary() {
+    const summary = $id('dryRunReportHistorySummary');
+    const previous = $id('prevDryRunReportPageButton');
+    const next = $id('nextDryRunReportPageButton');
+    const total = dryRunReportState.total;
+    const pageSize = dryRunReportState.pageSize;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(dryRunReportState.page, totalPages);
+    if (summary) {
+      summary.textContent = `Read Only Audit Evidence - Page ${page} of ${totalPages}, ${total} report(s). No Restore was executed. Restore remains unavailable.`;
+    }
+    if (previous) previous.disabled = page <= 1;
+    if (next) next.disabled = page >= totalPages;
+  }
+
+  function syncDryRunReportDateControls() {
+    const isCustom = ($id('dryRunReportDatePreset')?.value || 'all') === 'custom';
+    const from = $id('dryRunReportDateFrom');
+    const to = $id('dryRunReportDateTo');
+    if (from) from.disabled = !isCustom;
+    if (to) to.disabled = !isCustom;
+  }
+
+  function collectDryRunReportFilters(page = dryRunReportState.page) {
+    dryRunReportState.search = $id('dryRunReportSearch')?.value || '';
+    dryRunReportState.status = $id('dryRunReportStatusFilter')?.value || 'all';
+    dryRunReportState.datePreset = $id('dryRunReportDatePreset')?.value || 'all';
+    dryRunReportState.dateFrom = $id('dryRunReportDateFrom')?.value || '';
+    dryRunReportState.dateTo = $id('dryRunReportDateTo')?.value || '';
+    dryRunReportState.sort = $id('dryRunReportSort')?.value || 'newest';
+    dryRunReportState.pageSize = Number($id('dryRunReportPageSize')?.value || 10);
+    dryRunReportState.page = Math.max(1, Number(page) || 1);
+    return { ...dryRunReportState };
   }
 
   function renderSavedDryRunReportDetail(result = {}) {
@@ -545,7 +597,7 @@
       const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
       const result = await A().dryRunCertificationReport(acknowledgementText);
       renderDryRunCertificationReport(result || {});
-      const reports = await A().listDryRunCertificationReports();
+      const reports = await A().listDryRunCertificationReports(collectDryRunReportFilters(1));
       if (reports?.ok) renderDryRunReportHistory(reports);
       showMessage(
         result?.message || 'Dry-run certification report completed. Restore remains unavailable.',
@@ -556,9 +608,9 @@
     }
   }
 
-  async function handleRefreshDryRunReportHistory() {
+  async function handleRefreshDryRunReportHistory(page = dryRunReportState.page) {
     try {
-      const result = await A().listDryRunCertificationReports();
+      const result = await A().listDryRunCertificationReports(collectDryRunReportFilters(page));
       if (result?.ok) {
         renderDryRunReportHistory(result);
         showMessage('Dry-run certification report history refreshed.', 'success');
@@ -568,6 +620,33 @@
     } catch {
       showMessage('Unable to refresh dry-run report history.', 'error');
     }
+  }
+
+  function scheduleDryRunReportSearch() {
+    clearTimeout(reportSearchTimer);
+    reportSearchTimer = setTimeout(() => {
+      handleRefreshDryRunReportHistory(1).catch(() => {});
+    }, 250);
+  }
+
+  function handleDryRunReportDatePresetChange() {
+    syncDryRunReportDateControls();
+    handleRefreshDryRunReportHistory(1).catch(() => {});
+  }
+
+  function handleApplyDryRunReportFilters() {
+    handleRefreshDryRunReportHistory(1).catch(() => {});
+  }
+
+  function handlePreviousDryRunReportPage() {
+    const previousPage = Math.max(1, dryRunReportState.page - 1);
+    handleRefreshDryRunReportHistory(previousPage).catch(() => {});
+  }
+
+  function handleNextDryRunReportPage() {
+    const totalPages = Math.max(1, Math.ceil(dryRunReportState.total / dryRunReportState.pageSize));
+    const nextPage = Math.min(totalPages, dryRunReportState.page + 1);
+    handleRefreshDryRunReportHistory(nextPage).catch(() => {});
   }
 
   async function handleViewDryRunReport(event) {
@@ -607,7 +686,7 @@
       if (appInfo?.ok) renderAppInfo(appInfo);
       if (backups?.ok) renderBackups(backups);
       A()
-        .listDryRunCertificationReports()
+        .listDryRunCertificationReports(collectDryRunReportFilters())
         .then((reports) => {
           if (reports?.ok) renderDryRunReportHistory(reports);
         })
@@ -640,8 +719,19 @@
         'click',
         handleRefreshDryRunReportHistory
       );
+      addListener($id('dryRunReportSearch'), 'input', scheduleDryRunReportSearch);
+      addListener($id('dryRunReportStatusFilter'), 'change', handleRefreshDryRunReportHistory);
+      addListener($id('dryRunReportDatePreset'), 'change', handleDryRunReportDatePresetChange);
+      addListener($id('dryRunReportDateFrom'), 'change', handleRefreshDryRunReportHistory);
+      addListener($id('dryRunReportDateTo'), 'change', handleRefreshDryRunReportHistory);
+      addListener($id('dryRunReportSort'), 'change', handleRefreshDryRunReportHistory);
+      addListener($id('dryRunReportPageSize'), 'change', handleRefreshDryRunReportHistory);
+      addListener($id('applyDryRunReportFiltersButton'), 'click', handleApplyDryRunReportFilters);
+      addListener($id('prevDryRunReportPageButton'), 'click', handlePreviousDryRunReportPage);
+      addListener($id('nextDryRunReportPageButton'), 'click', handleNextDryRunReportPage);
       addListener($id('settingsModule'), 'click', handleViewDryRunReport);
     }
+    syncDryRunReportDateControls();
     loadReadOnlyData().catch(() => {});
   }
 
@@ -666,6 +756,8 @@
     listeners.splice(0).forEach(({ target, eventName, handler, options }) => {
       target.removeEventListener(eventName, handler, options);
     });
+    clearTimeout(reportSearchTimer);
+    reportSearchTimer = null;
     initialized = false;
   }
 
