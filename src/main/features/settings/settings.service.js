@@ -132,6 +132,12 @@ async function inspectRestorePackage(filePath) {
   return settingsRepository.inspectRestorePackage(filePath);
 }
 
+async function verifyRestorePackage(filePath) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  return settingsRepository.verifyRestorePackage(filePath);
+}
+
 async function restoreBackup(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -153,4 +159,5 @@ module.exports = {
   listBackups,
   restoreBackup,
   saveSettings,
+  verifyRestorePackage,
 };

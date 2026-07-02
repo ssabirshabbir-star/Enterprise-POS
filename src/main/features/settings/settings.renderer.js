@@ -148,6 +148,47 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderPackageVerification(result = {}) {
+    const panel = $id('restorePackageVerification');
+    if (!panel) return;
+    if (!result.verificationStatus) {
+      panel.textContent = 'Verification Only - Restore is not available.';
+      return;
+    }
+    const summary = result.summary || {};
+    const passedChecks = Array.isArray(result.passedChecks) ? result.passedChecks : [];
+    const failedChecks = Array.isArray(result.failedChecks) ? result.failedChecks : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const lines = [
+      result.message || 'Package verification completed. Restore is not available.',
+      `Verification Status: ${text(result.verificationStatus)}`,
+      `File: ${text(result.fileName || summary.fileName)}`,
+      `Backup ID: ${text(summary.backupId)}`,
+      `Correlation ID: ${text(summary.correlationId)}`,
+      `Backup Class: ${text(summary.backupClass)}`,
+      `Workflow Version: ${text(summary.workflowVersion)}`,
+      `Manifest Version: ${text(summary.manifestVersion)}`,
+      `Included Tables: ${text(summary.includedTableCount ?? summary.tableCount)}`,
+      `Excluded Tables: ${text(summary.excludedTableCount)}`,
+      `Payload Tables: ${text(summary.payloadTableCount)}`,
+      `Certification Status: ${text(summary.certificationStatus)}`,
+      `Passed Checks: ${passedChecks.length}`,
+      `Failed Checks: ${failedChecks.length}`,
+      `Warnings: ${warnings.length}`,
+      'Restore: Not available',
+    ];
+    if (failedChecks.length) {
+      lines.push(
+        'Failed:',
+        ...failedChecks.map((item) => `- ${text(item.name)}: ${text(item.message)}`)
+      );
+    }
+    if (warnings.length) {
+      lines.push('Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function setBackupBusy(isBusy) {
     const button = $id('createBackupButton');
     if (!button) return;
@@ -233,6 +274,19 @@
     }
   }
 
+  async function handleVerifyRestorePackage() {
+    try {
+      const result = await A().verifyRestorePackage();
+      renderPackageVerification(result || {});
+      showMessage(
+        result?.message || 'Package verification completed. Restore remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Package verification failed. Restore remains unavailable.', 'error');
+    }
+  }
+
   function addListener(target, eventName, handler, options) {
     if (!target) return;
     target.addEventListener(eventName, handler, options);
@@ -265,6 +319,7 @@
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
       addListener($id('inspectRestorePackageButton'), 'click', handleInspectRestorePackage);
+      addListener($id('verifyRestorePackageButton'), 'click', handleVerifyRestorePackage);
     }
     loadReadOnlyData().catch(() => {});
   }
@@ -275,6 +330,7 @@
     if (diff.licenseUnavailable) renderLicenseUnavailable();
     if (diff.backups) renderBackups({ backups: diff.backups });
     if (diff.packageInspection) renderPackageInspection(diff.packageInspection);
+    if (diff.packageVerification) renderPackageVerification(diff.packageVerification);
     if (diff.message) showMessage(diff.message, diff.type || 'success');
   }
 

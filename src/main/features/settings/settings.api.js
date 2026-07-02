@@ -30,6 +30,10 @@
     return api().settings.inspectRestorePackage();
   }
 
+  async function verifyRestorePackage() {
+    return api().settings.verifyRestorePackage();
+  }
+
   window.SettingsApi = {
     appInfo,
     createBackup,
@@ -37,5 +41,6 @@
     inspectRestorePackage,
     listBackups,
     unavailable,
+    verifyRestorePackage,
   };
 })();

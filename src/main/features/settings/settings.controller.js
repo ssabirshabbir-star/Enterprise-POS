@@ -76,6 +76,27 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/verify-restore-package', async (event) => {
+    try {
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Verify Certified Backup Package',
+        properties: ['openFile'],
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return {
+          ok: false,
+          verificationStatus: 'failed',
+          restoreEligible: false,
+          message: 'Package verification cancelled. Restore remains unavailable.',
+        };
+      }
+      return await settingsService.verifyRestorePackage(result.filePaths[0]);
+    } catch (error) {
+      return safeError(error, 'Backup package verification error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore', async () => {
     try {
       return await settingsService.restoreBackup(null);

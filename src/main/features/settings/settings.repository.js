@@ -640,6 +640,16 @@ function packageReaderResult(status, message, details = {}) {
   };
 }
 
+function verificationResult(status, message, details = {}) {
+  return {
+    ok: status === 'passed',
+    verificationStatus: status,
+    message,
+    restoreEligible: false,
+    ...details,
+  };
+}
+
 function summarizePackage(filePath, backup) {
   const manifest = backup.manifest || {};
   const metadata = backup.metadata || {};
@@ -671,6 +681,149 @@ function summarizePackage(filePath, backup) {
     restoreEligible: false,
     restoreStatus: manifest.recoveryDeclaration?.restoreStatus || 'Blocked',
   };
+}
+
+function packageSummary(filePath, backup) {
+  const manifest = backup.manifest || {};
+  const metadata = backup.metadata || {};
+  const coverage = manifest.coverageDeclaration || {};
+  const includedTables = Array.isArray(coverage.includedTables) ? coverage.includedTables : [];
+  const excludedTables = Array.isArray(coverage.excludedTables) ? coverage.excludedTables : [];
+  const data = backup.data && typeof backup.data === 'object' ? backup.data : {};
+  return {
+    ...summarizePackage(filePath, backup),
+    includedTableCount: includedTables.length,
+    excludedTableCount: excludedTables.length,
+    certificationStatus: backup.certification?.status || null,
+    verificationStatus: backup.verification?.status || null,
+    createdAt: metadata.createdAt || manifest.createdAt || null,
+    payloadTableCount: Object.keys(data).length,
+  };
+}
+
+function check(name, passed, message) {
+  return { name, passed: Boolean(passed), message };
+}
+
+function validateCertifiedBackup(filePath, backup) {
+  const manifest = backup.manifest || {};
+  const metadata = backup.metadata || {};
+  const coverage = manifest.coverageDeclaration || {};
+  const integrity = manifest.integrityDeclaration || {};
+  const identity = manifest.backupIdentity || {};
+  const compatibility = manifest.compatibilityDeclaration || {};
+  const recovery = manifest.recoveryDeclaration || {};
+  const includedTables = Array.isArray(coverage.includedTables) ? coverage.includedTables : [];
+  const excludedTables = Array.isArray(coverage.excludedTables) ? coverage.excludedTables : [];
+  const data =
+    backup.data && typeof backup.data === 'object' && !Array.isArray(backup.data)
+      ? backup.data
+      : null;
+  const expectedIncluded = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name).sort();
+  const actualIncluded = includedTables.map((table) => table.name).sort();
+  const payloadTables = data ? Object.keys(data).sort() : [];
+  const expectedHash = integrity.dataHash;
+  const actualHash = data ? hashValue(data) : null;
+  const includedCoverageMatches =
+    stableStringify(actualIncluded) === stableStringify(expectedIncluded);
+  const payloadMatchesCoverage =
+    data && stableStringify(payloadTables) === stableStringify(actualIncluded);
+  const rowCountsMatch =
+    data &&
+    includedTables.every(
+      (table) => Array.isArray(data[table.name]) && data[table.name].length === table.rowCount
+    );
+  const checks = [
+    check('manifest.present', Boolean(backup.manifest), 'Manifest is present.'),
+    check(
+      'manifest.version',
+      manifest.manifestVersion === BACKUP_MANIFEST_VERSION,
+      'Manifest version is supported.'
+    ),
+    check('metadata.present', Boolean(backup.metadata), 'Metadata is present.'),
+    check(
+      'backup.uuid',
+      Boolean(identity.backupId || metadata.backupUuid),
+      'Backup UUID is present.'
+    ),
+    check(
+      'correlation.id',
+      Boolean(identity.correlationId || metadata.correlationId),
+      'Correlation ID is present.'
+    ),
+    check(
+      'backup.class',
+      manifest.backupClass === BACKUP_COVERAGE_POLICY.backupClass,
+      'Backup class is supported.'
+    ),
+    check(
+      'workflow.version',
+      metadata.workflowVersion === BACKUP_WORKFLOW_VERSION ||
+        compatibility.workflowVersion === BACKUP_WORKFLOW_VERSION,
+      'Workflow version is supported.'
+    ),
+    check(
+      'integrity.section',
+      integrity.algorithm === INTEGRITY_ALGORITHM && Boolean(expectedHash),
+      'Integrity declaration is present.'
+    ),
+    check(
+      'integrity.hash',
+      Boolean(expectedHash) && actualHash === expectedHash,
+      'SHA-256 data hash matches.'
+    ),
+    check('coverage.included', includedCoverageMatches, 'Included table coverage matches policy.'),
+    check(
+      'coverage.excluded',
+      excludedTables.length === BACKUP_COVERAGE_POLICY.excludedTables.length,
+      'Excluded table declaration is present.'
+    ),
+    check('payload.present', Boolean(data), 'Backup payload is present.'),
+    check('payload.inventory', payloadMatchesCoverage, 'Payload tables match table inventory.'),
+    check('row.counts', rowCountsMatch, 'Payload row counts match table inventory.'),
+    check(
+      'restore.blocked',
+      recovery.restoreEligible === false,
+      'Restore remains blocked in package declaration.'
+    ),
+    check(
+      'certification.status',
+      backup.certification?.status === 'Backup Certified',
+      'Backup certification status is declared.'
+    ),
+  ];
+  const failedChecks = checks.filter((item) => !item.passed);
+  const passedChecks = checks.filter((item) => item.passed);
+  const warnings = [];
+  if (metadata.backupUuid && identity.backupId && metadata.backupUuid !== identity.backupId) {
+    warnings.push('Metadata backup UUID differs from manifest backup identity.');
+  }
+  if (
+    metadata.correlationId &&
+    identity.correlationId &&
+    metadata.correlationId !== identity.correlationId
+  ) {
+    warnings.push('Metadata correlation ID differs from manifest correlation identity.');
+  }
+  if (backup.verification?.status && backup.verification.status !== 'Passed') {
+    warnings.push('Package carries a non-passing backup verification status.');
+  }
+
+  const passed = failedChecks.length === 0;
+  return verificationResult(
+    passed ? 'passed' : 'failed',
+    passed
+      ? 'Backup package verified. Verification Only - Restore is not available.'
+      : 'Backup package failed verification. Restore remains unavailable.',
+    {
+      fileName: path.basename(filePath),
+      filePath,
+      summary: packageSummary(filePath, backup),
+      passedChecks,
+      failedChecks,
+      warnings,
+    }
+  );
 }
 
 async function inspectRestorePackage(filePath) {
@@ -769,6 +922,24 @@ async function inspectRestorePackage(filePath) {
   );
 }
 
+async function verifyRestorePackage(filePath) {
+  const inspection = await inspectRestorePackage(filePath);
+  if (!inspection.ok) {
+    return verificationResult('failed', inspection.message, {
+      fileName: inspection.fileName,
+      filePath: inspection.filePath,
+      packageStatus: inspection.status,
+      passedChecks: [],
+      failedChecks: [check(inspection.status || 'package.readable', false, inspection.message)],
+      warnings: [],
+    });
+  }
+
+  const raw = await fs.readFile(filePath, 'utf8');
+  const backup = JSON.parse(raw);
+  return validateCertifiedBackup(filePath, backup);
+}
+
 module.exports = {
   exportBackup,
   getSettings,
@@ -776,4 +947,5 @@ module.exports = {
   listBackupLogs,
   restoreBackup,
   saveSettings,
+  verifyRestorePackage,
 };
