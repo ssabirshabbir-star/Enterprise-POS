@@ -3,7 +3,9 @@
 
   let initialized = false;
   let searchTimer = null;
+  let messageTimer = null;
   let currentReceipt = null;
+  const listeners = [];
 
   const A = () => window.SalesHistoryApi;
 
@@ -42,8 +44,6 @@
       paymentMethod: $id('salesHistoryPaymentMethod')?.value || '',
     };
   }
-
-  let messageTimer = null;
 
   function showMessage(text, type) {
     const el = $id('salesHistoryMessage');
@@ -255,15 +255,49 @@
     loadInvoices().catch(() => {});
   }
 
+  function addListener(target, eventName, handler) {
+    if (!target) return;
+    target.addEventListener(eventName, handler);
+    listeners.push({ target, eventName, handler });
+  }
+
+  function handleReloadClick() {
+    loadInvoices().catch(() => {});
+  }
+
+  function handleCloseDetailsClick() {
+    closeDetails();
+  }
+
+  function handleReprintDetailsClick() {
+    reprintReceipt(currentReceipt);
+  }
+
+  function handleFilterChange() {
+    loadInvoices().catch(() => {});
+  }
+
+  function handleSearchInput() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadInvoices().catch(() => {}), 300);
+  }
+
+  function handleListClick(event) {
+    const viewButton = event.target.closest('[data-view-sale]');
+    const printButton = event.target.closest('[data-print-sale]');
+    if (viewButton) openDetails(viewButton.dataset.viewSale).catch(() => {});
+    if (printButton) printById(printButton.dataset.printSale).catch(() => {});
+  }
+
+  function handleEscapeKey(event) {
+    if (event.key === 'Escape') closeDetails();
+  }
+
   function bindEvents() {
-    $id('salesHistoryReloadButton')?.addEventListener('click', () =>
-      loadInvoices().catch(() => {})
-    );
-    $id('salesHistoryResetButton')?.addEventListener('click', resetFilters);
-    $id('salesHistoryDetailsCloseButton')?.addEventListener('click', closeDetails);
-    $id('salesHistoryDetailsPrintButton')?.addEventListener('click', () =>
-      reprintReceipt(currentReceipt)
-    );
+    addListener($id('salesHistoryReloadButton'), 'click', handleReloadClick);
+    addListener($id('salesHistoryResetButton'), 'click', resetFilters);
+    addListener($id('salesHistoryDetailsCloseButton'), 'click', handleCloseDetailsClick);
+    addListener($id('salesHistoryDetailsPrintButton'), 'click', handleReprintDetailsClick);
 
     [
       'salesHistoryFromDate',
@@ -271,38 +305,55 @@
       'salesHistoryStatus',
       'salesHistoryPaymentMethod',
     ].forEach((id) => {
-      $id(id)?.addEventListener('change', () => loadInvoices().catch(() => {}));
+      addListener($id(id), 'change', handleFilterChange);
     });
 
-    $id('salesHistorySearch')?.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => loadInvoices().catch(() => {}), 300);
-    });
-
-    $id('salesHistoryList')?.addEventListener('click', (event) => {
-      const viewButton = event.target.closest('[data-view-sale]');
-      const printButton = event.target.closest('[data-print-sale]');
-      if (viewButton) openDetails(viewButton.dataset.viewSale).catch(() => {});
-      if (printButton) printById(printButton.dataset.printSale).catch(() => {});
-    });
-
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeDetails();
-    });
+    addListener($id('salesHistorySearch'), 'input', handleSearchInput);
+    addListener($id('salesHistoryList'), 'click', handleListClick);
+    addListener(document, 'keydown', handleEscapeKey);
   }
 
-  function initSalesHistoryModule() {
+  function renderUI(state = {}) {
     if (!document.getElementById('salesHistoryList')) return;
     if (!initialized) {
       initialized = true;
       bindEvents();
     }
+    if (Array.isArray(state.invoices)) {
+      renderList(state.invoices);
+      return;
+    }
     loadInvoices().catch(() => {});
   }
 
+  function updateUI(diff = {}) {
+    if (Array.isArray(diff.invoices)) renderList(diff.invoices);
+    if (diff.receipt) renderDetails(diff.receipt);
+    if (diff.message) showMessage(diff.message, diff.type || 'success');
+  }
+
+  function destroyUI() {
+    listeners.splice(0).forEach(({ target, eventName, handler }) => {
+      target.removeEventListener(eventName, handler);
+    });
+    clearTimeout(searchTimer);
+    clearTimeout(messageTimer);
+    searchTimer = null;
+    messageTimer = null;
+    initialized = false;
+    closeDetails();
+  }
+
+  function initSalesHistoryModule() {
+    renderUI();
+  }
+
   window.SalesHistoryRenderer = {
+    destroyUI,
     loadInvoices,
     openDetails,
+    renderUI,
+    updateUI,
   };
   window.initSalesHistoryModule = initSalesHistoryModule;
 })();
