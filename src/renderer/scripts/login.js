@@ -197,6 +197,7 @@ async function navigateTo(route) {
   if (target === '/reports') window.initReportsModule?.();
   if (target === '/expenses') window.initExpensesModule?.();
   if (target === '/settings') window.initSettingsModule?.();
+  if (target === '/sync') window.initSyncModule?.();
   if (target === '/users') window.initAccessControlModule?.();
 }
 
