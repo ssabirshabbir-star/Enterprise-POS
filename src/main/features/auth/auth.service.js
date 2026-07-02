@@ -51,6 +51,20 @@ function cryptoRandomId() {
   return crypto.randomUUID();
 }
 
+async function auditAuthEvent({ userId = null, action, status, message, metadata = {} }) {
+  try {
+    await activityRepository.createActivityLog({
+      userId,
+      action,
+      status,
+      message,
+      metadata,
+    });
+  } catch (err) {
+    logError('Auth audit log failed:', err);
+  }
+}
+
 async function persistFreshSession(user, oldRefreshTokenId = null) {
   try {
     const accessToken = createAccessToken(user);
@@ -95,10 +109,26 @@ async function login({ username, password }) {
     const user = await authRepository.findUserByUsername(input.username);
 
     if (!user || !user.isActive) {
+      await auditAuthEvent({
+        action: 'auth.login',
+        status: 'failed',
+        message: 'Login failed',
+        metadata: {
+          username: input.username,
+          reason: user ? 'inactive_user' : 'invalid_credentials',
+        },
+      });
       return { ok: false, message: 'Invalid username or password.' };
     }
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      await auditAuthEvent({
+        userId: user.id,
+        action: 'auth.login',
+        status: 'blocked',
+        message: 'Account locked login attempt',
+        metadata: { username: input.username, reason: 'account_locked' },
+      });
       return {
         ok: false,
         message: 'Account is temporarily locked.',
@@ -113,6 +143,13 @@ async function login({ username, password }) {
         MAX_FAILED_LOGIN_ATTEMPTS,
         LOGIN_LOCK_MINUTES
       );
+      await auditAuthEvent({
+        userId: user.id,
+        action: 'auth.login',
+        status: 'failed',
+        message: 'Login failed',
+        metadata: { username: input.username, reason: 'invalid_password' },
+      });
 
       return { ok: false, message: 'Invalid username or password.' };
     }
@@ -122,6 +159,13 @@ async function login({ username, password }) {
     await persistFreshSession(user);
 
     user.permissions = await authRepository.getUserPermissions(user.id);
+    await auditAuthEvent({
+      userId: user.id,
+      action: 'auth.login',
+      status: 'success',
+      message: 'Login successful',
+      metadata: { username: user.username },
+    });
 
     return {
       ok: true,
@@ -138,6 +182,12 @@ async function refreshSession() {
     const refreshToken = sessionStore.readRefreshToken();
 
     if (!refreshToken) {
+      await auditAuthEvent({
+        action: 'auth.refresh',
+        status: 'failed',
+        message: 'Session refresh failed',
+        metadata: { reason: 'no_session' },
+      });
       return { ok: false, message: 'No session found.' };
     }
 
@@ -145,6 +195,12 @@ async function refreshSession() {
     try {
       payload = verifyRefreshToken(refreshToken);
     } catch {
+      await auditAuthEvent({
+        action: 'auth.refresh',
+        status: 'failed',
+        message: 'Session refresh failed',
+        metadata: { reason: 'invalid_refresh_token' },
+      });
       sessionStore.clearSession();
       return { ok: false, message: 'Session expired.' };
     }
@@ -152,6 +208,15 @@ async function refreshSession() {
     const savedToken = await authRepository.findRefreshTokenById(payload.jti);
 
     if (!savedToken || savedToken.revoked_at) {
+      await auditAuthEvent({
+        userId: Number(payload.sub) || null,
+        action: 'auth.refresh',
+        status: 'failed',
+        message: 'Session refresh failed',
+        metadata: {
+          reason: savedToken?.revoked_at ? 'revoked_refresh_token' : 'missing_refresh_token',
+        },
+      });
       sessionStore.clearSession();
       return { ok: false, message: 'Session invalid.' };
     }
@@ -159,6 +224,13 @@ async function refreshSession() {
     const user = await authRepository.findUserById(Number(payload.sub));
 
     if (!user || !user.isActive) {
+      await auditAuthEvent({
+        userId: Number(payload.sub) || null,
+        action: 'auth.refresh',
+        status: 'failed',
+        message: 'Session refresh failed',
+        metadata: { reason: user ? 'inactive_user' : 'missing_user' },
+      });
       sessionStore.clearSession();
       return { ok: false, message: 'User inactive.' };
     }
@@ -166,6 +238,13 @@ async function refreshSession() {
     await persistFreshSession(user, payload.jti);
 
     user.permissions = await authRepository.getUserPermissions(user.id);
+    await auditAuthEvent({
+      userId: user.id,
+      action: 'auth.refresh',
+      status: 'success',
+      message: 'Session refreshed',
+      metadata: { username: user.username },
+    });
 
     return {
       ok: true,
@@ -218,6 +297,13 @@ async function logout() {
     if (refreshToken) {
       const payload = verifyRefreshToken(refreshToken);
       await authRepository.revokeRefreshToken(payload.jti);
+      await auditAuthEvent({
+        userId: Number(payload.sub) || null,
+        action: 'auth.logout',
+        status: 'success',
+        message: 'Logout successful',
+        metadata: { username: payload.username },
+      });
     }
 
     sessionStore.clearSession();
