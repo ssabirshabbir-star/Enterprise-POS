@@ -46,14 +46,24 @@
     return api().settings.dryRunCertificationReport({ acknowledgementText });
   }
 
+  async function listDryRunCertificationReports() {
+    return api().settings.listDryRunCertificationReports();
+  }
+
+  async function getDryRunCertificationReport(id) {
+    return api().settings.getDryRunCertificationReport(id);
+  }
+
   window.SettingsApi = {
     assessRestoreEligibility,
     assessRestoreAuthorization,
     appInfo,
     createBackup,
     dryRunCertificationReport,
+    getDryRunCertificationReport,
     getSettings,
     inspectRestorePackage,
+    listDryRunCertificationReports,
     listBackups,
     unavailable,
     verifyRestorePackage,

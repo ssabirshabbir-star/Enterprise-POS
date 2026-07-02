@@ -343,6 +343,78 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderDryRunReportHistory(result = {}) {
+    const tbody = $id('dryRunReportHistoryBody');
+    if (!tbody) return;
+    const reports = Array.isArray(result.reports) ? result.reports : [];
+    if (!reports.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="7" class="px-3 py-6 text-center text-zinc-500">No saved dry-run certification reports available.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = reports
+      .map(
+        (report) => `<tr>
+          <td class="px-3 py-2">${esc(report.reportCorrelationId || report.id || '-')}</td>
+          <td class="px-3 py-2">${esc(report.certificationStatus || report.status || '-')}</td>
+          <td class="px-3 py-2">${esc(report.fileName || report.backupId || '-')}</td>
+          <td class="px-3 py-2">${esc(report.verificationStatus || '-')}</td>
+          <td class="px-3 py-2">${esc(report.eligibilityStatus || '-')}</td>
+          <td class="px-3 py-2">${esc(report.createdAt || '-')}</td>
+          <td class="px-3 py-2"><button type="button" class="epos-btn epos-btn-sm epos-btn-outline" data-dry-run-report-id="${esc(report.id)}">View</button></td>
+        </tr>`
+      )
+      .join('');
+  }
+
+  function renderSavedDryRunReportDetail(result = {}) {
+    const panel = $id('restoreDryRunSavedReportDetail');
+    if (!panel) return;
+    const audit = result.report || result;
+    const report = audit.report || {};
+    if (!audit.id && !report.certificationStatus) {
+      panel.textContent =
+        'Select a saved dry-run certification report to view audit evidence. Restore remains unavailable.';
+      return;
+    }
+    const packageSummary = report.packageSummary || {};
+    const verification = report.verificationSummary || {};
+    const eligibility = report.eligibilitySummary || {};
+    const authorization = report.authorizationSummary || {};
+    const blockingReasons = Array.isArray(report.blockingReasons) ? report.blockingReasons : [];
+    const warnings = Array.isArray(report.warnings) ? report.warnings : [];
+    const lines = [
+      'Saved dry-run certification report audit record. This record does not approve, enable, or execute Restore.',
+      `Audit ID: ${text(audit.id)}`,
+      `Created: ${text(audit.createdAt)}`,
+      `Created By: ${text(audit.createdBy)}`,
+      `Overall Certification Status: ${text(report.certificationStatus || audit.certificationStatus)}`,
+      `Report Correlation ID: ${text(report.reportCorrelationId || audit.reportCorrelationId)}`,
+      `File: ${text(packageSummary.fileName || audit.fileName)}`,
+      `Backup ID: ${text(packageSummary.backupId || audit.backupId)}`,
+      `Correlation ID: ${text(packageSummary.correlationId || audit.packageCorrelationId)}`,
+      `Backup Class: ${text(packageSummary.backupClass || audit.backupClass)}`,
+      `Verification: ${text(verification.status || audit.verificationStatus)}`,
+      `Eligibility: ${text(eligibility.status || audit.eligibilityStatus)}`,
+      `Authorization Governance: ${text(
+        authorization.authorizationAssessmentStatus || audit.authorizationStatus
+      )}`,
+      `Blocking Reasons: ${blockingReasons.length || audit.blockingReasonCount || 0}`,
+      `Warnings: ${warnings.length || audit.warningCount || 0}`,
+      `Future Restore Qualification: ${text(report.futureRestoreQualification)}`,
+      `No Restore Executed: ${report.noRestoreExecuted || audit.noRestoreExecuted ? 'Yes' : 'No'}`,
+      `Restore Unavailable: ${report.restoreUnavailable || audit.restoreUnavailable ? 'Yes' : 'No'}`,
+      `Restore Eligible: ${report.restoreEligible === true ? 'Yes' : 'No'}`,
+    ];
+    if (blockingReasons.length) {
+      lines.push('Blocking Reasons:', ...blockingReasons.map((reason) => `- ${text(reason)}`));
+    }
+    if (warnings.length) {
+      lines.push('Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function setBackupBusy(isBusy) {
     const button = $id('createBackupButton');
     if (!button) return;
@@ -473,12 +545,47 @@
       const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
       const result = await A().dryRunCertificationReport(acknowledgementText);
       renderDryRunCertificationReport(result || {});
+      const reports = await A().listDryRunCertificationReports();
+      if (reports?.ok) renderDryRunReportHistory(reports);
       showMessage(
         result?.message || 'Dry-run certification report completed. Restore remains unavailable.',
         result?.ok ? 'success' : 'error'
       );
     } catch {
       showMessage('Dry-run certification report failed. Restore remains unavailable.', 'error');
+    }
+  }
+
+  async function handleRefreshDryRunReportHistory() {
+    try {
+      const result = await A().listDryRunCertificationReports();
+      if (result?.ok) {
+        renderDryRunReportHistory(result);
+        showMessage('Dry-run certification report history refreshed.', 'success');
+        return;
+      }
+      showMessage(result?.message || 'Unable to refresh dry-run report history.', 'error');
+    } catch {
+      showMessage('Unable to refresh dry-run report history.', 'error');
+    }
+  }
+
+  async function handleViewDryRunReport(event) {
+    const target = event.target.closest('[data-dry-run-report-id]');
+    if (!target || !$id('settingsModule')?.contains(target)) return;
+    try {
+      const result = await A().getDryRunCertificationReport(target.dataset.dryRunReportId);
+      if (result?.ok) {
+        renderSavedDryRunReportDetail(result);
+        showMessage(
+          'Saved dry-run certification report loaded. Restore remains unavailable.',
+          'success'
+        );
+        return;
+      }
+      showMessage(result?.message || 'Unable to load saved dry-run report.', 'error');
+    } catch {
+      showMessage('Unable to load saved dry-run report.', 'error');
     }
   }
 
@@ -499,6 +606,12 @@
       if (settings?.ok) renderSettings(settings.settings || {});
       if (appInfo?.ok) renderAppInfo(appInfo);
       if (backups?.ok) renderBackups(backups);
+      A()
+        .listDryRunCertificationReports()
+        .then((reports) => {
+          if (reports?.ok) renderDryRunReportHistory(reports);
+        })
+        .catch(() => {});
       renderLicenseUnavailable();
     } catch {
       showMessage('Unable to load read-only settings data.', 'error');
@@ -522,6 +635,12 @@
         handleAssessRestoreAuthorization
       );
       addListener($id('dryRunCertificationReportButton'), 'click', handleDryRunCertificationReport);
+      addListener(
+        $id('refreshDryRunReportHistoryButton'),
+        'click',
+        handleRefreshDryRunReportHistory
+      );
+      addListener($id('settingsModule'), 'click', handleViewDryRunReport);
     }
     loadReadOnlyData().catch(() => {});
   }
@@ -538,6 +657,8 @@
     if (diff.dryRunCertificationReport) {
       renderDryRunCertificationReport(diff.dryRunCertificationReport);
     }
+    if (diff.dryRunReportHistory) renderDryRunReportHistory(diff.dryRunReportHistory);
+    if (diff.savedDryRunReport) renderSavedDryRunReportDetail(diff.savedDryRunReport);
     if (diff.message) showMessage(diff.message, diff.type || 'success');
   }
 

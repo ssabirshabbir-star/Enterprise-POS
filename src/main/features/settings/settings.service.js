@@ -129,6 +129,34 @@ async function listBackups() {
   return { ok: true, backups: await settingsRepository.listBackupLogs() };
 }
 
+async function listRestoreDryRunReports() {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  return {
+    ok: true,
+    reports: await settingsRepository.listRestoreDryRunReports(),
+    message: 'Restore dry-run certification report history loaded. Restore remains unavailable.',
+  };
+}
+
+async function getRestoreDryRunReport(reportId) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const id = Number(reportId);
+  if (!Number.isInteger(id) || id <= 0) {
+    return { ok: false, message: 'Report audit record was not selected.' };
+  }
+  const report = await settingsRepository.getRestoreDryRunReport(id);
+  if (!report) {
+    return { ok: false, message: 'Restore dry-run certification report was not found.' };
+  }
+  return {
+    ok: true,
+    report,
+    message: 'Saved dry-run certification report loaded. Restore remains unavailable.',
+  };
+}
+
 async function inspectRestorePackage(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -184,6 +212,31 @@ function dryRunReportResult(status, message, details = {}) {
     restoreUnavailable: true,
     restoreEligible: false,
     ...details,
+  };
+}
+
+function dryRunReportAuditMetadata(report = {}) {
+  const packageSummary = report.packageSummary || {};
+  const verificationSummary = report.verificationSummary || {};
+  const eligibilitySummary = report.eligibilitySummary || {};
+  const authorizationSummary = report.authorizationSummary || {};
+  const blockingReasons = Array.isArray(report.blockingReasons) ? report.blockingReasons : [];
+  const warnings = Array.isArray(report.warnings) ? report.warnings : [];
+  return {
+    reportType: 'restore_dry_run_certification_report',
+    reportCorrelationId: report.reportCorrelationId || null,
+    certificationStatus: report.certificationStatus || null,
+    packageSummary,
+    verificationSummary,
+    eligibilitySummary,
+    authorizationSummary,
+    blockingReasons,
+    warnings,
+    futureRestoreQualification: report.futureRestoreQualification || null,
+    noRestoreExecuted: report.noRestoreExecuted === true,
+    restoreUnavailable: report.restoreUnavailable === true,
+    restoreEligible: report.restoreEligible === false ? false : report.restoreEligible,
+    report,
   };
 }
 
@@ -434,7 +487,7 @@ async function generateRestoreDryRunCertificationReport(filePath, acknowledgemen
     ...(Array.isArray(verification?.warnings) ? verification.warnings : []),
   ];
   const passed = failedChecks.length === 0;
-  return dryRunReportResult(
+  const report = dryRunReportResult(
     passed ? 'dry_run_certification_passed' : 'dry_run_certification_blocked',
     passed
       ? 'Dry-run certification report passed. Package may proceed to future Restore certification review. No Restore was executed and Restore remains unavailable.'
@@ -489,6 +542,20 @@ async function generateRestoreDryRunCertificationReport(filePath, acknowledgemen
         : 'Package does not qualify for future Restore certification review until blocking reasons are resolved.',
     }
   );
+  const auditRecord = await activityRepository.createActivityLog({
+    userId: profile?.id || null,
+    action: 'backup.restore.dry_run_certification_report',
+    status: passed ? 'success' : 'blocked',
+    message: passed
+      ? 'Restore dry-run certification report saved; Restore remains unavailable.'
+      : 'Blocked Restore dry-run certification report saved; Restore remains unavailable.',
+    metadata: dryRunReportAuditMetadata(report),
+  });
+  return {
+    ...report,
+    reportAuditId: auditRecord?.id || null,
+    reportSaved: true,
+  };
 }
 
 async function restoreBackup(filePath) {
@@ -512,6 +579,8 @@ module.exports = {
   generateRestoreDryRunCertificationReport,
   getSettings,
   inspectRestorePackage,
+  getRestoreDryRunReport,
+  listRestoreDryRunReports,
   listBackups,
   restoreBackup,
   saveSettings,

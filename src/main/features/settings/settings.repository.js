@@ -612,6 +612,73 @@ async function listBackupLogs() {
   }));
 }
 
+function mapDryRunReportRow(row = {}) {
+  const metadata = row.metadata || {};
+  const report = metadata.report || {};
+  const packageSummary = metadata.packageSummary || report.packageSummary || {};
+  return {
+    id: row.id,
+    action: row.action,
+    status: row.status,
+    message: row.message,
+    createdBy: row.created_by_name || 'System',
+    createdAt: row.created_at,
+    reportCorrelationId: metadata.reportCorrelationId || report.reportCorrelationId || null,
+    certificationStatus:
+      metadata.certificationStatus || report.certificationStatus || row.status || null,
+    backupId: packageSummary.backupId || null,
+    packageCorrelationId: packageSummary.correlationId || null,
+    fileName: packageSummary.fileName || null,
+    backupClass: packageSummary.backupClass || null,
+    verificationStatus: metadata.verificationSummary?.status || null,
+    eligibilityStatus: metadata.eligibilitySummary?.status || null,
+    authorizationStatus: metadata.authorizationSummary?.authorizationAssessmentStatus || null,
+    noRestoreExecuted: metadata.noRestoreExecuted ?? report.noRestoreExecuted ?? true,
+    restoreUnavailable: metadata.restoreUnavailable ?? report.restoreUnavailable ?? true,
+    restoreEligible: metadata.restoreEligible ?? report.restoreEligible ?? false,
+    blockingReasonCount: Array.isArray(metadata.blockingReasons)
+      ? metadata.blockingReasons.length
+      : 0,
+    warningCount: Array.isArray(metadata.warnings) ? metadata.warnings.length : 0,
+    report: report || null,
+  };
+}
+
+async function listRestoreDryRunReports(limit = 50) {
+  const result = await getPool().query(
+    `
+      SELECT activity_logs.*, users.full_name AS created_by_name
+      FROM activity_logs
+      LEFT JOIN users ON users.id = activity_logs.user_id
+      WHERE activity_logs.action = 'backup.restore.dry_run_certification_report'
+      ORDER BY activity_logs.created_at DESC
+      LIMIT $1
+    `,
+    [Math.max(1, Math.min(100, Number(limit) || 50))]
+  );
+  return result.rows.map((row) => {
+    const mapped = mapDryRunReportRow(row);
+    delete mapped.report;
+    return mapped;
+  });
+}
+
+async function getRestoreDryRunReport(reportId) {
+  const result = await getPool().query(
+    `
+      SELECT activity_logs.*, users.full_name AS created_by_name
+      FROM activity_logs
+      LEFT JOIN users ON users.id = activity_logs.user_id
+      WHERE activity_logs.id = $1
+        AND activity_logs.action = 'backup.restore.dry_run_certification_report'
+      LIMIT 1
+    `,
+    [reportId]
+  );
+  if (!result.rows[0]) return null;
+  return mapDryRunReportRow(result.rows[0]);
+}
+
 async function restoreBackup(filePath, userId) {
   await createBackupLog({
     fileName: filePath ? path.basename(filePath) : 'restore-blocked',
@@ -1081,6 +1148,8 @@ module.exports = {
   exportBackup,
   getSettings,
   inspectRestorePackage,
+  getRestoreDryRunReport,
+  listRestoreDryRunReports,
   listBackupLogs,
   restoreBackup,
   saveSettings,
