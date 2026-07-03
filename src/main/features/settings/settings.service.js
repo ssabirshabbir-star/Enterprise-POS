@@ -581,6 +581,65 @@ function buildRestoreRecoveryMetadata(state, blockers = []) {
   };
 }
 
+function buildRestoreTransactionCertificationSnapshot({
+  transactionState,
+  transactionPrecheckResult,
+  foundationState = null,
+  governanceDecision = null,
+  activationReadiness = null,
+  blockers = [],
+  boundaryMetadata = {},
+  checkpointSequence = [],
+  failureStateMap = {},
+  rollbackPlanMetadata = {},
+  rollbackReadinessMetadata = {},
+  recoveryMetadata = {},
+  outstandingRequirements = [],
+} = {}) {
+  const blocked = blockers.length > 0 || transactionState !== 'transaction_ready';
+  return {
+    snapshotType: 'transaction_certification_snapshot',
+    snapshotStatus: blocked
+      ? 'transaction_certification_snapshot_blocked'
+      : 'transaction_certification_snapshot_ready_for_future_review',
+    readOnly: true,
+    assessmentOnly: true,
+    noRestoreTransactionExecuted: true,
+    noDataCommitted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    governanceEvidenceSummary: {
+      foundationState,
+      governanceDecision,
+      activationReadiness,
+      blockersPropagated: blockers.length,
+      outstandingRequirements: outstandingRequirements.length,
+    },
+    transactionReadinessSummary: {
+      transactionState,
+      transactionPrecheckResult,
+      transactionBoundaryStatus: boundaryMetadata.transactionBoundaryStatus || null,
+      checkpointCount: checkpointSequence.length,
+      failureMapCategories: Object.keys(failureStateMap || {}).length,
+      commitBoundaryState: boundaryMetadata.commitBoundary?.state || null,
+    },
+    rollbackRecoveryReadinessSummary: {
+      rollbackPlanStatus: rollbackPlanMetadata.rollbackPlanStatus || null,
+      rollbackReadinessStatus: rollbackReadinessMetadata.rollbackReadinessStatus || null,
+      rollbackEligibilityAssessment:
+        rollbackReadinessMetadata.rollbackEligibilityAssessment || null,
+      rollbackExecutionAvailable: false,
+      recoveryMetadataStatus: recoveryMetadata.recoveryMetadataStatus || null,
+      runtimeRecoveryAvailable: false,
+      runtimeRecoveryExecuted: false,
+    },
+    blockerSnapshot: blockers,
+    certificationStatement: blocked
+      ? 'Transaction certification snapshot is blocked. No Restore transaction was executed, no data was committed, and Restore remains unavailable.'
+      : 'Transaction certification snapshot is ready for future governance review only. No Restore transaction was executed, no data was committed, and Restore remains unavailable.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -854,6 +913,17 @@ async function assessRestoreTransactionFoundation() {
           ]),
         }
       );
+      result.transactionCertificationSnapshot = buildRestoreTransactionCertificationSnapshot({
+        transactionState: result.transactionState,
+        transactionPrecheckResult: result.transactionPrecheckResult,
+        blockers: result.blockingReasons || [],
+        boundaryMetadata: result.transactionBoundaryMetadata,
+        checkpointSequence: result.checkpointSequence,
+        failureStateMap: result.failureStateMap,
+        rollbackPlanMetadata: result.rollbackPlanMetadata,
+        rollbackReadinessMetadata: result.rollbackReadinessMetadata,
+        recoveryMetadata: result.recoveryMetadata,
+      });
     } else {
       checkpoints.push(
         restoreTransactionCheckpoint(
@@ -892,6 +962,23 @@ async function assessRestoreTransactionFoundation() {
         blockers
       );
       const recoveryMetadata = buildRestoreRecoveryMetadata(transactionState, blockers);
+      const snapshot = buildRestoreTransactionCertificationSnapshot({
+        transactionState,
+        transactionPrecheckResult: ready ? 'passed_for_future_planning' : 'blocked',
+        foundationState: foundation.foundationState || null,
+        governanceDecision: foundation.governanceDecision || null,
+        activationReadiness: foundation.activationReadiness || null,
+        blockers: Array.from(new Set(blockers)),
+        boundaryMetadata,
+        checkpointSequence,
+        failureStateMap,
+        rollbackPlanMetadata,
+        rollbackReadinessMetadata,
+        recoveryMetadata,
+        outstandingRequirements: Array.isArray(foundation.outstandingRequirements)
+          ? foundation.outstandingRequirements
+          : [],
+      });
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
@@ -924,6 +1011,7 @@ async function assessRestoreTransactionFoundation() {
           rollbackPlanMetadata,
           rollbackReadinessMetadata,
           recoveryMetadata,
+          transactionCertificationSnapshot: snapshot,
         }
       );
     }
@@ -963,6 +1051,17 @@ async function assessRestoreTransactionFoundation() {
         ]),
       }
     );
+    result.transactionCertificationSnapshot = buildRestoreTransactionCertificationSnapshot({
+      transactionState: result.transactionState,
+      transactionPrecheckResult: result.transactionPrecheckResult,
+      blockers: result.blockingReasons || [],
+      boundaryMetadata: result.transactionBoundaryMetadata,
+      checkpointSequence: result.checkpointSequence,
+      failureStateMap: result.failureStateMap,
+      rollbackPlanMetadata: result.rollbackPlanMetadata,
+      rollbackReadinessMetadata: result.rollbackReadinessMetadata,
+      recoveryMetadata: result.recoveryMetadata,
+    });
   }
 
   await activityRepository.createActivityLog({
@@ -987,6 +1086,7 @@ async function assessRestoreTransactionFoundation() {
       rollbackPlanMetadata: result.rollbackPlanMetadata || null,
       rollbackReadinessMetadata: result.rollbackReadinessMetadata || null,
       recoveryMetadata: result.recoveryMetadata || null,
+      transactionCertificationSnapshot: result.transactionCertificationSnapshot || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],

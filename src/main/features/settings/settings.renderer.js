@@ -567,6 +567,13 @@
       ? recovery.recoveryCheckpointMetadata
       : [];
     const recoveryFailures = recovery.failureRecoveryClassification || {};
+    const snapshot = result.transactionCertificationSnapshot || {};
+    const governanceSummary = snapshot.governanceEvidenceSummary || {};
+    const transactionSummary = snapshot.transactionReadinessSummary || {};
+    const rollbackRecoverySummary = snapshot.rollbackRecoveryReadinessSummary || {};
+    const snapshotBlockers = Array.isArray(snapshot.blockerSnapshot)
+      ? snapshot.blockerSnapshot
+      : [];
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -663,7 +670,56 @@
       `- Runtime Recovery Failure: ${text(recoveryFailures.runtimeRecoveryFailure?.state)} - ${text(
         recoveryFailures.runtimeRecoveryFailure?.recoveryResponse
       )}`,
+      '',
+      'Transaction Certification Snapshot:',
+      `- Snapshot Status: ${text(snapshot.snapshotStatus)}`,
+      `- Read Only: ${snapshot.readOnly === true ? 'Yes' : 'No'}`,
+      `- Assessment Only: ${snapshot.assessmentOnly === true ? 'Yes' : 'No'}`,
+      `- No Restore Transaction Executed: ${
+        snapshot.noRestoreTransactionExecuted === true ? 'Yes' : 'No'
+      }`,
+      `- No Data Committed: ${snapshot.noDataCommitted === true ? 'Yes' : 'No'}`,
+      `- Restore Unavailable: ${snapshot.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${snapshot.restoreEligible === true ? 'Yes' : 'No'}`,
+      `- Certification Statement: ${text(snapshot.certificationStatement)}`,
+      '',
+      'Snapshot Governance Evidence Summary:',
+      `- Foundation State: ${text(governanceSummary.foundationState)}`,
+      `- Governance Decision: ${text(governanceSummary.governanceDecision)}`,
+      `- Activation Readiness: ${text(governanceSummary.activationReadiness)}`,
+      `- Blockers Propagated: ${text(governanceSummary.blockersPropagated)}`,
+      `- Outstanding Requirements: ${text(governanceSummary.outstandingRequirements)}`,
+      '',
+      'Snapshot Transaction Readiness Summary:',
+      `- Transaction State: ${text(transactionSummary.transactionState)}`,
+      `- Transaction Precheck: ${text(transactionSummary.transactionPrecheckResult)}`,
+      `- Boundary Status: ${text(transactionSummary.transactionBoundaryStatus)}`,
+      `- Checkpoint Count: ${text(transactionSummary.checkpointCount)}`,
+      `- Failure Map Categories: ${text(transactionSummary.failureMapCategories)}`,
+      `- Commit Boundary State: ${text(transactionSummary.commitBoundaryState)}`,
+      '',
+      'Snapshot Rollback / Recovery Summary:',
+      `- Rollback Plan Status: ${text(rollbackRecoverySummary.rollbackPlanStatus)}`,
+      `- Rollback Readiness: ${text(rollbackRecoverySummary.rollbackReadinessStatus)}`,
+      `- Rollback Eligibility: ${text(rollbackRecoverySummary.rollbackEligibilityAssessment)}`,
+      `- Rollback Execution Available: ${
+        rollbackRecoverySummary.rollbackExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- Recovery Metadata Status: ${text(rollbackRecoverySummary.recoveryMetadataStatus)}`,
+      `- Runtime Recovery Available: ${
+        rollbackRecoverySummary.runtimeRecoveryAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- Runtime Recovery Executed: ${
+        rollbackRecoverySummary.runtimeRecoveryExecuted === true ? 'Yes' : 'No'
+      }`,
     ];
+    if (snapshotBlockers.length) {
+      lines.push(
+        '',
+        'Snapshot Blocker Propagation:',
+        ...snapshotBlockers.map((reason) => `- ${text(reason)}`)
+      );
+    }
     if (blockers.length) {
       lines.push(
         '',
