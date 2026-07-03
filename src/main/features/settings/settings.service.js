@@ -2435,20 +2435,6 @@ async function generateRestoreDryRunCertificationReport(filePath, acknowledgemen
   };
 }
 
-async function restoreBackup(filePath) {
-  const access = await requireSettingsAccess('backup.restore', true);
-  if (!access.ok) return access;
-  const restore = await settingsRepository.restoreBackup(filePath, access.profile.id);
-  await activityRepository.createActivityLog({
-    userId: access.profile.id,
-    action: 'backup.restore',
-    status: 'blocked',
-    message: 'Restore blocked by governance',
-    metadata: restore,
-  });
-  return restore;
-}
-
 module.exports = {
   assessRestoreEligibility,
   assessRestoreAuthorization,
@@ -2463,7 +2449,6 @@ module.exports = {
   assessRestoreTransactionFoundation,
   listRestoreDryRunReports,
   listBackups,
-  restoreBackup,
   saveSettings,
   verifyRestorePackage,
 };
