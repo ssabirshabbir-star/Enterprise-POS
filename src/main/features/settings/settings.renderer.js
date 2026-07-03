@@ -513,6 +513,11 @@
       : [];
     const engineBoundary = result.engineBoundary || {};
     const engineLayers = Array.isArray(engineBoundary.layers) ? engineBoundary.layers : [];
+    const requestModel = engineBoundary.requestModel || {};
+    const requestSession = requestModel.session || {};
+    const requestSnapshot = requestModel.assessmentSnapshot || {};
+    const executionContext = requestModel.executionContext || {};
+    const requestValidation = requestModel.validation || {};
     const lines = [
       result.message ||
         'Controlled Restore Engine foundation assessment completed. Restore remains unavailable.',
@@ -539,12 +544,48 @@
       `- Settings Integration Only: ${
         engineBoundary.settingsIntegrationOnly === true ? 'Yes' : 'No'
       }`,
+      `- Request Model Status: ${text(engineBoundary.requestModelStatus)}`,
       `- ${text(engineBoundary.message)}`,
       '',
       'Restore Engine Boundary Layers:',
       ...engineLayers.map(
         (layer) => `- ${text(layer.name)}: ${text(layer.status)} - ${text(layer.responsibility)}`
       ),
+      '',
+      'Restore Execution Request Model:',
+      `- Request Status: ${text(requestModel.requestStatus)}`,
+      `- Immutable: ${requestModel.immutable === true ? 'Yes' : 'No'}`,
+      `- Internal Only: ${requestModel.internalOnly === true ? 'Yes' : 'No'}`,
+      `- Read Only: ${requestModel.readOnly === true ? 'Yes' : 'No'}`,
+      `- No Restore Executed: ${requestModel.noRestoreExecuted === true ? 'Yes' : 'No'}`,
+      `- No Data Committed: ${requestModel.noDataCommitted === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        requestModel.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      '',
+      'Restore Request Session:',
+      `- Session Status: ${text(requestSession.sessionStatus)}`,
+      `- Operator ID: ${text(requestSession.operatorId)}`,
+      `- Operator Role: ${text(requestSession.operatorRole)}`,
+      `- Correlation ID: ${text(requestSession.correlationId)}`,
+      '',
+      'Assessment Snapshot Consumption:',
+      `- Snapshot Status: ${text(requestSnapshot.sourceStatus)}`,
+      `- Certification Outcome: ${text(requestSnapshot.certificationOutcome)}`,
+      `- Restore Unavailable: ${requestSnapshot.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${requestSnapshot.restoreEligible === true ? 'Yes' : 'No'}`,
+      '',
+      'Execution Context Model:',
+      `- Context Status: ${text(executionContext.contextStatus)}`,
+      `- Read Only: ${executionContext.readOnly === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        executionContext.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      '',
+      'Request Validation Shell:',
+      `- Validation Status: ${text(requestValidation.validationStatus)}`,
+      `- Valid For Execution: ${requestValidation.validForExecution === true ? 'Yes' : 'No'}`,
+      `- ${text(requestValidation.message)}`,
       '',
       'Lifecycle Checkpoints:',
       ...checkpoints.map(

@@ -1,3 +1,5 @@
+const restoreRequestModel = require('./restore-request.model');
+
 const RESTORE_ENGINE_LAYERS = [
   'controller',
   'service',
@@ -22,6 +24,17 @@ function assessBoundary({ profile = null } = {}) {
   const boundaryBlockers = [];
   if (!authenticated)
     boundaryBlockers.push('Authentication is required for Restore Engine assessment.');
+  const requestModel = restoreRequestModel.createRestoreExecutionRequest({
+    operator: profile,
+    correlationId: null,
+    assessmentSnapshot: {
+      assessmentStatus: 'boundary_assessment_only',
+      certificationOutcome: 'NOT CERTIFIED',
+      restoreUnavailable: true,
+      restoreEligible: false,
+      restoreExecutionAvailable: false,
+    },
+  });
 
   const layers = [
     layerStatus(
@@ -32,7 +45,12 @@ function assessBoundary({ profile = null } = {}) {
     layerStatus(
       'service',
       'restore_engine_shell_available',
-      'Restore Engine owns future orchestration boundaries below Settings service.'
+      'Restore Engine owns future orchestration and request model boundaries below Settings service.'
+    ),
+    layerStatus(
+      'request_model',
+      'immutable_request_model_available',
+      'Restore Engine owns immutable request, session, assessment snapshot, and execution context contracts.'
     ),
     layerStatus(
       'repository',
@@ -75,6 +93,8 @@ function assessBoundary({ profile = null } = {}) {
     restoreExecutionAvailable: false,
     publicRestoreApiAvailable: false,
     settingsIntegrationOnly: true,
+    requestModel,
+    requestModelStatus: requestModel.validation.validationStatus,
     layers,
     layerNames: RESTORE_ENGINE_LAYERS,
     boundaryBlockers,
