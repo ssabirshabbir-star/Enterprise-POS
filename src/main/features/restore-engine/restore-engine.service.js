@@ -1,6 +1,7 @@
 const restoreRequestModel = require('./restore-request.model');
 const restoreStateMachine = require('./restore-state-machine');
 const restoreTransactionAdapter = require('./restore-transaction-adapter');
+const backupValidator = require('./restore-backup-validator');
 
 const RESTORE_ENGINE_LAYERS = [
   'controller',
@@ -11,6 +12,7 @@ const RESTORE_ENGINE_LAYERS = [
   'runtime_recovery',
   'rollback',
   'transaction_adapter',
+  'validation_foundation',
 ];
 
 function layerStatus(name, status, responsibility) {
@@ -43,6 +45,7 @@ function assessBoundary({ profile = null } = {}) {
     request: requestModel,
     stateMachine,
   });
+  const validationFoundation = backupValidator.assessValidationFoundation();
 
   const layers = [
     layerStatus(
@@ -69,6 +72,11 @@ function assessBoundary({ profile = null } = {}) {
       'transaction_adapter',
       'transaction_adapter_shell_available_blocked',
       'Restore Engine owns a blocked transaction boundary adapter; begin, commit, and rollback operations do not execute.'
+    ),
+    layerStatus(
+      'validation_foundation',
+      'validation_foundation_available_read_only',
+      'Restore Engine owns read-only backup package metadata and manifest validation; Restore execution remains unavailable.'
     ),
     layerStatus(
       'repository',
@@ -118,6 +126,8 @@ function assessBoundary({ profile = null } = {}) {
     transactionAdapter,
     transactionAdapterStatus: transactionAdapter.adapterStatus,
     transactionCapabilityStatus: transactionAdapter.capability.capabilityStatus,
+    validationFoundation,
+    validationFoundationStatus: validationFoundation.foundationStatus,
     layers,
     layerNames: RESTORE_ENGINE_LAYERS,
     boundaryBlockers,
@@ -129,4 +139,5 @@ function assessBoundary({ profile = null } = {}) {
 
 module.exports = {
   assessBoundary,
+  validateBackupPackage: backupValidator.validateBackupPackage,
 };
