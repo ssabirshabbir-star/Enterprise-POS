@@ -224,14 +224,6 @@ function registerSettingsRoutes(ipcMain) {
       return safeError(error, 'Restore transaction foundation assessment error:');
     }
   });
-
-  ipcMain.handle('/settings/backups/restore', async () => {
-    try {
-      return await settingsService.restoreBackup(null);
-    } catch (error) {
-      return safeError(error, 'Backup restore error:');
-    }
-  });
 }
 
 module.exports = { registerSettingsRoutes };
