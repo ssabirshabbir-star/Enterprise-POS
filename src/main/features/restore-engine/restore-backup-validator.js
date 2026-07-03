@@ -1,5 +1,6 @@
 const manifestReader = require('./restore-manifest-reader');
 const compatibilityAnalyzer = require('./restore-compatibility-analyzer');
+const dependencyAnalyzer = require('./restore-dependency-analyzer');
 const inventorySnapshot = require('./restore-inventory-snapshot');
 const validationResult = require('./restore-validation-result.model');
 
@@ -268,6 +269,10 @@ function validateReadManifestResult(readResult) {
       metadata: readResult?.metadata || null,
       packageSummary: readResult?.packageSummary || {},
     }),
+    dependencyAssessment: dependencyAnalyzer.analyzeDependencies({
+      manifest: readResult?.manifest || null,
+      packageSummary: readResult?.packageSummary || {},
+    }),
     inventorySnapshot: inventorySnapshot.createInventorySnapshot({
       manifest: readResult?.manifest || null,
       metadata: readResult?.metadata || null,
@@ -286,6 +291,9 @@ async function validateBackupPackage(filePath) {
       message: readResult.message,
       packageSummary: readResult.packageSummary || {},
       compatibilityAssessment: compatibilityAnalyzer.analyzeCompatibility({
+        packageSummary: readResult.packageSummary || {},
+      }),
+      dependencyAssessment: dependencyAnalyzer.analyzeDependencies({
         packageSummary: readResult.packageSummary || {},
       }),
       inventorySnapshot: inventorySnapshot.createInventorySnapshot({
