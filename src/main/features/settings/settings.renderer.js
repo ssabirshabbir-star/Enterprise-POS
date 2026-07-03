@@ -574,6 +574,13 @@
     const snapshotBlockers = Array.isArray(snapshot.blockerSnapshot)
       ? snapshot.blockerSnapshot
       : [];
+    const orchestration = result.orchestrationPlanningMetadata || {};
+    const stageGraph = Array.isArray(orchestration.stageGraph) ? orchestration.stageGraph : [];
+    const orderingPlan = Array.isArray(orchestration.executionOrderingPlan)
+      ? orchestration.executionOrderingPlan
+      : [];
+    const decisionGraph = orchestration.governanceDecisionGraph || {};
+    const dependencyValidation = orchestration.checkpointDependencyValidation || {};
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -712,6 +719,48 @@
       `- Runtime Recovery Executed: ${
         rollbackRecoverySummary.runtimeRecoveryExecuted === true ? 'Yes' : 'No'
       }`,
+      '',
+      'Transaction Orchestration Planning:',
+      `- Plan Status: ${text(orchestration.orchestrationPlanStatus)}`,
+      `- Read Only: ${orchestration.readOnly === true ? 'Yes' : 'No'}`,
+      `- Metadata Only: ${orchestration.metadataOnly === true ? 'Yes' : 'No'}`,
+      `- Scheduler Available: ${orchestration.schedulerAvailable === true ? 'Yes' : 'No'}`,
+      `- Job Execution Available: ${orchestration.jobExecutionAvailable === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        orchestration.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(orchestration.message)}`,
+      '',
+      'Transaction Stage Graph:',
+      ...stageGraph.map(
+        (stage) =>
+          `- ${text(stage.name)}: ${text(stage.state)} - Depends on: ${text(
+            Array.isArray(stage.dependsOn) && stage.dependsOn.length
+              ? stage.dependsOn.join(', ')
+              : 'none'
+          )} - Execution: ${stage.executionAllowed === true ? 'Yes' : 'No'}`
+      ),
+      '',
+      'Execution Ordering Plan:',
+      ...orderingPlan.map(
+        (item) =>
+          `- ${text(item.order)}. ${text(item.stage)} - Execution: ${
+            item.executionAllowed === true ? 'Yes' : 'No'
+          } - ${text(item.message)}`
+      ),
+      '',
+      'Governance Decision Graph:',
+      `- Transaction State: ${text(decisionGraph.transactionState)}`,
+      `- Boundary Status: ${text(decisionGraph.transactionBoundaryStatus)}`,
+      `- Rollback Readiness: ${text(decisionGraph.rollbackReadinessStatus)}`,
+      `- Recovery Metadata: ${text(decisionGraph.recoveryMetadataStatus)}`,
+      `- Snapshot Status: ${text(decisionGraph.snapshotStatus)}`,
+      `- Restore Unavailable: ${decisionGraph.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${decisionGraph.restoreEligible === true ? 'Yes' : 'No'}`,
+      '',
+      'Checkpoint Dependency Validation:',
+      `- Checkpoint Count: ${text(dependencyValidation.checkpointCount)}`,
+      `- Dependency Status: ${text(dependencyValidation.dependencyStatus)}`,
     ];
     if (snapshotBlockers.length) {
       lines.push(

@@ -640,6 +640,99 @@ function buildRestoreTransactionCertificationSnapshot({
   };
 }
 
+function buildRestoreOrchestrationPlanningMetadata({
+  transactionState,
+  blockers = [],
+  checkpointSequence = [],
+  transactionBoundaryMetadata = {},
+  rollbackReadinessMetadata = {},
+  recoveryMetadata = {},
+  transactionCertificationSnapshot = {},
+} = {}) {
+  const blocked = blockers.length > 0 || transactionState !== 'transaction_ready';
+  const stageGraph = [
+    {
+      name: 'governance_review',
+      state: blocked ? 'blocked_or_reviewed' : 'ready_for_future_planning',
+      dependsOn: [],
+      executionAllowed: false,
+    },
+    {
+      name: 'transaction_boundary_review',
+      state: transactionBoundaryMetadata.transactionBoundaryStatus || 'unknown',
+      dependsOn: ['governance_review'],
+      executionAllowed: false,
+    },
+    {
+      name: 'checkpoint_review',
+      state: checkpointSequence.length ? 'metadata_available' : 'metadata_missing',
+      dependsOn: ['transaction_boundary_review'],
+      executionAllowed: false,
+    },
+    {
+      name: 'rollback_readiness_review',
+      state: rollbackReadinessMetadata.rollbackReadinessStatus || 'unknown',
+      dependsOn: ['checkpoint_review'],
+      executionAllowed: false,
+    },
+    {
+      name: 'recovery_metadata_review',
+      state: recoveryMetadata.recoveryMetadataStatus || 'unknown',
+      dependsOn: ['rollback_readiness_review'],
+      executionAllowed: false,
+    },
+    {
+      name: 'certification_snapshot_review',
+      state: transactionCertificationSnapshot.snapshotStatus || 'unknown',
+      dependsOn: ['recovery_metadata_review'],
+      executionAllowed: false,
+    },
+  ];
+  return {
+    orchestrationPlanStatus: blocked
+      ? 'orchestration_plan_blocked'
+      : 'orchestration_plan_ready_for_future_review',
+    readOnly: true,
+    metadataOnly: true,
+    schedulerAvailable: false,
+    jobExecutionAvailable: false,
+    restoreExecutionAvailable: false,
+    stageGraph,
+    stageDependencies: stageGraph.map((stage) => ({
+      stage: stage.name,
+      dependsOn: stage.dependsOn,
+      state: stage.state,
+    })),
+    executionOrderingPlan: stageGraph.map((stage, index) => ({
+      order: index + 1,
+      stage: stage.name,
+      executionAllowed: false,
+      message:
+        'Ordering metadata only. No Restore execution, scheduler, retry, or resume is available.',
+    })),
+    governanceDecisionGraph: {
+      blockersPropagated: blockers,
+      transactionState,
+      transactionBoundaryStatus: transactionBoundaryMetadata.transactionBoundaryStatus || null,
+      rollbackReadinessStatus: rollbackReadinessMetadata.rollbackReadinessStatus || null,
+      recoveryMetadataStatus: recoveryMetadata.recoveryMetadataStatus || null,
+      snapshotStatus: transactionCertificationSnapshot.snapshotStatus || null,
+      restoreUnavailable: true,
+      restoreEligible: false,
+    },
+    checkpointDependencyValidation: {
+      checkpointCount: checkpointSequence.length,
+      dependencyStatus:
+        !blocked && checkpointSequence.length > 0 ? 'metadata_valid' : 'metadata_blocked',
+      missingDependencies: [],
+      blockedDependencies: blocked ? blockers : [],
+    },
+    message: blocked
+      ? 'Orchestration planning metadata is blocked by transaction governance blockers. No Restore execution is available.'
+      : 'Orchestration planning metadata is ready for future review only. No Restore execution is available.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -924,6 +1017,15 @@ async function assessRestoreTransactionFoundation() {
         rollbackReadinessMetadata: result.rollbackReadinessMetadata,
         recoveryMetadata: result.recoveryMetadata,
       });
+      result.orchestrationPlanningMetadata = buildRestoreOrchestrationPlanningMetadata({
+        transactionState: result.transactionState,
+        blockers: result.blockingReasons || [],
+        checkpointSequence: result.checkpointSequence,
+        transactionBoundaryMetadata: result.transactionBoundaryMetadata,
+        rollbackReadinessMetadata: result.rollbackReadinessMetadata,
+        recoveryMetadata: result.recoveryMetadata,
+        transactionCertificationSnapshot: result.transactionCertificationSnapshot,
+      });
     } else {
       checkpoints.push(
         restoreTransactionCheckpoint(
@@ -979,6 +1081,15 @@ async function assessRestoreTransactionFoundation() {
           ? foundation.outstandingRequirements
           : [],
       });
+      const orchestrationPlanningMetadata = buildRestoreOrchestrationPlanningMetadata({
+        transactionState,
+        blockers: Array.from(new Set(blockers)),
+        checkpointSequence,
+        transactionBoundaryMetadata: boundaryMetadata,
+        rollbackReadinessMetadata,
+        recoveryMetadata,
+        transactionCertificationSnapshot: snapshot,
+      });
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
@@ -1012,6 +1123,7 @@ async function assessRestoreTransactionFoundation() {
           rollbackReadinessMetadata,
           recoveryMetadata,
           transactionCertificationSnapshot: snapshot,
+          orchestrationPlanningMetadata,
         }
       );
     }
@@ -1062,6 +1174,15 @@ async function assessRestoreTransactionFoundation() {
       rollbackReadinessMetadata: result.rollbackReadinessMetadata,
       recoveryMetadata: result.recoveryMetadata,
     });
+    result.orchestrationPlanningMetadata = buildRestoreOrchestrationPlanningMetadata({
+      transactionState: result.transactionState,
+      blockers: result.blockingReasons || [],
+      checkpointSequence: result.checkpointSequence,
+      transactionBoundaryMetadata: result.transactionBoundaryMetadata,
+      rollbackReadinessMetadata: result.rollbackReadinessMetadata,
+      recoveryMetadata: result.recoveryMetadata,
+      transactionCertificationSnapshot: result.transactionCertificationSnapshot,
+    });
   }
 
   await activityRepository.createActivityLog({
@@ -1087,6 +1208,7 @@ async function assessRestoreTransactionFoundation() {
       rollbackReadinessMetadata: result.rollbackReadinessMetadata || null,
       recoveryMetadata: result.recoveryMetadata || null,
       transactionCertificationSnapshot: result.transactionCertificationSnapshot || null,
+      orchestrationPlanningMetadata: result.orchestrationPlanningMetadata || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],
