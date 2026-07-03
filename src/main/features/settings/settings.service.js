@@ -1245,6 +1245,215 @@ function buildRestoreExecutionActivationRiskRegister({ blockerPlan = {} } = {}) 
   };
 }
 
+function buildRestoreExecutionReadinessCertificationAssessment({
+  gateMatrix = {},
+  blockerPlan = {},
+  riskRegister = {},
+} = {}) {
+  const gates = Array.isArray(gateMatrix.gates) ? gateMatrix.gates : [];
+  const risks = Array.isArray(riskRegister.risks) ? riskRegister.risks : [];
+  const blockedGates = gates.filter((gate) => gate.status === 'blocked');
+  const notImplementedGates = gates.filter((gate) => gate.status === 'not_implemented');
+  const criticalRisks = risks.filter((risk) => risk.severity === 'critical');
+  const highRisks = risks.filter((risk) => risk.severity === 'high');
+  const requiredGateFailure = blockedGates.length > 0 || notImplementedGates.length > 0;
+  const riskFailure = criticalRisks.length > 0 || highRisks.length > 0;
+  let certificationOutcome = 'CERTIFIED';
+  if (requiredGateFailure) {
+    certificationOutcome = 'NOT CERTIFIED';
+  } else if (riskFailure) {
+    certificationOutcome = 'CONDITIONALLY CERTIFIED';
+  }
+  const criteria = [
+    {
+      id: 'CERT-GOV-001',
+      category: 'governance',
+      title: 'Governance gates satisfied',
+      status: blockedGates.some((gate) => gate.category === 'governance') ? 'failed' : 'passed',
+      evidence: `Governance blocked gates: ${
+        blockedGates.filter((gate) => gate.category === 'governance').length
+      }`,
+    },
+    {
+      id: 'CERT-SAFE-001',
+      category: 'safety',
+      title: 'Restore remains safely unavailable during assessment',
+      status:
+        gateMatrix.restoreUnavailable === true &&
+        gateMatrix.restoreEligible === false &&
+        gateMatrix.restoreExecutionAvailable === false
+          ? 'passed'
+          : 'failed',
+      evidence: 'Certification assessment is read-only and Restore execution remains unavailable.',
+    },
+    {
+      id: 'CERT-VER-001',
+      category: 'verification',
+      title: 'Verification gates satisfied',
+      status: blockedGates.some((gate) => gate.category === 'verification') ? 'failed' : 'passed',
+      evidence: `Verification blocked gates: ${
+        blockedGates.filter((gate) => gate.category === 'verification').length
+      }`,
+    },
+    {
+      id: 'CERT-AUTH-001',
+      category: 'authorization',
+      title: 'Authorization gates satisfied',
+      status: blockedGates.some((gate) => gate.category === 'authorization') ? 'failed' : 'passed',
+      evidence: `Authorization blocked gates: ${
+        blockedGates.filter((gate) => gate.category === 'authorization').length
+      }`,
+    },
+    {
+      id: 'CERT-TX-001',
+      category: 'transaction',
+      title: 'Transaction gates implemented and satisfied',
+      status: gates.some(
+        (gate) =>
+          gate.category === 'transaction' &&
+          (gate.status === 'blocked' || gate.status === 'not_implemented')
+      )
+        ? 'failed'
+        : 'passed',
+      evidence: `Transaction unresolved gates: ${
+        gates.filter(
+          (gate) =>
+            gate.category === 'transaction' &&
+            (gate.status === 'blocked' || gate.status === 'not_implemented')
+        ).length
+      }`,
+    },
+    {
+      id: 'CERT-RB-001',
+      category: 'rollback',
+      title: 'Rollback gates implemented and satisfied',
+      status: gates.some(
+        (gate) =>
+          gate.category === 'rollback' &&
+          (gate.status === 'blocked' || gate.status === 'not_implemented')
+      )
+        ? 'failed'
+        : 'passed',
+      evidence: `Rollback unresolved gates: ${
+        gates.filter(
+          (gate) =>
+            gate.category === 'rollback' &&
+            (gate.status === 'blocked' || gate.status === 'not_implemented')
+        ).length
+      }`,
+    },
+    {
+      id: 'CERT-RUN-001',
+      category: 'runtime',
+      title: 'Runtime recovery gates implemented and satisfied',
+      status: gates.some(
+        (gate) =>
+          gate.category === 'runtime' &&
+          (gate.status === 'blocked' || gate.status === 'not_implemented')
+      )
+        ? 'failed'
+        : 'passed',
+      evidence: `Runtime unresolved gates: ${
+        gates.filter(
+          (gate) =>
+            gate.category === 'runtime' &&
+            (gate.status === 'blocked' || gate.status === 'not_implemented')
+        ).length
+      }`,
+    },
+    {
+      id: 'CERT-INF-001',
+      category: 'infrastructure',
+      title: 'Infrastructure gates implemented and satisfied',
+      status: gates.some(
+        (gate) =>
+          gate.category === 'infrastructure' &&
+          (gate.status === 'blocked' || gate.status === 'not_implemented')
+      )
+        ? 'failed'
+        : 'passed',
+      evidence: `Infrastructure unresolved gates: ${
+        gates.filter(
+          (gate) =>
+            gate.category === 'infrastructure' &&
+            (gate.status === 'blocked' || gate.status === 'not_implemented')
+        ).length
+      }`,
+    },
+    {
+      id: 'CERT-EXE-001',
+      category: 'execution',
+      title: 'Execution gates implemented, satisfied, and activation-approved',
+      status: gates.some(
+        (gate) =>
+          gate.category === 'execution' &&
+          (gate.status === 'blocked' || gate.status === 'not_implemented')
+      )
+        ? 'failed'
+        : 'passed',
+      evidence: `Execution unresolved gates: ${
+        gates.filter(
+          (gate) =>
+            gate.category === 'execution' &&
+            (gate.status === 'blocked' || gate.status === 'not_implemented')
+        ).length
+      }`,
+    },
+    {
+      id: 'CERT-RISK-001',
+      category: 'risk',
+      title: 'Activation risks acceptable for certification',
+      status: riskFailure ? 'failed' : 'passed',
+      evidence: `Critical risks: ${criticalRisks.length}; high risks: ${highRisks.length}`,
+    },
+  ];
+  const failedCriteria = criteria.filter((item) => item.status === 'failed');
+
+  return {
+    assessmentStatus: 'completed',
+    certificationOutcome,
+    readOnly: true,
+    assessmentOnly: true,
+    auditEvidenceOnly: true,
+    noRestoreExecuted: true,
+    noDataCommitted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    certificationCriteria: criteria,
+    certificationSummary: {
+      totalCriteria: criteria.length,
+      passedCriteria: criteria.filter((item) => item.status === 'passed').length,
+      failedCriteria: failedCriteria.length,
+      blockedGateCount: blockedGates.length,
+      notImplementedGateCount: notImplementedGates.length,
+      unresolvedBlockerCount: blockerPlan.unresolvedBlockerSummary?.total || 0,
+      riskCount: riskRegister.riskSummary?.total || 0,
+      criticalRiskCount: criticalRisks.length,
+      highRiskCount: highRisks.length,
+    },
+    gateAggregation: {
+      matrixStatus: gateMatrix.matrixStatus || null,
+      total: gateMatrix.summary?.total || 0,
+      satisfied: gateMatrix.summary?.satisfied || 0,
+      blocked: gateMatrix.summary?.blocked || 0,
+      notImplemented: gateMatrix.summary?.notImplemented || 0,
+    },
+    blockerAggregation: blockerPlan.unresolvedBlockerSummary || {},
+    riskAggregation: riskRegister.riskSummary || {},
+    certificationDecisionMetadata: {
+      rule: 'If any required gate remains blocked or not implemented, Restore execution readiness is NOT CERTIFIED.',
+      conditionallyCertifiedRule:
+        'CONDITIONALLY CERTIFIED is reserved only for assessments with all gates satisfied and remaining non-critical residual risks.',
+      restoreActivationApproved: false,
+    },
+    message:
+      certificationOutcome === 'NOT CERTIFIED'
+        ? 'Restore execution readiness is NOT CERTIFIED. Required gates remain blocked or not implemented. Restore remains unavailable.'
+        : 'Restore execution readiness assessment completed. Restore remains unavailable until separate activation approval.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -1557,6 +1766,12 @@ async function assessRestoreTransactionFoundation() {
       result.executionActivationRiskRegister = buildRestoreExecutionActivationRiskRegister({
         blockerPlan: result.executionBlockerResolutionPlan,
       });
+      result.executionReadinessCertificationAssessment =
+        buildRestoreExecutionReadinessCertificationAssessment({
+          gateMatrix: result.executionPreconditionGateMatrix,
+          blockerPlan: result.executionBlockerResolutionPlan,
+          riskRegister: result.executionActivationRiskRegister,
+        });
     } else {
       checkpoints.push(
         restoreTransactionCheckpoint(
@@ -1640,6 +1855,12 @@ async function assessRestoreTransactionFoundation() {
       const executionActivationRiskRegister = buildRestoreExecutionActivationRiskRegister({
         blockerPlan: executionBlockerResolutionPlan,
       });
+      const executionReadinessCertificationAssessment =
+        buildRestoreExecutionReadinessCertificationAssessment({
+          gateMatrix: executionPreconditionGateMatrix,
+          blockerPlan: executionBlockerResolutionPlan,
+          riskRegister: executionActivationRiskRegister,
+        });
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
@@ -1677,6 +1898,7 @@ async function assessRestoreTransactionFoundation() {
           executionPreconditionGateMatrix,
           executionBlockerResolutionPlan,
           executionActivationRiskRegister,
+          executionReadinessCertificationAssessment,
         }
       );
     }
@@ -1755,6 +1977,12 @@ async function assessRestoreTransactionFoundation() {
     result.executionActivationRiskRegister = buildRestoreExecutionActivationRiskRegister({
       blockerPlan: result.executionBlockerResolutionPlan,
     });
+    result.executionReadinessCertificationAssessment =
+      buildRestoreExecutionReadinessCertificationAssessment({
+        gateMatrix: result.executionPreconditionGateMatrix,
+        blockerPlan: result.executionBlockerResolutionPlan,
+        riskRegister: result.executionActivationRiskRegister,
+      });
   }
 
   await activityRepository.createActivityLog({
@@ -1784,6 +2012,8 @@ async function assessRestoreTransactionFoundation() {
       executionPreconditionGateMatrix: result.executionPreconditionGateMatrix || null,
       executionBlockerResolutionPlan: result.executionBlockerResolutionPlan || null,
       executionActivationRiskRegister: result.executionActivationRiskRegister || null,
+      executionReadinessCertificationAssessment:
+        result.executionReadinessCertificationAssessment || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],

@@ -617,6 +617,16 @@
       ? riskRegister.blockerLinkage
       : [];
     const mitigationSummary = riskRegister.mitigationSummary || {};
+    const certification = result.executionReadinessCertificationAssessment || {};
+    const certificationCriteria = Array.isArray(certification.certificationCriteria)
+      ? certification.certificationCriteria
+      : [];
+    const certificationSummary = certification.certificationSummary || {};
+    const certificationGateAggregation = certification.gateAggregation || {};
+    const certificationBlockerAggregation = certification.blockerAggregation || {};
+    const certificationRiskAggregation = certification.riskAggregation || {};
+    const certificationRiskSeverity = certificationRiskAggregation.bySeverity || {};
+    const certificationDecision = certification.certificationDecisionMetadata || {};
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -972,6 +982,70 @@
       'Risk Mitigation Summary:',
       `- Unresolved Mitigations: ${text(mitigationSummary.unresolvedMitigations)}`,
       `- Required Governance State: ${text(mitigationSummary.requiredGovernanceState)}`,
+      '',
+      'Execution Readiness Certification Assessment:',
+      `- Assessment Status: ${text(certification.assessmentStatus)}`,
+      `- Certification Outcome: ${text(certification.certificationOutcome)}`,
+      `- Read Only: ${certification.readOnly === true ? 'Yes' : 'No'}`,
+      `- Assessment Only: ${certification.assessmentOnly === true ? 'Yes' : 'No'}`,
+      `- Audit Evidence Only: ${certification.auditEvidenceOnly === true ? 'Yes' : 'No'}`,
+      `- No Restore Executed: ${certification.noRestoreExecuted === true ? 'Yes' : 'No'}`,
+      `- No Data Committed: ${certification.noDataCommitted === true ? 'Yes' : 'No'}`,
+      `- Restore Unavailable: ${certification.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${certification.restoreEligible === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        certification.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(certification.message)}`,
+      '',
+      'Certification Summary:',
+      `- Total Criteria: ${text(certificationSummary.totalCriteria)}`,
+      `- Passed Criteria: ${text(certificationSummary.passedCriteria)}`,
+      `- Failed Criteria: ${text(certificationSummary.failedCriteria)}`,
+      `- Blocked Gates: ${text(certificationSummary.blockedGateCount)}`,
+      `- Not Implemented Gates: ${text(certificationSummary.notImplementedGateCount)}`,
+      `- Unresolved Blockers: ${text(certificationSummary.unresolvedBlockerCount)}`,
+      `- Risks: ${text(certificationSummary.riskCount)}`,
+      `- Critical Risks: ${text(certificationSummary.criticalRiskCount)}`,
+      `- High Risks: ${text(certificationSummary.highRiskCount)}`,
+      '',
+      'Certification Criteria Evaluation:',
+      ...certificationCriteria.map(
+        (item) =>
+          `- ${text(item.id)} [${text(item.category)}] ${text(item.title)}: ${text(
+            item.status
+          )} - ${text(item.evidence)}`
+      ),
+      '',
+      'Certification Gate Aggregation:',
+      `- Matrix Status: ${text(certificationGateAggregation.matrixStatus)}`,
+      `- Total: ${text(certificationGateAggregation.total)}`,
+      `- Satisfied: ${text(certificationGateAggregation.satisfied)}`,
+      `- Blocked: ${text(certificationGateAggregation.blocked)}`,
+      `- Not Implemented: ${text(certificationGateAggregation.notImplemented)}`,
+      '',
+      'Certification Blocker Aggregation:',
+      `- Total: ${text(certificationBlockerAggregation.total)}`,
+      ...Object.keys(certificationBlockerAggregation.bySeverity || {}).map(
+        (severity) =>
+          `- Severity ${text(severity)}: ${text(
+            certificationBlockerAggregation.bySeverity[severity]
+          )}`
+      ),
+      '',
+      'Certification Risk Aggregation:',
+      `- Total: ${text(certificationRiskAggregation.total)}`,
+      `- Critical: ${text(certificationRiskSeverity.critical)}`,
+      `- High: ${text(certificationRiskSeverity.high)}`,
+      `- Medium: ${text(certificationRiskSeverity.medium)}`,
+      `- Low: ${text(certificationRiskSeverity.low)}`,
+      '',
+      'Certification Decision Metadata:',
+      `- Rule: ${text(certificationDecision.rule)}`,
+      `- Conditional Rule: ${text(certificationDecision.conditionallyCertifiedRule)}`,
+      `- Restore Activation Approved: ${
+        certificationDecision.restoreActivationApproved === true ? 'Yes' : 'No'
+      }`,
     ];
     if (gateBlockers.length) {
       lines.push(
