@@ -99,6 +99,7 @@ function createValidationResult({
   status = VALIDATION_STATUSES.BLOCKED,
   message,
   packageSummary = {},
+  inventorySnapshot = null,
   checks = [],
   warnings = [],
   blockingReasons = [],
@@ -133,6 +134,7 @@ function createValidationResult({
       message ||
       'Restore validation foundation completed a read-only assessment. Restore remains unavailable.',
     packageSummary,
+    inventorySnapshot,
     status: resultStatus,
     findings,
     summary: {

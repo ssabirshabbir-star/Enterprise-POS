@@ -1,4 +1,5 @@
 const manifestReader = require('./restore-manifest-reader');
+const inventorySnapshot = require('./restore-inventory-snapshot');
 const validationResult = require('./restore-validation-result.model');
 
 const SUPPORTED_MANIFEST_VERSION = '1.0';
@@ -261,6 +262,11 @@ function validateReadManifestResult(readResult) {
     status: validationResult.VALIDATION_STATUSES.PASSED,
     message: 'Read-only backup package validation completed. Restore remains unavailable.',
     packageSummary: readResult?.packageSummary || {},
+    inventorySnapshot: inventorySnapshot.createInventorySnapshot({
+      manifest: readResult?.manifest || null,
+      metadata: readResult?.metadata || null,
+      packageSummary: readResult?.packageSummary || {},
+    }),
     checks,
     warnings,
   });
@@ -273,6 +279,9 @@ async function validateBackupPackage(filePath) {
       status: validationResult.VALIDATION_STATUSES.BLOCKED,
       message: readResult.message,
       packageSummary: readResult.packageSummary || {},
+      inventorySnapshot: inventorySnapshot.createInventorySnapshot({
+        packageSummary: readResult.packageSummary || {},
+      }),
       checks: [
         check(
           'package.readable',
