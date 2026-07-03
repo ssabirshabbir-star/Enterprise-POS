@@ -5,6 +5,26 @@ const SUPPORTED_MANIFEST_VERSION = '1.0';
 const SUPPORTED_WORKFLOW_VERSION = 'certified-backup-phase-1';
 const SUPPORTED_BACKUP_CLASS = 'Operational Backup';
 const SUPPORTED_INTEGRITY_ALGORITHM = 'sha256';
+const SUPPORTED_BACKUP_FORMAT_VERSION = '1.0';
+const REQUIRED_METADATA_FIELDS = Object.freeze([
+  'backupUuid',
+  'createdAt',
+  'operator',
+  'applicationVersion',
+  'schemaVersion',
+  'workflowVersion',
+  'databaseVersion',
+  'edition',
+  'machine',
+  'correlationId',
+]);
+const REQUIRED_TABLE_FIELDS = Object.freeze([
+  'name',
+  'classification',
+  'recoveryCriticality',
+  'dependency',
+  'rowCount',
+]);
 
 function freeze(value) {
   if (!value || typeof value !== 'object') return value;
@@ -12,8 +32,41 @@ function freeze(value) {
   return Object.freeze(value);
 }
 
-function check(id, passed, message, details = {}) {
-  return validationResult.createValidationCheck(id, passed, message, details);
+function check(
+  id,
+  passed,
+  message,
+  details = {},
+  severity = validationResult.VALIDATION_SEVERITIES.ERROR
+) {
+  return validationResult.createValidationCheck(id, passed, message, details, severity);
+}
+
+function tableName(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function tableDeclarationProblems(table) {
+  if (!table || typeof table !== 'object' || Array.isArray(table)) {
+    return ['Table declaration must be an object.'];
+  }
+  const problems = REQUIRED_TABLE_FIELDS.filter((field) => {
+    if (field === 'rowCount')
+      return !Number.isInteger(Number(table.rowCount)) || Number(table.rowCount) < 0;
+    return !tableName(table[field]);
+  }).map((field) => `Missing or invalid ${field}.`);
+  return problems;
+}
+
+function missingMetadataFields(metadata) {
+  return REQUIRED_METADATA_FIELDS.filter((field) => {
+    if (field === 'operator') return !metadata.operator || typeof metadata.operator !== 'object';
+    return !tableName(metadata[field]);
+  });
+}
+
+function duplicateValues(values) {
+  return values.filter((value, index) => values.indexOf(value) !== index);
 }
 
 function assessValidationFoundation() {
@@ -49,23 +102,68 @@ function validateReadManifestResult(readResult) {
   const includedTables = Array.isArray(coverage.includedTables) ? coverage.includedTables : [];
   const excludedTables = Array.isArray(coverage.excludedTables) ? coverage.excludedTables : [];
   const workflowVersion = metadata.workflowVersion || compatibility.workflowVersion || null;
-  const tableNames = includedTables.map((table) => table?.name).filter(Boolean);
-  const duplicateTableNames = tableNames.filter(
-    (name, index) => tableNames.indexOf(name) !== index
-  );
+  const backupFormatVersion = compatibility.backupFormatVersion || null;
+  const tableNames = includedTables.map((table) => tableName(table?.name)).filter(Boolean);
+  const duplicateTableNames = duplicateValues(tableNames);
+  const excludedNames = excludedTables
+    .map((table) => tableName(typeof table === 'string' ? table : table?.name))
+    .filter(Boolean);
+  const duplicateExcludedNames = duplicateValues(excludedNames);
+  const overlapTableNames = tableNames.filter((name) => excludedNames.includes(name));
+  const invalidTableDeclarations = includedTables
+    .map((table, index) => ({
+      index,
+      name: table?.name || null,
+      problems: tableDeclarationProblems(table),
+    }))
+    .filter((item) => item.problems.length);
+  const missingMetadata = missingMetadataFields(metadata);
   const checks = [
     check(
       'package.readable',
       readResult?.status === 'package_manifest_read',
-      'Package file is readable.'
+      'Package file is readable.',
+      {},
+      validationResult.VALIDATION_SEVERITIES.BLOCKED
     ),
-    check('manifest.present', Boolean(readResult?.manifest), 'Manifest is present.'),
-    check('metadata.present', Boolean(readResult?.metadata), 'Metadata is present.'),
+    check(
+      'package.shape',
+      readResult?.packageShape === 'certified_backup_candidate',
+      'Package shape is supported.',
+      { packageShape: readResult?.packageShape || null },
+      validationResult.VALIDATION_SEVERITIES.BLOCKED
+    ),
+    check(
+      'manifest.present',
+      Boolean(readResult?.manifest),
+      'Manifest is present.',
+      {},
+      validationResult.VALIDATION_SEVERITIES.BLOCKED
+    ),
+    check(
+      'metadata.present',
+      Boolean(readResult?.metadata),
+      'Metadata is present.',
+      {},
+      validationResult.VALIDATION_SEVERITIES.BLOCKED
+    ),
+    check(
+      'metadata.required_fields',
+      missingMetadata.length === 0,
+      'Required metadata fields are present.',
+      { missingFields: missingMetadata }
+    ),
     check(
       'manifest.version',
       manifest.manifestVersion === SUPPORTED_MANIFEST_VERSION,
       'Manifest version is supported.',
       { expected: SUPPORTED_MANIFEST_VERSION, actual: manifest.manifestVersion || null }
+    ),
+    check(
+      'backup.format.version',
+      backupFormatVersion === SUPPORTED_BACKUP_FORMAT_VERSION,
+      'Backup format version is supported.',
+      { expected: SUPPORTED_BACKUP_FORMAT_VERSION, actual: backupFormatVersion }
     ),
     check(
       'workflow.version',
@@ -102,10 +200,29 @@ function validateReadManifestResult(readResult) {
       { duplicateTableNames }
     ),
     check(
+      'coverage.table_declarations',
+      invalidTableDeclarations.length === 0,
+      'Every included table declaration is complete and valid.',
+      { invalidTableDeclarations }
+    ),
+    check(
       'coverage.excluded_tables',
       Array.isArray(coverage.excludedTables),
       'Excluded table list is declared.',
       { excludedTableCount: excludedTables.length }
+    ),
+    check(
+      'coverage.excluded_table_names',
+      duplicateExcludedNames.length === 0,
+      'Excluded table list has no duplicate names.',
+      { duplicateExcludedNames },
+      validationResult.VALIDATION_SEVERITIES.WARNING
+    ),
+    check(
+      'coverage.table_overlap',
+      overlapTableNames.length === 0,
+      'Included and excluded table lists do not overlap.',
+      { overlapTableNames }
     ),
     check(
       'integrity.declaration',
@@ -136,6 +253,9 @@ function validateReadManifestResult(readResult) {
   if (readResult?.packageSummary?.certificationStatus === null) {
     warnings.push('Backup certification status is not declared in the package summary.');
   }
+  if (readResult?.packageSummary?.backupFormatVersion === null) {
+    warnings.push('Backup format version is missing from the package summary.');
+  }
 
   return validationResult.createValidationResult({
     status: validationResult.VALIDATION_STATUSES.PASSED,
@@ -154,9 +274,15 @@ async function validateBackupPackage(filePath) {
       message: readResult.message,
       packageSummary: readResult.packageSummary || {},
       checks: [
-        check('package.readable', false, 'Package metadata and manifest could not be read.', {
-          errorCode: readResult.errorCode || null,
-        }),
+        check(
+          'package.readable',
+          false,
+          'Package metadata and manifest could not be read.',
+          {
+            errorCode: readResult.errorCode || null,
+          },
+          validationResult.VALIDATION_SEVERITIES.BLOCKED
+        ),
       ],
       blockingReasons: [readResult.message],
     });

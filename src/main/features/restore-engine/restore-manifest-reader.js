@@ -16,6 +16,14 @@ function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function detectPackageShape(backup) {
+  if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+    return 'invalid_root';
+  }
+  if (backup.manifest || backup.metadata) return 'certified_backup_candidate';
+  return 'unsupported_package_shape';
+}
+
 function summarizePackage(filePath, backup = {}) {
   const manifest = backup.manifest || {};
   const metadata = backup.metadata || {};
@@ -33,6 +41,7 @@ function summarizePackage(filePath, backup = {}) {
     correlationId: identity.correlationId || metadata.correlationId || null,
     backupClass: cleanString(manifest.backupClass),
     manifestVersion: cleanString(manifest.manifestVersion),
+    backupFormatVersion: cleanString(compatibility.backupFormatVersion),
     workflowVersion: cleanString(metadata.workflowVersion || compatibility.workflowVersion),
     applicationVersion: cleanString(
       metadata.applicationVersion || compatibility.applicationVersion
@@ -55,6 +64,7 @@ function summarizePackage(filePath, backup = {}) {
     integrityDeclared: Boolean(integrity.dataHash),
     certificationStatus: backup.certification?.status || null,
     verificationStatus: backup.verification?.status || null,
+    packageShape: detectPackageShape(backup),
     restoreEligible: false,
     restoreUnavailable: true,
     restoreExecutionAvailable: false,
@@ -84,12 +94,14 @@ async function readManifestPackage(filePath) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     const backup = JSON.parse(raw);
-    const manifest = backup && typeof backup === 'object' ? backup.manifest || null : null;
-    const metadata = backup && typeof backup === 'object' ? backup.metadata || null : null;
+    const packageShape = detectPackageShape(backup);
+    const manifest = packageShape === 'certified_backup_candidate' ? backup.manifest || null : null;
+    const metadata = packageShape === 'certified_backup_candidate' ? backup.metadata || null : null;
     return result('package_manifest_read', 'Backup package metadata and manifest were read only.', {
       packageSummary: summarizePackage(filePath, backup),
       manifest,
       metadata,
+      packageShape,
     });
   } catch (error) {
     return result(
