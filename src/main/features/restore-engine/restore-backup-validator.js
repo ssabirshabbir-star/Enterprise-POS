@@ -1,6 +1,7 @@
 const manifestReader = require('./restore-manifest-reader');
 const compatibilityAnalyzer = require('./restore-compatibility-analyzer');
 const dependencyAnalyzer = require('./restore-dependency-analyzer');
+const impactAssessment = require('./restore-impact-assessment');
 const inventorySnapshot = require('./restore-inventory-snapshot');
 const validationResult = require('./restore-validation-result.model');
 
@@ -259,25 +260,35 @@ function validateReadManifestResult(readResult) {
   if (readResult?.packageSummary?.backupFormatVersion === null) {
     warnings.push('Backup format version is missing from the package summary.');
   }
+  const packageSummary = readResult?.packageSummary || {};
+  const compatibilityAssessment = compatibilityAnalyzer.analyzeCompatibility({
+    manifest: readResult?.manifest || null,
+    metadata: readResult?.metadata || null,
+    packageSummary,
+  });
+  const dependencyAssessment = dependencyAnalyzer.analyzeDependencies({
+    manifest: readResult?.manifest || null,
+    packageSummary,
+  });
+  const contentInventorySnapshot = inventorySnapshot.createInventorySnapshot({
+    manifest: readResult?.manifest || null,
+    metadata: readResult?.metadata || null,
+    packageSummary,
+  });
 
   return validationResult.createValidationResult({
     status: validationResult.VALIDATION_STATUSES.PASSED,
     message: 'Read-only backup package validation completed. Restore remains unavailable.',
-    packageSummary: readResult?.packageSummary || {},
-    compatibilityAssessment: compatibilityAnalyzer.analyzeCompatibility({
-      manifest: readResult?.manifest || null,
-      metadata: readResult?.metadata || null,
-      packageSummary: readResult?.packageSummary || {},
+    packageSummary,
+    compatibilityAssessment,
+    dependencyAssessment,
+    impactAssessment: impactAssessment.analyzeImpact({
+      packageSummary,
+      inventorySnapshot: contentInventorySnapshot,
+      compatibilityAssessment,
+      dependencyAssessment,
     }),
-    dependencyAssessment: dependencyAnalyzer.analyzeDependencies({
-      manifest: readResult?.manifest || null,
-      packageSummary: readResult?.packageSummary || {},
-    }),
-    inventorySnapshot: inventorySnapshot.createInventorySnapshot({
-      manifest: readResult?.manifest || null,
-      metadata: readResult?.metadata || null,
-      packageSummary: readResult?.packageSummary || {},
-    }),
+    inventorySnapshot: contentInventorySnapshot,
     checks,
     warnings,
   });
@@ -286,19 +297,29 @@ function validateReadManifestResult(readResult) {
 async function validateBackupPackage(filePath) {
   const readResult = await manifestReader.readManifestPackage(filePath);
   if (readResult.status !== 'package_manifest_read') {
+    const packageSummary = readResult.packageSummary || {};
+    const compatibilityAssessment = compatibilityAnalyzer.analyzeCompatibility({
+      packageSummary,
+    });
+    const dependencyAssessment = dependencyAnalyzer.analyzeDependencies({
+      packageSummary,
+    });
+    const contentInventorySnapshot = inventorySnapshot.createInventorySnapshot({
+      packageSummary,
+    });
     return validationResult.createValidationResult({
       status: validationResult.VALIDATION_STATUSES.BLOCKED,
       message: readResult.message,
-      packageSummary: readResult.packageSummary || {},
-      compatibilityAssessment: compatibilityAnalyzer.analyzeCompatibility({
-        packageSummary: readResult.packageSummary || {},
+      packageSummary,
+      compatibilityAssessment,
+      dependencyAssessment,
+      impactAssessment: impactAssessment.analyzeImpact({
+        packageSummary,
+        inventorySnapshot: contentInventorySnapshot,
+        compatibilityAssessment,
+        dependencyAssessment,
       }),
-      dependencyAssessment: dependencyAnalyzer.analyzeDependencies({
-        packageSummary: readResult.packageSummary || {},
-      }),
-      inventorySnapshot: inventorySnapshot.createInventorySnapshot({
-        packageSummary: readResult.packageSummary || {},
-      }),
+      inventorySnapshot: contentInventorySnapshot,
       checks: [
         check(
           'package.readable',
