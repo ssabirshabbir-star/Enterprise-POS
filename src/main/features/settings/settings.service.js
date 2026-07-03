@@ -733,6 +733,290 @@ function buildRestoreOrchestrationPlanningMetadata({
   };
 }
 
+function restoreExecutionPreconditionGate({
+  id,
+  category,
+  title,
+  status,
+  dependsOn = [],
+  evidence = [],
+  blockers = [],
+} = {}) {
+  return {
+    id,
+    category,
+    title,
+    status,
+    dependsOn,
+    evidence,
+    blockers,
+    restoreExecutionAvailable: false,
+  };
+}
+
+function buildRestoreExecutionPreconditionGateMatrix({
+  transactionState,
+  transactionPrecheckResult,
+  blockers = [],
+  foundationState,
+  governanceDecision,
+  activationReadiness,
+  boundaryMetadata = {},
+  rollbackReadinessMetadata = {},
+  recoveryMetadata = {},
+  transactionCertificationSnapshot = {},
+  orchestrationPlanningMetadata = {},
+} = {}) {
+  const blockerList = Array.from(new Set(blockers.filter(Boolean)));
+  const transactionReady = transactionState === 'transaction_ready';
+  const foundationReady = foundationState === 'ready_for_future_execution';
+  const snapshotReady =
+    transactionCertificationSnapshot.snapshotStatus ===
+    'transaction_certification_snapshot_ready_for_future_review';
+  const orchestrationReady =
+    orchestrationPlanningMetadata.orchestrationPlanStatus ===
+    'orchestration_plan_ready_for_future_review';
+  const rollbackMetadataReady =
+    rollbackReadinessMetadata.rollbackReadinessStatus === 'metadata_ready';
+  const recoveryMetadataReady = recoveryMetadata.recoveryMetadataStatus === 'metadata_ready';
+  const matrixBlocked =
+    blockerList.length > 0 ||
+    !transactionReady ||
+    !foundationReady ||
+    !snapshotReady ||
+    !orchestrationReady;
+  const inheritedBlockers = blockerList.length
+    ? blockerList
+    : ['Restore execution activation remains blocked by governance.'];
+
+  const gates = [
+    restoreExecutionPreconditionGate({
+      id: 'GOV-001',
+      category: 'governance',
+      title: 'Restore governance evidence complete',
+      status: foundationReady ? 'satisfied' : 'blocked',
+      evidence: [
+        `Foundation state: ${foundationState || 'unknown'}`,
+        `Governance decision: ${governanceDecision || 'unknown'}`,
+        `Activation readiness: ${activationReadiness || 'unknown'}`,
+      ],
+      blockers: foundationReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'GOV-002',
+      category: 'governance',
+      title: 'Final Restore activation approval',
+      status: 'blocked',
+      dependsOn: ['GOV-001'],
+      evidence: ['Restore execution has not been approved for activation.'],
+      blockers: ['Final Restore activation approval is not complete.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'SAFE-001',
+      category: 'safety',
+      title: 'Restore unavailable guard remains active',
+      status: 'satisfied',
+      dependsOn: ['GOV-001'],
+      evidence: ['restoreUnavailable is true.', 'restoreEligible is false.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'SAFE-002',
+      category: 'safety',
+      title: 'No public Restore execution surface',
+      status: 'satisfied',
+      dependsOn: ['SAFE-001'],
+      evidence: ['Settings API wrapper does not expose restoreBackup.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'VER-001',
+      category: 'verification',
+      title: 'Verification and certification evidence available',
+      status: snapshotReady ? 'satisfied' : 'blocked',
+      dependsOn: ['GOV-001'],
+      evidence: [
+        `Snapshot status: ${transactionCertificationSnapshot.snapshotStatus || 'unknown'}`,
+      ],
+      blockers: snapshotReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'AUTH-001',
+      category: 'authorization',
+      title: 'Authorization governance assessment evidence available',
+      status: transactionReady ? 'satisfied' : 'blocked',
+      dependsOn: ['VER-001'],
+      evidence: [`Transaction precheck result: ${transactionPrecheckResult || 'unknown'}`],
+      blockers: transactionReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'TX-001',
+      category: 'transaction',
+      title: 'Transaction foundation precheck',
+      status: transactionReady ? 'satisfied' : 'blocked',
+      dependsOn: ['AUTH-001'],
+      evidence: [
+        `Transaction state: ${transactionState || 'unknown'}`,
+        `Boundary status: ${boundaryMetadata.transactionBoundaryStatus || 'unknown'}`,
+      ],
+      blockers: transactionReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'TX-002',
+      category: 'transaction',
+      title: 'Commit boundary certification',
+      status: 'not_implemented',
+      dependsOn: ['TX-001'],
+      evidence: [`Commit boundary state: ${boundaryMetadata.commitBoundary?.state || 'unknown'}`],
+      blockers: ['No Restore data commit boundary has been implemented or certified.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'RB-001',
+      category: 'rollback',
+      title: 'Rollback readiness metadata',
+      status: rollbackMetadataReady ? 'satisfied' : 'blocked',
+      dependsOn: ['TX-001'],
+      evidence: [
+        `Rollback readiness status: ${
+          rollbackReadinessMetadata.rollbackReadinessStatus || 'unknown'
+        }`,
+      ],
+      blockers: rollbackMetadataReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'RB-002',
+      category: 'rollback',
+      title: 'Rollback execution capability',
+      status: 'not_implemented',
+      dependsOn: ['RB-001'],
+      evidence: ['Rollback execution remains prohibited in the current phase.'],
+      blockers: ['Rollback execution is not implemented or certified.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'RUN-001',
+      category: 'runtime',
+      title: 'Runtime recovery metadata',
+      status: recoveryMetadataReady ? 'satisfied' : 'blocked',
+      dependsOn: ['RB-001'],
+      evidence: [
+        `Recovery metadata status: ${recoveryMetadata.recoveryMetadataStatus || 'unknown'}`,
+      ],
+      blockers: recoveryMetadataReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'RUN-002',
+      category: 'runtime',
+      title: 'Runtime recovery execution',
+      status: 'not_implemented',
+      dependsOn: ['RUN-001'],
+      evidence: ['Runtime recovery execution remains prohibited in the current phase.'],
+      blockers: ['Runtime recovery execution is not implemented or certified.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'INF-001',
+      category: 'infrastructure',
+      title: 'Orchestration planning metadata',
+      status: orchestrationReady ? 'satisfied' : 'blocked',
+      dependsOn: ['RUN-001'],
+      evidence: [
+        `Orchestration plan status: ${
+          orchestrationPlanningMetadata.orchestrationPlanStatus || 'unknown'
+        }`,
+      ],
+      blockers: orchestrationReady ? [] : inheritedBlockers,
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'INF-002',
+      category: 'infrastructure',
+      title: 'Scheduler and job execution',
+      status: 'not_implemented',
+      dependsOn: ['INF-001'],
+      evidence: ['No scheduler, job execution, retry, or resume path is available.'],
+      blockers: ['Scheduler/job execution is outside the approved non-destructive phase.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'EXE-001',
+      category: 'execution',
+      title: 'Restore execution API',
+      status: 'not_implemented',
+      dependsOn: ['GOV-002', 'TX-002', 'RB-002', 'RUN-002', 'INF-002'],
+      evidence: ['Public Restore execution API remains unavailable.'],
+      blockers: ['Restore execution API is not implemented or exposed.'],
+    }),
+    restoreExecutionPreconditionGate({
+      id: 'EXE-002',
+      category: 'execution',
+      title: 'Restore execution certification',
+      status: 'blocked',
+      dependsOn: ['EXE-001'],
+      evidence: ['Restore execution certification is not complete.'],
+      blockers: ['Future Restore execution certification is required before activation.'],
+    }),
+  ];
+  const summary = gates.reduce(
+    (acc, gate) => {
+      acc.total += 1;
+      if (gate.status === 'satisfied') acc.satisfied += 1;
+      if (gate.status === 'blocked') acc.blocked += 1;
+      if (gate.status === 'not_implemented') acc.notImplemented += 1;
+      acc.byCategory[gate.category] = acc.byCategory[gate.category] || {
+        total: 0,
+        satisfied: 0,
+        blocked: 0,
+        notImplemented: 0,
+      };
+      acc.byCategory[gate.category].total += 1;
+      if (gate.status === 'satisfied') acc.byCategory[gate.category].satisfied += 1;
+      if (gate.status === 'blocked') acc.byCategory[gate.category].blocked += 1;
+      if (gate.status === 'not_implemented') {
+        acc.byCategory[gate.category].notImplemented += 1;
+      }
+      return acc;
+    },
+    { total: 0, satisfied: 0, blocked: 0, notImplemented: 0, byCategory: {} }
+  );
+
+  const hasUnsatisfiedGates = summary.blocked > 0 || summary.notImplemented > 0;
+
+  return {
+    matrixStatus: matrixBlocked || hasUnsatisfiedGates ? 'blocked' : 'satisfied',
+    readOnly: true,
+    assessmentOnly: true,
+    noRestoreExecuted: true,
+    noDataCommitted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    summary,
+    gates,
+    dependencyGraph: gates.map((gate) => ({
+      gateId: gate.id,
+      category: gate.category,
+      dependsOn: gate.dependsOn,
+      status: gate.status,
+    })),
+    blockerExplanations: gates
+      .filter((gate) => gate.status !== 'satisfied')
+      .map((gate) => ({
+        gateId: gate.id,
+        category: gate.category,
+        blockers: gate.blockers,
+      })),
+    governanceEvidenceAggregation: {
+      foundationState: foundationState || null,
+      transactionState: transactionState || null,
+      transactionPrecheckResult: transactionPrecheckResult || null,
+      governanceDecision: governanceDecision || null,
+      activationReadiness: activationReadiness || null,
+      snapshotStatus: transactionCertificationSnapshot.snapshotStatus || null,
+      orchestrationPlanStatus: orchestrationPlanningMetadata.orchestrationPlanStatus || null,
+      rollbackReadinessStatus: rollbackReadinessMetadata.rollbackReadinessStatus || null,
+      recoveryMetadataStatus: recoveryMetadata.recoveryMetadataStatus || null,
+      inheritedBlockers: blockerList,
+    },
+    message:
+      'Execution preconditions gate matrix is read-only governance evidence. Restore remains unavailable and no Restore execution path is available.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -1026,6 +1310,19 @@ async function assessRestoreTransactionFoundation() {
         recoveryMetadata: result.recoveryMetadata,
         transactionCertificationSnapshot: result.transactionCertificationSnapshot,
       });
+      result.executionPreconditionGateMatrix = buildRestoreExecutionPreconditionGateMatrix({
+        transactionState: result.transactionState,
+        transactionPrecheckResult: result.transactionPrecheckResult,
+        blockers: result.blockingReasons || [],
+        foundationState: result.foundationState,
+        governanceDecision: result.governanceDecision,
+        activationReadiness: result.activationReadiness,
+        boundaryMetadata: result.transactionBoundaryMetadata,
+        rollbackReadinessMetadata: result.rollbackReadinessMetadata,
+        recoveryMetadata: result.recoveryMetadata,
+        transactionCertificationSnapshot: result.transactionCertificationSnapshot,
+        orchestrationPlanningMetadata: result.orchestrationPlanningMetadata,
+      });
     } else {
       checkpoints.push(
         restoreTransactionCheckpoint(
@@ -1090,6 +1387,19 @@ async function assessRestoreTransactionFoundation() {
         recoveryMetadata,
         transactionCertificationSnapshot: snapshot,
       });
+      const executionPreconditionGateMatrix = buildRestoreExecutionPreconditionGateMatrix({
+        transactionState,
+        transactionPrecheckResult: ready ? 'passed_for_future_planning' : 'blocked',
+        blockers: Array.from(new Set(blockers)),
+        foundationState: foundation.foundationState || null,
+        governanceDecision: foundation.governanceDecision || null,
+        activationReadiness: foundation.activationReadiness || null,
+        boundaryMetadata,
+        rollbackReadinessMetadata,
+        recoveryMetadata,
+        transactionCertificationSnapshot: snapshot,
+        orchestrationPlanningMetadata,
+      });
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
@@ -1124,6 +1434,7 @@ async function assessRestoreTransactionFoundation() {
           recoveryMetadata,
           transactionCertificationSnapshot: snapshot,
           orchestrationPlanningMetadata,
+          executionPreconditionGateMatrix,
         }
       );
     }
@@ -1183,6 +1494,19 @@ async function assessRestoreTransactionFoundation() {
       recoveryMetadata: result.recoveryMetadata,
       transactionCertificationSnapshot: result.transactionCertificationSnapshot,
     });
+    result.executionPreconditionGateMatrix = buildRestoreExecutionPreconditionGateMatrix({
+      transactionState: result.transactionState,
+      transactionPrecheckResult: result.transactionPrecheckResult,
+      blockers: result.blockingReasons || [],
+      foundationState: result.foundationState,
+      governanceDecision: result.governanceDecision,
+      activationReadiness: result.activationReadiness,
+      boundaryMetadata: result.transactionBoundaryMetadata,
+      rollbackReadinessMetadata: result.rollbackReadinessMetadata,
+      recoveryMetadata: result.recoveryMetadata,
+      transactionCertificationSnapshot: result.transactionCertificationSnapshot,
+      orchestrationPlanningMetadata: result.orchestrationPlanningMetadata,
+    });
   }
 
   await activityRepository.createActivityLog({
@@ -1209,6 +1533,7 @@ async function assessRestoreTransactionFoundation() {
       recoveryMetadata: result.recoveryMetadata || null,
       transactionCertificationSnapshot: result.transactionCertificationSnapshot || null,
       orchestrationPlanningMetadata: result.orchestrationPlanningMetadata || null,
+      executionPreconditionGateMatrix: result.executionPreconditionGateMatrix || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],

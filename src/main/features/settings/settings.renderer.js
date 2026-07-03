@@ -581,6 +581,17 @@
       : [];
     const decisionGraph = orchestration.governanceDecisionGraph || {};
     const dependencyValidation = orchestration.checkpointDependencyValidation || {};
+    const gateMatrix = result.executionPreconditionGateMatrix || {};
+    const gateSummary = gateMatrix.summary || {};
+    const gateCategorySummary = gateSummary.byCategory || {};
+    const gateMatrixGates = Array.isArray(gateMatrix.gates) ? gateMatrix.gates : [];
+    const gateDependencyGraph = Array.isArray(gateMatrix.dependencyGraph)
+      ? gateMatrix.dependencyGraph
+      : [];
+    const gateBlockers = Array.isArray(gateMatrix.blockerExplanations)
+      ? gateMatrix.blockerExplanations
+      : [];
+    const gateEvidence = gateMatrix.governanceEvidenceAggregation || {};
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -761,7 +772,82 @@
       'Checkpoint Dependency Validation:',
       `- Checkpoint Count: ${text(dependencyValidation.checkpointCount)}`,
       `- Dependency Status: ${text(dependencyValidation.dependencyStatus)}`,
+      '',
+      'Execution Preconditions Gate Matrix:',
+      `- Matrix Status: ${text(gateMatrix.matrixStatus)}`,
+      `- Read Only: ${gateMatrix.readOnly === true ? 'Yes' : 'No'}`,
+      `- Assessment Only: ${gateMatrix.assessmentOnly === true ? 'Yes' : 'No'}`,
+      `- No Restore Executed: ${gateMatrix.noRestoreExecuted === true ? 'Yes' : 'No'}`,
+      `- No Data Committed: ${gateMatrix.noDataCommitted === true ? 'Yes' : 'No'}`,
+      `- Restore Unavailable: ${gateMatrix.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${gateMatrix.restoreEligible === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        gateMatrix.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(gateMatrix.message)}`,
+      '',
+      'Gate Summary:',
+      `- Total: ${text(gateSummary.total)}`,
+      `- Satisfied: ${text(gateSummary.satisfied)}`,
+      `- Blocked: ${text(gateSummary.blocked)}`,
+      `- Not Implemented: ${text(gateSummary.notImplemented)}`,
+      ...Object.keys(gateCategorySummary).map((category) => {
+        const item = gateCategorySummary[category] || {};
+        return `- ${text(category)}: ${text(item.satisfied)} satisfied, ${text(
+          item.blocked
+        )} blocked, ${text(item.notImplemented)} not implemented`;
+      }),
+      '',
+      'Gate Results:',
+      ...gateMatrixGates.map((gate) => {
+        const blockersText =
+          Array.isArray(gate.blockers) && gate.blockers.length
+            ? ` - Blockers: ${gate.blockers.map(text).join('; ')}`
+            : '';
+        const evidenceText =
+          Array.isArray(gate.evidence) && gate.evidence.length
+            ? ` - Evidence: ${gate.evidence.map(text).join('; ')}`
+            : '';
+        return `- [${text(gate.category)}] ${text(gate.id)} ${text(gate.title)}: ${text(
+          gate.status
+        )}${evidenceText}${blockersText}`;
+      }),
+      '',
+      'Gate Dependency Graph:',
+      ...gateDependencyGraph.map(
+        (gate) =>
+          `- ${text(gate.gateId)} (${text(gate.category)}) depends on: ${text(
+            Array.isArray(gate.dependsOn) && gate.dependsOn.length
+              ? gate.dependsOn.join(', ')
+              : 'none'
+          )} - ${text(gate.status)}`
+      ),
+      '',
+      'Gate Governance Evidence Aggregation:',
+      `- Foundation State: ${text(gateEvidence.foundationState)}`,
+      `- Transaction State: ${text(gateEvidence.transactionState)}`,
+      `- Transaction Precheck: ${text(gateEvidence.transactionPrecheckResult)}`,
+      `- Governance Decision: ${text(gateEvidence.governanceDecision)}`,
+      `- Activation Readiness: ${text(gateEvidence.activationReadiness)}`,
+      `- Snapshot Status: ${text(gateEvidence.snapshotStatus)}`,
+      `- Orchestration Plan Status: ${text(gateEvidence.orchestrationPlanStatus)}`,
+      `- Rollback Readiness Status: ${text(gateEvidence.rollbackReadinessStatus)}`,
+      `- Recovery Metadata Status: ${text(gateEvidence.recoveryMetadataStatus)}`,
     ];
+    if (gateBlockers.length) {
+      lines.push(
+        '',
+        'Gate Blocker Explanations:',
+        ...gateBlockers.map(
+          (item) =>
+            `- ${text(item.gateId)} (${text(item.category)}): ${text(
+              Array.isArray(item.blockers) && item.blockers.length
+                ? item.blockers.join('; ')
+                : 'No blockers'
+            )}`
+        )
+      );
+    }
     if (snapshotBlockers.length) {
       lines.push(
         '',
