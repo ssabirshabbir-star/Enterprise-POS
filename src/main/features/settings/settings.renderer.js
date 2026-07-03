@@ -592,6 +592,20 @@
       ? gateMatrix.blockerExplanations
       : [];
     const gateEvidence = gateMatrix.governanceEvidenceAggregation || {};
+    const blockerPlan = result.executionBlockerResolutionPlan || {};
+    const blockerSummary = blockerPlan.unresolvedBlockerSummary || {};
+    const severitySummary = blockerSummary.bySeverity || {};
+    const ownerSummary = blockerSummary.byOwnerCategory || {};
+    const blockerCategorySummary = blockerSummary.byGateCategory || {};
+    const resolutionItems = Array.isArray(blockerPlan.resolutionItems)
+      ? blockerPlan.resolutionItems
+      : [];
+    const prerequisiteSequencing = Array.isArray(blockerPlan.prerequisiteSequencing)
+      ? blockerPlan.prerequisiteSequencing
+      : [];
+    const activationRoadmap = Array.isArray(blockerPlan.executionActivationRoadmap)
+      ? blockerPlan.executionActivationRoadmap
+      : [];
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -833,6 +847,64 @@
       `- Orchestration Plan Status: ${text(gateEvidence.orchestrationPlanStatus)}`,
       `- Rollback Readiness Status: ${text(gateEvidence.rollbackReadinessStatus)}`,
       `- Recovery Metadata Status: ${text(gateEvidence.recoveryMetadataStatus)}`,
+      '',
+      'Execution Blocker Resolution Plan:',
+      `- Plan Status: ${text(blockerPlan.planStatus)}`,
+      `- Read Only: ${blockerPlan.readOnly === true ? 'Yes' : 'No'}`,
+      `- Planning Only: ${blockerPlan.planningOnly === true ? 'Yes' : 'No'}`,
+      `- Audit Evidence Only: ${blockerPlan.auditEvidenceOnly === true ? 'Yes' : 'No'}`,
+      `- No Restore Executed: ${blockerPlan.noRestoreExecuted === true ? 'Yes' : 'No'}`,
+      `- No Data Committed: ${blockerPlan.noDataCommitted === true ? 'Yes' : 'No'}`,
+      `- Restore Unavailable: ${blockerPlan.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${blockerPlan.restoreEligible === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        blockerPlan.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(blockerPlan.message)}`,
+      '',
+      'Unresolved Blocker Summary:',
+      `- Total: ${text(blockerSummary.total)}`,
+      `- Critical: ${text(severitySummary.critical)}`,
+      `- High: ${text(severitySummary.high)}`,
+      `- Medium: ${text(severitySummary.medium)}`,
+      `- Low: ${text(severitySummary.low)}`,
+      ...Object.keys(ownerSummary).map(
+        (owner) => `- Owner ${text(owner)}: ${text(ownerSummary[owner])}`
+      ),
+      ...Object.keys(blockerCategorySummary).map(
+        (category) => `- Category ${text(category)}: ${text(blockerCategorySummary[category])}`
+      ),
+      '',
+      'Blocker Resolution Items:',
+      ...resolutionItems.map((item) => {
+        const blockersText =
+          Array.isArray(item.blockerReasons) && item.blockerReasons.length
+            ? ` - Reasons: ${item.blockerReasons.map(text).join('; ')}`
+            : '';
+        return `- ${text(item.sequence)}. ${text(item.gateId)} ${text(
+          item.gateTitle
+        )}: ${text(item.currentStatus)} / ${text(item.severity)} / ${text(
+          item.ownerCategory
+        )}${blockersText} - ${text(item.requiredOutcome)}`;
+      }),
+      '',
+      'Prerequisite Sequencing:',
+      ...prerequisiteSequencing.map(
+        (item) =>
+          `- ${text(item.sequence)}. ${text(item.gateId)} depends on ${text(
+            Array.isArray(item.dependsOn) && item.dependsOn.length
+              ? item.dependsOn.join(', ')
+              : 'none'
+          )} - ${text(item.currentStatus)} - ${text(item.requiredOutcome)}`
+      ),
+      '',
+      'Execution Activation Roadmap Metadata:',
+      ...activationRoadmap.map(
+        (stage) =>
+          `- ${text(stage.stage)}: ${text(stage.status)} - Restore Execution: ${
+            stage.restoreExecutionAvailable === true ? 'Yes' : 'No'
+          } - ${text(stage.message)}`
+      ),
     ];
     if (gateBlockers.length) {
       lines.push(

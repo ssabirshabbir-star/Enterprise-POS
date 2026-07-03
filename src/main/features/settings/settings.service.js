@@ -1017,6 +1017,139 @@ function buildRestoreExecutionPreconditionGateMatrix({
   };
 }
 
+function restoreBlockerOwner(category) {
+  const owners = {
+    authorization: 'Authorization Governance',
+    execution: 'Restore Activation Authority',
+    governance: 'Governance Review',
+    infrastructure: 'Infrastructure Planning',
+    rollback: 'Rollback Governance',
+    runtime: 'Recovery Runtime',
+    safety: 'Safety Certification',
+    transaction: 'Restore Transaction Framework',
+    verification: 'Verification Certification',
+  };
+  return owners[category] || 'Restore Governance';
+}
+
+function restoreBlockerSeverity(gate = {}) {
+  if (gate.category === 'execution') return 'critical';
+  if (gate.category === 'rollback' || gate.category === 'runtime') return 'high';
+  if (gate.status === 'not_implemented') return 'high';
+  if (gate.category === 'governance' || gate.category === 'transaction') return 'high';
+  return 'medium';
+}
+
+function buildRestoreExecutionBlockerResolutionPlan({ gateMatrix = {} } = {}) {
+  const gates = Array.isArray(gateMatrix.gates) ? gateMatrix.gates : [];
+  const unresolvedGates = gates.filter((gate) => gate.status !== 'satisfied');
+  const resolutionItems = unresolvedGates.map((gate, index) => ({
+    sequence: index + 1,
+    gateId: gate.id,
+    gateCategory: gate.category,
+    gateTitle: gate.title,
+    currentStatus: gate.status,
+    severity: restoreBlockerSeverity(gate),
+    ownerCategory: restoreBlockerOwner(gate.category),
+    dependencies: Array.isArray(gate.dependsOn) ? gate.dependsOn : [],
+    blockerReasons: Array.isArray(gate.blockers) ? gate.blockers : [],
+    requiredOutcome:
+      gate.status === 'not_implemented'
+        ? 'Future implementation and certification required before this gate can be satisfied.'
+        : 'Governance blocker must be resolved before this gate can be satisfied.',
+    restoreExecutionAvailable: false,
+  }));
+  const severitySummary = resolutionItems.reduce(
+    (acc, item) => {
+      acc[item.severity] = (acc[item.severity] || 0) + 1;
+      return acc;
+    },
+    { critical: 0, high: 0, medium: 0, low: 0 }
+  );
+  const ownerSummary = resolutionItems.reduce((acc, item) => {
+    acc[item.ownerCategory] = (acc[item.ownerCategory] || 0) + 1;
+    return acc;
+  }, {});
+  const categorySummary = resolutionItems.reduce((acc, item) => {
+    acc[item.gateCategory] = (acc[item.gateCategory] || 0) + 1;
+    return acc;
+  }, {});
+  const prerequisiteSequencing = resolutionItems.map((item) => ({
+    sequence: item.sequence,
+    gateId: item.gateId,
+    ownerCategory: item.ownerCategory,
+    severity: item.severity,
+    dependsOn: item.dependencies,
+    currentStatus: item.currentStatus,
+    requiredOutcome: item.requiredOutcome,
+  }));
+  const executionActivationRoadmap = [
+    {
+      stage: 'governance_blocker_resolution',
+      status: resolutionItems.some((item) => item.gateCategory === 'governance')
+        ? 'blocked'
+        : 'metadata_ready',
+      restoreExecutionAvailable: false,
+      message: 'Governance blockers must be resolved before Restore execution can be considered.',
+    },
+    {
+      stage: 'transaction_and_rollback_certification',
+      status: resolutionItems.some((item) =>
+        ['transaction', 'rollback'].includes(item.gateCategory)
+      )
+        ? 'blocked'
+        : 'metadata_ready',
+      restoreExecutionAvailable: false,
+      message:
+        'Transaction and rollback gates must be implemented, certified, and reviewed before execution activation.',
+    },
+    {
+      stage: 'runtime_recovery_certification',
+      status: resolutionItems.some((item) => item.gateCategory === 'runtime')
+        ? 'blocked'
+        : 'metadata_ready',
+      restoreExecutionAvailable: false,
+      message:
+        'Runtime recovery governance must be implemented and certified before execution activation.',
+    },
+    {
+      stage: 'infrastructure_execution_certification',
+      status: resolutionItems.some((item) =>
+        ['infrastructure', 'execution'].includes(item.gateCategory)
+      )
+        ? 'blocked'
+        : 'metadata_ready',
+      restoreExecutionAvailable: false,
+      message:
+        'Execution infrastructure and final Restore activation certification remain unavailable.',
+    },
+  ];
+
+  return {
+    planStatus: resolutionItems.length ? 'blocked' : 'no_unresolved_blockers',
+    readOnly: true,
+    planningOnly: true,
+    auditEvidenceOnly: true,
+    noRestoreExecuted: true,
+    noDataCommitted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    unresolvedBlockerSummary: {
+      total: resolutionItems.length,
+      bySeverity: severitySummary,
+      byOwnerCategory: ownerSummary,
+      byGateCategory: categorySummary,
+    },
+    resolutionItems,
+    prerequisiteSequencing,
+    executionActivationRoadmap,
+    message: resolutionItems.length
+      ? 'Execution blocker resolution plan is read-only planning evidence. Restore remains unavailable.'
+      : 'No unresolved blockers were found in the planning matrix. Restore still remains unavailable until separately activated.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -1323,6 +1456,9 @@ async function assessRestoreTransactionFoundation() {
         transactionCertificationSnapshot: result.transactionCertificationSnapshot,
         orchestrationPlanningMetadata: result.orchestrationPlanningMetadata,
       });
+      result.executionBlockerResolutionPlan = buildRestoreExecutionBlockerResolutionPlan({
+        gateMatrix: result.executionPreconditionGateMatrix,
+      });
     } else {
       checkpoints.push(
         restoreTransactionCheckpoint(
@@ -1400,6 +1536,9 @@ async function assessRestoreTransactionFoundation() {
         transactionCertificationSnapshot: snapshot,
         orchestrationPlanningMetadata,
       });
+      const executionBlockerResolutionPlan = buildRestoreExecutionBlockerResolutionPlan({
+        gateMatrix: executionPreconditionGateMatrix,
+      });
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
@@ -1435,6 +1574,7 @@ async function assessRestoreTransactionFoundation() {
           transactionCertificationSnapshot: snapshot,
           orchestrationPlanningMetadata,
           executionPreconditionGateMatrix,
+          executionBlockerResolutionPlan,
         }
       );
     }
@@ -1507,6 +1647,9 @@ async function assessRestoreTransactionFoundation() {
       transactionCertificationSnapshot: result.transactionCertificationSnapshot,
       orchestrationPlanningMetadata: result.orchestrationPlanningMetadata,
     });
+    result.executionBlockerResolutionPlan = buildRestoreExecutionBlockerResolutionPlan({
+      gateMatrix: result.executionPreconditionGateMatrix,
+    });
   }
 
   await activityRepository.createActivityLog({
@@ -1534,6 +1677,7 @@ async function assessRestoreTransactionFoundation() {
       transactionCertificationSnapshot: result.transactionCertificationSnapshot || null,
       orchestrationPlanningMetadata: result.orchestrationPlanningMetadata || null,
       executionPreconditionGateMatrix: result.executionPreconditionGateMatrix || null,
+      executionBlockerResolutionPlan: result.executionBlockerResolutionPlan || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],
