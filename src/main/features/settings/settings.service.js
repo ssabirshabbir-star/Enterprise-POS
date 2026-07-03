@@ -1150,6 +1150,101 @@ function buildRestoreExecutionBlockerResolutionPlan({ gateMatrix = {} } = {}) {
   };
 }
 
+function restoreRiskLikelihood(item = {}) {
+  if (item.currentStatus === 'not_implemented') return 'certain_until_implemented';
+  if (item.severity === 'critical') return 'high';
+  if (item.severity === 'high') return 'medium';
+  return 'low';
+}
+
+function restoreRiskImpact(item = {}) {
+  if (item.gateCategory === 'execution') return 'platform_restore_activation';
+  if (item.gateCategory === 'rollback') return 'recovery_reversibility';
+  if (item.gateCategory === 'runtime') return 'post_restore_runtime_consistency';
+  if (item.gateCategory === 'transaction') return 'data_consistency_boundary';
+  if (item.gateCategory === 'governance') return 'approval_and_certification_integrity';
+  return 'restore_certification_readiness';
+}
+
+function restoreResidualRisk(item = {}) {
+  if (item.severity === 'critical') return 'unacceptable_until_resolved';
+  if (item.currentStatus === 'not_implemented') return 'high_until_certified';
+  if (item.severity === 'high') return 'managed_only_after_certification';
+  return 'monitor_until_resolved';
+}
+
+function buildRestoreExecutionActivationRiskRegister({ blockerPlan = {} } = {}) {
+  const resolutionItems = Array.isArray(blockerPlan.resolutionItems)
+    ? blockerPlan.resolutionItems
+    : [];
+  const risks = resolutionItems.map((item, index) => ({
+    riskId: `RAR-${String(index + 1).padStart(3, '0')}`,
+    linkedGateId: item.gateId,
+    linkedGateCategory: item.gateCategory,
+    linkedBlockerStatus: item.currentStatus,
+    category: item.gateCategory,
+    title: `${item.gateTitle} risk`,
+    severity: item.severity,
+    likelihood: restoreRiskLikelihood(item),
+    impact: restoreRiskImpact(item),
+    mitigationMetadata: [
+      item.requiredOutcome,
+      'Maintain Restore unavailable state until this risk is resolved and certified.',
+      'Preserve audit evidence for all future risk resolution decisions.',
+    ],
+    residualRisk: restoreResidualRisk(item),
+    ownerCategory: item.ownerCategory,
+    blockerReasons: item.blockerReasons,
+    restoreExecutionAvailable: false,
+  }));
+  const riskSummary = risks.reduce(
+    (acc, risk) => {
+      acc.total += 1;
+      acc.bySeverity[risk.severity] = (acc.bySeverity[risk.severity] || 0) + 1;
+      acc.byLikelihood[risk.likelihood] = (acc.byLikelihood[risk.likelihood] || 0) + 1;
+      acc.byResidualRisk[risk.residualRisk] = (acc.byResidualRisk[risk.residualRisk] || 0) + 1;
+      acc.byCategory[risk.category] = (acc.byCategory[risk.category] || 0) + 1;
+      return acc;
+    },
+    {
+      total: 0,
+      bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+      byLikelihood: {},
+      byResidualRisk: {},
+      byCategory: {},
+    }
+  );
+
+  return {
+    registerStatus: risks.length ? 'active_risks_block_activation' : 'no_active_risks',
+    readOnly: true,
+    planningOnly: true,
+    auditEvidenceOnly: true,
+    noRestoreExecuted: true,
+    noDataCommitted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    riskSummary,
+    risks,
+    blockerLinkage: risks.map((risk) => ({
+      riskId: risk.riskId,
+      linkedGateId: risk.linkedGateId,
+      linkedGateCategory: risk.linkedGateCategory,
+      linkedBlockerStatus: risk.linkedBlockerStatus,
+      residualRisk: risk.residualRisk,
+    })),
+    mitigationSummary: {
+      unresolvedMitigations: risks.length,
+      requiredGovernanceState:
+        'Restore must remain unavailable until risk mitigation, certification, and activation approval are complete.',
+    },
+    message: risks.length
+      ? 'Execution activation risk register contains active unresolved risks. Restore remains unavailable.'
+      : 'Execution activation risk register contains no active risks. Restore still remains unavailable until separately activated.',
+  };
+}
+
 async function getRestoreGovernanceAssessment() {
   const dashboardResult = await getRestoreReadinessDashboard();
   if (!dashboardResult.ok) return dashboardResult;
@@ -1459,6 +1554,9 @@ async function assessRestoreTransactionFoundation() {
       result.executionBlockerResolutionPlan = buildRestoreExecutionBlockerResolutionPlan({
         gateMatrix: result.executionPreconditionGateMatrix,
       });
+      result.executionActivationRiskRegister = buildRestoreExecutionActivationRiskRegister({
+        blockerPlan: result.executionBlockerResolutionPlan,
+      });
     } else {
       checkpoints.push(
         restoreTransactionCheckpoint(
@@ -1539,6 +1637,9 @@ async function assessRestoreTransactionFoundation() {
       const executionBlockerResolutionPlan = buildRestoreExecutionBlockerResolutionPlan({
         gateMatrix: executionPreconditionGateMatrix,
       });
+      const executionActivationRiskRegister = buildRestoreExecutionActivationRiskRegister({
+        blockerPlan: executionBlockerResolutionPlan,
+      });
       checkpoints.push(
         restoreTransactionCheckpoint(
           'transaction_precheck_result',
@@ -1575,6 +1676,7 @@ async function assessRestoreTransactionFoundation() {
           orchestrationPlanningMetadata,
           executionPreconditionGateMatrix,
           executionBlockerResolutionPlan,
+          executionActivationRiskRegister,
         }
       );
     }
@@ -1650,6 +1752,9 @@ async function assessRestoreTransactionFoundation() {
     result.executionBlockerResolutionPlan = buildRestoreExecutionBlockerResolutionPlan({
       gateMatrix: result.executionPreconditionGateMatrix,
     });
+    result.executionActivationRiskRegister = buildRestoreExecutionActivationRiskRegister({
+      blockerPlan: result.executionBlockerResolutionPlan,
+    });
   }
 
   await activityRepository.createActivityLog({
@@ -1678,6 +1783,7 @@ async function assessRestoreTransactionFoundation() {
       orchestrationPlanningMetadata: result.orchestrationPlanningMetadata || null,
       executionPreconditionGateMatrix: result.executionPreconditionGateMatrix || null,
       executionBlockerResolutionPlan: result.executionBlockerResolutionPlan || null,
+      executionActivationRiskRegister: result.executionActivationRiskRegister || null,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
       blockingReasons: result.blockingReasons || [],

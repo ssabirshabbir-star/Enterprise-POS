@@ -606,6 +606,17 @@
     const activationRoadmap = Array.isArray(blockerPlan.executionActivationRoadmap)
       ? blockerPlan.executionActivationRoadmap
       : [];
+    const riskRegister = result.executionActivationRiskRegister || {};
+    const riskSummary = riskRegister.riskSummary || {};
+    const riskSeveritySummary = riskSummary.bySeverity || {};
+    const riskLikelihoodSummary = riskSummary.byLikelihood || {};
+    const residualRiskSummary = riskSummary.byResidualRisk || {};
+    const riskCategorySummary = riskSummary.byCategory || {};
+    const riskItems = Array.isArray(riskRegister.risks) ? riskRegister.risks : [];
+    const riskBlockerLinkage = Array.isArray(riskRegister.blockerLinkage)
+      ? riskRegister.blockerLinkage
+      : [];
+    const mitigationSummary = riskRegister.mitigationSummary || {};
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -905,6 +916,62 @@
             stage.restoreExecutionAvailable === true ? 'Yes' : 'No'
           } - ${text(stage.message)}`
       ),
+      '',
+      'Execution Activation Risk Register:',
+      `- Register Status: ${text(riskRegister.registerStatus)}`,
+      `- Read Only: ${riskRegister.readOnly === true ? 'Yes' : 'No'}`,
+      `- Planning Only: ${riskRegister.planningOnly === true ? 'Yes' : 'No'}`,
+      `- Audit Evidence Only: ${riskRegister.auditEvidenceOnly === true ? 'Yes' : 'No'}`,
+      `- No Restore Executed: ${riskRegister.noRestoreExecuted === true ? 'Yes' : 'No'}`,
+      `- No Data Committed: ${riskRegister.noDataCommitted === true ? 'Yes' : 'No'}`,
+      `- Restore Unavailable: ${riskRegister.restoreUnavailable === true ? 'Yes' : 'No'}`,
+      `- Restore Eligible: ${riskRegister.restoreEligible === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        riskRegister.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(riskRegister.message)}`,
+      '',
+      'Risk Summary:',
+      `- Total: ${text(riskSummary.total)}`,
+      `- Critical: ${text(riskSeveritySummary.critical)}`,
+      `- High: ${text(riskSeveritySummary.high)}`,
+      `- Medium: ${text(riskSeveritySummary.medium)}`,
+      `- Low: ${text(riskSeveritySummary.low)}`,
+      ...Object.keys(riskLikelihoodSummary).map(
+        (likelihood) =>
+          `- Likelihood ${text(likelihood)}: ${text(riskLikelihoodSummary[likelihood])}`
+      ),
+      ...Object.keys(residualRiskSummary).map(
+        (risk) => `- Residual ${text(risk)}: ${text(residualRiskSummary[risk])}`
+      ),
+      ...Object.keys(riskCategorySummary).map(
+        (category) => `- Risk Category ${text(category)}: ${text(riskCategorySummary[category])}`
+      ),
+      '',
+      'Risk Items:',
+      ...riskItems.map((risk) => {
+        const mitigationText =
+          Array.isArray(risk.mitigationMetadata) && risk.mitigationMetadata.length
+            ? ` - Mitigation: ${risk.mitigationMetadata.map(text).join('; ')}`
+            : '';
+        return `- ${text(risk.riskId)} ${text(risk.title)}: ${text(risk.severity)} / ${text(
+          risk.likelihood
+        )} / ${text(risk.impact)} - Residual: ${text(risk.residualRisk)} - Owner: ${text(
+          risk.ownerCategory
+        )} - Linked Gate: ${text(risk.linkedGateId)}${mitigationText}`;
+      }),
+      '',
+      'Risk Blocker Linkage:',
+      ...riskBlockerLinkage.map(
+        (risk) =>
+          `- ${text(risk.riskId)} -> ${text(risk.linkedGateId)} (${text(
+            risk.linkedGateCategory
+          )}) ${text(risk.linkedBlockerStatus)} - Residual: ${text(risk.residualRisk)}`
+      ),
+      '',
+      'Risk Mitigation Summary:',
+      `- Unresolved Mitigations: ${text(mitigationSummary.unresolvedMitigations)}`,
+      `- Required Governance State: ${text(mitigationSummary.requiredGovernanceState)}`,
     ];
     if (gateBlockers.length) {
       lines.push(
