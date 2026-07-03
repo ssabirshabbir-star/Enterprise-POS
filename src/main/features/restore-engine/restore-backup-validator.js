@@ -3,6 +3,7 @@ const compatibilityAnalyzer = require('./restore-compatibility-analyzer');
 const dependencyAnalyzer = require('./restore-dependency-analyzer');
 const impactAssessment = require('./restore-impact-assessment');
 const inventorySnapshot = require('./restore-inventory-snapshot');
+const readinessDecision = require('./restore-readiness-decision');
 const validationResult = require('./restore-validation-result.model');
 
 const SUPPORTED_MANIFEST_VERSION = '1.0';
@@ -275,6 +276,23 @@ function validateReadManifestResult(readResult) {
     metadata: readResult?.metadata || null,
     packageSummary,
   });
+  const contentImpactAssessment = impactAssessment.analyzeImpact({
+    packageSummary,
+    inventorySnapshot: contentInventorySnapshot,
+    compatibilityAssessment,
+    dependencyAssessment,
+  });
+  const baseValidationResult = validationResult.createValidationResult({
+    status: validationResult.VALIDATION_STATUSES.PASSED,
+    message: 'Read-only backup package validation completed. Restore remains unavailable.',
+    packageSummary,
+    compatibilityAssessment,
+    dependencyAssessment,
+    impactAssessment: contentImpactAssessment,
+    inventorySnapshot: contentInventorySnapshot,
+    checks,
+    warnings,
+  });
 
   return validationResult.createValidationResult({
     status: validationResult.VALIDATION_STATUSES.PASSED,
@@ -282,13 +300,16 @@ function validateReadManifestResult(readResult) {
     packageSummary,
     compatibilityAssessment,
     dependencyAssessment,
-    impactAssessment: impactAssessment.analyzeImpact({
+    impactAssessment: contentImpactAssessment,
+    inventorySnapshot: contentInventorySnapshot,
+    readinessDecision: readinessDecision.createReadinessDecision({
+      validation: baseValidationResult,
       packageSummary,
       inventorySnapshot: contentInventorySnapshot,
       compatibilityAssessment,
       dependencyAssessment,
+      impactAssessment: contentImpactAssessment,
     }),
-    inventorySnapshot: contentInventorySnapshot,
     checks,
     warnings,
   });
@@ -307,19 +328,49 @@ async function validateBackupPackage(filePath) {
     const contentInventorySnapshot = inventorySnapshot.createInventorySnapshot({
       packageSummary,
     });
+    const contentImpactAssessment = impactAssessment.analyzeImpact({
+      packageSummary,
+      inventorySnapshot: contentInventorySnapshot,
+      compatibilityAssessment,
+      dependencyAssessment,
+    });
+    const baseValidationResult = validationResult.createValidationResult({
+      status: validationResult.VALIDATION_STATUSES.BLOCKED,
+      message: readResult.message,
+      packageSummary,
+      compatibilityAssessment,
+      dependencyAssessment,
+      impactAssessment: contentImpactAssessment,
+      inventorySnapshot: contentInventorySnapshot,
+      checks: [
+        check(
+          'package.readable',
+          false,
+          'Package metadata and manifest could not be read.',
+          {
+            errorCode: readResult.errorCode || null,
+          },
+          validationResult.VALIDATION_SEVERITIES.BLOCKED
+        ),
+      ],
+      blockingReasons: [readResult.message],
+    });
     return validationResult.createValidationResult({
       status: validationResult.VALIDATION_STATUSES.BLOCKED,
       message: readResult.message,
       packageSummary,
       compatibilityAssessment,
       dependencyAssessment,
-      impactAssessment: impactAssessment.analyzeImpact({
+      impactAssessment: contentImpactAssessment,
+      inventorySnapshot: contentInventorySnapshot,
+      readinessDecision: readinessDecision.createReadinessDecision({
+        validation: baseValidationResult,
         packageSummary,
         inventorySnapshot: contentInventorySnapshot,
         compatibilityAssessment,
         dependencyAssessment,
+        impactAssessment: contentImpactAssessment,
       }),
-      inventorySnapshot: contentInventorySnapshot,
       checks: [
         check(
           'package.readable',

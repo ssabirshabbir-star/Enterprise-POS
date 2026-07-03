@@ -103,6 +103,7 @@ function createValidationResult({
   dependencyAssessment = null,
   impactAssessment = null,
   inventorySnapshot = null,
+  readinessDecision = null,
   checks = [],
   warnings = [],
   blockingReasons = [],
@@ -141,6 +142,7 @@ function createValidationResult({
     dependencyAssessment,
     impactAssessment,
     inventorySnapshot,
+    readinessDecision,
     status: resultStatus,
     findings,
     summary: {
