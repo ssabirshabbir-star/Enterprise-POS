@@ -526,6 +526,15 @@
       ? stateMachine.blockedTransitions
       : [];
     const stateValidation = stateMachine.validation || {};
+    const transactionAdapter = engineBoundary.transactionAdapter || {};
+    const transactionCapability = transactionAdapter.capability || {};
+    const transactionInterface = transactionAdapter.transactionBoundaryInterface || {};
+    const beginOperation = transactionInterface.begin || {};
+    const commitOperation = transactionInterface.commit || {};
+    const rollbackOperation = transactionInterface.rollback || {};
+    const transactionBlockers = Array.isArray(transactionCapability.blockers)
+      ? transactionCapability.blockers
+      : [];
     const lines = [
       result.message ||
         'Controlled Restore Engine foundation assessment completed. Restore remains unavailable.',
@@ -553,6 +562,7 @@
         engineBoundary.settingsIntegrationOnly === true ? 'Yes' : 'No'
       }`,
       `- Request Model Status: ${text(engineBoundary.requestModelStatus)}`,
+      `- Transaction Adapter Status: ${text(engineBoundary.transactionAdapterStatus)}`,
       `- ${text(engineBoundary.message)}`,
       '',
       'Restore Engine Boundary Layers:',
@@ -623,6 +633,30 @@
       `- Restore Execution Available: ${
         stateValidation.restoreExecutionAvailable === true ? 'Yes' : 'No'
       }`,
+      '',
+      'Restore Transaction Adapter Shell:',
+      `- Adapter Status: ${text(transactionAdapter.adapterStatus)}`,
+      `- Capability Status: ${text(transactionCapability.capabilityStatus)}`,
+      `- Internal Only: ${transactionAdapter.internalOnly === true ? 'Yes' : 'No'}`,
+      `- Read Only: ${transactionAdapter.readOnly === true ? 'Yes' : 'No'}`,
+      `- Database Client Used: ${transactionAdapter.databaseClientUsed === true ? 'Yes' : 'No'}`,
+      `- Transaction Client Used: ${
+        transactionCapability.transactionClientUsed === true ? 'Yes' : 'No'
+      }`,
+      `- Restore Execution Available: ${
+        transactionAdapter.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(transactionAdapter.message)}`,
+      '',
+      'Transaction Boundary Interface Shell:',
+      `- Begin: ${text(beginOperation.operationStatus)} - ${text(beginOperation.blockedReason)}`,
+      `- Commit: ${text(commitOperation.operationStatus)} - ${text(commitOperation.blockedReason)}`,
+      `- Rollback: ${text(rollbackOperation.operationStatus)} - ${text(
+        rollbackOperation.blockedReason
+      )}`,
+      '',
+      'Transaction Capability Blockers:',
+      ...transactionBlockers.map((reason) => `- ${text(reason)}`),
       '',
       'Lifecycle Checkpoints:',
       ...checkpoints.map(

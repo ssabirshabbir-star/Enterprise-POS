@@ -1,5 +1,6 @@
 const restoreRequestModel = require('./restore-request.model');
 const restoreStateMachine = require('./restore-state-machine');
+const restoreTransactionAdapter = require('./restore-transaction-adapter');
 
 const RESTORE_ENGINE_LAYERS = [
   'controller',
@@ -9,6 +10,7 @@ const RESTORE_ENGINE_LAYERS = [
   'audit',
   'runtime_recovery',
   'rollback',
+  'transaction_adapter',
 ];
 
 function layerStatus(name, status, responsibility) {
@@ -37,6 +39,10 @@ function assessBoundary({ profile = null } = {}) {
     },
   });
   const stateMachine = restoreStateMachine.assessStateMachine({ request: requestModel });
+  const transactionAdapter = restoreTransactionAdapter.createTransactionBoundaryInterface({
+    request: requestModel,
+    stateMachine,
+  });
 
   const layers = [
     layerStatus(
@@ -58,6 +64,11 @@ function assessBoundary({ profile = null } = {}) {
       'state_machine',
       'state_machine_shell_available',
       'Restore Engine owns non-executable lifecycle state validation; destructive transitions remain blocked.'
+    ),
+    layerStatus(
+      'transaction_adapter',
+      'transaction_adapter_shell_available_blocked',
+      'Restore Engine owns a blocked transaction boundary adapter; begin, commit, and rollback operations do not execute.'
     ),
     layerStatus(
       'repository',
@@ -104,6 +115,9 @@ function assessBoundary({ profile = null } = {}) {
     requestModelStatus: requestModel.validation.validationStatus,
     stateMachine,
     stateMachineStatus: stateMachine.stateMachineStatus,
+    transactionAdapter,
+    transactionAdapterStatus: transactionAdapter.adapterStatus,
+    transactionCapabilityStatus: transactionAdapter.capability.capabilityStatus,
     layers,
     layerNames: RESTORE_ENGINE_LAYERS,
     boundaryBlockers,
