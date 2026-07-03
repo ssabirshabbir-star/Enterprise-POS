@@ -1,4 +1,5 @@
 const restoreRequestModel = require('./restore-request.model');
+const restoreStateMachine = require('./restore-state-machine');
 
 const RESTORE_ENGINE_LAYERS = [
   'controller',
@@ -35,6 +36,7 @@ function assessBoundary({ profile = null } = {}) {
       restoreExecutionAvailable: false,
     },
   });
+  const stateMachine = restoreStateMachine.assessStateMachine({ request: requestModel });
 
   const layers = [
     layerStatus(
@@ -51,6 +53,11 @@ function assessBoundary({ profile = null } = {}) {
       'request_model',
       'immutable_request_model_available',
       'Restore Engine owns immutable request, session, assessment snapshot, and execution context contracts.'
+    ),
+    layerStatus(
+      'state_machine',
+      'state_machine_shell_available',
+      'Restore Engine owns non-executable lifecycle state validation; destructive transitions remain blocked.'
     ),
     layerStatus(
       'repository',
@@ -95,6 +102,8 @@ function assessBoundary({ profile = null } = {}) {
     settingsIntegrationOnly: true,
     requestModel,
     requestModelStatus: requestModel.validation.validationStatus,
+    stateMachine,
+    stateMachineStatus: stateMachine.stateMachineStatus,
     layers,
     layerNames: RESTORE_ENGINE_LAYERS,
     boundaryBlockers,

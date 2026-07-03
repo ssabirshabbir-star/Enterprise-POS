@@ -518,6 +518,14 @@
     const requestSnapshot = requestModel.assessmentSnapshot || {};
     const executionContext = requestModel.executionContext || {};
     const requestValidation = requestModel.validation || {};
+    const stateMachine = engineBoundary.stateMachine || {};
+    const allowedStates = Array.isArray(stateMachine.allowedStates)
+      ? stateMachine.allowedStates
+      : [];
+    const blockedTransitions = Array.isArray(stateMachine.blockedTransitions)
+      ? stateMachine.blockedTransitions
+      : [];
+    const stateValidation = stateMachine.validation || {};
     const lines = [
       result.message ||
         'Controlled Restore Engine foundation assessment completed. Restore remains unavailable.',
@@ -586,6 +594,35 @@
       `- Validation Status: ${text(requestValidation.validationStatus)}`,
       `- Valid For Execution: ${requestValidation.validForExecution === true ? 'Yes' : 'No'}`,
       `- ${text(requestValidation.message)}`,
+      '',
+      'Restore State Machine Shell:',
+      `- State Machine Status: ${text(stateMachine.stateMachineStatus)}`,
+      `- Current State: ${text(stateMachine.currentState)}`,
+      `- Read Only: ${stateMachine.readOnly === true ? 'Yes' : 'No'}`,
+      `- Internal Only: ${stateMachine.internalOnly === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        stateMachine.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(stateMachine.message)}`,
+      '',
+      'Allowed Restore Engine States:',
+      ...allowedStates.map((state) => `- ${text(state)}`),
+      '',
+      'Blocked Destructive Transitions:',
+      ...blockedTransitions.map(
+        (transition) =>
+          `- ${text(transition.fromState)} -> ${text(transition.toState)}: ${
+            transition.transitionBlocked === true ? 'Blocked' : 'Allowed'
+          } - ${text(transition.blockedReason)}`
+      ),
+      '',
+      'State Transition Validation:',
+      `- From: ${text(stateValidation.fromState)}`,
+      `- To: ${text(stateValidation.toState)}`,
+      `- Transition Allowed: ${stateValidation.transitionAllowed === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        stateValidation.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
       '',
       'Lifecycle Checkpoints:',
       ...checkpoints.map(
