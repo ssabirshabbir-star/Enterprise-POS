@@ -790,24 +790,6 @@ async function getRestoreReadinessDashboardEvidence() {
   };
 }
 
-async function restoreBackup(filePath, userId) {
-  await createBackupLog({
-    fileName: filePath ? path.basename(filePath) : 'restore-blocked',
-    filePath,
-    action: 'RESTORE',
-    status: 'BLOCKED',
-    message:
-      'Restore blocked. Restore certification and recovery-state governance are not implemented.',
-    userId,
-  });
-  return {
-    ok: false,
-    restoreEligible: false,
-    message:
-      'Restore is blocked until certification, verification, authorization, and recovery-state gates are implemented.',
-  };
-}
-
 function packageReaderResult(status, message, details = {}) {
   return {
     ok: status === 'package_readable',
@@ -1263,7 +1245,6 @@ module.exports = {
   getRestoreReadinessDashboardEvidence,
   listRestoreDryRunReports,
   listBackupLogs,
-  restoreBackup,
   saveSettings,
   verifyRestorePackage,
 };
