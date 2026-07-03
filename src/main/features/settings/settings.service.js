@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
+const restoreEngineService = require('../restore-engine/restore-engine.service');
 const settingsRepository = require('./settings.repository');
 
 const SETTINGS_ROLES = new Set(['Admin']);
@@ -1572,8 +1573,10 @@ async function assessControlledRestoreEngineFoundation() {
   ];
 
   let result;
+  let engineBoundary = null;
   try {
     if (!profile) {
+      engineBoundary = restoreEngineService.assessBoundary({ profile: null });
       checkpoints.push(
         restoreFoundationCheckpoint(
           'authentication',
@@ -1587,6 +1590,7 @@ async function assessControlledRestoreEngineFoundation() {
         {
           auditCorrelationId,
           checkpoints,
+          engineBoundary,
           blockingReasons: ['Authentication is required.'],
         }
       );
@@ -1598,6 +1602,7 @@ async function assessControlledRestoreEngineFoundation() {
           'Existing Restore governance evidence is being evaluated.'
         )
       );
+      engineBoundary = restoreEngineService.assessBoundary({ profile });
       const governance = await getRestoreGovernanceAssessment();
       const assessment = governance.assessment || {};
       const activation = assessment.activationReadinessAssessment || {};
@@ -1624,6 +1629,7 @@ async function assessControlledRestoreEngineFoundation() {
           checkpoints,
           governanceDecision: assessment.governanceDecision || null,
           activationReadiness: activation.status || null,
+          engineBoundary,
           technicalReadiness: assessment.technicalReadiness || {},
           outstandingRequirements: Array.isArray(assessment.outstandingRequirements)
             ? assessment.outstandingRequirements
@@ -1646,6 +1652,7 @@ async function assessControlledRestoreEngineFoundation() {
       {
         auditCorrelationId,
         checkpoints,
+        engineBoundary,
         blockingReasons: ['Foundation assessment failed before Restore execution.'],
       }
     );
@@ -1666,6 +1673,7 @@ async function assessControlledRestoreEngineFoundation() {
       checkpoints: result.checkpoints,
       governanceDecision: result.governanceDecision || null,
       activationReadiness: result.activationReadiness || null,
+      engineBoundary: result.engineBoundary || null,
       blockingReasons: result.blockingReasons || [],
     },
   });

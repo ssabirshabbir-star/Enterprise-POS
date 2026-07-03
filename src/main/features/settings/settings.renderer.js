@@ -511,6 +511,8 @@
     const outstanding = Array.isArray(result.outstandingRequirements)
       ? result.outstandingRequirements
       : [];
+    const engineBoundary = result.engineBoundary || {};
+    const engineLayers = Array.isArray(engineBoundary.layers) ? engineBoundary.layers : [];
     const lines = [
       result.message ||
         'Controlled Restore Engine foundation assessment completed. Restore remains unavailable.',
@@ -522,6 +524,27 @@
       `No Restore Executed: ${result.noRestoreExecuted ? 'Yes' : 'No'}`,
       `Restore Unavailable: ${result.restoreUnavailable ? 'Yes' : 'No'}`,
       `Restore Eligible: ${result.restoreEligible === true ? 'Yes' : 'No'}`,
+      '',
+      'Restore Engine Internal Boundary:',
+      `- Module: ${text(engineBoundary.module)}`,
+      `- Boundary Status: ${text(engineBoundary.boundaryStatus)}`,
+      `- Read Only: ${engineBoundary.readOnly === true ? 'Yes' : 'No'}`,
+      `- Internal Only: ${engineBoundary.internalOnly === true ? 'Yes' : 'No'}`,
+      `- Restore Execution Available: ${
+        engineBoundary.restoreExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- Public Restore API Available: ${
+        engineBoundary.publicRestoreApiAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- Settings Integration Only: ${
+        engineBoundary.settingsIntegrationOnly === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(engineBoundary.message)}`,
+      '',
+      'Restore Engine Boundary Layers:',
+      ...engineLayers.map(
+        (layer) => `- ${text(layer.name)}: ${text(layer.status)} - ${text(layer.responsibility)}`
+      ),
       '',
       'Lifecycle Checkpoints:',
       ...checkpoints.map(
