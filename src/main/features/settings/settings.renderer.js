@@ -561,6 +561,12 @@
     const sequence = Array.isArray(result.checkpointSequence) ? result.checkpointSequence : [];
     const failureMap = result.failureStateMap || {};
     const rollbackPlan = result.rollbackPlanMetadata || {};
+    const rollbackReadiness = result.rollbackReadinessMetadata || {};
+    const recovery = result.recoveryMetadata || {};
+    const recoveryCheckpoints = Array.isArray(recovery.recoveryCheckpointMetadata)
+      ? recovery.recoveryCheckpointMetadata
+      : [];
+    const recoveryFailures = recovery.failureRecoveryClassification || {};
     const lines = [
       result.message ||
         'Restore transaction foundation assessment completed. Restore remains unavailable.',
@@ -615,6 +621,48 @@
       `- Blocked: ${rollbackPlan.rollbackBlocked === true ? 'Yes' : 'No'}`,
       `- Boundary: ${text(rollbackPlan.rollbackBoundary)}`,
       `- ${text(rollbackPlan.message)}`,
+      '',
+      'Rollback Readiness Metadata:',
+      `- Status: ${text(rollbackReadiness.rollbackReadinessStatus)}`,
+      `- Eligibility Assessment: ${text(rollbackReadiness.rollbackEligibilityAssessment)}`,
+      `- Execution Available: ${
+        rollbackReadiness.rollbackExecutionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- Authority Required: ${rollbackReadiness.rollbackAuthorityRequired === true ? 'Yes' : 'No'}`,
+      `- Evidence Required: ${rollbackReadiness.rollbackEvidenceRequired === true ? 'Yes' : 'No'}`,
+      `- Safety Decision: ${text(rollbackReadiness.rollbackSafetyDecision)}`,
+      `- ${text(rollbackReadiness.message)}`,
+      '',
+      'Recovery Metadata:',
+      `- Status: ${text(recovery.recoveryMetadataStatus)}`,
+      `- Runtime Recovery Available: ${recovery.runtimeRecoveryAvailable === true ? 'Yes' : 'No'}`,
+      `- Runtime Recovery Executed: ${recovery.runtimeRecoveryExecuted === true ? 'Yes' : 'No'}`,
+      `- Recovery Completion Available: ${
+        recovery.recoveryCompletionAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- State Reconciliation Available: ${
+        recovery.recoveryStateReconciliationAvailable === true ? 'Yes' : 'No'
+      }`,
+      `- ${text(recovery.message)}`,
+      '',
+      'Recovery Checkpoint Metadata:',
+      ...recoveryCheckpoints.map(
+        (item) => `- ${text(item.name)}: ${text(item.state)} - ${text(item.message)}`
+      ),
+      '',
+      'Failure Recovery Classification:',
+      `- Governance Failure: ${text(recoveryFailures.governanceFailure?.state)} - ${text(
+        recoveryFailures.governanceFailure?.recoveryResponse
+      )}`,
+      `- Transaction Failure: ${text(recoveryFailures.transactionFailure?.state)} - ${text(
+        recoveryFailures.transactionFailure?.recoveryResponse
+      )}`,
+      `- Rollback Failure: ${text(recoveryFailures.rollbackFailure?.state)} - ${text(
+        recoveryFailures.rollbackFailure?.recoveryResponse
+      )}`,
+      `- Runtime Recovery Failure: ${text(recoveryFailures.runtimeRecoveryFailure?.state)} - ${text(
+        recoveryFailures.runtimeRecoveryFailure?.recoveryResponse
+      )}`,
     ];
     if (blockers.length) {
       lines.push(
