@@ -245,7 +245,7 @@
       )
       .join('');
     renderBackupHistoryDetail(selected || backups[0]);
-    renderBackupHistorySummary(backupHistoryState.rows.length, backups.length);
+    renderBackupHistorySummary();
   }
 
   function renderBackupVerificationSummary(result = {}) {

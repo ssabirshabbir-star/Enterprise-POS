@@ -1,4 +1,4 @@
-﻿<div class="rounded-lg border border-zinc-200 bg-white p-4">
+<div class="rounded-lg border border-zinc-200 bg-white p-4">
           <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Settings</p>
           <h2 class="mt-2 text-2xl font-semibold text-zinc-950">Store, System, Printer & Backup</h2>
           <p id="settingsMessage" class="mt-3 hidden rounded-md px-3 py-2 text-sm"></p>
@@ -154,11 +154,38 @@
               <div id="restoreDryRunSavedReportDetail" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Select a saved dry-run certification report to view audit evidence. Restore remains unavailable.</div>
               <div id="backupVerificationSummary" class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">Latest Backup Verification Summary — Not available until a backup is created in this session.</div>
               <div class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
-                <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                <p class="font-semibold text-zinc-900">Certified Backup History</p>
+                <p class="mt-1 text-zinc-600">Read-only audit log. No Restore executed. Restore remains unavailable.</p>
+                <div class="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
                   <input id="backupHistorySearch" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Search backup history by ID, status, path, creator, timestamp, or message" />
                   <button id="clearBackupHistorySearchButton" type="button" class="epos-btn epos-btn-outline">Clear Search</button>
                 </div>
-                <p id="backupHistorySummary" class="mt-2 text-xs text-zinc-500">Backup history is read-only and uses existing backup log data.</p>
+                <div class="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_1fr]">
+                  <select id="backupHistoryStatusFilter" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" aria-label="Filter backup history by status">
+                    <option value="all">All statuses</option>
+                    <option value="success">Success</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                  <select id="backupHistoryDatePreset" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" aria-label="Filter backup history by date range">
+                    <option value="all">All dates</option>
+                    <option value="today">Today</option>
+                    <option value="last_7_days">Last 7 Days</option>
+                    <option value="last_30_days">Last 30 Days</option>
+                    <option value="custom">Custom Range</option>
+                  </select>
+                  <select id="backupHistorySort" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" aria-label="Sort backup history">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="status">Status</option>
+                  </select>
+                </div>
+                <div class="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                  <input id="backupHistoryDateFrom" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" aria-label="Backup history from date" disabled />
+                  <input id="backupHistoryDateTo" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" aria-label="Backup history to date" disabled />
+                  <button id="prevBackupHistoryPageButton" type="button" class="epos-btn epos-btn-outline" disabled>Previous</button>
+                  <button id="nextBackupHistoryPageButton" type="button" class="epos-btn epos-btn-outline" disabled>Next</button>
+                </div>
+                <p id="backupHistorySummary" class="mt-2 text-xs text-zinc-500">Backup history is read-only. Loading...</p>
               </div>
               <div id="backupHistoryDetail" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Select a backup history row to view read-only details.</div>
               <div class="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
