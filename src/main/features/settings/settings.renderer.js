@@ -236,6 +236,36 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderBackupPreflightAssessment(result = {}) {
+    const panel = $id('backupPreflightAssessment');
+    if (!panel) return;
+    const checks = Array.isArray(result.checks) ? result.checks : [];
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const lines = [
+      'Backup Preflight Assessment - Read Only',
+      `Status: ${text(result.preflightStatus, 'Not available')}`,
+      `Selected Path: ${text(result.filePath, 'Not available')}`,
+      `File Name: ${text(result.fileName, 'Not available')}`,
+      `Writable Destination: ${result.writableDestination === true ? 'Yes' : 'No'}`,
+      `Estimated Backup Ready: ${result.estimatedBackupReady === true ? 'Yes' : 'No'}`,
+      `Message: ${text(result.message, 'Not available')}`,
+      'Backup Created: No',
+      'Restore: Not available',
+    ];
+    if (checks.length) {
+      lines.push(
+        'Checks:',
+        ...checks.map(
+          (check) => `- ${text(check.name)}: ${text(check.status)} - ${text(check.message)}`
+        )
+      );
+    }
+    if (warnings.length) {
+      lines.push('Warnings:', ...warnings.map((warning) => `- ${text(warning)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function renderPackageInspection(result = {}) {
     const panel = $id('restorePackageInspection');
     if (!panel) return;
@@ -1500,6 +1530,19 @@
     }
   }
 
+  async function handleBackupPreflight() {
+    try {
+      const result = await A().assessBackupPreflight();
+      renderBackupPreflightAssessment(result || {});
+      showMessage(
+        result?.message || 'Backup preflight assessment completed.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Backup preflight assessment failed.', 'error');
+    }
+  }
+
   function handleBackupHistorySearch(event) {
     backupHistoryState.search = event.target.value || '';
     backupHistoryState.selectedId = null;
@@ -1771,6 +1814,7 @@
       initialized = true;
       addListener(document, 'click', handleBlockedAction, true);
       addListener($id('settingsModule'), 'click', handleTabClick);
+      addListener($id('assessBackupPreflightButton'), 'click', handleBackupPreflight);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
       addListener($id('backupHistorySearch'), 'input', handleBackupHistorySearch);
@@ -1834,6 +1878,8 @@
     if (diff.backupVerificationSummary) {
       renderBackupVerificationSummary(diff.backupVerificationSummary);
     }
+    if (diff.backupPreflightAssessment)
+      renderBackupPreflightAssessment(diff.backupPreflightAssessment);
     if (diff.packageInspection) renderPackageInspection(diff.packageInspection);
     if (diff.packageVerification) renderPackageVerification(diff.packageVerification);
     if (diff.restoreEligibility) renderEligibilityAssessment(diff.restoreEligibility);

@@ -56,6 +56,27 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/preflight', async (event) => {
+    try {
+      const result = await dialog.showSaveDialog(windowFromEvent(event), {
+        title: 'Assess Backup Destination',
+        defaultPath: path.join(app.getPath('documents'), defaultBackupName()),
+        buttonLabel: 'Assess Destination',
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return {
+          ok: false,
+          preflightStatus: 'cancelled',
+          message: 'Backup preflight cancelled.',
+        };
+      }
+      return await settingsService.assessBackupPreflight(result.filePath);
+    } catch (error) {
+      return safeError(error, 'Backup preflight error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/inspect-restore-package', async (event) => {
     try {
       const result = await dialog.showOpenDialog(windowFromEvent(event), {

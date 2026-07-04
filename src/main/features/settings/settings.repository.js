@@ -1,3 +1,4 @@
+const { constants: fsConstants } = require('fs');
 const fs = require('fs/promises');
 const crypto = require('crypto');
 const os = require('os');
@@ -575,6 +576,115 @@ async function exportBackup(filePath, userId) {
     integrityHash: dataHash,
     verificationStatus: verification.status,
     restoreEligible: false,
+  };
+}
+
+async function assessBackupPreflight(filePath) {
+  const normalizedPath = String(filePath || '').trim();
+  const checks = [];
+  const warnings = [];
+  if (!normalizedPath) {
+    return {
+      ok: false,
+      preflightStatus: 'blocked',
+      selectedPathAvailable: false,
+      writableDestination: false,
+      estimatedBackupReady: false,
+      filePath: null,
+      fileName: null,
+      checks: [
+        {
+          name: 'selected_path',
+          status: 'blocked',
+          message: 'No backup destination was selected.',
+        },
+      ],
+      warnings: [],
+      message: 'Backup preflight blocked. Select a backup destination before creating backup.',
+    };
+  }
+
+  const fileName = path.basename(normalizedPath);
+  const directory = path.dirname(normalizedPath);
+  let directoryExists = false;
+  let writableDestination = false;
+  let targetFileExists = false;
+
+  try {
+    const directoryStat = await fs.stat(directory);
+    directoryExists = directoryStat.isDirectory();
+  } catch {
+    directoryExists = false;
+  }
+  checks.push({
+    name: 'destination_directory',
+    status: directoryExists ? 'passed' : 'blocked',
+    message: directoryExists
+      ? 'Backup destination directory exists.'
+      : 'Backup destination directory does not exist.',
+  });
+
+  if (directoryExists) {
+    try {
+      await fs.access(directory, fsConstants.W_OK);
+      writableDestination = true;
+    } catch {
+      writableDestination = false;
+    }
+  }
+  checks.push({
+    name: 'writable_destination',
+    status: writableDestination ? 'passed' : 'blocked',
+    message: writableDestination
+      ? 'Backup destination appears writable.'
+      : 'Backup destination is not writable.',
+  });
+
+  try {
+    const targetStat = await fs.stat(normalizedPath);
+    targetFileExists = targetStat.isFile();
+  } catch {
+    targetFileExists = false;
+  }
+  if (targetFileExists) {
+    warnings.push('Selected file already exists and may be overwritten if backup is created.');
+  }
+  checks.push({
+    name: 'selected_path',
+    status: 'passed',
+    message: targetFileExists
+      ? 'Selected backup path already exists.'
+      : 'Selected backup path is available for a new file.',
+  });
+
+  const extensionOk = path.extname(normalizedPath).toLowerCase() === '.json';
+  if (!extensionOk) warnings.push('Backup files should use the .json extension.');
+  checks.push({
+    name: 'backup_extension',
+    status: extensionOk ? 'passed' : 'warning',
+    message: extensionOk
+      ? 'Backup destination uses the .json extension.'
+      : 'Backup destination does not use the .json extension.',
+  });
+
+  const blocked = checks.some((check) => check.status === 'blocked');
+  const preflightStatus = blocked ? 'blocked' : warnings.length ? 'warning' : 'ready';
+
+  return {
+    ok: !blocked,
+    preflightStatus,
+    selectedPathAvailable: Boolean(normalizedPath),
+    writableDestination,
+    estimatedBackupReady: !blocked,
+    filePath: normalizedPath,
+    fileName,
+    directory,
+    targetFileExists,
+    checks,
+    warnings,
+    message: blocked
+      ? 'Backup preflight blocked. Resolve destination issues before creating backup.'
+      : 'Backup preflight completed. Backup creation is still a separate action.',
   };
 }
 
@@ -1238,6 +1348,7 @@ async function assessRestoreEligibility(filePath) {
 
 module.exports = {
   assessRestoreEligibility,
+  assessBackupPreflight,
   exportBackup,
   getSettings,
   inspectRestorePackage,

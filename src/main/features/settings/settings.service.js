@@ -130,6 +130,12 @@ async function listBackups() {
   return { ok: true, backups: await settingsRepository.listBackupLogs() };
 }
 
+async function assessBackupPreflight(filePath) {
+  const access = await requireSettingsAccess('backup.create');
+  if (!access.ok) return access;
+  return settingsRepository.assessBackupPreflight(filePath);
+}
+
 function dateOnly(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : null;
 }
@@ -2436,6 +2442,7 @@ async function generateRestoreDryRunCertificationReport(filePath, acknowledgemen
 }
 
 module.exports = {
+  assessBackupPreflight,
   assessRestoreEligibility,
   assessRestoreAuthorization,
   createBackup,

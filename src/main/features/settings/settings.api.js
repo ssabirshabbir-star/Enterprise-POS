@@ -22,6 +22,10 @@
     return api().settings.listBackups();
   }
 
+  async function assessBackupPreflight() {
+    return api().settings.assessBackupPreflight();
+  }
+
   async function createBackup() {
     return api().settings.createBackup();
   }
@@ -71,6 +75,7 @@
   }
 
   window.SettingsApi = {
+    assessBackupPreflight,
     assessRestoreEligibility,
     assessRestoreAuthorization,
     appInfo,
