@@ -150,10 +150,18 @@
                 </table>
               </div>
               <div id="restoreDryRunSavedReportDetail" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Select a saved dry-run certification report to view audit evidence. Restore remains unavailable.</div>
+              <div class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
+                <div class="grid gap-2 md:grid-cols-[1fr_auto]">
+                  <input id="backupHistorySearch" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Search backup history by ID, status, path, creator, timestamp, or message" />
+                  <button id="clearBackupHistorySearchButton" type="button" class="epos-btn epos-btn-outline">Clear Search</button>
+                </div>
+                <p id="backupHistorySummary" class="mt-2 text-xs text-zinc-500">Backup history is read-only and uses existing backup log data.</p>
+              </div>
+              <div id="backupHistoryDetail" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Select a backup history row to view read-only details.</div>
               <div class="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
                 <table class="min-w-full divide-y divide-zinc-200 text-sm">
                   <thead class="bg-zinc-50 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    <tr><th class="px-3 py-2">File</th><th class="px-3 py-2">Action</th><th class="px-3 py-2">By</th><th class="px-3 py-2">Status</th><th class="px-3 py-2">Created</th><th class="px-3 py-2">Path</th></tr>
+                    <tr><th class="px-3 py-2">ID</th><th class="px-3 py-2">File</th><th class="px-3 py-2">Status</th><th class="px-3 py-2">Path</th><th class="px-3 py-2">Created By</th><th class="px-3 py-2">Timestamp</th><th class="px-3 py-2">Message</th><th class="px-3 py-2">Action</th></tr>
                   </thead>
                   <tbody id="backupHistoryBody" class="divide-y divide-zinc-100"></tbody>
                 </table>

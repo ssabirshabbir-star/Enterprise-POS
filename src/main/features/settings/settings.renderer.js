@@ -15,6 +15,11 @@
     pageSize: 10,
     total: 0,
   };
+  const backupHistoryState = {
+    rows: [],
+    search: '',
+    selectedId: null,
+  };
 
   const A = () => window.SettingsApi;
 
@@ -117,24 +122,99 @@
   function renderBackups(result = {}) {
     const tbody = $id('backupHistoryBody');
     if (!tbody) return;
-    const backups = Array.isArray(result.backups) ? result.backups : [];
-    if (!backups.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" class="px-3 py-6 text-center text-zinc-500">No backup history available.</td></tr>';
+    backupHistoryState.rows = Array.isArray(result.backups) ? result.backups : [];
+    renderBackupHistoryTable();
+  }
+
+  function backupHistoryId(backup = {}) {
+    return text(backup.backupId || backup.id);
+  }
+
+  function backupHistorySearchText(backup = {}) {
+    return [
+      backupHistoryId(backup),
+      backup.fileName,
+      backup.action,
+      backup.status,
+      backup.filePath,
+      backup.createdBy,
+      backup.createdAt,
+      backup.message,
+    ]
+      .map((value) => text(value, '').toLowerCase())
+      .join(' ');
+  }
+
+  function filteredBackupHistory() {
+    const query = backupHistoryState.search.trim().toLowerCase();
+    if (!query) return backupHistoryState.rows;
+    return backupHistoryState.rows.filter((backup) =>
+      backupHistorySearchText(backup).includes(query)
+    );
+  }
+
+  function renderBackupHistorySummary(total, visible) {
+    const summary = $id('backupHistorySummary');
+    if (!summary) return;
+    const selected = backupHistoryState.selectedId
+      ? ` Selected ID: ${backupHistoryState.selectedId}.`
+      : '';
+    summary.textContent = `Backup history is read-only. Showing ${visible} of ${total} backup log record(s).${selected}`;
+  }
+
+  function renderBackupHistoryDetail(backup = null) {
+    const panel = $id('backupHistoryDetail');
+    if (!panel) return;
+    if (!backup) {
+      panel.textContent = 'Select a backup history row to view read-only details.';
       return;
     }
+    const lines = [
+      'Backup History Detail - Read Only',
+      `Backup ID: ${text(backup.backupId, 'Not available in backup_logs')}`,
+      `Backup Log ID: ${backupHistoryId(backup)}`,
+      `File: ${text(backup.fileName)}`,
+      `Status: ${text(backup.status)}`,
+      `Action: ${text(backup.action)}`,
+      `Path: ${text(backup.filePath)}`,
+      `Created By: ${text(backup.createdBy)}`,
+      `Timestamp: ${text(backup.createdAt)}`,
+      `Message: ${text(backup.message)}`,
+    ];
+    panel.textContent = lines.join('\n');
+  }
+
+  function renderBackupHistoryTable() {
+    const tbody = $id('backupHistoryBody');
+    if (!tbody) return;
+    const backups = filteredBackupHistory();
+    if (!backups.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-500">No backup history available.</td></tr>';
+      renderBackupHistoryDetail(null);
+      renderBackupHistorySummary(backupHistoryState.rows.length, backups.length);
+      return;
+    }
+    const selected = backups.find(
+      (backup) => backupHistoryId(backup) === backupHistoryState.selectedId
+    );
+    if (!selected) backupHistoryState.selectedId = backupHistoryId(backups[0]);
     tbody.innerHTML = backups
       .map(
         (backup) => `<tr>
+          <td class="px-3 py-2">${esc(backupHistoryId(backup))}</td>
           <td class="px-3 py-2">${esc(backup.fileName || '-')}</td>
-          <td class="px-3 py-2">${esc(backup.action || '-')}</td>
-          <td class="px-3 py-2">${esc(backup.createdBy || '-')}</td>
           <td class="px-3 py-2">${esc(backup.status || '-')}</td>
-          <td class="px-3 py-2">${esc(backup.createdAt || '-')}</td>
           <td class="px-3 py-2">${esc(backup.filePath || '-')}</td>
+          <td class="px-3 py-2">${esc(backup.createdBy || '-')}</td>
+          <td class="px-3 py-2">${esc(backup.createdAt || '-')}</td>
+          <td class="px-3 py-2">${esc(backup.message || '-')}</td>
+          <td class="px-3 py-2"><button type="button" class="epos-btn epos-btn-sm epos-btn-outline" data-backup-history-id="${esc(backupHistoryId(backup))}">View</button></td>
         </tr>`
       )
       .join('');
+    renderBackupHistoryDetail(selected || backups[0]);
+    renderBackupHistorySummary(backupHistoryState.rows.length, backups.length);
   }
 
   function renderPackageInspection(result = {}) {
@@ -1400,6 +1480,31 @@
     }
   }
 
+  function handleBackupHistorySearch(event) {
+    backupHistoryState.search = event.target.value || '';
+    backupHistoryState.selectedId = null;
+    renderBackupHistoryTable();
+  }
+
+  function handleClearBackupHistorySearch() {
+    backupHistoryState.search = '';
+    const input = $id('backupHistorySearch');
+    if (input) input.value = '';
+    backupHistoryState.selectedId = null;
+    renderBackupHistoryTable();
+  }
+
+  function handleViewBackupHistory(event) {
+    const target = event.target.closest('[data-backup-history-id]');
+    if (!target || !$id('settingsModule')?.contains(target)) return;
+    backupHistoryState.selectedId = target.dataset.backupHistoryId || null;
+    const backup = backupHistoryState.rows.find(
+      (item) => backupHistoryId(item) === backupHistoryState.selectedId
+    );
+    renderBackupHistoryDetail(backup || null);
+    renderBackupHistorySummary(backupHistoryState.rows.length, filteredBackupHistory().length);
+  }
+
   async function handleInspectRestorePackage() {
     try {
       const result = await A().inspectRestorePackage();
@@ -1648,6 +1753,9 @@
       addListener($id('settingsModule'), 'click', handleTabClick);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
+      addListener($id('backupHistorySearch'), 'input', handleBackupHistorySearch);
+      addListener($id('clearBackupHistorySearchButton'), 'click', handleClearBackupHistorySearch);
+      addListener($id('settingsModule'), 'click', handleViewBackupHistory);
       addListener($id('inspectRestorePackageButton'), 'click', handleInspectRestorePackage);
       addListener($id('verifyRestorePackageButton'), 'click', handleVerifyRestorePackage);
       addListener($id('assessRestoreEligibilityButton'), 'click', handleAssessRestoreEligibility);
