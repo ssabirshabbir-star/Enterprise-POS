@@ -201,6 +201,7 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/restore-engine-foundation-assessment'),
     restoreTransactionFoundationAssessment: () =>
       ipcRenderer.invoke('/settings/backups/restore-transaction-foundation-assessment'),
+    restoreBackup: (payload) => ipcRenderer.invoke('/settings/backups/restore', payload),
   },
   sync: {
     status: () => ipcRenderer.invoke('/sync/status'),

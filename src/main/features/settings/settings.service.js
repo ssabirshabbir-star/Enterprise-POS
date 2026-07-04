@@ -2782,6 +2782,7 @@ module.exports = {
   assessRestoreTransactionFoundation,
   listRestoreDryRunReports,
   listBackups,
+  restoreBackup,
   saveSettings,
   verifyRestorePackage,
 };
