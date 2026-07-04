@@ -1708,6 +1708,11 @@
   }
 
   async function handleInspectRestorePackage() {
+    const btn = $id('inspectRestorePackageButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Inspecting...';
+    }
     try {
       const result = await A().inspectRestorePackage();
       renderPackageInspection(result || {});
@@ -1717,10 +1722,20 @@
       );
     } catch {
       showMessage('Package inspection failed. Restore remains unavailable.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Inspect Restore Package';
+      }
     }
   }
 
   async function handleVerifyRestorePackage() {
+    const btn = $id('verifyRestorePackageButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+    }
     try {
       const result = await A().verifyRestorePackage();
       renderPackageVerification(result || {});
@@ -1730,10 +1745,20 @@
       );
     } catch {
       showMessage('Package verification failed. Restore remains unavailable.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Verify Restore Package';
+      }
     }
   }
 
   async function handleAssessRestoreEligibility() {
+    const btn = $id('assessRestoreEligibilityButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Assessing Eligibility...';
+    }
     try {
       const result = await A().assessRestoreEligibility();
       renderEligibilityAssessment(result || {});
@@ -1743,10 +1768,20 @@
       );
     } catch {
       showMessage('Eligibility assessment failed. Restore remains unavailable.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Assess Restore Eligibility';
+      }
     }
   }
 
   async function handleAssessRestoreAuthorization() {
+    const btn = $id('assessRestoreAuthorizationButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Assessing Authorization...';
+    }
     try {
       const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
       const result = await A().assessRestoreAuthorization(acknowledgementText);
@@ -1757,10 +1792,20 @@
       );
     } catch {
       showMessage('Authorization assessment failed. Restore remains unavailable.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Assess Restore Authorization';
+      }
     }
   }
 
   async function handleDryRunCertificationReport() {
+    const btn = $id('dryRunCertificationReportButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Generating Report...';
+    }
     try {
       const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
       const result = await A().dryRunCertificationReport(acknowledgementText);
@@ -1775,6 +1820,11 @@
       );
     } catch {
       showMessage('Dry-run certification report failed. Restore remains unavailable.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Generate Dry-Run Certification Report';
+      }
     }
   }
 
@@ -1984,6 +2034,16 @@
         handleAssessRestoreAuthorization
       );
       addListener($id('dryRunCertificationReportButton'), 'click', handleDryRunCertificationReport);
+      [
+        'inspectRestorePackageButton',
+        'verifyRestorePackageButton',
+        'assessRestoreEligibilityButton',
+        'assessRestoreAuthorizationButton',
+        'dryRunCertificationReportButton',
+      ].forEach((id) => {
+        const btn = $id(id);
+        if (btn) btn.disabled = false;
+      });
       addListener(
         $id('refreshRestoreReadinessDashboardButton'),
         'click',
