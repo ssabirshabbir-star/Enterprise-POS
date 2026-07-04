@@ -768,6 +768,7 @@ async function listBackupLogs(filters = {}) {
   return {
     backups: result.rows.map((row) => ({
       id: row.id,
+      backupId: row.backup_id || null,
       fileName: row.file_name,
       filePath: row.file_path,
       action: row.action,

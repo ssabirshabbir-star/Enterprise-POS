@@ -191,6 +191,21 @@
     return text(backup.backupId || backup.id);
   }
 
+  function formatBackupTimestamp(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  }
+
   function backupHistorySearchText(backup = {}) {
     return [
       backupHistoryId(backup),
@@ -248,7 +263,7 @@
       `Action: ${text(backup.action)}`,
       `Path: ${text(backup.filePath)}`,
       `Created By: ${text(backup.createdBy)}`,
-      `Timestamp: ${text(backup.createdAt)}`,
+      `Timestamp: ${formatBackupTimestamp(backup.createdAt)}`,
       `Message: ${text(backup.message)}`,
     ];
     panel.textContent = lines.join('\n');
@@ -284,7 +299,7 @@
           <td class="px-3 py-2">${esc(backup.status || '-')}</td>
           <td class="px-3 py-2">${esc(backup.filePath || '-')}</td>
           <td class="px-3 py-2">${esc(backup.createdBy || '-')}</td>
-          <td class="px-3 py-2">${esc(backup.createdAt || '-')}</td>
+          <td class="px-3 py-2">${esc(formatBackupTimestamp(backup.createdAt))}</td>
           <td class="px-3 py-2">${esc(backup.message || '-')}</td>
           <td class="px-3 py-2"><button type="button" class="epos-btn epos-btn-sm epos-btn-outline" data-backup-history-id="${esc(backupHistoryId(backup))}">View</button></td>
         </tr>`
