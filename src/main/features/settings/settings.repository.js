@@ -1759,6 +1759,7 @@ async function executeRestoreBackup(filePath, acknowledgementText, userId) {
 module.exports = {
   assessRestoreEligibility,
   assessBackupPreflight,
+  executeRestoreBackup,
   exportBackup,
   getSettings,
   inspectRestorePackage,

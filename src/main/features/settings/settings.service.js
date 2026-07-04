@@ -2600,6 +2600,173 @@ async function generateRestoreDryRunCertificationReport(filePath, acknowledgemen
   };
 }
 
+// ─── R2-C: restoreBackup — Service-Internal Only ─────────────────────────────
+// NOT in module.exports. Not reachable from controller/preload/API/renderer.
+// Will be exported only after a controller IPC channel is approved in R2-D.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RESTORE_EXECUTION_AUDIT_ACTION = 'backup.restore.execution';
+
+async function restoreBackup(filePath, acknowledgementText) {
+  const auditCorrelationId = crypto.randomUUID();
+
+  // ── Gate 1: Auth + Admin + permission ──────────────────────────────────────
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'access_denied',
+      message: access.message || 'Restore aborted: access denied.',
+    };
+  }
+  const profile = access.profile;
+  const userId = profile.id;
+
+  // ── Gate 2: filePath present ────────────────────────────────────────────────
+  const normalizedPath = String(filePath || '').trim();
+  if (!normalizedPath) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'no_file_selected',
+      message: 'Restore aborted: no backup file was selected.',
+    };
+  }
+
+  // ── Gate 3: Re-check package eligibility (live, before execution) ───────────
+  let eligibility;
+  try {
+    eligibility = await settingsRepository.assessRestoreEligibility(normalizedPath);
+  } catch {
+    await activityRepository.createActivityLog({
+      userId,
+      action: RESTORE_EXECUTION_AUDIT_ACTION,
+      status: 'failed',
+      message: 'Restore aborted: eligibility re-check threw unexpectedly. No data was changed.',
+      metadata: {
+        auditCorrelationId,
+        reason: 'eligibility_check_failed',
+        restoreExecuted: false,
+        noDataCommitted: true,
+      },
+    });
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'eligibility_check_failed',
+      message: 'Restore aborted: eligibility re-check failed unexpectedly. No data was changed.',
+    };
+  }
+  if (eligibility?.eligibilityStatus !== 'eligible_for_authorization') {
+    await activityRepository.createActivityLog({
+      userId,
+      action: RESTORE_EXECUTION_AUDIT_ACTION,
+      status: 'blocked',
+      message: 'Restore aborted: package eligibility re-check failed. No data was changed.',
+      metadata: {
+        auditCorrelationId,
+        reason: 'eligibility_blocked',
+        eligibilityStatus: eligibility?.eligibilityStatus || null,
+        blockingReasons: Array.isArray(eligibility?.blockingReasons)
+          ? eligibility.blockingReasons
+          : [],
+        restoreExecuted: false,
+        noDataCommitted: true,
+      },
+    });
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'eligibility_blocked',
+      message:
+        'Restore aborted: backup package does not pass eligibility checks. No data was changed.',
+    };
+  }
+
+  // ── Audit entry 1: Pre-execution authorization record ──────────────────────
+  await activityRepository.createActivityLog({
+    userId,
+    action: 'backup.restore.execution_authorization',
+    status: 'initiated',
+    message: 'Restore execution authorized. Repository execution starting. No data committed yet.',
+    metadata: {
+      auditCorrelationId,
+      filePath: normalizedPath,
+      userId,
+      role: profile.role,
+      permissionOutcome: 'passed',
+      eligibilityStatus: eligibility.eligibilityStatus,
+      restoreExecuted: false,
+      noDataCommitted: true,
+    },
+  });
+
+  // ── Repository call ─────────────────────────────────────────────────────────
+  // acknowledgementText is passed through unchanged.
+  // The repository validates it against RESTORE_EXECUTION_ACKNOWLEDGEMENT.
+  // On any throw, the transaction has already been rolled back by withTransaction.
+  let result;
+  try {
+    result = await settingsRepository.executeRestoreBackup(
+      normalizedPath,
+      acknowledgementText,
+      userId
+    );
+  } catch (err) {
+    await activityRepository.createActivityLog({
+      userId,
+      action: RESTORE_EXECUTION_AUDIT_ACTION,
+      status: 'failed',
+      message: `Restore execution threw unexpectedly. ${err.message || ''} No data was changed.`,
+      metadata: {
+        auditCorrelationId,
+        reason: err.message || 'unexpected_throw',
+        restoreExecuted: false,
+        rolledBack: true,
+        noDataCommitted: true,
+      },
+    });
+    throw err;
+  }
+
+  // ── Audit entry 2: Post-execution result record ─────────────────────────────
+  await activityRepository.createActivityLog({
+    userId,
+    action: RESTORE_EXECUTION_AUDIT_ACTION,
+    status: result.ok ? 'success' : 'failed',
+    message: result.message,
+    metadata: {
+      auditCorrelationId,
+      restoreExecuted: result.restoreExecuted,
+      rolledBack: result.rolledBack ?? false,
+      tablesRestored: result.tablesRestored ?? null,
+      rowsRestored: result.rowsRestored ?? null,
+      backupId: result.backupId ?? null,
+      repositoryLogId: result.logId ?? null,
+      reason: result.reason ?? null,
+      mismatches: result.mismatches ?? null,
+      noDataCommitted: !result.restoreExecuted,
+    },
+  });
+
+  return {
+    ok: result.ok,
+    restoreExecuted: result.restoreExecuted,
+    rolledBack: result.rolledBack ?? false,
+    tablesRestored: result.tablesRestored ?? null,
+    rowsRestored: result.rowsRestored ?? null,
+    backupId: result.backupId ?? null,
+    auditCorrelationId,
+    message: result.message,
+  };
+}
+// ─── End R2-C ─────────────────────────────────────────────────────────────────
+
 module.exports = {
   assessBackupPreflight,
   assessRestoreEligibility,
