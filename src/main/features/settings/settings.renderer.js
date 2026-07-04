@@ -1593,6 +1593,7 @@
     try {
       const result = await A().createBackup();
       if (!result?.ok) {
+        renderBackupVerificationSummary({});
         showMessage(result?.message || 'Certified backup failed.', 'error');
         return;
       }
