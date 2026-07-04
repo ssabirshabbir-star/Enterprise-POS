@@ -133,7 +133,45 @@ async function listBackups() {
 async function assessBackupPreflight(filePath) {
   const access = await requireSettingsAccess('backup.create');
   if (!access.ok) return access;
-  return settingsRepository.assessBackupPreflight(filePath);
+  let result;
+  try {
+    result = await settingsRepository.assessBackupPreflight(filePath);
+  } catch (error) {
+    activityRepository
+      .createActivityLog({
+        userId: access.profile.id,
+        action: 'backup.preflight',
+        status: 'failed',
+        message: 'Backup preflight assessment failed unexpectedly.',
+        metadata: {
+          filePath: filePath || null,
+          fileName: null,
+          preflightStatus: 'failed',
+          writableDestination: null,
+          checks: [],
+          warnings: [],
+        },
+      })
+      .catch(() => {});
+    throw error;
+  }
+  activityRepository
+    .createActivityLog({
+      userId: access.profile.id,
+      action: 'backup.preflight',
+      status: result.preflightStatus || 'failed',
+      message: result.message || 'Backup preflight assessment completed.',
+      metadata: {
+        filePath: result.filePath || filePath || null,
+        fileName: result.fileName || null,
+        preflightStatus: result.preflightStatus || null,
+        writableDestination: result.writableDestination ?? null,
+        checks: Array.isArray(result.checks) ? result.checks : [],
+        warnings: Array.isArray(result.warnings) ? result.warnings : [],
+      },
+    })
+    .catch(() => {});
+  return result;
 }
 
 function dateOnly(value) {
@@ -2043,13 +2081,87 @@ async function assessRestoreTransactionFoundation() {
 async function inspectRestorePackage(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
-  return settingsRepository.inspectRestorePackage(filePath);
+  let result;
+  try {
+    result = await settingsRepository.inspectRestorePackage(filePath);
+  } catch (error) {
+    activityRepository
+      .createActivityLog({
+        userId: access.profile.id,
+        action: 'backup.restore.package_inspection',
+        status: 'failed',
+        message: 'Package inspection failed unexpectedly.',
+        metadata: {
+          status: null,
+          fileName: null,
+          backupId: null,
+          correlationId: null,
+          backupClass: null,
+          restoreEligible: false,
+        },
+      })
+      .catch(() => {});
+    throw error;
+  }
+  activityRepository
+    .createActivityLog({
+      userId: access.profile.id,
+      action: 'backup.restore.package_inspection',
+      status: 'success',
+      message: result.message || 'Package inspection completed.',
+      metadata: {
+        status: result.status || null,
+        fileName: result.fileName || null,
+        backupId: result.backupId || null,
+        correlationId: result.correlationId || null,
+        backupClass: result.backupClass || null,
+        restoreEligible: false,
+      },
+    })
+    .catch(() => {});
+  return result;
 }
 
 async function verifyRestorePackage(filePath) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
-  return settingsRepository.verifyRestorePackage(filePath);
+  let result;
+  try {
+    result = await settingsRepository.verifyRestorePackage(filePath);
+  } catch (error) {
+    activityRepository
+      .createActivityLog({
+        userId: access.profile.id,
+        action: 'backup.restore.package_verification',
+        status: 'failed',
+        message: 'Package verification failed unexpectedly.',
+        metadata: {
+          verificationStatus: null,
+          passedChecksCount: 0,
+          failedChecksCount: 0,
+          warningsCount: 0,
+          restoreEligible: false,
+        },
+      })
+      .catch(() => {});
+    throw error;
+  }
+  activityRepository
+    .createActivityLog({
+      userId: access.profile.id,
+      action: 'backup.restore.package_verification',
+      status: result.verificationStatus || 'failed',
+      message: result.message || 'Package verification completed.',
+      metadata: {
+        verificationStatus: result.verificationStatus || null,
+        passedChecksCount: Array.isArray(result.passedChecks) ? result.passedChecks.length : 0,
+        failedChecksCount: Array.isArray(result.failedChecks) ? result.failedChecks.length : 0,
+        warningsCount: Array.isArray(result.warnings) ? result.warnings.length : 0,
+        restoreEligible: false,
+      },
+    })
+    .catch(() => {});
+  return result;
 }
 
 async function assessRestoreEligibility(filePath) {
