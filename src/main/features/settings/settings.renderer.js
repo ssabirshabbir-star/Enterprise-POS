@@ -217,6 +217,25 @@
     renderBackupHistorySummary(backupHistoryState.rows.length, backups.length);
   }
 
+  function renderBackupVerificationSummary(result = {}) {
+    const panel = $id('backupVerificationSummary');
+    if (!panel) return;
+    const backup = result.backup || {};
+    const lines = [
+      'Latest Backup Verification Summary - Read Only',
+      `Status: ${result.ok ? 'Success' : 'Not available'}`,
+      `File Name: ${text(backup.fileName, 'Not available')}`,
+      `File Path: ${text(backup.filePath, 'Not available')}`,
+      `Table Count: ${text(backup.tableCount, 'Not available')}`,
+      `Checksum: ${text(backup.integrityHash, 'Not available')}`,
+      `Verification Status: ${text(backup.verificationStatus, 'Not available')}`,
+      `Certification Status: ${text(backup.certificationStatus, 'Not available')}`,
+      `Message: ${text(result.message, 'Not available')}`,
+      'Restore: Not available',
+    ];
+    panel.textContent = lines.join('\n');
+  }
+
   function renderPackageInspection(result = {}) {
     const panel = $id('restorePackageInspection');
     if (!panel) return;
@@ -1457,6 +1476,7 @@
         result.message || 'Certified backup created and verified successfully.',
         'success'
       );
+      renderBackupVerificationSummary(result);
       const backups = await A().listBackups();
       if (backups?.ok) renderBackups(backups);
     } catch {
@@ -1811,6 +1831,9 @@
     if (diff.appInfo) renderAppInfo(diff.appInfo);
     if (diff.licenseUnavailable) renderLicenseUnavailable();
     if (diff.backups) renderBackups({ backups: diff.backups });
+    if (diff.backupVerificationSummary) {
+      renderBackupVerificationSummary(diff.backupVerificationSummary);
+    }
     if (diff.packageInspection) renderPackageInspection(diff.packageInspection);
     if (diff.packageVerification) renderPackageVerification(diff.packageVerification);
     if (diff.restoreEligibility) renderEligibilityAssessment(diff.restoreEligibility);
