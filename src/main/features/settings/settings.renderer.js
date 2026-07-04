@@ -365,6 +365,14 @@
       panel.textContent = 'Package Inspection Only — Restore is not available.';
       return;
     }
+    if (result.status !== 'package_readable') {
+      panel.textContent = [
+        result.message || 'Package inspection completed.',
+        `Status: ${text(result.status)}`,
+        'Restore: Not available',
+      ].join('\n');
+      return;
+    }
     const lines = [
       result.message || 'Package inspection completed.',
       `Status: ${text(result.status)}`,
@@ -535,6 +543,8 @@
       result.message || 'Dry-run certification report completed. Restore remains unavailable.',
       `Overall Certification Status: ${text(result.certificationStatus)}`,
       `Report Correlation ID: ${text(result.reportCorrelationId)}`,
+      `Report Saved: ${result.reportSaved === true ? 'Yes' : 'No'}`,
+      `Audit ID: ${text(result.reportAuditId)}`,
       `File: ${text(packageSummary.fileName)}`,
       `Backup ID: ${text(packageSummary.backupId)}`,
       `Correlation ID: ${text(packageSummary.correlationId)}`,
