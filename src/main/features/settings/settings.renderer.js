@@ -4,6 +4,7 @@
   let initialized = false;
   const listeners = [];
   let reportSearchTimer = null;
+  let backupSearchTimer = null;
   const dryRunReportState = {
     search: '',
     status: 'all',
@@ -19,6 +20,9 @@
     rows: [],
     search: '',
     selectedId: null,
+    page: 1,
+    pageSize: 100,
+    total: 0,
   };
 
   const A = () => window.SettingsApi;
@@ -119,10 +123,28 @@
     setText('licenseMachineId', '-');
   }
 
+  function collectBackupHistoryFilters(page = backupHistoryState.page) {
+    backupHistoryState.search = $id('backupHistorySearch')?.value || '';
+    backupHistoryState.page = Math.max(1, Number(page) || 1);
+    return {
+      search: backupHistoryState.search,
+      status: $id('backupHistoryStatusFilter')?.value || 'all',
+      datePreset: $id('backupHistoryDatePreset')?.value || 'all',
+      dateFrom: $id('backupHistoryDateFrom')?.value || '',
+      dateTo: $id('backupHistoryDateTo')?.value || '',
+      sort: $id('backupHistorySort')?.value || 'newest',
+      page: backupHistoryState.page,
+      pageSize: backupHistoryState.pageSize,
+    };
+  }
+
   function renderBackups(result = {}) {
     const tbody = $id('backupHistoryBody');
     if (!tbody) return;
     backupHistoryState.rows = Array.isArray(result.backups) ? result.backups : [];
+    backupHistoryState.page = Number(result.page || backupHistoryState.page || 1);
+    backupHistoryState.pageSize = Number(result.pageSize || backupHistoryState.pageSize || 100);
+    backupHistoryState.total = Number(result.total || 0);
     renderBackupHistoryTable();
   }
 
@@ -153,13 +175,22 @@
     );
   }
 
-  function renderBackupHistorySummary(total, visible) {
+  function renderBackupHistorySummary() {
     const summary = $id('backupHistorySummary');
-    if (!summary) return;
+    const previous = $id('prevBackupHistoryPageButton');
+    const next = $id('nextBackupHistoryPageButton');
+    const total = backupHistoryState.total;
+    const pageSize = backupHistoryState.pageSize;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(backupHistoryState.page, totalPages);
     const selected = backupHistoryState.selectedId
       ? ` Selected ID: ${backupHistoryState.selectedId}.`
       : '';
-    summary.textContent = `Backup history is read-only. Showing ${visible} of ${total} backup log record(s).${selected}`;
+    if (summary) {
+      summary.textContent = `Backup history is read-only. Page ${page} of ${totalPages}, ${total} record(s).${selected}`;
+    }
+    if (previous) previous.disabled = page <= 1;
+    if (next) next.disabled = page >= totalPages;
   }
 
   function renderBackupHistoryDetail(backup = null) {
@@ -192,7 +223,7 @@
       tbody.innerHTML =
         '<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-500">No backup history available.</td></tr>';
       renderBackupHistoryDetail(null);
-      renderBackupHistorySummary(backupHistoryState.rows.length, backups.length);
+      renderBackupHistorySummary();
       return;
     }
     const selected = backups.find(
@@ -1507,8 +1538,7 @@
         'success'
       );
       renderBackupVerificationSummary(result);
-      const backups = await A().listBackups();
-      if (backups?.ok) renderBackups(backups);
+      await handleRefreshBackups(1);
     } catch {
       showMessage('Certified backup failed. Review audit logs before retrying.', 'error');
     } finally {
@@ -1516,9 +1546,9 @@
     }
   }
 
-  async function handleRefreshBackups() {
+  async function handleRefreshBackups(page = backupHistoryState.page) {
     try {
-      const backups = await A().listBackups();
+      const backups = await A().listBackups(collectBackupHistoryFilters(page));
       if (backups?.ok) {
         renderBackups(backups);
         showMessage('Backup history refreshed.', 'success');
@@ -1528,6 +1558,40 @@
     } catch {
       showMessage('Unable to refresh backup history.', 'error');
     }
+  }
+
+  function scheduleBackupHistorySearch() {
+    clearTimeout(backupSearchTimer);
+    backupSearchTimer = setTimeout(() => {
+      handleRefreshBackups(1).catch(() => {});
+    }, 250);
+  }
+
+  function syncBackupHistoryDateControls() {
+    const isCustom = ($id('backupHistoryDatePreset')?.value || 'all') === 'custom';
+    const from = $id('backupHistoryDateFrom');
+    const to = $id('backupHistoryDateTo');
+    if (from) from.disabled = !isCustom;
+    if (to) to.disabled = !isCustom;
+  }
+
+  function handleBackupHistoryDatePresetChange() {
+    syncBackupHistoryDateControls();
+    handleRefreshBackups(1).catch(() => {});
+  }
+
+  function handlePreviousBackupHistoryPage() {
+    const previousPage = Math.max(1, backupHistoryState.page - 1);
+    handleRefreshBackups(previousPage).catch(() => {});
+  }
+
+  function handleNextBackupHistoryPage() {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(backupHistoryState.total / backupHistoryState.pageSize)
+    );
+    const nextPage = Math.min(totalPages, backupHistoryState.page + 1);
+    handleRefreshBackups(nextPage).catch(() => {});
   }
 
   async function handleBackupPreflight() {
@@ -1543,18 +1607,12 @@
     }
   }
 
-  function handleBackupHistorySearch(event) {
-    backupHistoryState.search = event.target.value || '';
-    backupHistoryState.selectedId = null;
-    renderBackupHistoryTable();
-  }
-
   function handleClearBackupHistorySearch() {
     backupHistoryState.search = '';
     const input = $id('backupHistorySearch');
     if (input) input.value = '';
     backupHistoryState.selectedId = null;
-    renderBackupHistoryTable();
+    handleRefreshBackups(1).catch(() => {});
   }
 
   function handleViewBackupHistory(event) {
@@ -1565,7 +1623,7 @@
       (item) => backupHistoryId(item) === backupHistoryState.selectedId
     );
     renderBackupHistoryDetail(backup || null);
-    renderBackupHistorySummary(backupHistoryState.rows.length, filteredBackupHistory().length);
+    renderBackupHistorySummary();
   }
 
   async function handleInspectRestorePackage() {
@@ -1778,7 +1836,7 @@
       const [settings, appInfo, backups] = await Promise.all([
         A().getSettings(),
         A().appInfo(),
-        A().listBackups(),
+        A().listBackups(collectBackupHistoryFilters(1)),
       ]);
 
       if (settings?.ok) renderSettings(settings.settings || {});
@@ -1817,9 +1875,24 @@
       addListener($id('assessBackupPreflightButton'), 'click', handleBackupPreflight);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
-      addListener($id('backupHistorySearch'), 'input', handleBackupHistorySearch);
+      addListener($id('backupHistorySearch'), 'input', scheduleBackupHistorySearch);
       addListener($id('clearBackupHistorySearchButton'), 'click', handleClearBackupHistorySearch);
       addListener($id('settingsModule'), 'click', handleViewBackupHistory);
+      addListener($id('backupHistoryStatusFilter'), 'change', () =>
+        handleRefreshBackups(1).catch(() => {})
+      );
+      addListener($id('backupHistorySort'), 'change', () =>
+        handleRefreshBackups(1).catch(() => {})
+      );
+      addListener($id('backupHistoryDatePreset'), 'change', handleBackupHistoryDatePresetChange);
+      addListener($id('backupHistoryDateFrom'), 'change', () =>
+        handleRefreshBackups(1).catch(() => {})
+      );
+      addListener($id('backupHistoryDateTo'), 'change', () =>
+        handleRefreshBackups(1).catch(() => {})
+      );
+      addListener($id('prevBackupHistoryPageButton'), 'click', handlePreviousBackupHistoryPage);
+      addListener($id('nextBackupHistoryPageButton'), 'click', handleNextBackupHistoryPage);
       addListener($id('inspectRestorePackageButton'), 'click', handleInspectRestorePackage);
       addListener($id('verifyRestorePackageButton'), 'click', handleVerifyRestorePackage);
       addListener($id('assessRestoreEligibilityButton'), 'click', handleAssessRestoreEligibility);
@@ -1874,7 +1947,9 @@
     if (diff.settings) renderSettings(diff.settings);
     if (diff.appInfo) renderAppInfo(diff.appInfo);
     if (diff.licenseUnavailable) renderLicenseUnavailable();
-    if (diff.backups) renderBackups({ backups: diff.backups });
+    if (diff.backups) {
+      renderBackups(Array.isArray(diff.backups) ? { backups: diff.backups } : diff.backups);
+    }
     if (diff.backupVerificationSummary) {
       renderBackupVerificationSummary(diff.backupVerificationSummary);
     }
