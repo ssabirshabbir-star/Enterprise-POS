@@ -138,6 +138,39 @@
     };
   }
 
+  function setBackupHistoryBusy(isBusy) {
+    const controls = [
+      'backupHistorySearch',
+      'clearBackupHistorySearchButton',
+      'backupHistoryStatusFilter',
+      'backupHistoryDatePreset',
+      'backupHistorySort',
+      'backupHistoryDateFrom',
+      'backupHistoryDateTo',
+      'prevBackupHistoryPageButton',
+      'nextBackupHistoryPageButton',
+      'refreshBackupHistoryButton',
+    ];
+    controls.forEach((id) => {
+      const el = $id(id);
+      if (el) el.disabled = Boolean(isBusy);
+    });
+    if (isBusy) {
+      const tbody = $id('backupHistoryBody');
+      if (tbody)
+        tbody.innerHTML =
+          '<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-400">Loading backup history…</td></tr>';
+    }
+  }
+
+  function renderBackupHistoryErrorRow(message) {
+    const tbody = $id('backupHistoryBody');
+    if (tbody)
+      tbody.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-red-500">${esc(message || 'Unable to load backup history.')}</td></tr>`;
+    renderBackupHistoryDetail(null);
+    renderBackupHistorySummary();
+  }
+
   function renderBackups(result = {}) {
     const tbody = $id('backupHistoryBody');
     if (!tbody) return;
@@ -220,8 +253,14 @@
     if (!tbody) return;
     const backups = filteredBackupHistory();
     if (!backups.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-500">No backup history available.</td></tr>';
+      const hasActiveFilters =
+        backupHistoryState.search.trim() ||
+        ($id('backupHistoryStatusFilter')?.value || 'all') !== 'all' ||
+        ($id('backupHistoryDatePreset')?.value || 'all') !== 'all';
+      const emptyMessage = hasActiveFilters
+        ? 'No records match the current filters.'
+        : 'No backup history available.';
+      tbody.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-500">${esc(emptyMessage)}</td></tr>`;
       renderBackupHistoryDetail(null);
       renderBackupHistorySummary();
       return;
@@ -1547,6 +1586,7 @@
   }
 
   async function handleRefreshBackups(page = backupHistoryState.page) {
+    setBackupHistoryBusy(true);
     try {
       const backups = await A().listBackups(collectBackupHistoryFilters(page));
       if (backups?.ok) {
@@ -1554,9 +1594,14 @@
         showMessage('Backup history refreshed.', 'success');
         return;
       }
-      showMessage(backups?.message || 'Unable to refresh backup history.', 'error');
+      const errMsg = backups?.message || 'Unable to refresh backup history.';
+      renderBackupHistoryErrorRow(errMsg);
+      showMessage(errMsg, 'error');
     } catch {
+      renderBackupHistoryErrorRow('Unable to load backup history.');
       showMessage('Unable to refresh backup history.', 'error');
+    } finally {
+      setBackupHistoryBusy(false);
     }
   }
 
@@ -1842,6 +1887,7 @@
       if (settings?.ok) renderSettings(settings.settings || {});
       if (appInfo?.ok) renderAppInfo(appInfo);
       if (backups?.ok) renderBackups(backups);
+      else renderBackupHistoryErrorRow(backups?.message || 'Unable to load backup history.');
       A()
         .restoreReadinessDashboard()
         .then((dashboard) => {
