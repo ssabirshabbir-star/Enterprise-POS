@@ -1555,6 +1555,8 @@
     button.disabled = Boolean(isBusy);
     button.setAttribute('aria-disabled', String(Boolean(isBusy)));
     button.textContent = isBusy ? 'Creating Backup...' : 'Create Certified Backup';
+    const preflightBtn = $id('assessBackupPreflightButton');
+    if (preflightBtn) preflightBtn.disabled = Boolean(isBusy);
   }
 
   function showUnavailable(featureName) {
@@ -1601,6 +1603,7 @@
       renderBackupVerificationSummary(result);
       await handleRefreshBackups(1);
     } catch {
+      renderBackupVerificationSummary({});
       showMessage('Certified backup failed. Review audit logs before retrying.', 'error');
     } finally {
       setBackupBusy(false);
@@ -1662,6 +1665,11 @@
   }
 
   async function handleBackupPreflight() {
+    const btn = $id('assessBackupPreflightButton');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Assessing...';
+    }
     try {
       const result = await A().assessBackupPreflight();
       renderBackupPreflightAssessment(result || {});
@@ -1671,6 +1679,11 @@
       );
     } catch {
       showMessage('Backup preflight assessment failed.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Assess Backup Preflight';
+      }
     }
   }
 
