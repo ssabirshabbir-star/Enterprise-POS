@@ -178,7 +178,7 @@ contextBridge.exposeInMainWorld('posApi', {
   settings: {
     get: () => ipcRenderer.invoke('/settings/get'),
     save: (payload) => ipcRenderer.invoke('/settings/save', payload),
-    listBackups: () => ipcRenderer.invoke('/settings/backups/list'),
+    listBackups: (filters) => ipcRenderer.invoke('/settings/backups/list', filters),
     assessBackupPreflight: () => ipcRenderer.invoke('/settings/backups/preflight'),
     createBackup: () => ipcRenderer.invoke('/settings/backups/create'),
     inspectRestorePackage: () => ipcRenderer.invoke('/settings/backups/inspect-restore-package'),

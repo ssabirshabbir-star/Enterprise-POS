@@ -34,9 +34,9 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
-  ipcMain.handle('/settings/backups/list', async () => {
+  ipcMain.handle('/settings/backups/list', async (_event, filters) => {
     try {
-      return await settingsService.listBackups();
+      return await settingsService.listBackups(filters || {});
     } catch (error) {
       return safeError(error, 'Backup list error:');
     }

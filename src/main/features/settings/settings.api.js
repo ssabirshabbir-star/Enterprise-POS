@@ -18,8 +18,8 @@
     return api().app.info();
   }
 
-  async function listBackups() {
-    return api().settings.listBackups();
+  async function listBackups(filters) {
+    return api().settings.listBackups(filters || {});
   }
 
   async function assessBackupPreflight() {

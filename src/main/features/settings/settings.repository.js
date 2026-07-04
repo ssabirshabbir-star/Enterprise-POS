@@ -700,26 +700,86 @@ async function createBackupLog({ fileName, filePath, action, status, message, us
   return result.rows[0];
 }
 
-async function listBackupLogs() {
+function backupLogFilters(filters = {}) {
+  const where = ['1=1'];
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const search = String(filters.search || '').trim();
+  if (search) {
+    const token = `%${search.toLowerCase()}%`;
+    const placeholder = addParam(token);
+    where.push(`(
+      LOWER(COALESCE(backup_logs.file_name, '')) LIKE ${placeholder}
+      OR LOWER(COALESCE(backup_logs.status, '')) LIKE ${placeholder}
+      OR LOWER(COALESCE(backup_logs.message, '')) LIKE ${placeholder}
+    )`);
+  }
+  if (filters.status === 'success') {
+    where.push(`LOWER(backup_logs.status) = ${addParam('success')}`);
+  } else if (filters.status === 'failed') {
+    where.push(`LOWER(backup_logs.status) = ${addParam('failed')}`);
+  }
+  if (filters.dateFrom) {
+    where.push(`backup_logs.created_at >= ${addParam(filters.dateFrom)}`);
+  }
+  if (filters.dateTo) {
+    where.push(`backup_logs.created_at < ${addParam(filters.dateTo)}`);
+  }
+  return { where: where.join(' AND '), params };
+}
+
+function backupLogSort(sort = 'newest') {
+  if (sort === 'oldest') return 'backup_logs.created_at ASC';
+  if (sort === 'status') return 'backup_logs.status ASC';
+  return 'backup_logs.created_at DESC';
+}
+
+async function listBackupLogs(filters = {}) {
+  const pageSize = Math.max(1, Math.min(200, Number(filters.pageSize) || 100));
+  const page = Math.max(1, Number(filters.page) || 1);
+  const offset = (page - 1) * pageSize;
+  const filterSql = backupLogFilters(filters);
+  const limitPlaceholder = `$${filterSql.params.length + 1}`;
+  const offsetPlaceholder = `$${filterSql.params.length + 2}`;
+  const queryParams = [...filterSql.params, pageSize, offset];
+  const countResult = await getPool().query(
+    `
+      SELECT COUNT(*)::int AS total
+      FROM backup_logs
+      WHERE ${filterSql.where}
+    `,
+    filterSql.params
+  );
   const result = await getPool().query(
     `
       SELECT backup_logs.*, users.full_name AS created_by_name
       FROM backup_logs
       LEFT JOIN users ON users.id = backup_logs.created_by
-      ORDER BY backup_logs.created_at DESC
-      LIMIT 100
-    `
+      WHERE ${filterSql.where}
+      ORDER BY ${backupLogSort(filters.sort)}
+      LIMIT ${limitPlaceholder}
+      OFFSET ${offsetPlaceholder}
+    `,
+    queryParams
   );
-  return result.rows.map((row) => ({
-    id: row.id,
-    fileName: row.file_name,
-    filePath: row.file_path,
-    action: row.action,
-    status: row.status,
-    message: row.message,
-    createdBy: row.created_by_name || 'System',
-    createdAt: row.created_at,
-  }));
+  return {
+    backups: result.rows.map((row) => ({
+      id: row.id,
+      fileName: row.file_name,
+      filePath: row.file_path,
+      action: row.action,
+      status: row.status,
+      message: row.message,
+      createdBy: row.created_by_name || 'System',
+      createdAt: row.created_at,
+    })),
+    page,
+    pageSize,
+    total: countResult.rows[0]?.total || 0,
+  };
 }
 
 function mapDryRunReportRow(row = {}) {

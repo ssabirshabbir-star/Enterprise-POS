@@ -124,10 +124,18 @@ async function createBackup(filePath) {
   }
 }
 
-async function listBackups() {
+async function listBackups(filters = {}) {
   const access = await requireSettingsAccess('backup.view');
   if (!access.ok) return access;
-  return { ok: true, backups: await settingsRepository.listBackupLogs() };
+  const result = await settingsRepository.listBackupLogs(sanitizeBackupHistoryFilters(filters));
+  return {
+    ok: true,
+    backups: result.backups,
+    page: result.page,
+    pageSize: result.pageSize,
+    total: result.total,
+    message: 'Backup history loaded.',
+  };
 }
 
 async function assessBackupPreflight(filePath) {
@@ -172,6 +180,45 @@ async function assessBackupPreflight(filePath) {
     })
     .catch(() => {});
   return result;
+}
+
+function sanitizeBackupHistoryFilters(filters = {}) {
+  const allowedStatuses = new Set(['all', 'success', 'failed']);
+  const allowedDatePresets = new Set(['all', 'today', 'last_7_days', 'last_30_days', 'custom']);
+  const allowedSorts = new Set(['newest', 'oldest', 'status']);
+  const status = allowedStatuses.has(filters.status) ? filters.status : 'all';
+  const datePreset = allowedDatePresets.has(filters.datePreset) ? filters.datePreset : 'all';
+  const now = new Date();
+  let dateFrom = null;
+  let dateTo = null;
+
+  if (datePreset === 'today') {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    dateFrom = start.toISOString();
+  } else if (datePreset === 'last_7_days' || datePreset === 'last_30_days') {
+    const days = datePreset === 'last_7_days' ? 7 : 30;
+    const start = new Date(now);
+    start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
+    dateFrom = start.toISOString();
+  } else if (datePreset === 'custom') {
+    const customFrom = dateOnly(filters.dateFrom);
+    const customTo = dateOnly(filters.dateTo);
+    if (customFrom) dateFrom = `${customFrom}T00:00:00.000Z`;
+    if (customTo) dateTo = nextDate(customTo);
+  }
+
+  return {
+    search: cleanText(filters.search, 140),
+    status,
+    datePreset,
+    dateFrom,
+    dateTo,
+    sort: allowedSorts.has(filters.sort) ? filters.sort : 'newest',
+    page: Math.max(1, Math.trunc(Number(filters.page) || 1)),
+    pageSize: Math.max(1, Math.min(200, Math.trunc(Number(filters.pageSize) || 100))),
+  };
 }
 
 function dateOnly(value) {
