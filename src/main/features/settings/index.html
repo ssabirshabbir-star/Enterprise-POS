@@ -44,7 +44,7 @@
               <div class="flex flex-wrap gap-2">
                 <button id="assessBackupPreflightButton" type="button" class="epos-btn epos-btn-outline" title="Assess backup destination readiness without creating a backup.">Assess Backup Preflight</button>
                 <button id="createBackupButton" type="button" class="epos-btn epos-btn-primary" title="Create a certified backup with manifest, metadata, verification, integrity evidence, and audit logging.">Create Certified Backup</button>
-                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error" disabled aria-disabled="true" title="Restore is disabled until Backup/Restore certification.">Restore Disabled</button>
+                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error" disabled aria-disabled="true" title="Restore requires passing Restore readiness governance. Acknowledgement required.">Execute Restore</button>
                 <button id="inspectRestorePackageButton" type="button" class="epos-btn epos-btn-outline" title="Inspect a Certified Backup package without restoring it.">Inspect Package</button>
                 <button id="verifyRestorePackageButton" type="button" class="epos-btn epos-btn-outline" title="Verify a Certified Backup package without restoring it.">Verify Package</button>
                 <button id="assessRestoreEligibilityButton" type="button" class="epos-btn epos-btn-outline" title="Assess governance eligibility without authorizing Restore.">Assess Eligibility</button>
@@ -53,6 +53,7 @@
                 <button id="refreshBackupHistoryButton" type="button" class="epos-btn epos-btn-outline" title="Refresh certified backup history.">Refresh History</button>
                 <button id="refreshDryRunReportHistoryButton" type="button" class="epos-btn epos-btn-outline" title="Refresh saved dry-run certification report audit history.">Refresh Reports</button>
               </div>
+              <div id="restoreResult" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore has not been executed. Acknowledgement and governance readiness are required before Restore can be enabled.</div>
               <p class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">Restore is blocked until verification, authorization, certification, and recovery-state governance are implemented.</p>
               <div id="backupPreflightAssessment" class="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">Backup Preflight Assessment — Select a destination to assess readiness before creating a backup.</div>
               <label class="mt-3 block text-sm font-medium text-zinc-700" for="restoreAuthorizationAcknowledgement">Authorization assessment acknowledgement</label>
