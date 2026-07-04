@@ -160,6 +160,9 @@
       if (tbody)
         tbody.innerHTML =
           '<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-400">Loading backup history…</td></tr>';
+      backupHistoryState.selectedId = null;
+      renderBackupHistoryDetail(null);
+      renderBackupHistorySummary();
     }
   }
 
@@ -167,6 +170,9 @@
     const tbody = $id('backupHistoryBody');
     if (tbody)
       tbody.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-red-500">${esc(message || 'Unable to load backup history.')}</td></tr>`;
+    backupHistoryState.rows = [];
+    backupHistoryState.total = 0;
+    backupHistoryState.selectedId = null;
     renderBackupHistoryDetail(null);
     renderBackupHistorySummary();
   }
@@ -262,6 +268,7 @@
         : 'No backup history available.';
       tbody.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-zinc-500">${esc(emptyMessage)}</td></tr>`;
       renderBackupHistoryDetail(null);
+      backupHistoryState.selectedId = null;
       renderBackupHistorySummary();
       return;
     }
