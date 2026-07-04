@@ -317,6 +317,16 @@ const BACKUP_COVERAGE_POLICY = {
 };
 const BACKUP_TABLES = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name);
 
+// ─── R2-B: Restore Execution Constants ─────────────────────────────────────
+// These are used only by executeRestoreBackup below.
+// executeRestoreBackup is NOT exported and NOT accessible from any other layer
+// until a separate approved milestone (R2-C) wires it through the service.
+const RESTORE_EXECUTION_ACKNOWLEDGEMENT =
+  'I confirm this certified backup Restore is authorized and I accept full responsibility for data replacement.';
+const BACKUP_TABLE_SET = new Set(BACKUP_COVERAGE_POLICY.tables.map((t) => t.name));
+const EXCLUDED_RESTORE_TABLES = new Set(['refresh_tokens']);
+// ─────────────────────────────────────────────────────────────────────────────
+
 function quoteIdentifier(identifier) {
   if (!/^[a-z_][a-z0-9_]*$/i.test(identifier)) {
     throw new Error('Invalid database identifier.');
@@ -1406,6 +1416,345 @@ async function assessRestoreEligibility(filePath) {
     }
   );
 }
+
+// ─── R2-B: executeRestoreBackup — Repository-Internal Only ──────────────────
+// NOT in module.exports. Not reachable from service/controller/preload/API/UI.
+// Implements TX-002 (commit boundary), RB-002 (rollback), RUN-002 (row-count
+// verification). Will be exposed only after a separate R2-C approval.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildRestoreDependencyGraph(tableDeclarations) {
+  const graph = {};
+  for (const tableDecl of tableDeclarations) {
+    const name = String(tableDecl.name || '').trim();
+    if (!name) continue;
+    const deps = Array.isArray(tableDecl.dependencies)
+      ? tableDecl.dependencies
+      : Array.isArray(tableDecl.dependsOn)
+        ? tableDecl.dependsOn
+        : Array.isArray(tableDecl.requiredTables)
+          ? tableDecl.requiredTables
+          : [];
+    graph[name] = deps.map((d) => String(d || '').trim()).filter(Boolean);
+  }
+  return graph;
+}
+
+function topologicalSortRestoreTables(tableNames, dependencyGraph) {
+  const nameSet = new Set(tableNames);
+  const inDegree = Object.fromEntries(tableNames.map((n) => [n, 0]));
+  const adjList = Object.fromEntries(tableNames.map((n) => [n, []]));
+
+  for (const name of tableNames) {
+    for (const dep of dependencyGraph[name] || []) {
+      if (!nameSet.has(dep)) continue;
+      if (!adjList[dep]) adjList[dep] = [];
+      adjList[dep].push(name);
+      inDegree[name] = (inDegree[name] || 0) + 1;
+    }
+  }
+
+  const queue = tableNames.filter((n) => (inDegree[n] || 0) === 0);
+  const sorted = [];
+  while (queue.length) {
+    const node = queue.shift();
+    sorted.push(node);
+    for (const next of adjList[node] || []) {
+      inDegree[next] -= 1;
+      if (inDegree[next] === 0) queue.push(next);
+    }
+  }
+
+  if (sorted.length !== tableNames.length) {
+    const inCycle = tableNames.filter((n) => !sorted.includes(n));
+    throw Object.assign(new Error('RESTORE_DEPENDENCY_CYCLE'), { inCycle });
+  }
+  return sorted;
+}
+
+async function executeRestoreBackup(filePath, acknowledgementText, userId) {
+  // ── Phase A: Pre-transaction safety checks ─────────────────────────────────
+  // None of these touch the database. Every failure returns before any write.
+
+  // A1. Acknowledgement guard
+  const ack = String(acknowledgementText || '').trim();
+  if (ack !== RESTORE_EXECUTION_ACKNOWLEDGEMENT) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'acknowledgement_invalid',
+      message:
+        'Restore aborted: required execution acknowledgement was not provided. No data was changed.',
+    };
+  }
+
+  // A2. Read and parse file
+  let backup;
+  try {
+    const raw = await fs.readFile(String(filePath || ''), 'utf8');
+    backup = JSON.parse(raw);
+  } catch {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'package_unreadable',
+      message: 'Restore aborted: backup file could not be read or parsed. No data was changed.',
+    };
+  }
+
+  if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'package_malformed',
+      message: 'Restore aborted: backup file is not a valid JSON object. No data was changed.',
+    };
+  }
+
+  const manifest = (typeof backup.manifest === 'object' && backup.manifest) || {};
+  const backupData =
+    (typeof backup.data === 'object' && !Array.isArray(backup.data) && backup.data) || {};
+
+  // A3. Integrity hash verification
+  const expectedHash = manifest?.integrityDeclaration?.dataHash;
+  if (!expectedHash) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'integrity_missing',
+      message:
+        'Restore aborted: backup integrity hash declaration is missing. No data was changed.',
+    };
+  }
+  const actualHash = hashValue(backupData);
+  if (actualHash !== expectedHash) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'integrity_mismatch',
+      message: 'Restore aborted: backup integrity hash does not match. No data was changed.',
+    };
+  }
+
+  // A4. Certification status
+  if (backup?.certification?.status !== 'Backup Certified') {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'not_certified',
+      message:
+        'Restore aborted: backup does not carry Backup Certified status. No data was changed.',
+    };
+  }
+
+  // A5. restoreEligible must remain false — hard safety invariant
+  if (manifest?.recoveryDeclaration?.restoreEligible !== false) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'restore_eligible_invariant_violated',
+      message: 'Restore aborted: restoreEligible safety invariant violated. No data was changed.',
+    };
+  }
+
+  // A6. includedTables must be declared
+  const includedTableDecls = Array.isArray(manifest?.coverageDeclaration?.includedTables)
+    ? manifest.coverageDeclaration.includedTables
+    : [];
+  if (includedTableDecls.length === 0) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'no_tables_declared',
+      message: 'Restore aborted: backup manifest declares no included tables. No data was changed.',
+    };
+  }
+
+  // A7. Validate each table name: must be in whitelist; exclude refresh_tokens silently
+  const restorable = [];
+  for (const tableDecl of includedTableDecls) {
+    const name = String(tableDecl.name || '').trim();
+    if (!name) {
+      return {
+        ok: false,
+        restoreExecuted: false,
+        abortedBeforeTransaction: true,
+        reason: 'table_name_missing',
+        message: 'Restore aborted: a table declaration has an empty name. No data was changed.',
+      };
+    }
+    if (EXCLUDED_RESTORE_TABLES.has(name)) continue; // excluded — skip silently, never restore
+    if (!BACKUP_TABLE_SET.has(name)) {
+      return {
+        ok: false,
+        restoreExecuted: false,
+        abortedBeforeTransaction: true,
+        reason: 'unknown_table',
+        unknownTable: name,
+        message: `Restore aborted: table "${name}" is not in the approved restore whitelist. No data was changed.`,
+      };
+    }
+    restorable.push(tableDecl);
+  }
+
+  const restorableNames = restorable.map((t) => String(t.name).trim());
+
+  // A8. All restorable tables must have an array payload in backup.data
+  const missingPayloads = restorableNames.filter((n) => !Array.isArray(backupData[n]));
+  if (missingPayloads.length) {
+    return {
+      ok: false,
+      restoreExecuted: false,
+      abortedBeforeTransaction: true,
+      reason: 'payload_missing',
+      missingPayloads,
+      message: `Restore aborted: backup payload missing for: ${missingPayloads.join(', ')}. No data was changed.`,
+    };
+  }
+
+  // A9. Dependency graph and topological sort — abort on cycle
+  const dependencyGraph = buildRestoreDependencyGraph(restorable);
+  const hasDeclaredDeps = Object.values(dependencyGraph).some((deps) => deps.length > 0);
+  let insertOrder; // parent-first
+
+  if (hasDeclaredDeps) {
+    try {
+      insertOrder = topologicalSortRestoreTables(restorableNames, dependencyGraph);
+    } catch {
+      return {
+        ok: false,
+        restoreExecuted: false,
+        abortedBeforeTransaction: true,
+        reason: 'dependency_cycle',
+        message:
+          'Restore aborted: dependency cycle detected in backup manifest declarations. No data was changed.',
+      };
+    }
+  } else {
+    // No explicit deps declared: fall back to BACKUP_COVERAGE_POLICY order (already parent-first)
+    const policyOrder = BACKUP_COVERAGE_POLICY.tables.map((t) => t.name);
+    insertOrder = policyOrder.filter((n) => restorableNames.includes(n));
+    // Safety: append any names not in policy order (certified backups should not have unknown tables)
+    for (const n of restorableNames) {
+      if (!insertOrder.includes(n)) insertOrder.push(n);
+    }
+  }
+
+  // deleteOrder = children first (reverse of insertOrder) — FK-safe without any special privileges
+  const deleteOrder = [...insertOrder].reverse();
+
+  // ── Phase B: Transaction ───────────────────────────────────────────────────
+  // All DB writes are inside a single PostgreSQL transaction.
+  // On any throw, withTransaction fires ROLLBACK automatically (TX-002 + RB-002).
+
+  let tablesRestored = 0;
+  let rowsRestored = 0;
+
+  try {
+    await withTransaction(async (client) => {
+      // B1. DELETE existing rows in child-first order (FK-safe, no special privileges)
+      for (const tableName of deleteOrder) {
+        await client.query(`DELETE FROM ${quoteIdentifier(tableName)}`);
+      }
+
+      // B2. INSERT restored rows in parent-first order
+      for (const tableName of insertOrder) {
+        const rows = backupData[tableName];
+        if (!Array.isArray(rows) || rows.length === 0) {
+          tablesRestored += 1;
+          continue;
+        }
+        const sampleRow = rows[0];
+        const columns = Object.keys(sampleRow);
+        if (columns.length === 0) {
+          tablesRestored += 1;
+          continue;
+        }
+        // Validate all column names before issuing any INSERT for this table
+        for (const col of columns) {
+          quoteIdentifier(col); // throws on invalid identifier — caught by withTransaction
+        }
+        const quotedColumns = columns.map(quoteIdentifier).join(', ');
+        for (const row of rows) {
+          const values = columns.map((col) => (row[col] !== undefined ? row[col] : null));
+          const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+          await client.query(
+            `INSERT INTO ${quoteIdentifier(tableName)} (${quotedColumns}) VALUES (${placeholders})`,
+            values
+          );
+          rowsRestored += 1;
+        }
+        tablesRestored += 1;
+      }
+
+      // B3. Post-write row-count verification — implements RUN-002 runtime recovery gate
+      // If counts do not match, throw → automatic ROLLBACK — DB returns to pre-restore state
+      const mismatches = [];
+      for (const tableDecl of restorable) {
+        const name = String(tableDecl.name).trim();
+        const expected = tableDecl.rowCount;
+        if (typeof expected !== 'number') continue; // no declared count, skip
+        const countResult = await client.query(
+          `SELECT COUNT(*)::int AS count FROM ${quoteIdentifier(name)}`
+        );
+        const actual = countResult.rows[0]?.count ?? null;
+        if (actual !== expected) mismatches.push({ table: name, expected, actual });
+      }
+      if (mismatches.length) {
+        throw Object.assign(new Error('ROW_COUNT_MISMATCH'), { mismatches });
+      }
+    });
+  } catch (err) {
+    // ROLLBACK has already been issued by withTransaction.
+    await createBackupLog({
+      fileName: path.basename(String(filePath || '')),
+      filePath: String(filePath || ''),
+      action: 'RESTORE',
+      status: 'FAILED',
+      message: `Restore transaction failed and was automatically rolled back. ${err.message || 'Unexpected error.'} No data was changed.`,
+      userId: userId || null,
+    }).catch(() => {});
+    return {
+      ok: false,
+      restoreExecuted: false,
+      rolledBack: true,
+      reason: err.message || 'transaction_failed',
+      mismatches: err.mismatches || undefined,
+      message: 'Restore transaction failed and was fully rolled back. No data was changed.',
+    };
+  }
+
+  // ── Phase C: Post-transaction audit ────────────────────────────────────────
+  const backupId = manifest?.backupIdentity?.backupId || null;
+  const log = await createBackupLog({
+    fileName: path.basename(String(filePath || '')),
+    filePath: String(filePath || ''),
+    action: 'RESTORE',
+    status: 'SUCCESS',
+    message: `Restore completed. ${tablesRestored} table(s), ${rowsRestored} row(s) restored from backup ${backupId || 'unknown'}.`,
+    userId: userId || null,
+  }).catch(() => null);
+
+  return {
+    ok: true,
+    restoreExecuted: true,
+    rolledBack: false,
+    tablesRestored,
+    rowsRestored,
+    backupId,
+    logId: log?.id || null,
+    message: `Restore completed. ${tablesRestored} table(s) and ${rowsRestored} row(s) were restored.`,
+  };
+}
+// ─── End R2-B ─────────────────────────────────────────────────────────────────
 
 module.exports = {
   assessRestoreEligibility,
