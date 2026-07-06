@@ -43,7 +43,6 @@
       categoryFilter: 'productCategoryFilter',
       brandFilter: 'productBrandFilter',
       unitFilter: 'productUnitFilter',
-      stockFilter: 'productStockFilter',
       resetFiltersButton: 'productResetFiltersButton',
       newProductButton: 'newProductButton',
       tableBody: 'productTableBody',
@@ -70,19 +69,8 @@
       catalogDelete: '[data-catalog-delete]',
       pageTool: '[data-page-tool="products"]',
     },
-    filterIds: [
-      'productCategoryFilter',
-      'productBrandFilter',
-      'productUnitFilter',
-      'productStockFilter',
-    ],
-    resetIds: [
-      'productSearch',
-      'productCategoryFilter',
-      'productBrandFilter',
-      'productUnitFilter',
-      'productStockFilter',
-    ],
+    filterIds: ['productCategoryFilter', 'productBrandFilter', 'productUnitFilter'],
+    resetIds: ['productSearch', 'productCategoryFilter', 'productBrandFilter', 'productUnitFilter'],
   };
 
   // ── Display state (presentation layer only) ───────────────────────────────
@@ -93,13 +81,17 @@
 
   // Current filter state — read by products.api.js via getCurrentFilters()
   function getCurrentFilters() {
+    const stockTabs = ['in', 'low', 'out'];
+    const stockStatus = stockTabs.includes(_currentTab) ? _currentTab : '';
+    const tab = stockStatus ? 'all' : _currentTab;
+
     return {
       search: $id('search')?.value?.trim() || '',
       category: $id('categoryFilter')?.value || '',
       brand: $id('brandFilter')?.value || '',
       unit: $id('unitFilter')?.value || '',
-      stockStatus: $id('stockFilter')?.value || '',
-      tab: _currentTab,
+      stockStatus,
+      tab,
     };
   }
 
