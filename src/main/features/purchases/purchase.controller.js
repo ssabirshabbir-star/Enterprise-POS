@@ -28,13 +28,6 @@ function registerPurchaseRoutes(ipcMain) {
       return safeError(error, 'Purchase details error:');
     }
   });
-  ipcMain.handle('/purchases/delete', async (_event, purchaseId) => {
-    try {
-      return await purchaseService.deletePurchase(purchaseId);
-    } catch (error) {
-      return safeError(error, 'Purchase delete error:');
-    }
-  });
   ipcMain.handle('/purchases/create', async (_event, payload) => {
     try {
       return await purchaseService.createPurchase(payload || {});
