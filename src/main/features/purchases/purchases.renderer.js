@@ -9,6 +9,8 @@
   let selectedPurchaseId = null;
   let messageTimer = null;
   let lastLoadError = '';
+  let purchaseRefreshSeq = 0;
+  let purchaseDetailRefreshSeq = 0;
 
   const A = () => window.PurchasesApi;
 
@@ -191,21 +193,30 @@
       .join('');
   }
 
+  function setOptionsPreservingValue(el, html) {
+    if (!el) return;
+    const current = el.value;
+    el.innerHTML = html;
+    if ([...el.options].some((option) => option.value === current)) el.value = current;
+  }
+
   function renderLookupData() {
     const supplierOptions =
       '<option value="">No Supplier / Cash Purchase</option>' + optionRows(suppliers, 'name');
     ['purchaseSupplier', 'purchaseSupplierFilter'].forEach((id) => {
       const el = $id(id);
-      if (el)
-        el.innerHTML =
+      if (el) {
+        const options =
           id === 'purchaseSupplierFilter'
             ? '<option value="">All Suppliers</option>' + optionRows(suppliers, 'name')
             : supplierOptions;
+        setOptionsPreservingValue(el, options);
+      }
     });
     const productOptions =
       '<option value="">Select product</option>' + optionRows(products, 'name');
     const productSelect = $id('purchaseItemProduct');
-    if (productSelect) productSelect.innerHTML = productOptions;
+    if (productSelect) setOptionsPreservingValue(productSelect, productOptions);
     const datalist = $id('purchaseProductLookupList');
     if (datalist) {
       datalist.innerHTML = products
@@ -225,31 +236,97 @@
       showMessage(supplierRes?.message || 'Supplier dropdown could not be loaded.', 'error');
     if (!productRes?.ok)
       showMessage(productRes?.message || 'Product dropdown could not be loaded.', 'error');
+    return { suppliers: supplierRes, products: productRes };
   }
 
-  async function loadPurchases() {
+  function isDetailModalOpen() {
+    const modal = $id('purchaseDetailModal');
+    return Boolean(modal && !modal.classList.contains('hidden'));
+  }
+
+  async function refreshSelectedPurchaseDetail(id, options = {}) {
+    const detailId = id || selectedPurchaseId;
+    if (!detailId) return null;
+    const seq = ++purchaseDetailRefreshSeq;
+    try {
+      const res = await A().details(detailId);
+      if (seq !== purchaseDetailRefreshSeq || String(selectedPurchaseId) !== String(detailId)) {
+        return res;
+      }
+      if (!res?.ok) {
+        if (!options.silent) showMessage(res?.message || 'Purchase details not found.', 'error');
+        return res;
+      }
+      renderPurchaseDetails(res.purchase);
+      return res;
+    } catch {
+      if (seq === purchaseDetailRefreshSeq && !options.silent)
+        showMessage('Could not load purchase details.', 'error');
+      return { ok: false, message: 'Could not load purchase details.' };
+    }
+  }
+
+  async function reconcileSelectedPurchase(options = {}) {
+    if (!selectedPurchaseId) return null;
+    const exists = purchases.some((p) => String(p.id) === String(selectedPurchaseId));
+    if (!exists) {
+      selectedPurchaseId = null;
+      renderPurchases();
+      if (options.closeMissingSelected !== false) closeDetailModal();
+      return { ok: false, missing: true };
+    }
+    if (options.refreshDetail && isDetailModalOpen()) {
+      return refreshSelectedPurchaseDetail(selectedPurchaseId, { silent: true });
+    }
+    return { ok: true };
+  }
+
+  async function loadPurchases(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const seq = ++purchaseRefreshSeq;
     const tbody = $id('purchaseList');
-    if (tbody)
+    if (tbody && opts.showLoading !== false)
       tbody.innerHTML =
         '<tr><td colspan="11" style="padding:24px;text-align:center;color:#71717a">Loading purchases...</td></tr>';
     try {
       const res = await A().list();
+      if (seq !== purchaseRefreshSeq) return res;
       if (!res?.ok) {
         purchases = [];
         lastLoadError = res?.message || 'Could not load purchases.';
         renderUI({ purchases: [] });
         showMessage(lastLoadError, 'error');
-        return;
+        return res;
       }
       lastLoadError = '';
       purchases = res.purchases || [];
       renderUI({ purchases });
+      await reconcileSelectedPurchase({
+        refreshDetail: opts.refreshDetail ?? true,
+        closeMissingSelected: opts.closeMissingSelected,
+      });
+      return res;
     } catch {
+      if (seq !== purchaseRefreshSeq) return { ok: false, stale: true };
       purchases = [];
       lastLoadError = 'Could not load purchases.';
       renderUI({ purchases: [] });
       showMessage(lastLoadError, 'error');
+      return { ok: false, message: lastLoadError };
     }
+  }
+
+  async function refreshPurchaseLiveState(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const [purchaseRes, lookupRes] = await Promise.all([
+      loadPurchases({
+        showLoading: opts.showLoading === true,
+        refreshDetail: opts.refreshDetail !== false,
+        closeMissingSelected: opts.closeMissingSelected !== false,
+      }),
+      opts.includeLookups ? loadLookups() : Promise.resolve(null),
+    ]);
+    return { purchases: purchaseRes, lookups: lookupRes };
   }
 
   function openForm() {
@@ -403,7 +480,7 @@
       if (res?.ok) {
         resetForm();
         closeForm();
-        await loadPurchases();
+        await refreshPurchaseLiveState({ showLoading: false, includeLookups: true });
       }
     } catch {
       showMessage('Purchase could not be saved.', 'error');
@@ -443,14 +520,13 @@
   }
 
   async function viewPurchase(id) {
-    try {
-      const res = await A().details(id);
-      if (!res?.ok) return showMessage(res?.message || 'Purchase details not found.', 'error');
-      selectedPurchaseId = id;
+    const previousPurchaseId = selectedPurchaseId;
+    selectedPurchaseId = id;
+    renderPurchases();
+    const res = await refreshSelectedPurchaseDetail(id);
+    if (!res?.ok && String(selectedPurchaseId) === String(id)) {
+      selectedPurchaseId = previousPurchaseId;
       renderPurchases();
-      renderPurchaseDetails(res.purchase);
-    } catch {
-      showMessage('Could not load purchase details.', 'error');
     }
   }
 
@@ -659,5 +735,6 @@
     updateUI,
     destroyUI,
     loadPurchases,
+    refreshPurchaseLiveState,
   };
 })();
