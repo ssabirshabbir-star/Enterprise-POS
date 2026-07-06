@@ -1,14 +1,24 @@
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const purchaseRepository = require('./purchase.repository');
-const { canReadPurchases, canWritePurchases } = require('./purchase.permissions');
+const {
+  canCreatePurchases,
+  canDeletePurchases,
+  canReadPurchases,
+  canUpdatePurchases,
+} = require('./purchase.permissions');
 
 async function requirePurchaseAccess(mode) {
   const profileResult = await authService.getProfile();
   if (!profileResult.ok) return { ok: false, message: 'Authentication required.' };
   const profile = profileResult.profile;
-  const allowed =
-    mode === 'write' ? canWritePurchases(profile.role) : canReadPurchases(profile.role);
+  const accessByMode = {
+    create: canCreatePurchases,
+    delete: canDeletePurchases,
+    read: canReadPurchases,
+    update: canUpdatePurchases,
+  };
+  const allowed = (accessByMode[mode] || canReadPurchases)(profile);
   if (!allowed)
     return { ok: false, message: 'You do not have permission for this purchase action.' };
   return { ok: true, profile };
@@ -32,7 +42,15 @@ async function listPurchases() {
   return {
     ok: true,
     purchases: await purchaseRepository.listPurchases(),
-    permissions: { canWrite: canWritePurchases(access.profile.role) },
+    permissions: {
+      canCreate: canCreatePurchases(access.profile),
+      canDelete: canDeletePurchases(access.profile),
+      canUpdate: canUpdatePurchases(access.profile),
+      canWrite:
+        canCreatePurchases(access.profile) ||
+        canUpdatePurchases(access.profile) ||
+        canDeletePurchases(access.profile),
+    },
   };
 }
 
@@ -47,7 +65,7 @@ async function getPurchaseDetails(purchaseId) {
 }
 
 async function deletePurchase(purchaseId) {
-  const access = await requirePurchaseAccess('write');
+  const access = await requirePurchaseAccess('delete');
   if (!access.ok) return access;
   const id = Number(purchaseId);
   if (!Number.isInteger(id) || id <= 0) return { ok: false, message: 'Invalid purchase id.' };
@@ -88,7 +106,7 @@ async function deletePurchase(purchaseId) {
 }
 
 async function createPurchase(payload = {}) {
-  const access = await requirePurchaseAccess('write');
+  const access = await requirePurchaseAccess('create');
   if (!access.ok) return access;
   const supplierId = payload.supplierId ? Number(payload.supplierId) : null;
   const invoiceNumber = String(payload.invoiceNumber || '').trim();
