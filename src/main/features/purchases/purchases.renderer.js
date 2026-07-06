@@ -265,6 +265,14 @@
     if (modal) modal.classList.add('hidden');
   }
 
+  function closeDetailModal() {
+    const modal = $id('purchaseDetailModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  }
+
   function resetForm() {
     $id('purchaseForm')?.reset();
     $id('supplierForm')?.reset();
@@ -438,15 +446,89 @@
     try {
       const res = await A().details(id);
       if (!res?.ok) return showMessage(res?.message || 'Purchase details not found.', 'error');
-      const items = (res.purchase.items || [])
-        .map((i) => `${i.productName} (${i.quantity})`)
-        .join(', ');
-      showMessage(
-        `${res.purchase.invoiceNumber}: ${items || 'No items'} | Total ${money(res.purchase.grandTotal)}`
-      );
+      selectedPurchaseId = id;
+      renderPurchases();
+      renderPurchaseDetails(res.purchase);
     } catch {
       showMessage('Could not load purchase details.', 'error');
     }
+  }
+
+  function detailField(label, value) {
+    return `<article style="border:1px solid #e3eaf6;border-radius:10px;background:#f8fbff;padding:10px;min-width:0">
+      <span style="display:block;color:#64748b;font-size:10px;font-weight:850;text-transform:uppercase">${esc(label)}</span>
+      <strong style="display:block;margin-top:4px;color:#11184d;font-size:13px;font-weight:950;overflow-wrap:anywhere">${esc(value || '-')}</strong>
+    </article>`;
+  }
+
+  function renderPurchaseDetails(purchase = {}) {
+    const modal = $id('purchaseDetailModal');
+    const title = $id('purchaseDetailTitle');
+    const content = $id('purchaseDetailContent');
+    if (!modal || !content) return;
+    if (title) title.textContent = purchase.invoiceNumber || 'Purchase Details';
+
+    const items = Array.isArray(purchase.items) ? purchase.items : [];
+    const rows = items.length
+      ? items
+          .map(
+            (item, index) => `<tr>
+              <td>${index + 1}</td>
+              <td>${esc(item.productName || '-')}</td>
+              <td>${esc(item.sku || '-')}</td>
+              <td>${esc(item.batchNumber || '-')}</td>
+              <td>${esc(dateOnly(item.expirationDate))}</td>
+              <td>${esc(item.quantity)}</td>
+              <td>${money(item.purchasePrice)}</td>
+              <td>${money(item.salePrice)}</td>
+              <td>${money(item.total)}</td>
+            </tr>`
+          )
+          .join('')
+      : '<tr><td colspan="9" style="padding:18px;text-align:center;color:#71717a">No line items available.</td></tr>';
+
+    content.innerHTML = `
+      <section style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+        ${detailField('Invoice Number', purchase.invoiceNumber)}
+        ${detailField('Supplier', purchase.supplierName || 'No supplier')}
+        ${detailField('Purchase Date', dateOnly(purchase.purchaseDate))}
+        ${detailField('Status', purchaseStatus(purchase))}
+        ${detailField('Subtotal', money(purchase.subtotal))}
+        ${detailField('Discount', money(purchase.discount))}
+        ${detailField('Tax', money(purchase.tax))}
+        ${detailField('Grand Total', money(purchase.grandTotal))}
+        ${detailField('Paid Amount', money(purchase.paidAmount))}
+        ${detailField('Due Amount', money(purchase.dueAmount))}
+        ${detailField('Payment Method', purchasePaymentMethod(purchase))}
+        ${detailField('Created', dateOnly(purchase.createdAt))}
+      </section>
+      <section style="border:1px solid #e3eaf6;border-radius:10px;background:#f8fbff;padding:10px">
+        <span style="display:block;color:#64748b;font-size:10px;font-weight:850;text-transform:uppercase">Reference Data</span>
+        <strong style="display:block;margin-top:4px;color:#11184d;font-size:13px;font-weight:950">Purchase ID: ${esc(purchase.id || '-')} | Supplier ID: ${esc(purchase.supplierId || '-')}</strong>
+      </section>
+      <section style="min-height:0;max-height:260px;overflow:auto;border:1px solid #e3eaf6;border-radius:10px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#eef6ff;color:#17213e">
+              <th style="padding:8px;text-align:left">#</th>
+              <th style="padding:8px;text-align:left">Product</th>
+              <th style="padding:8px;text-align:left">SKU</th>
+              <th style="padding:8px;text-align:left">Batch</th>
+              <th style="padding:8px;text-align:left">Expiry</th>
+              <th style="padding:8px;text-align:left">Qty</th>
+              <th style="padding:8px;text-align:left">Cost</th>
+              <th style="padding:8px;text-align:left">Sale</th>
+              <th style="padding:8px;text-align:left">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>
+      <p style="margin:0;color:#64748b;font-size:12px;font-weight:800">Read-only detail view. Edit, delete, rollback, payment settlement, printing, import/export, WhatsApp, and pagination remain separate workflows.</p>
+    `;
+
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
   }
 
   function clearFilters() {
@@ -499,6 +581,7 @@
     messageTimer = null;
     $id('purchaseMessage')?.classList.add('hidden');
     closeForm();
+    closeDetailModal();
   }
 
   function bindEvents() {
@@ -506,6 +589,9 @@
     document
       .querySelectorAll('[data-close-purchase-modal]')
       .forEach((el) => el.addEventListener('click', closeForm));
+    document
+      .querySelectorAll('[data-close-purchase-detail]')
+      .forEach((el) => el.addEventListener('click', closeDetailModal));
     $id('purchaseForm')?.addEventListener('submit', savePurchase);
     $id('supplierForm')?.addEventListener('submit', saveQuickSupplier);
     $id('clearPurchaseDraftButton')?.addEventListener('click', clearDraft);
