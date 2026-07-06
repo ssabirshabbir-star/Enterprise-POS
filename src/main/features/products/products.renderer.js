@@ -78,6 +78,7 @@
   let _canWrite = false; // set from API response permissions field
   let _currentTab = 'all'; // active tab key
   let _searchTimer = null; // debounce handle for search input
+  let _productRefreshSeq = 0; // prevents stale async list responses from repainting the table
 
   // Current filter state — read by products.api.js via getCurrentFilters()
   function getCurrentFilters() {
@@ -412,7 +413,9 @@
   }
 
   async function refreshProducts(filters) {
+    const seq = ++_productRefreshSeq;
     const res = await A().loadProducts(filters || getCurrentFilters());
+    if (seq !== _productRefreshSeq) return res;
     if (!res?.ok) {
       showMsg(res?.message || 'Unable to load products. Please try again.', true);
       return res;
@@ -420,6 +423,15 @@
     setCanWrite(res.permissions?.canWrite ?? false);
     renderProductTable(res.products || []);
     return res;
+  }
+
+  async function refreshProductLiveState(filters) {
+    const selectedFilters = filters || getCurrentFilters();
+    const [productsRes, statsRes] = await Promise.all([
+      refreshProducts(selectedFilters),
+      refreshStats(),
+    ]);
+    return { products: productsRes, stats: statsRes };
   }
 
   async function refreshStats() {
@@ -452,8 +464,7 @@
       }
       showMsg(res.message || 'Product saved.');
       closeProductForm();
-      await refreshProducts(getCurrentFilters());
-      await refreshStats();
+      await refreshProductLiveState(getCurrentFilters());
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -482,8 +493,7 @@
       return;
     }
     showMsg(res.message || 'Product deleted.');
-    await refreshProducts(getCurrentFilters());
-    await refreshStats();
+    await refreshProductLiveState(getCurrentFilters());
   }
 
   async function printBarcodeFromForm() {
@@ -505,6 +515,7 @@
       showMsg(res.message || `${form.dataset.type} saved.`);
       form.reset();
       await refreshCatalog(true);
+      await refreshProducts(getCurrentFilters());
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -521,6 +532,7 @@
     }
     showMsg(res.message || `${type} deleted.`);
     await refreshCatalog(true);
+    await refreshProducts(getCurrentFilters());
   }
 
   function renderUI(state) {
