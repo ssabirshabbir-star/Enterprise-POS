@@ -425,13 +425,22 @@
     return res;
   }
 
-  async function refreshProductLiveState(filters) {
-    const selectedFilters = filters || getCurrentFilters();
+  async function refreshProductLiveState(options = {}) {
+    const opts =
+      options && typeof options === 'object' && !Array.isArray(options)
+        ? options
+        : { filters: options };
+    const includeCatalog = Boolean(opts.includeCatalog);
+    const includeStats = opts.includeStats !== false;
+    const catalogRes = includeCatalog
+      ? await refreshCatalog(opts.showCatalogError !== false)
+      : null;
+    const selectedFilters = opts.filters || getCurrentFilters();
     const [productsRes, statsRes] = await Promise.all([
       refreshProducts(selectedFilters),
-      refreshStats(),
+      includeStats ? refreshStats() : Promise.resolve(null),
     ]);
-    return { products: productsRes, stats: statsRes };
+    return { catalog: catalogRes, products: productsRes, stats: statsRes };
   }
 
   async function refreshStats() {
@@ -464,7 +473,7 @@
       }
       showMsg(res.message || 'Product saved.');
       closeProductForm();
-      await refreshProductLiveState(getCurrentFilters());
+      await refreshProductLiveState({ filters: getCurrentFilters() });
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -493,7 +502,7 @@
       return;
     }
     showMsg(res.message || 'Product deleted.');
-    await refreshProductLiveState(getCurrentFilters());
+    await refreshProductLiveState({ filters: getCurrentFilters() });
   }
 
   async function printBarcodeFromForm() {
@@ -514,8 +523,7 @@
       }
       showMsg(res.message || `${form.dataset.type} saved.`);
       form.reset();
-      await refreshCatalog(true);
-      await refreshProducts(getCurrentFilters());
+      await refreshProductLiveState({ includeCatalog: true, includeStats: false });
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -531,8 +539,7 @@
       return;
     }
     showMsg(res.message || `${type} deleted.`);
-    await refreshCatalog(true);
-    await refreshProducts(getCurrentFilters());
+    await refreshProductLiveState({ includeCatalog: true, includeStats: false });
   }
 
   function renderUI(state) {
