@@ -21,6 +21,7 @@
   let _searchTimer = null; // debounce handle
   let _selectedCustomer = null; // customer selected for details/WhatsApp
   let _selectedIds = new Set(); // bulk-selection set
+  let _customerRefreshSeq = 0; // prevents stale async list responses from repainting the table
 
   function getCurrentFilters() {
     return {
@@ -34,6 +35,15 @@
   }
   function setSelectedCustomer(c) {
     _selectedCustomer = c;
+  }
+  function isDetailsPanelOpen() {
+    const panel = $id('customerDetailsPanel');
+    return Boolean(panel && !panel.classList.contains('hidden') && _selectedCustomer?.id);
+  }
+  function closeDetailsPanel() {
+    $id('customerDetailsPanel')?.classList.add('hidden');
+    setSelectedCustomer(null);
+    highlightSelectedRow(-1);
   }
 
   function $id(id) {
@@ -369,13 +379,42 @@
 
   async function refreshCustomers(filters) {
     const activeFilters = filters || getCurrentFilters();
+    const seq = ++_customerRefreshSeq;
     const res = await A().loadCustomers(activeFilters);
+    if (seq !== _customerRefreshSeq) return res;
     if (!res?.ok) {
       showMsg(res?.message || 'Failed to load customers. Please try again.', true);
       return res;
     }
     renderCustomerTable(res.customers || [], activeFilters);
     return res;
+  }
+
+  async function refreshCustomerLiveState(options = {}) {
+    const opts =
+      options && typeof options === 'object' && !Array.isArray(options)
+        ? options
+        : { filters: options };
+    const selectedId = Number(opts.selectedCustomerId || _selectedCustomer?.id || 0);
+    const shouldRefreshDetails = Boolean(opts.refreshDetails ?? isDetailsPanelOpen());
+    const [customersRes, summaryRes] = await Promise.all([
+      refreshCustomers(opts.filters || getCurrentFilters()),
+      opts.includeSummary === false ? Promise.resolve(null) : refreshDueSummary(),
+    ]);
+
+    if (selectedId && customersRes?.ok) {
+      const selectedStillVisible = (customersRes.customers || []).some(
+        (c) => Number(c.id) === selectedId
+      );
+      if (selectedStillVisible) {
+        if (shouldRefreshDetails) await loadCustomerDetailsFromUI(selectedId);
+        else highlightSelectedRow(selectedId);
+      } else if (opts.closeMissingSelected) {
+        closeDetailsPanel();
+      }
+    }
+
+    return { customers: customersRes, summary: summaryRes };
   }
 
   async function refreshDueSummary() {
@@ -398,8 +437,7 @@
       }
       showMsg(res.message || (isEdit ? 'Customer updated.' : 'Customer saved.'));
       closeEditorModal();
-      await refreshCustomers(getCurrentFilters());
-      await refreshDueSummary();
+      await refreshCustomerLiveState({ filters: getCurrentFilters() });
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -417,8 +455,11 @@
       return;
     }
     showMsg(res.message || 'Customer deleted.');
-    await refreshCustomers(getCurrentFilters());
-    await refreshDueSummary();
+    await refreshCustomerLiveState({
+      filters: getCurrentFilters(),
+      selectedCustomerId: customerId,
+      closeMissingSelected: true,
+    });
   }
 
   async function deleteInactiveCustomersFromUI() {
@@ -431,8 +472,7 @@
     const res = await A().deleteInactiveCustomers();
     showMsg(res?.message || 'Bulk delete failed. Please try again.', !res?.ok);
     if (res?.ok && res.deleted) {
-      await refreshCustomers(getCurrentFilters());
-      await refreshDueSummary();
+      await refreshCustomerLiveState({ filters: getCurrentFilters(), closeMissingSelected: true });
     }
   }
 
@@ -452,8 +492,11 @@
       return;
     }
     showMsg(res.message || 'Payment posted.');
-    await loadCustomerDetailsFromUI(customerId);
-    await refreshDueSummary();
+    await refreshCustomerLiveState({
+      filters: getCurrentFilters(),
+      selectedCustomerId: customerId,
+      refreshDetails: true,
+    });
   }
 
   async function sendWhatsAppFromUI(action, customText) {
