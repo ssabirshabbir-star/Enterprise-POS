@@ -23,33 +23,15 @@
   </section>
 
   <section class="epos-products-filterbar">
-    <nav class="epos-products-tabs" aria-label="Product filters">
-      <label class="epos-products-global-search">
-        <span>⌕</span>
-        <input id="productSearch" type="search" placeholder="Search by product name, SKU or barcode..." />
-        <kbd>Ctrl + K</kbd>
-      </label>
-      <button type="button" class="active" data-product-tab="all">All Products</button>
-      <button type="button" data-product-tab="active">Active</button>
-      <button type="button" data-product-tab="in">In Stock</button>
-      <button type="button" data-product-tab="low">Low Stock</button>
-      <button type="button" data-product-tab="out">Out of Stock</button>
-      <button type="button" data-product-tab="inactive">Discontinued</button>
-    </nav>
+    <label class="epos-products-global-search">
+      <input id="productSearch" type="search" placeholder="Search by product name, SKU or barcode..." />
+      <span>⌕</span>
+    </label>
 
     <div class="epos-products-filter-group">
-      <label class="epos-products-filter-field">
-        <small>Category</small>
-        <select id="productCategoryFilter"><option value="">All Categories</option></select>
-      </label>
-      <label class="epos-products-filter-field">
-        <small>Brand</small>
-        <select id="productBrandFilter"><option value="">All Brands</option></select>
-      </label>
-      <label class="epos-products-filter-field">
-        <small>Unit</small>
-        <select id="productUnitFilter"><option value="">All Units</option></select>
-      </label>
+      <select id="productCategoryFilter"><option value="">All Categories</option></select>
+      <select id="productBrandFilter"><option value="">All Brands</option></select>
+      <select id="productUnitFilter"><option value="">All Units</option></select>
       <button id="productResetFiltersButton" type="button">↻ Reset</button>
     </div>
 
@@ -63,6 +45,17 @@
   <p id="productMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
 
   <section class="epos-products-catalog">
+    <div class="epos-products-tabs">
+      <div>
+        <button type="button" class="active" data-product-tab="all">All Products</button>
+        <button type="button" data-product-tab="active">Active</button>
+        <button type="button" data-product-tab="in">In Stock</button>
+        <button type="button" data-product-tab="low">Low Stock</button>
+        <button type="button" data-product-tab="out">Out of Stock</button>
+        <button type="button" data-product-tab="inactive">Discontinued</button>
+      </div>
+    </div>
+
     <div class="epos-products-table-wrap">
       <table class="epos-products-table">
         <thead>
