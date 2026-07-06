@@ -23,21 +23,41 @@
   </section>
 
   <section class="epos-products-filterbar">
-    <label class="epos-products-global-search">
-      <input id="productSearch" type="search" placeholder="Search by product name, SKU or barcode..." />
-      <span>⌕</span>
-    </label>
+    <nav class="epos-products-tabs" aria-label="Product filters">
+      <label class="epos-products-global-search">
+        <span>⌕</span>
+        <input id="productSearch" type="search" placeholder="Search by product name, SKU or barcode..." />
+        <kbd>Ctrl + K</kbd>
+      </label>
+      <button type="button" class="active" data-product-tab="all">All Products</button>
+      <button type="button" data-product-tab="active">Active</button>
+      <button type="button" data-product-tab="low">Low Stock</button>
+      <button type="button" data-product-tab="out">Out of Stock</button>
+      <button type="button" data-product-tab="inactive">Discontinued</button>
+    </nav>
 
     <div class="epos-products-filter-group">
-      <select id="productCategoryFilter"><option value="">All Categories</option></select>
-      <select id="productBrandFilter"><option value="">All Brands</option></select>
-      <select id="productUnitFilter"><option value="">All Units</option></select>
-      <select id="productStockFilter">
-        <option value="">Stock Status</option>
-        <option value="in">In Stock</option>
-        <option value="low">Low Stock</option>
-        <option value="out">Out of Stock</option>
-      </select>
+      <label class="epos-products-filter-field">
+        <small>Category</small>
+        <select id="productCategoryFilter"><option value="">All Categories</option></select>
+      </label>
+      <label class="epos-products-filter-field">
+        <small>Brand</small>
+        <select id="productBrandFilter"><option value="">All Brands</option></select>
+      </label>
+      <label class="epos-products-filter-field">
+        <small>Unit</small>
+        <select id="productUnitFilter"><option value="">All Units</option></select>
+      </label>
+      <label class="epos-products-filter-field">
+        <small>Stock Status</small>
+        <select id="productStockFilter">
+          <option value="">Stock Status</option>
+          <option value="in">In Stock</option>
+          <option value="low">Low Stock</option>
+          <option value="out">Out of Stock</option>
+        </select>
+      </label>
       <button id="productResetFiltersButton" type="button">↻ Reset</button>
     </div>
 
@@ -51,16 +71,6 @@
   <p id="productMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
 
   <section class="epos-products-catalog">
-    <div class="epos-products-tabs">
-      <div>
-        <button type="button" class="active" data-product-tab="all">All Products</button>
-        <button type="button" data-product-tab="active">Active</button>
-        <button type="button" data-product-tab="low">Low Stock</button>
-        <button type="button" data-product-tab="out">Out of Stock</button>
-        <button type="button" data-product-tab="inactive">Discontinued</button>
-      </div>
-    </div>
-
     <div class="epos-products-table-wrap">
       <table class="epos-products-table">
         <thead>
