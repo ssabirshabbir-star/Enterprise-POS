@@ -221,8 +221,16 @@
   }
 
   .epos-products-filter-group button {
+    border-color: #c7d2fe !important;
+    background: #eef2ff;
+    color: #344054;
     cursor: pointer;
     white-space: nowrap;
+  }
+
+  .epos-products-filter-group button:hover {
+    background: #e0e7ff;
+    color: #2563eb;
   }
 
   .epos-products-catalog {
