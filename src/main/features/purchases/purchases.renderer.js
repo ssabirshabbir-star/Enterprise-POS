@@ -616,7 +616,6 @@
       'purchaseFilterTo',
     ].forEach((id) => $id(id)?.addEventListener('change', renderPurchases));
     $id('purchaseClearFiltersButton')?.addEventListener('click', clearFilters);
-    $id('purchaseShowAllButton')?.addEventListener('click', clearFilters);
     document.querySelectorAll('[data-purchase-status-tab]').forEach((btn) =>
       btn.addEventListener('click', () => {
         document
