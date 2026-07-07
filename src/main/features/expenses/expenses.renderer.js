@@ -3,6 +3,8 @@
 
   let initialized = false;
   let submitting = false;
+  let expenseRefreshSeq = 0;
+  let categoryRefreshSeq = 0;
   let state = {
     categories: [],
     expenses: [],
@@ -97,9 +99,17 @@
       .join('');
     const formSelect = $id('expenseCategory');
     const filterSelect = $id('expenseCategoryFilter');
-    if (formSelect) formSelect.innerHTML = options || '<option value="">No categories</option>';
+    if (formSelect) {
+      const current = formSelect.value;
+      formSelect.innerHTML = options || '<option value="">No categories</option>';
+      if ([...formSelect.options].some((option) => option.value === current))
+        formSelect.value = current;
+    }
     if (filterSelect) {
+      const current = filterSelect.value;
       filterSelect.innerHTML = `<option value="">All categories</option>${options}`;
+      if ([...filterSelect.options].some((option) => option.value === current))
+        filterSelect.value = current;
     }
   }
 
@@ -142,39 +152,56 @@
   }
 
   async function loadCategories() {
+    const seq = ++categoryRefreshSeq;
     const result = await A().listCategories();
+    if (seq !== categoryRefreshSeq) return result;
     if (!result?.ok) {
       showMessage(result?.message || 'Unable to load expense categories.', 'error');
       state.categories = [];
       renderCategoryOptions();
-      return;
+      return result;
     }
     state.categories = result.categories || [];
     renderCategoryOptions();
+    return result;
   }
 
-  async function loadExpenses() {
-    renderEmpty('Loading expenses...');
+  async function loadExpenses(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const seq = ++expenseRefreshSeq;
+    if (opts.showLoading !== false) renderEmpty('Loading expenses...');
     try {
       const result = await A().list(getFilters());
+      if (seq !== expenseRefreshSeq) return result;
       if (!result?.ok) {
         state.expenses = [];
         state.summary = { totalExpense: 0, count: 0 };
         state.canWrite = false;
         renderExpenses();
         showMessage(result?.message || 'Unable to load expenses.', 'error');
-        return;
+        return result;
       }
       state.expenses = result.expenses || [];
       state.summary = result.summary || { totalExpense: 0, count: 0 };
       state.canWrite = Boolean(result.permissions?.canWrite);
       renderExpenses();
+      return result;
     } catch {
+      if (seq !== expenseRefreshSeq) return { ok: false, stale: true };
       state.expenses = [];
       state.summary = { totalExpense: 0, count: 0 };
       renderExpenses();
       showMessage('Unable to load expenses.', 'error');
+      return { ok: false, message: 'Unable to load expenses.' };
     }
+  }
+
+  async function refreshExpensesLiveState(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const categoryPromise = opts.includeCategories ? loadCategories() : Promise.resolve(null);
+    const expensesPromise = loadExpenses({ showLoading: opts.showLoading === true });
+    const [categories, expenses] = await Promise.all([categoryPromise, expensesPromise]);
+    return { categories, expenses };
   }
 
   async function saveExpense(event) {
@@ -193,7 +220,7 @@
       }
       showMessage(result.message || 'Expense saved.');
       resetForm();
-      await loadExpenses();
+      await refreshExpensesLiveState({ showLoading: false });
     } catch {
       showMessage('Unable to save expense.', 'error');
     } finally {
@@ -218,7 +245,7 @@
       }
       input.value = '';
       showMessage(result.message || 'Category saved.');
-      await loadCategories();
+      await refreshExpensesLiveState({ includeCategories: true, showLoading: false });
     } catch {
       showMessage('Unable to save category.', 'error');
     }
@@ -249,7 +276,7 @@
         return;
       }
       showMessage(result.message || 'Expense voided.');
-      await loadExpenses();
+      await refreshExpensesLiveState({ showLoading: false });
     } catch {
       showMessage('Unable to void expense.', 'error');
     }
@@ -324,6 +351,7 @@
   window.ExpensesRenderer = {
     destroyUI,
     renderUI,
+    refreshExpensesLiveState,
     updateUI,
   };
   window.initExpensesModule = initExpensesModule;
