@@ -1088,9 +1088,9 @@
   .epos-billing-shell.epos-invoice-ui .epos-invoice-cart th:nth-child(8), .epos-billing-shell.epos-invoice-ui .epos-invoice-cart td:nth-child(8) { width: 5% !important; text-align: center; }
   .epos-billing-shell.epos-invoice-ui .epos-cart-qty {
     display: grid !important;
-    grid-template-columns: 28px 62px 28px !important;
+    grid-template-columns: var(--epos-cart-qty-btn-size) var(--epos-cart-qty-input-width) var(--epos-cart-qty-btn-size) !important;
     gap: 5px !important;
-    max-width: 128px !important;
+    max-width: 122px !important;
     align-items: center !important;
     justify-content: center !important;
     margin-inline: auto !important;
