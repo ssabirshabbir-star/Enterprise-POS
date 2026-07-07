@@ -284,11 +284,11 @@
   .epos-suppliers-table {
     width: 100% !important;
     max-width: none !important;
-    min-width: max-content;
+    min-width: 1180px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
-    table-layout: auto;
+    table-layout: fixed;
   }
 
   #supplierList {
@@ -318,23 +318,23 @@
   .epos-suppliers-table th:nth-child(1),
   .epos-suppliers-table td:nth-child(1) { width: 42px; text-align: center; padding: 4px 6px !important; }
   .epos-suppliers-table th:nth-child(2),
-  .epos-suppliers-table td:nth-child(2) { min-width: 260px; width: 100%; }
+  .epos-suppliers-table td:nth-child(2) { width: 25%; }
   .epos-suppliers-table th:nth-child(3),
-  .epos-suppliers-table td:nth-child(3) { width: 1%; min-width: 150px; white-space: nowrap; }
+  .epos-suppliers-table td:nth-child(3) { width: 12%; white-space: nowrap; }
   .epos-suppliers-table th:nth-child(4),
-  .epos-suppliers-table td:nth-child(4) { width: 1%; min-width: 116px; }
+  .epos-suppliers-table td:nth-child(4) { width: 9%; }
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7) { width: 1%; min-width: 116px; }
+  .epos-suppliers-table td:nth-child(7) { width: 9%; }
   .epos-suppliers-table th:nth-child(8),
-  .epos-suppliers-table td:nth-child(8) { width: 1%; min-width: 108px; }
+  .epos-suppliers-table td:nth-child(8) { width: 8%; }
   .epos-suppliers-table th:nth-child(9),
-  .epos-suppliers-table td:nth-child(9) { width: 1%; min-width: 86px; }
+  .epos-suppliers-table td:nth-child(9) { width: 6%; }
   .epos-suppliers-table th:nth-child(10),
-  .epos-suppliers-table td:nth-child(10) { width: 180px; min-width: 180px; }
+  .epos-suppliers-table td:nth-child(10) { width: 150px; min-width: 150px; }
 
   .epos-suppliers-table td {
     border-bottom: 1px solid #e8eef7;
