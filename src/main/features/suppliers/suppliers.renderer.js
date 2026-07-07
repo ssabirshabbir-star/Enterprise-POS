@@ -231,7 +231,9 @@
 
   async function refreshSelectedSupplierPanel(options = {}) {
     const supplierId = options.supplierId || _selectedSupplierId;
-    if (!supplierId || !isSupplierPanelOpen() || !_activePanelMode) return null;
+    if (!supplierId || !_activePanelMode || (!options.allowClosed && !isSupplierPanelOpen())) {
+      return null;
+    }
     const seq = ++_supplierPanelRefreshSeq;
     try {
       const res =
@@ -239,7 +241,7 @@
           ? await api().loadSupplierLedger(supplierId)
           : await api().loadSupplierDetails(supplierId);
       if (seq !== _supplierPanelRefreshSeq || String(_selectedSupplierId) !== String(supplierId)) {
-        return res;
+        return { ok: false, stale: true };
       }
       if (!res?.ok) {
         if (!options.silent)
@@ -575,17 +577,12 @@
 
   function openSupplierDetails(supplierId) {
     _selectedSupplierId = supplierId ? String(supplierId) : null;
+    _activePanelMode = 'details';
     renderTable(_allSuppliers);
-    return api()
-      .loadSupplierDetails(_selectedSupplierId)
-      .then((res) => {
-        if (!res?.ok) {
-          showMsg(res?.message || 'Could not load supplier details.', true);
-          return;
-        }
-        renderSupplierDetails(res);
-      })
-      .catch(() => showMsg('Supplier details request failed.', true));
+    return refreshSelectedSupplierPanel({
+      supplierId: _selectedSupplierId,
+      allowClosed: true,
+    }).catch(() => showMsg('Supplier details request failed.', true));
   }
 
   function openWhatsAppModal(supplierId) {
@@ -757,15 +754,15 @@
       if (!li) return;
       const supplierId = li.dataset.ledgerPick;
       closeLedgerPicker();
+      _selectedSupplierId = supplierId ? String(supplierId) : null;
+      _activePanelMode = 'ledger';
+      renderTable(_allSuppliers);
       try {
-        const res = await api().loadSupplierLedger(supplierId);
-        if (!res?.ok) {
-          showMsg('Could not load ledger.', true);
-          return;
+        const res = await refreshSelectedSupplierPanel({ supplierId, allowClosed: true });
+        if (res?.ok) {
+          const ledger = res.ledger || res.entries || [];
+          showMsg(`Ledger loaded for supplier. ${ledger.length} entries.`);
         }
-        const ledger = res.ledger || res.entries || [];
-        renderSupplierLedger(supplierId, ledger);
-        showMsg(`Ledger loaded for supplier. ${ledger.length} entries.`);
       } catch {
         showMsg('Ledger request failed.', true);
       }
