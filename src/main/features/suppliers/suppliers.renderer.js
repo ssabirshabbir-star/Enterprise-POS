@@ -14,6 +14,9 @@
   let _msgTimer = null;
   let _searchTimer = null;
   let _selectedSupplierId = null;
+  let _supplierRefreshSeq = 0;
+  let _supplierPanelRefreshSeq = 0;
+  let _activePanelMode = null;
 
   function api() {
     return window.SuppliersApi;
@@ -196,16 +199,90 @@
   // ── Load suppliers ────────────────────────────────────────────────────────
 
   async function loadSuppliers() {
+    const seq = ++_supplierRefreshSeq;
     try {
       const res = await api().loadSuppliers();
+      if (seq !== _supplierRefreshSeq) return res;
       if (!res?.ok) {
         showMsg(res?.message || 'Failed to load suppliers.', true);
-        return;
+        return res;
       }
       renderUI({ suppliers: res.suppliers || [] });
+      await reconcileSelectedSupplier();
+      return res;
     } catch {
+      if (seq !== _supplierRefreshSeq) return { ok: false, stale: true };
       showMsg('Failed to load suppliers. Please try again.', true);
+      return { ok: false, message: 'Failed to load suppliers. Please try again.' };
     }
+  }
+
+  function isSupplierPanelOpen() {
+    const panel = $id('supplierDetailsPanel');
+    return Boolean(panel && !panel.classList.contains('hidden'));
+  }
+
+  function clearSelectedSupplierPanel() {
+    _selectedSupplierId = null;
+    _activePanelMode = null;
+    $id('supplierDetailsPanel')?.classList.add('hidden');
+    renderTable(_allSuppliers);
+  }
+
+  async function refreshSelectedSupplierPanel(options = {}) {
+    const supplierId = options.supplierId || _selectedSupplierId;
+    if (!supplierId || !isSupplierPanelOpen() || !_activePanelMode) return null;
+    const seq = ++_supplierPanelRefreshSeq;
+    try {
+      const res =
+        _activePanelMode === 'ledger'
+          ? await api().loadSupplierLedger(supplierId)
+          : await api().loadSupplierDetails(supplierId);
+      if (seq !== _supplierPanelRefreshSeq || String(_selectedSupplierId) !== String(supplierId)) {
+        return res;
+      }
+      if (!res?.ok) {
+        if (!options.silent)
+          showMsg(
+            res?.message ||
+              (_activePanelMode === 'ledger'
+                ? 'Could not load ledger.'
+                : 'Could not load supplier details.'),
+            true
+          );
+        return res;
+      }
+      if (_activePanelMode === 'ledger') {
+        renderSupplierLedger(supplierId, res.ledger || res.entries || []);
+      } else {
+        renderSupplierDetails(res);
+      }
+      return res;
+    } catch {
+      if (seq === _supplierPanelRefreshSeq && !options.silent)
+        showMsg('Supplier panel refresh failed.', true);
+      return { ok: false, message: 'Supplier panel refresh failed.' };
+    }
+  }
+
+  async function reconcileSelectedSupplier(options = {}) {
+    if (!_selectedSupplierId) return null;
+    const stillExists = _allSuppliers.some((s) => String(s.id) === String(_selectedSupplierId));
+    if (!stillExists) {
+      clearSelectedSupplierPanel();
+      return { ok: false, missing: true };
+    }
+    if (options.refreshPanel !== false) {
+      return refreshSelectedSupplierPanel({ silent: true });
+    }
+    return { ok: true };
+  }
+
+  async function refreshSupplierLiveState(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const res = await loadSuppliers();
+    if (res?.ok && opts.refreshPaymentDropdown) populatePaymentDropdown();
+    return { suppliers: res };
   }
 
   // ── Editor modal ──────────────────────────────────────────────────────────
@@ -276,7 +353,8 @@
       }
       showMsg(res.message || (isEdit ? 'Supplier updated.' : 'Supplier saved.'));
       closeEditor();
-      await loadSuppliers();
+      if (res.supplier?.id) _selectedSupplierId = String(res.supplier.id);
+      await refreshSupplierLiveState();
     } catch {
       showMsg('Save failed. Please try again.', true);
     } finally {
@@ -295,7 +373,8 @@
         return;
       }
       showMsg(res.message || 'Supplier deleted.');
-      await loadSuppliers();
+      if (String(_selectedSupplierId) === String(id)) clearSelectedSupplierPanel();
+      await refreshSupplierLiveState();
     } catch {
       showMsg('Delete failed. Please try again.', true);
     }
@@ -367,7 +446,8 @@
       }
       showMsg(res.message || 'Payment recorded.');
       closePaymentModal();
-      await loadSuppliers();
+      _selectedSupplierId = String(supplierId);
+      await refreshSupplierLiveState({ refreshPaymentDropdown: true });
     } catch {
       showMsg('Payment failed. Please try again.', true);
     } finally {
@@ -422,6 +502,7 @@
     const supplier = data.supplier || {};
     const purchases = data.purchases || [];
     _selectedSupplierId = supplier.id;
+    _activePanelMode = 'details';
     panel.classList.remove('hidden');
     panel.innerHTML = `
       <div style="padding:12px 14px;border-bottom:1px solid #e5e7eb">
@@ -461,6 +542,7 @@
     const panel = $id('supplierDetailsPanel');
     if (!panel) return;
     _selectedSupplierId = supplierId;
+    _activePanelMode = 'ledger';
     panel.classList.remove('hidden');
     panel.innerHTML = `
       <div style="padding:12px 14px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
@@ -535,6 +617,7 @@
     $id('supplierWhatsAppModal')?.classList.add('hidden');
     $id('supplierPaymentModal')?.classList.add('hidden');
     $id('supplierEditorModal')?.classList.add('hidden');
+    _activePanelMode = null;
   }
 
   function renderUI(state = {}) {
@@ -765,6 +848,7 @@
     $id('supplierDetailsPanel')?.addEventListener('click', (e) => {
       if (e.target.closest('[data-close-supplier-details]')) {
         $id('supplierDetailsPanel')?.classList.add('hidden');
+        _activePanelMode = null;
       }
     });
 
@@ -798,5 +882,6 @@
     updateUI,
     destroyUI,
     loadSuppliers,
+    refreshSupplierLiveState,
   };
 })();
