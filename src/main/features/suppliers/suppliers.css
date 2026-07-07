@@ -284,7 +284,7 @@
   .epos-suppliers-table {
     width: 100% !important;
     max-width: none !important;
-    min-width: 100%;
+    min-width: 1280px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
@@ -322,13 +322,13 @@
   .epos-suppliers-table th:nth-child(3),
   .epos-suppliers-table td:nth-child(3) { width: 12%; }
   .epos-suppliers-table th:nth-child(4),
-  .epos-suppliers-table td:nth-child(4) { width: 9%; }
+  .epos-suppliers-table td:nth-child(4) { width: 9%; min-width: 126px; }
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7) { width: 9%; }
+  .epos-suppliers-table td:nth-child(7) { width: 9%; min-width: 126px; }
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) { width: 10%; }
   .epos-suppliers-table th:nth-child(9),
@@ -386,10 +386,17 @@
   .epos-suppliers-table td:nth-child(4),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table td:nth-child(6),
-  .epos-suppliers-table td:nth-child(7),
+  .epos-suppliers-table td:nth-child(7) {
+    text-align: right;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) {
     text-align: right;
+    white-space: nowrap;
   }
   .epos-supplier-status { color: #009d24; font-weight: 950; }
   .epos-supplier-status.inactive,
