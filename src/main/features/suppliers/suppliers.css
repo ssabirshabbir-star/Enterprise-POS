@@ -249,13 +249,14 @@
     max-height: 100%;
     min-height: 0;
     margin: 0;
-    padding: 0 !important;
+    padding: 0 0 44px !important;
     border: 1px solid #e6edf7;
     border-radius: 8px;
     background: #ffffff;
     box-shadow: none;
     overflow-x: auto;
     overflow-y: auto;
+    scroll-padding-bottom: 44px;
     scrollbar-width: thin;
     scrollbar-color: #64748b #edf2f7;
     -ms-overflow-style: none;
@@ -284,7 +285,7 @@
   .epos-suppliers-table {
     width: 100% !important;
     max-width: none !important;
-    min-width: 1180px;
+    min-width: 1280px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
@@ -318,23 +319,23 @@
   .epos-suppliers-table th:nth-child(1),
   .epos-suppliers-table td:nth-child(1) { width: 42px; text-align: center; padding: 4px 6px !important; }
   .epos-suppliers-table th:nth-child(2),
-  .epos-suppliers-table td:nth-child(2) { width: 25%; }
+  .epos-suppliers-table td:nth-child(2) { width: 20%; }
   .epos-suppliers-table th:nth-child(3),
-  .epos-suppliers-table td:nth-child(3) { width: 12%; white-space: nowrap; }
+  .epos-suppliers-table td:nth-child(3) { width: 11%; white-space: nowrap; }
   .epos-suppliers-table th:nth-child(4),
-  .epos-suppliers-table td:nth-child(4) { width: 9%; }
+  .epos-suppliers-table td:nth-child(4) { width: 8%; }
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7) { width: 9%; }
+  .epos-suppliers-table td:nth-child(7) { width: 8%; }
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) { width: 8%; }
   .epos-suppliers-table th:nth-child(9),
   .epos-suppliers-table td:nth-child(9) { width: 6%; }
   .epos-suppliers-table th:nth-child(10),
-  .epos-suppliers-table td:nth-child(10) { width: 150px; min-width: 150px; }
+  .epos-suppliers-table td:nth-child(10) { width: 220px; min-width: 220px; }
 
   .epos-suppliers-table td {
     border-bottom: 1px solid #e8eef7;
@@ -405,6 +406,9 @@
   .epos-suppliers-table th:nth-child(10),
   .epos-suppliers-table td:nth-child(10) {
     text-align: center;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 
   .epos-suppliers-row-actions {
