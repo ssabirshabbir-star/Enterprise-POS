@@ -2,6 +2,7 @@
 @source "../../main/features/dashboard/index.html";
 @source "../../main/features/**/*.html";
 @import "../../Components/Buttons/buttons.css";
+@import "../../Components/Forms/forms.css";
 @import "../../Components/Billing/billing.css";
 @import "../../main/features/Login/style.css";
 @import "../../main/features/dashboard/dashboard.css";

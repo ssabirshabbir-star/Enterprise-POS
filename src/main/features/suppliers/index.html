@@ -67,28 +67,30 @@
     <button id="supplierPrintButton" type="button" class="slate" disabled aria-disabled="true" title="Supplier print is unavailable until certification.">Print Unavailable</button>
   </div>
 
-  <div id="supplierEditorModal" class="epos-suppliers-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierEditorTitle">
-    <div class="epos-suppliers-modal-backdrop" data-supplier-editor-close></div>
-    <form id="supplierPageForm" class="epos-suppliers-editor">
-      <div class="epos-suppliers-editor-head">
+  <div id="supplierEditorModal" class="epos-modal hidden" role="dialog" aria-modal="true" aria-labelledby="supplierEditorTitle">
+    <div class="epos-modal-backdrop" data-supplier-editor-close></div>
+    <form id="supplierPageForm" class="epos-modal-card epos-modal-md epos-form">
+      <div class="epos-modal-head">
         <div>
-          <span>Supplier</span>
-          <h3 id="supplierEditorTitle">New Supplier</h3>
+          <span class="epos-modal-kicker">Supplier</span>
+          <h3 id="supplierEditorTitle" class="epos-modal-title">New Supplier</h3>
         </div>
-        <button type="button" data-supplier-editor-close aria-label="Close supplier form">x</button>
+        <button type="button" class="epos-modal-close" data-supplier-editor-close aria-label="Close supplier form">×</button>
       </div>
       <input id="supplierPageId" type="hidden" />
-      <div class="epos-suppliers-editor-grid">
-        <label>Name <input id="supplierPageName" placeholder="Supplier name" required /></label>
-        <label>Phone <input id="supplierPagePhone" placeholder="0300-1234567" /></label>
-        <label>Email <input id="supplierPageEmail" type="email" placeholder="supplier@email.com" /></label>
-        <label>Opening Balance <input id="supplierOpeningBalance" type="number" min="0" step="0.01" value="0" /></label>
-        <label class="wide">Address <input id="supplierPageAddress" placeholder="Address / city" /></label>
-        <label class="epos-suppliers-check"><input id="supplierActive" type="checkbox" checked /> Active supplier</label>
+      <div class="epos-modal-body">
+        <div class="epos-form-grid">
+          <label class="epos-form-field"><span class="epos-form-label">Name</span><input id="supplierPageName" placeholder="Supplier name" required /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Phone</span><input id="supplierPagePhone" placeholder="0300-1234567" /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Email</span><input id="supplierPageEmail" type="email" placeholder="supplier@email.com" /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Opening Balance</span><input id="supplierOpeningBalance" type="number" min="0" step="0.01" value="0" /></label>
+          <label class="epos-form-field wide"><span class="epos-form-label">Address</span><input id="supplierPageAddress" placeholder="Address / city" /></label>
+          <label class="epos-form-check epos-form-field-full"><input id="supplierActive" type="checkbox" checked /> Active supplier</label>
+        </div>
       </div>
-      <div class="epos-suppliers-editor-actions">
-        <button type="button" data-supplier-editor-close>Cancel</button>
-        <button id="saveSupplierButton" type="submit">Save Supplier</button>
+      <div class="epos-form-actions">
+        <button type="button" class="epos-form-action-secondary" data-supplier-editor-close>Cancel</button>
+        <button id="saveSupplierButton" type="submit" class="epos-form-action-primary">Save Supplier</button>
       </div>
     </form>
   </div>

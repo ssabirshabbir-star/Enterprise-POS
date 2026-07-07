@@ -1,0 +1,258 @@
+@layer components {
+  .epos-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+  }
+
+  .epos-modal.hidden {
+    display: none;
+  }
+
+  .epos-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgb(15 23 42 / 0.46);
+    backdrop-filter: blur(3px);
+  }
+
+  .epos-modal-card {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    max-height: min(92vh, 760px);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #dfe6f2;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 28px 80px rgb(15 23 42 / 0.26);
+  }
+
+  .epos-modal-sm {
+    width: min(420px, calc(100vw - 36px));
+  }
+
+  .epos-modal-md {
+    width: min(640px, calc(100vw - 36px));
+  }
+
+  .epos-modal-lg {
+    width: min(860px, calc(100vw - 48px));
+  }
+
+  .epos-modal-xl {
+    width: min(1120px, calc(100vw - 64px));
+  }
+
+  .epos-modal-head {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #e6edf7;
+    padding: 14px 16px 12px;
+  }
+
+  .epos-modal-kicker {
+    display: block;
+    color: #145fb6;
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: 0.12em;
+    line-height: 1.15;
+    text-transform: uppercase;
+  }
+
+  .epos-modal-title {
+    margin: 2px 0 0;
+    color: #172033;
+    font-size: 19px;
+    font-weight: 950;
+    line-height: 1.2;
+  }
+
+  .epos-modal-close {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    place-items: center;
+    border: 1px solid #d8e1ef;
+    border-radius: 8px;
+    background: #f8fbff;
+    color: #334155;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .epos-modal-close:hover {
+    border-color: #bfd0e6;
+    background: #eef6ff;
+  }
+
+  .epos-modal-close:focus-visible {
+    outline: 3px solid rgb(20 95 182 / 0.18);
+    outline-offset: 2px;
+  }
+
+  .epos-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px;
+  }
+
+  .epos-form {
+    color: #172033;
+  }
+
+  .epos-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .epos-form-field {
+    display: grid;
+    min-width: 0;
+    gap: 5px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .epos-form-field.wide,
+  .epos-form-field-full {
+    grid-column: 1 / -1;
+  }
+
+  .epos-form-label {
+    color: #334155;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.2;
+  }
+
+  .epos-form-field input,
+  .epos-form-field select,
+  .epos-form-field textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    border: 1px solid #d8e1ef;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 0 11px;
+    color: #172033;
+    font-size: 13px;
+    font-weight: 800;
+    outline: none;
+  }
+
+  .epos-form-field textarea {
+    min-height: 86px;
+    padding-block: 10px;
+    resize: vertical;
+  }
+
+  .epos-form-field input:focus,
+  .epos-form-field select:focus,
+  .epos-form-field textarea:focus {
+    border-color: #145fb6;
+    box-shadow: 0 0 0 3px rgb(20 95 182 / 0.14);
+  }
+
+  .epos-form-section {
+    border: 1px solid #e6edf7;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff, #fbfdff);
+    padding: 12px;
+  }
+
+  .epos-form-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border: 1px solid #d8e1ef;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .epos-form-check input {
+    width: auto;
+    min-height: auto;
+    accent-color: #145fb6;
+  }
+
+  .epos-form-actions {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid #e6edf7;
+    padding: 12px 16px 14px;
+  }
+
+  .epos-form-actions button {
+    min-height: 36px;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .epos-form-action-secondary {
+    border: 1px solid #d8e1ef;
+    background: #ffffff;
+    color: #0f1f3d;
+    box-shadow: none;
+  }
+
+  .epos-form-action-primary {
+    border: 1px solid #145fb6;
+    background: #145fb6;
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgb(20 95 182 / 0.22);
+  }
+
+  @media (max-width: 720px) {
+    .epos-modal {
+      padding: 12px;
+    }
+
+    .epos-modal-sm,
+    .epos-modal-md,
+    .epos-modal-lg,
+    .epos-modal-xl {
+      width: calc(100vw - 24px);
+    }
+
+    .epos-form-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .epos-form-actions {
+      flex-direction: column-reverse;
+    }
+
+    .epos-form-actions button {
+      width: 100%;
+    }
+  }
+}
