@@ -4,6 +4,8 @@
   let initialized = false;
   let currentInvoice = null;
   let messageTimer = null;
+  let invoiceLookupSeq = 0;
+  let returnsRefreshSeq = 0;
 
   const A = () => window.ReturnsApi;
 
@@ -172,20 +174,25 @@
     return items;
   }
 
-  async function lookupInvoice() {
-    const invoiceNumber = String($id('returnInvoiceSearch')?.value || '').trim();
+  async function lookupInvoice(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const invoiceNumber = String(
+      opts.invoiceNumber || $id('returnInvoiceSearch')?.value || ''
+    ).trim();
     if (!invoiceNumber) {
       showMessage('Enter an invoice number.', 'error');
-      return;
+      return { ok: false, message: 'Enter an invoice number.' };
     }
-    renderInvoiceEmpty('Loading invoice...');
+    const seq = ++invoiceLookupSeq;
+    if (opts.showLoading !== false) renderInvoiceEmpty('Loading invoice...');
     try {
       const res = await A().lookupInvoice({ invoiceNumber });
+      if (seq !== invoiceLookupSeq) return res;
       if (!res?.ok) {
         currentInvoice = null;
         renderInvoiceEmpty(res?.message || 'Invoice not found.');
         showMessage(res?.message || 'Invoice not found.', 'error');
-        return;
+        return res;
       }
       currentInvoice = res;
       renderInvoiceSummary(res);
@@ -194,25 +201,32 @@
       if (!(res.items || []).some((item) => Number(item.returnableQuantity || 0) > 0)) {
         showMessage('This invoice has no returnable quantity left.', 'error');
       }
+      return res;
     } catch {
+      if (seq !== invoiceLookupSeq) return { ok: false, stale: true };
       currentInvoice = null;
       renderInvoiceEmpty('Invoice lookup failed.');
       showMessage('Invoice lookup failed.', 'error');
+      return { ok: false, message: 'Invoice lookup failed.' };
     }
   }
 
-  async function loadReturns() {
+  async function loadReturns(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const seq = ++returnsRefreshSeq;
     const list = $id('returnsList');
-    if (list) list.innerHTML = '<div style="padding:18px;color:#71717a">Loading returns...</div>';
+    if (list && opts.showLoading !== false)
+      list.innerHTML = '<div style="padding:18px;color:#71717a">Loading returns...</div>';
     try {
       const res = await A().list();
+      if (seq !== returnsRefreshSeq) return res;
       const rows = res?.ok && Array.isArray(res.returns) ? res.returns : [];
       const summary = $id('returnsListSummary');
       if (summary) summary.textContent = `${rows.length} recent`;
-      if (!list) return;
+      if (!list) return res;
       if (!rows.length) {
         list.innerHTML = '<div style="padding:18px;color:#71717a">No returns recorded yet.</div>';
-        return;
+        return res;
       }
       list.innerHTML = rows
         .map(
@@ -224,11 +238,29 @@
         )
         .join('');
       if (!res?.ok) showMessage(res?.message || 'Could not load returns.', 'error');
+      return res;
     } catch {
+      if (seq !== returnsRefreshSeq) return { ok: false, stale: true };
       if (list)
         list.innerHTML = '<div style="padding:18px;color:#b91c1c">Could not load returns.</div>';
       showMessage('Could not load returns.', 'error');
+      return { ok: false, message: 'Could not load returns.' };
     }
+  }
+
+  async function refreshReturnsLiveState(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const invoiceNumber = String($id('returnInvoiceSearch')?.value || '').trim();
+    const invoicePromise =
+      opts.refreshInvoice && invoiceNumber
+        ? lookupInvoice({ invoiceNumber, showLoading: opts.showInvoiceLoading === true })
+        : Promise.resolve(null);
+    const returnsPromise =
+      opts.refreshReturns === false
+        ? Promise.resolve(null)
+        : loadReturns({ showLoading: opts.showReturnsLoading === true });
+    const [invoice, returns] = await Promise.all([invoicePromise, returnsPromise]);
+    return { invoice, returns };
   }
 
   function fillFullReturn() {
@@ -278,8 +310,7 @@
         return;
       }
       showMessage(res.message || 'Return completed successfully.', 'success');
-      await lookupInvoice();
-      await loadReturns();
+      await refreshReturnsLiveState({ refreshInvoice: true });
     } catch {
       showMessage('Return could not be processed.', 'error');
     } finally {
@@ -296,12 +327,14 @@
     const method = $id('returnRefundMethod');
     if (method) method.value = 'Cash';
     renderInvoiceEmpty('Search an invoice to start a return.');
-    loadReturns().catch(() => {});
+    refreshReturnsLiveState().catch(() => {});
   }
 
   function bindEvents() {
     $id('lookupReturnButton')?.addEventListener('click', () => lookupInvoice().catch(() => {}));
-    $id('returnsReloadButton')?.addEventListener('click', () => loadReturns().catch(() => {}));
+    $id('returnsReloadButton')?.addEventListener('click', () =>
+      refreshReturnsLiveState({ showReturnsLoading: true }).catch(() => {})
+    );
     $id('returnsResetButton')?.addEventListener('click', resetReturns);
     $id('returnFullButton')?.addEventListener('click', fillFullReturn);
     $id('processReturnButton')?.addEventListener('click', () => processReturn().catch(() => {}));
@@ -322,12 +355,13 @@
       initialized = true;
       bindEvents();
     }
-    loadReturns().catch(() => {});
+    refreshReturnsLiveState().catch(() => {});
   }
 
   window.ReturnsRenderer = {
     loadReturns,
     lookupInvoice,
+    refreshReturnsLiveState,
   };
   window.initReturnsModule = initReturnsModule;
 })();
