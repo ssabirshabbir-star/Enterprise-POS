@@ -22,6 +22,7 @@
   let _selectedCustomer = null; // customer selected for details/WhatsApp
   let _selectedIds = new Set(); // bulk-selection set
   let _customerRefreshSeq = 0; // prevents stale async list responses from repainting the table
+  let _customerDetailRefreshSeq = 0; // prevents stale async detail responses from repainting the panel
 
   function getCurrentFilters() {
     return {
@@ -477,7 +478,12 @@
   }
 
   async function loadCustomerDetailsFromUI(customerId) {
+    const requestedId = Number(customerId);
+    const seq = ++_customerDetailRefreshSeq;
     const res = await A().loadCustomerDetails(customerId);
+    if (seq !== _customerDetailRefreshSeq || Number(_selectedCustomer?.id || 0) !== requestedId) {
+      return res;
+    }
     if (!res?.ok) {
       showMsg(res?.message || 'Failed to load customer details.', true);
       return;
