@@ -330,29 +330,31 @@
     </aside>
   </section>
 
-  <div id="posCustomerModal" class="epos-pos-modal hidden" role="dialog" aria-modal="true" aria-labelledby="posCustomerModalTitle">
-    <div class="epos-pos-modal-backdrop" data-pos-customer-close></div>
-    <form id="posCustomerModalForm" class="epos-pos-customer-modal">
-      <div class="epos-pos-modal-head">
+  <div id="posCustomerModal" class="epos-modal hidden" role="dialog" aria-modal="true" aria-labelledby="posCustomerModalTitle">
+    <div class="epos-modal-backdrop" data-pos-customer-close></div>
+    <form id="posCustomerModalForm" class="epos-modal-card epos-modal-md epos-form">
+      <div class="epos-modal-head">
         <div>
-          <span>Customer</span>
-          <h3 id="posCustomerModalTitle">Add Customer</h3>
+          <span class="epos-modal-kicker">Customer</span>
+          <h3 id="posCustomerModalTitle" class="epos-modal-title">Add Customer</h3>
         </div>
-        <button type="button" data-pos-customer-close aria-label="Close customer form">Ã—</button>
+        <button type="button" class="epos-modal-close" data-pos-customer-close aria-label="Close customer form">×</button>
       </div>
-      <div class="epos-pos-customer-grid">
-        <label>Name <input id="posCustomerNameInput" class="epos-billing-input" required placeholder="Customer name" /></label>
-        <label>Phone <input id="posCustomerPhoneInput" class="epos-billing-input" placeholder="Phone number" /></label>
-        <label>Email <input id="posCustomerEmailInput" type="email" class="epos-billing-input" placeholder="Email address" /></label>
-        <label>CNIC <input id="posCustomerCnicInput" class="epos-billing-input" placeholder="Coming soon" disabled /></label>
-        <label>Opening Balance <input id="posCustomerOpeningBalanceInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" disabled /></label>
-        <label>Credit Limit <input id="posCustomerCreditLimitInput" type="number" min="0" step="0.01" value="0" class="epos-billing-input" /></label>
-        <label class="epos-pos-customer-wide">Address <input id="posCustomerAddressInput" class="epos-billing-input" placeholder="Address" /></label>
+      <div class="epos-modal-body">
+        <div class="epos-form-grid">
+          <label class="epos-form-field"><span class="epos-form-label">Name</span><input id="posCustomerNameInput" required placeholder="Customer name" /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Phone</span><input id="posCustomerPhoneInput" placeholder="Phone number" /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Email</span><input id="posCustomerEmailInput" type="email" placeholder="Email address" /></label>
+          <label class="epos-form-field"><span class="epos-form-label">CNIC</span><input id="posCustomerCnicInput" placeholder="Coming soon" disabled /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Opening Balance</span><input id="posCustomerOpeningBalanceInput" type="number" min="0" step="0.01" value="0" disabled /></label>
+          <label class="epos-form-field"><span class="epos-form-label">Credit Limit</span><input id="posCustomerCreditLimitInput" type="number" min="0" step="0.01" value="0" /></label>
+          <label class="epos-form-field wide"><span class="epos-form-label">Address</span><input id="posCustomerAddressInput" placeholder="Address" /></label>
+        </div>
+        <p id="posCustomerModalMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
       </div>
-      <p id="posCustomerModalMessage" class="hidden rounded-md px-3 py-2 text-sm"></p>
-      <div class="epos-pos-modal-actions">
-        <button type="button" data-pos-customer-close>Cancel</button>
-        <button id="posCustomerModalSaveButton" type="submit">Save Customer</button>
+      <div class="epos-form-actions">
+        <button type="button" class="epos-form-action-secondary" data-pos-customer-close>Cancel</button>
+        <button id="posCustomerModalSaveButton" type="submit" class="epos-form-action-primary">Save Customer</button>
       </div>
     </form>
   </div>
