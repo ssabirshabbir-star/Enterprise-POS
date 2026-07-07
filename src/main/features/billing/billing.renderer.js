@@ -34,6 +34,9 @@
   let eventsAttached = false;
   let initPending = false; // ← F1 fix: concurrent retry guard
   let searchTimer = null;
+  let productSearchSeq = 0;
+  let customerLoadSeq = 0;
+  let heldSalesLoadSeq = 0;
   let cTimer = null; // customer search debounce — module-scoped for clarity
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
@@ -110,6 +113,19 @@
     const gate = checkFeature(featureId);
     if (!gate.ok && gate.visible !== false) C().showMsg(gate.message, true);
     return gate.ok;
+  }
+
+  async function refreshBillingLiveState(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+
+    C().renderCart();
+    C().updateDisplayTotals();
+
+    if (opts.receipt) C().renderReceiptPreview(opts.receipt);
+    if (opts.refreshCustomers) await loadCustomersFromUI(opts.customerSearch || '');
+    if (opts.refreshHeldSales) await loadHeldSalesFromUI();
+
+    return { ok: true };
   }
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -216,11 +232,13 @@
 
   async function searchProductsFromUI(query) {
     const q = String(query || '').trim();
+    const seq = ++productSearchSeq;
     if (!q) {
       C().clearSearchResults();
       return;
     }
     const res = await A().searchProducts(q);
+    if (seq !== productSearchSeq) return;
     if (!res?.ok) {
       C().clearSearchResults();
       C().showMsg(res?.message || 'Unable to search products. Please try again.', true);
@@ -243,7 +261,9 @@
   }
 
   async function loadCustomersFromUI(search) {
+    const seq = ++customerLoadSeq;
     const res = await A().loadCustomers(search || '');
+    if (seq !== customerLoadSeq) return;
     if (!res?.ok) return;
     C().setCustomers(res.customers || []);
     C().renderCustomerSelect();
@@ -268,6 +288,7 @@
       }
       C().loadCustomerIntoCart(res.customer);
       C().closeCustomerModal();
+      await refreshBillingLiveState();
       C().showMsg(`Customer "${C().esc(res.customer.name)}" added and selected.`);
     } finally {
       if (btn) btn.disabled = false;
@@ -305,9 +326,10 @@
         res.receipt.customerPhone = receiptCustomer.phone || '';
       }
       C().setLastReceipt(res.receipt);
-      C().renderReceiptPreview(res.receipt);
+      await refreshBillingLiveState({ receipt: res.receipt });
       tryAutoPrint(res.receipt);
       C().clearCartDisplay();
+      await refreshBillingLiveState({ refreshCustomers: true });
       const invoicePart = `Sale complete. Receipt: ${res.receipt?.invoiceNumber || ''}`;
       if (res.receipt?.luckyDrawCoupons?.length) {
         const coupon = res.receipt.luckyDrawCoupons[0];
@@ -345,11 +367,13 @@
     }
     C().showMsg('Sale held. Use the held sales list to resume it.');
     C().clearCartDisplay();
-    loadHeldSalesFromUI();
+    await refreshBillingLiveState({ refreshHeldSales: true });
   }
 
   async function loadHeldSalesFromUI() {
+    const seq = ++heldSalesLoadSeq;
     const res = await A().loadHeldSales();
+    if (seq !== heldSalesLoadSeq) return;
     if (res?.ok) C().renderHeldSalesList(res.holds || []);
   }
 
@@ -360,7 +384,7 @@
     if (!hold?.payload?.items?.length) return;
     C().restoreHeldItemsToCart(hold);
     await A().deleteHeldSale(holdId);
-    loadHeldSalesFromUI();
+    await refreshBillingLiveState({ refreshHeldSales: true });
     C().showMsg(`Sale restored (${hold.payload.items.length} items).`);
   }
 
@@ -378,7 +402,7 @@
       C().showMsg(res?.message || 'Unable to delete held sale.', true);
       return;
     }
-    loadHeldSalesFromUI();
+    await refreshBillingLiveState({ refreshHeldSales: true });
     C().showMsg('Held sale deleted.');
   }
 
@@ -752,6 +776,7 @@
   window.BillingRenderer = {
     renderUI,
     updateUI,
+    refreshBillingLiveState,
     destroyUI,
   };
 
