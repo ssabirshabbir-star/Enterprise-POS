@@ -318,21 +318,21 @@
   .epos-suppliers-table th:nth-child(1),
   .epos-suppliers-table td:nth-child(1) { width: 42px; text-align: center; padding: 4px 6px !important; }
   .epos-suppliers-table th:nth-child(2),
-  .epos-suppliers-table td:nth-child(2) { width: 18%; }
+  .epos-suppliers-table td:nth-child(2) { width: 24%; }
   .epos-suppliers-table th:nth-child(3),
-  .epos-suppliers-table td:nth-child(3) { width: 12%; }
+  .epos-suppliers-table td:nth-child(3) { width: 14%; }
   .epos-suppliers-table th:nth-child(4),
-  .epos-suppliers-table td:nth-child(4) { width: 9%; min-width: 126px; }
+  .epos-suppliers-table td:nth-child(4) { width: 7.5%; min-width: 116px; }
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
   .epos-suppliers-table td:nth-child(6),
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7) { width: 9%; min-width: 126px; }
+  .epos-suppliers-table td:nth-child(7) { width: 7.5%; min-width: 116px; }
   .epos-suppliers-table th:nth-child(8),
-  .epos-suppliers-table td:nth-child(8) { width: 10%; }
+  .epos-suppliers-table td:nth-child(8) { width: 9%; }
   .epos-suppliers-table th:nth-child(9),
-  .epos-suppliers-table td:nth-child(9) { width: 8%; }
+  .epos-suppliers-table td:nth-child(9) { width: 7%; }
   .epos-suppliers-table th:nth-child(10),
   .epos-suppliers-table td:nth-child(10) { width: 180px; min-width: 180px; }
 
