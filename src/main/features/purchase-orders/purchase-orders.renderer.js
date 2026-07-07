@@ -7,9 +7,14 @@
   let products = [];
   let draftItems = [];
   let pageData = null;
+  let selectedOrderId = null;
+  let selectedOrder = null;
+  let permissions = { canCreate: false, canApprove: false, canReceive: false };
   let messageTimer = null;
   let lastLoadError = '';
   let eventController = null;
+  let orderRefreshSeq = 0;
+  let orderDetailRefreshSeq = 0;
 
   const A = () => window.PurchaseOrdersApi;
 
@@ -79,13 +84,17 @@
   function renderLookups() {
     const supplierSelect = $id('poSupplier');
     if (supplierSelect) {
+      const current = supplierSelect.value;
       supplierSelect.innerHTML =
         '<option value="">Select Supplier</option>' +
         suppliers.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+      if ([...supplierSelect.options].some((option) => option.value === current))
+        supplierSelect.value = current;
     }
 
     const warehouseSelect = $id('poWarehouse');
     if (warehouseSelect) {
+      const current = warehouseSelect.value;
       const warehouses = pageData?.warehouses || [];
       warehouseSelect.innerHTML =
         '<option value="">Select Warehouse</option>' +
@@ -95,13 +104,18 @@
               `<option value="${esc(w.id)}">${esc(w.name)}${w.isDefault ? ' (Default)' : ''}</option>`
           )
           .join('');
+      if ([...warehouseSelect.options].some((option) => option.value === current))
+        warehouseSelect.value = current;
     }
 
     const productSelect = $id('poItemProduct');
     if (productSelect) {
+      const current = productSelect.value;
       productSelect.innerHTML =
         '<option value="">Select Product</option>' +
         products.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+      if ([...productSelect.options].some((option) => option.value === current))
+        productSelect.value = current;
     }
 
     const dataList = $id('poProductLookupList');
@@ -158,7 +172,8 @@
     }
     list.innerHTML = orders
       .map(
-        (o) => `<div class="epos-po-list-row" data-po-id="${esc(o.id)}">
+        (o) =>
+          `<div class="epos-po-list-row${Number(o.id) === selectedOrderId ? ' epos-po-list-item-selected' : ''}" data-po-id="${esc(o.id)}">
           <strong>${esc(o.poNumber)}</strong>
           <span>${esc(o.supplierName || 'No supplier')}</span>
           <span>${esc(o.status)}</span>
@@ -185,29 +200,101 @@
       $id('poNumber').value = pageData.nextNumber;
     }
     if ($id('poDate') && !$id('poDate').value) $id('poDate').value = today();
+    return { pageData: dataRes, suppliers: supplierRes, products: productRes };
   }
 
-  async function loadOrders() {
+  function clearSelectedOrderDetails() {
+    selectedOrderId = null;
+    selectedOrder = null;
+    const details = $id('poDetailsPanel');
+    if (details) details.textContent = 'Select a PO to view details.';
+    refreshActionButtons();
+  }
+
+  async function refreshSelectedOrderDetails(id, options = {}) {
+    const orderId = Number(id || selectedOrderId || 0);
+    if (!orderId) return null;
+    const seq = ++orderDetailRefreshSeq;
+    try {
+      const res = await A().details(orderId);
+      if (seq !== orderDetailRefreshSeq || Number(selectedOrderId) !== orderId) return res;
+      if (!res?.ok) {
+        if (!options.silent)
+          showMessage(res?.message || 'Purchase order details not found.', 'error');
+        return res;
+      }
+      renderOrderDetails(orderId, res.order || {}, { renderList: options.renderList !== false });
+      return res;
+    } catch {
+      if (seq === orderDetailRefreshSeq && !options.silent)
+        showMessage('Could not load PO details.', 'error');
+      return { ok: false, message: 'Could not load PO details.' };
+    }
+  }
+
+  async function reconcileSelectedOrder(options = {}) {
+    if (!selectedOrderId) return null;
+    const stillExists = orders.some((o) => Number(o.id) === selectedOrderId);
+    if (!stillExists) {
+      clearSelectedOrderDetails();
+      renderOrders();
+      return { ok: false, missing: true };
+    }
+    if (options.refreshDetail !== false) {
+      return refreshSelectedOrderDetails(selectedOrderId, { renderList: false, silent: true });
+    }
+    refreshActionButtons();
+    return { ok: true };
+  }
+
+  async function loadOrders(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const seq = ++orderRefreshSeq;
     const list = $id('poList');
-    if (list) list.innerHTML = '<div class="epos-po-empty">Loading purchase orders...</div>';
+    if (list && opts.showLoading !== false)
+      list.innerHTML = '<div class="epos-po-empty">Loading purchase orders...</div>';
     try {
       const res = await A().list(getFilters());
+      if (seq !== orderRefreshSeq) return res;
       if (!res?.ok) {
         orders = [];
         lastLoadError = res?.message || 'Could not load purchase orders.';
         renderOrders();
+        refreshActionButtons();
         showMessage(lastLoadError, 'error');
-        return;
+        return res;
       }
       lastLoadError = '';
       orders = res.orders || [];
+      permissions = {
+        canCreate: res.permissions?.canCreate ?? false,
+        canApprove: res.permissions?.canApprove ?? false,
+        canReceive: res.permissions?.canReceive ?? false,
+      };
       renderOrders();
+      refreshActionButtons();
+      await reconcileSelectedOrder({ refreshDetail: opts.refreshDetail });
+      return res;
     } catch {
+      if (seq !== orderRefreshSeq) return { ok: false, stale: true };
       orders = [];
       lastLoadError = 'Could not load purchase orders.';
       renderOrders();
+      refreshActionButtons();
       showMessage(lastLoadError, 'error');
+      return { ok: false, message: lastLoadError };
     }
+  }
+
+  async function refreshPurchaseOrderLiveState(options = {}) {
+    const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const pageDataPromise = opts.includePageData ? loadPageData() : Promise.resolve(null);
+    const ordersPromise = loadOrders({
+      showLoading: opts.showLoading === true,
+      refreshDetail: opts.refreshDetail !== false,
+    });
+    const [pageDataRes, ordersRes] = await Promise.all([pageDataPromise, ordersPromise]);
+    return { pageData: pageDataRes, orders: ordersRes };
   }
 
   function draftTotals() {
@@ -290,9 +377,12 @@
   function clearDraft(options = {}) {
     $id('poForm')?.reset();
     draftItems = [];
+    selectedOrderId = null;
+    selectedOrder = null;
     if ($id('poDate')) $id('poDate').value = today();
     if ($id('poNumber')) $id('poNumber').value = pageData?.nextNumber || '';
     renderDraft();
+    refreshActionButtons();
     if (!options.silent) showMessage('Purchase order draft cleared.');
   }
 
@@ -319,22 +409,93 @@
     );
     if (res?.ok) {
       clearDraft({ silent: true });
-      await loadPageData();
-      await loadOrders();
+      await refreshPurchaseOrderLiveState({ includePageData: true, showLoading: false });
     }
   }
 
-  async function viewOrder(id) {
-    const res = await A().details(id);
-    if (!res?.ok) return showMessage(res?.message || 'Purchase order details not found.', 'error');
-    const order = res.order || {};
+  function renderOrderDetails(id, order = {}, options = {}) {
     const items = order.items || [];
+    selectedOrderId = Number(id || order.id || 0);
+    selectedOrder = order;
+    if (options.renderList !== false) renderOrders();
+    refreshActionButtons();
     const details = $id('poDetailsPanel');
     if (details) {
       details.innerHTML = `<strong>${esc(order.poNumber)}</strong>
         <p>${esc(order.supplierName || 'No supplier')} | ${esc(order.status)} | ${money(order.total)}</p>
         <div>${items.map((i) => `<span>${esc(i.productName)} (${num(i.orderedQty)})</span>`).join(' ') || 'No items.'}</div>
-        <small>Approval, receiving, GRN and invoice conversion are Phase 2.</small>`;
+        <small>Receiving, GRN and invoice conversion are planned for a future phase.</small>`;
+    }
+  }
+
+  async function viewOrder(id) {
+    const previousOrderId = selectedOrderId;
+    selectedOrderId = Number(id);
+    renderOrders();
+    const res = await refreshSelectedOrderDetails(id);
+    if (!res?.ok && Number(selectedOrderId) === Number(id)) {
+      selectedOrderId = previousOrderId;
+      renderOrders();
+      refreshActionButtons();
+    }
+  }
+
+  function refreshActionButtons() {
+    const canAct = !!(selectedOrderId && selectedOrder && permissions.canApprove);
+    const approveBtn = $id('poRequestApprovalButton');
+    const cancelBtn = $id('poCancelCurrentButton');
+    if (approveBtn) approveBtn.disabled = !canAct;
+    if (cancelBtn) cancelBtn.disabled = !canAct;
+  }
+
+  async function approveSelectedOrder() {
+    if (!selectedOrderId || !selectedOrder) {
+      return showMessage('Select a Purchase Order to approve.', 'error');
+    }
+    if (!permissions.canApprove) {
+      return showMessage('You do not have permission to approve Purchase Orders.', 'error');
+    }
+    const res = await A().approve(selectedOrderId);
+    showMessage(
+      res?.message ||
+        (res?.ok ? 'Purchase order approved.' : 'Purchase order could not be approved.'),
+      res?.ok ? 'success' : 'error'
+    );
+    if (res?.ok) {
+      await refreshPurchaseOrderLiveState({
+        includePageData: true,
+        showLoading: false,
+        refreshDetail: true,
+      });
+    }
+  }
+
+  async function cancelSelectedOrder() {
+    if (!selectedOrderId || !selectedOrder) {
+      return showMessage('Select a Purchase Order to cancel.', 'error');
+    }
+    if (!permissions.canApprove) {
+      return showMessage('You do not have permission to cancel Purchase Orders.', 'error');
+    }
+    if (
+      !window.confirm(
+        `Cancel Purchase Order ${selectedOrder.poNumber || String(selectedOrderId)}? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    const res = await A().cancel(selectedOrderId);
+    showMessage(
+      res?.message ||
+        (res?.ok ? 'Purchase order cancelled.' : 'Purchase order could not be cancelled.'),
+      res?.ok ? 'success' : 'error'
+    );
+    if (res?.ok) {
+      await refreshPurchaseOrderLiveState({
+        includePageData: true,
+        showLoading: false,
+        refreshDetail: true,
+      });
     }
   }
 
@@ -367,6 +528,16 @@
       eventOptions
     );
     $id('poBackButton')?.addEventListener('click', clearDraft, eventOptions);
+    $id('poRequestApprovalButton')?.addEventListener(
+      'click',
+      () => approveSelectedOrder().catch(() => showMessage('Approval request failed.', 'error')),
+      eventOptions
+    );
+    $id('poCancelCurrentButton')?.addEventListener(
+      'click',
+      () => cancelSelectedOrder().catch(() => showMessage('Cancel request failed.', 'error')),
+      eventOptions
+    );
     $id('addPoItemButton')?.addEventListener('click', addDraftItem, eventOptions);
     $id('poBarcodeButton')?.addEventListener('click', addDraftItem, eventOptions);
     $id('poBarcodeInput')?.addEventListener('change', fillProductFields, eventOptions);
@@ -438,5 +609,6 @@
     renderUI,
     updateUI,
     destroyUI,
+    refreshPurchaseOrderLiveState,
   };
 })();
