@@ -249,6 +249,9 @@
         discount: 0,
         displayTotal: Number(price.toFixed(2)),
         unit: product.unit || 'pcs',
+        originalUnitPrice: Number(price.toFixed(2)),
+        priceOverrideReason: '',
+        priceUnlocked: false,
         allowSalePriceOverride: product.allowSalePriceOverride === true,
         trackExpiry: product.trackExpiry === true,
         expiryRequired: product.expiryRequired === true,
@@ -350,6 +353,20 @@
     if (field === 'price' && autoAdvanceUnitPrice) renderCart();
   }
 
+  function unlockCartItemPrice(index, reason) {
+    const item = getCart().items[index];
+    const cleanReason = String(reason || '').trim();
+    if (!item || item.allowSalePriceOverride !== true || !cleanReason) return false;
+    item.originalUnitPrice = Number(item.originalUnitPrice ?? item.unitPrice);
+    item.priceOverrideReason = cleanReason;
+    item.priceUnlocked = true;
+    renderCart();
+    const input = ui('cartTableBody')?.querySelector(`[data-cart-price="${index}"]`);
+    input?.focus();
+    input?.select();
+    return true;
+  }
+
   // ── Cart rendering ────────────────────────────────────────────────────────
 
   function renderCart() {
@@ -384,7 +401,13 @@
           <div style="font-weight:600;font-size:.83rem">${esc(item.name)}</div>
           ${item.sku ? `<div style="font-size:.7rem;color:#9ca3af">${esc(item.sku)}</div>` : ''}
           <div class="epos-cart-policy-badges">
-            ${item.allowSalePriceOverride ? '<span class="epos-cart-badge epos-cart-badge-editable">Price editable</span>' : '<span class="epos-cart-badge epos-cart-badge-locked">Price locked</span>'}
+            ${
+              item.allowSalePriceOverride
+                ? item.priceUnlocked
+                  ? '<span class="epos-cart-badge epos-cart-badge-editable">Price unlocked</span>'
+                  : `<button type="button" class="epos-cart-badge epos-cart-badge-editable epos-cart-price-unlock" data-unlock-price="${i}" title="Unlock unit price with Admin approval">Unlock Price</button>`
+                : '<span class="epos-cart-badge epos-cart-badge-locked">Price locked</span>'
+            }
             ${item.expiryRequired ? '<span class="epos-cart-badge epos-cart-badge-required">Expiry required</span>' : item.trackExpiry ? '<span class="epos-cart-badge epos-cart-badge-expiry">Expiry tracked</span>' : ''}
           </div>
         </td>
@@ -402,7 +425,7 @@
           </div>
         </td>
         <td><input type="number" min="0" step="0.01" value="${item.unitPrice}"
-          data-cart-price="${i}" class="epos-cart-discount ${item.allowSalePriceOverride ? 'epos-cart-price-editable' : 'epos-cart-price-locked'}" style="text-align:right" ${item.allowSalePriceOverride ? '' : 'readonly title="Sale price is locked by product policy."'} /></td>
+          data-cart-price="${i}" class="epos-cart-discount ${item.priceUnlocked ? 'epos-cart-price-editable' : 'epos-cart-price-locked'}" style="text-align:right" ${item.priceUnlocked ? '' : `readonly title="${item.allowSalePriceOverride ? 'Unlock price before editing.' : 'Sale price is locked by product policy.'}"`} /></td>
         <td>
           <input type="number" min="0" step="0.01" value="${item.discount}"
             data-cart-disc="${i}" class="epos-cart-discount" style="text-align:right"/>
@@ -621,6 +644,10 @@ Method: ${receipt.paymentMethod || 'Cash'}${
       discount: Number(i.discount || 0),
       displayTotal: Number(i.total) || 0,
       unit: i.unit || 'pcs',
+      originalUnitPrice: Number(i.originalUnitPrice ?? i.unitPrice),
+      priceOverrideReason: String(i.priceOverrideReason || ''),
+      priceUnlocked: i.priceUnlocked === true,
+      allowSalePriceOverride: i.allowSalePriceOverride === true,
     }));
     carts[activeCart].customerId = hold.customerId || null;
     renderCart();
@@ -692,6 +719,9 @@ Method: ${receipt.paymentMethod || 'Cash'}${
         unitPrice: i.unitPrice,
         discount: i.discount,
         total: Number(i.displayTotal) || 0,
+        originalUnitPrice: i.originalUnitPrice,
+        priceOverrideReason: i.priceOverrideReason,
+        priceUnlocked: i.priceUnlocked === true,
       })),
       customerId: customerId ? Number(customerId) : null,
       subtotal,
@@ -721,6 +751,7 @@ Method: ${receipt.paymentMethod || 'Cash'}${
     clearCartDisplay,
     switchToCart,
     refreshCartItemDisplay,
+    unlockCartItemPrice,
     setCartCustomer, // controlled customer ID setter
     // Rendering
     renderCart,

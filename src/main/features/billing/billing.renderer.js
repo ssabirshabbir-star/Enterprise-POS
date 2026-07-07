@@ -115,6 +115,45 @@
     return gate.ok;
   }
 
+  async function currentProfile() {
+    try {
+      const result = await window.AuthApi?.profile?.();
+      return result?.ok ? result.profile : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function unlockPriceFromUI(index) {
+    const item = C().getCart().items[index];
+    if (!item || item.allowSalePriceOverride !== true) {
+      C().showMsg('This product price is locked by product policy.', true);
+      return;
+    }
+    const profile = await currentProfile();
+    if (profile?.role !== 'Admin') {
+      C().showMsg('Only Admin can unlock unit price changes.', true);
+      return;
+    }
+    let confirmed = false;
+    try {
+      confirmed = await window.posApi.dialog.confirm(
+        `Unlock unit price for ${item.name}? This price change will be audited.`
+      );
+    } catch {
+      confirmed = false;
+    }
+    if (!confirmed) return;
+    const reason = window.prompt?.('Enter reason for unit price change:') || '';
+    if (!reason.trim()) {
+      C().showMsg('Price unlock reason is required.', true);
+      return;
+    }
+    if (C().unlockCartItemPrice(index, reason)) {
+      C().showMsg('Unit price unlocked for this item.');
+    }
+  }
+
   async function refreshBillingLiveState(options = {}) {
     const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
 
@@ -356,6 +395,10 @@
         unitPrice: i.unitPrice,
         discount: i.discount,
         total: Number(i.displayTotal) || 0,
+        originalUnitPrice: i.originalUnitPrice,
+        priceOverrideReason: i.priceOverrideReason,
+        priceUnlocked: i.priceUnlocked === true,
+        allowSalePriceOverride: i.allowSalePriceOverride === true,
       })),
       customerId: cart.customerId || null,
       note: `Cart ${C().getActiveCart() + 1} - ${cart.items.length} items`,
@@ -586,6 +629,12 @@
       tbody.addEventListener('input', updateCartInput);
       tbody.addEventListener('change', updateCartInput);
       tbody.addEventListener('click', (e) => {
+        const unlock = e.target.closest('[data-unlock-price]');
+        if (unlock) {
+          unlockPriceFromUI(Number(unlock.dataset.unlockPrice));
+          return;
+        }
+
         const btn = e.target.closest(UI.selectors.removeItem);
         if (btn) {
           C().removeCartItem(Number(btn.dataset.removeItem));

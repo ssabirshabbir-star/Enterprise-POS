@@ -1153,6 +1153,11 @@
   }
   .epos-cart-badge-locked { background: #f1f5f9; color: #475569; }
   .epos-cart-badge-editable { background: #dbeafe; color: #1d4ed8; }
+  .epos-cart-price-unlock {
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+  }
   .epos-cart-badge-expiry { background: #fef3c7; color: #92400e; }
   .epos-cart-badge-required { background: #fee2e2; color: #b91c1c; }
   .epos-billing-shell.epos-invoice-ui .epos-cart-discount-wrap {

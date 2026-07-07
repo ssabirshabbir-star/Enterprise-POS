@@ -112,6 +112,7 @@ async function completeSale(payload = {}) {
   if (items.length === 0) return { ok: false, message: 'Cart is empty.' };
 
   const cleanItems = [];
+  const priceOverrides = [];
   const productPolicies = await billingRepository.getSaleProductPolicies(
     items.map((item) => item.productId)
   );
@@ -133,7 +134,15 @@ async function completeSale(payload = {}) {
     if (productPolicy.allowSalePriceOverride && priceWasChanged) {
       if (!canOverridePrice)
         return { ok: false, message: 'You do not have permission to override sale price.' };
+      const reason = String(item.priceOverrideReason || '').trim();
+      if (!reason) return { ok: false, message: 'Price override reason is required.' };
       unitPrice = requestedUnitPrice;
+      priceOverrides.push({
+        productId,
+        originalUnitPrice: masterUnitPrice,
+        overriddenUnitPrice: unitPrice,
+        reason,
+      });
     }
     if (itemQuantity === null)
       return { ok: false, message: 'Cart quantity must be greater than zero.' };
@@ -193,7 +202,13 @@ async function completeSale(payload = {}) {
       action: 'sale.complete',
       status: 'success',
       message: 'Sale completed',
-      metadata: { saleId: sale.id, invoiceNumber, grandTotal },
+      metadata: {
+        saleId: sale.id,
+        invoiceNumber,
+        grandTotal,
+        priceOverrideCount: priceOverrides.length,
+        priceOverrides,
+      },
     });
     return { ok: true, receipt, message: 'Sale completed successfully.' };
   } catch (error) {
