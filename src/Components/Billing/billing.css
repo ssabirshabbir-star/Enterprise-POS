@@ -871,7 +871,7 @@
     gap: 0 !important;
     min-height: var(--epos-hero-search-height) !important;
     margin: 0 !important;
-    padding: 3px 10px 3px 8px !important;
+    padding: 3px 10px 3px 6px !important;
     overflow: hidden;
     isolation: isolate;
     border: 1px solid #a9b6c9;
