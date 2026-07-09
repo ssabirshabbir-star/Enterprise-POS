@@ -2,6 +2,7 @@ const {
   BARCODE_FORMATS,
   LABEL_SIZES,
   ORIENTATIONS,
+  PRINT_JOB_LIMITS,
   PRINTER_TYPES,
 } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
@@ -77,10 +78,10 @@ function validateBarcodeValue(format, rawValue) {
 
 function validateCopies(value) {
   const copies = Number(value ?? 1);
-  if (!Number.isInteger(copies) || copies < 1 || copies > 100) {
+  if (!Number.isInteger(copies) || copies < 1 || copies > PRINT_JOB_LIMITS.MAX_COPIES_PER_LABEL) {
     throw new BarcodeDomainError(
       BARCODE_ERROR_CODES.INVALID_COPIES,
-      'Copies must be a whole number between 1 and 100.',
+      `Copies must be a whole number between 1 and ${PRINT_JOB_LIMITS.MAX_COPIES_PER_LABEL}.`,
       'copies'
     );
   }

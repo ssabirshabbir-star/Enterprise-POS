@@ -5,6 +5,10 @@ const { createBarcodeAuditEvent } = require('./barcode-audit.model');
 const { createBarcodeLabel } = require('./barcode-label.model');
 const { encodeBarcode } = require('./barcode.encoder');
 const { createLabelRenderDocument } = require('./label-render.engine');
+const { createLabelLayout } = require('./label-layout.engine');
+const { createPrintLifecycleEvent } = require('./print-lifecycle.model');
+const { createPrintJob } = require('./print-job.model');
+const { createPrinterTarget } = require('./printer-target.model');
 
 module.exports = {
   ...constants,
@@ -13,5 +17,9 @@ module.exports = {
   createBarcodeAuditEvent,
   createBarcodeLabel,
   createLabelRenderDocument,
+  createLabelLayout,
+  createPrintJob,
+  createPrintLifecycleEvent,
+  createPrinterTarget,
   encodeBarcode,
 };

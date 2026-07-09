@@ -1,20 +1,6 @@
 const { BARCODE_AUDIT_EVENTS } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
-
-function immutableMetadata(value) {
-  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return value;
-  if (Array.isArray(value)) return Object.freeze(value.map(immutableMetadata));
-  if (typeof value === 'object') {
-    return Object.freeze(
-      Object.fromEntries(Object.entries(value).map(([key, item]) => [key, immutableMetadata(item)]))
-    );
-  }
-  throw new BarcodeDomainError(
-    BARCODE_ERROR_CODES.INVALID_REQUEST,
-    'Barcode audit metadata contains an unsupported value.',
-    'metadata'
-  );
-}
+const { freezePlainData } = require('./immutable');
 
 function createBarcodeAuditEvent(input = {}) {
   const eventType = String(input.eventType || '').trim();
@@ -63,7 +49,7 @@ function createBarcodeAuditEvent(input = {}) {
     productIds: Object.freeze(productIds),
     occurredAt,
     errorCode: input.errorCode ? String(input.errorCode) : null,
-    metadata: immutableMetadata(input.metadata || {}),
+    metadata: freezePlainData(input.metadata || {}, 'metadata'),
   });
 }
 

@@ -80,6 +80,7 @@ function createLabelRenderDocument(input = {}) {
     immutable: true,
     units: 'mm',
     page: Object.freeze({
+      labelSizeId: label.labelSize.id,
       widthMm: label.labelSize.widthMm,
       heightMm: label.labelSize.heightMm,
       orientation: label.orientation,
