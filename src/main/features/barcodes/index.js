@@ -10,6 +10,12 @@ const { encodeBarcode } = require('./barcode.encoder');
 const { createLabelRenderDocument } = require('./label-render.engine');
 const { createLabelLayout } = require('./label-layout.engine');
 const { createPreviewDocument } = require('./preview-document.model');
+const {
+  createDefaultPrinterAdapterRegistry,
+  createPrinterAdapterContract,
+  resolvePrinterAdapterContract,
+  validatePrinterAdapterContract,
+} = require('./printer-adapter.contract');
 const { createPrinterExecutorContract } = require('./printer-executor.contract');
 const { preparePrintExecution } = require('./print-execution.service');
 const { createPrintLifecycleEvent, transitionPrintLifecycle } = require('./print-lifecycle.model');
@@ -24,15 +30,19 @@ module.exports = {
   createBarcodeOrchestrator,
   createBarcodeAuditEvent,
   createBarcodeLabel,
+  createDefaultPrinterAdapterRegistry,
   createLabelRenderDocument,
   createLabelLayout,
   createPreviewDocument,
   createPrintJob,
   createPrintLifecycleEvent,
+  createPrinterAdapterContract,
   createPrinterExecutorContract,
   createPrinterTarget,
   encodeBarcode,
   preparePrintExecution,
+  resolvePrinterAdapterContract,
   transitionPrintLifecycle,
   validateAuthoritativeProducts,
+  validatePrinterAdapterContract,
 };

@@ -77,10 +77,24 @@ describe('barcode contracts', () => {
       });
       const layout = barcodes.createLabelLayout(job);
       const contract = barcodes.createPrinterExecutorContract(job.printer);
+      const adapter = barcodes.resolvePrinterAdapterContract(
+        Object.freeze({
+          kind: 'barcode_execution_plan',
+          schemaVersion: 1,
+          immutable: true,
+          executor: contract,
+        })
+      );
       assert.equal(layout.placementCount, 1);
       assert.equal(contract.executorType, executorType);
       assert.equal(contract.osExecutionAvailable, false);
       assert.equal(contract.execute, undefined);
+      assert.equal(adapter.executorType, executorType);
+      assert.equal(adapter.executionEnabled, false);
+      assert.equal(adapter.osExecutionAvailable, false);
+      assert.equal(adapter.filesystemOutput, false);
+      assert.equal(adapter.rendererDispatch, false);
+      assert.equal(adapter.execute, undefined);
     }
   });
 
@@ -150,9 +164,49 @@ describe('barcode contracts', () => {
 
     assert(Object.isFrozen(plan));
     assert(Object.isFrozen(plan.preview.pages));
+    assert(Object.isFrozen(plan.adapter));
     assert.equal(plan.preview.representation, 'plain_data');
     assert.equal(plan.preview.executable, false);
+    assert.equal(plan.adapter.mode, barcodes.PRINTER_ADAPTER_MODES.CONTRACT_ONLY);
+    assert.equal(plan.adapter.publicSurface, false);
+    assert.equal(plan.adapter.executionEnabled, false);
     assert.equal(plan.executionCapabilities.osPrint, false);
+  });
+
+  it('keeps printer adapter infrastructure contract-only and compatible', () => {
+    const job = printJob();
+    const requested = lifecycle({
+      eventId: 'event-requested',
+      state: barcodes.PRINT_LIFECYCLE_STATES.REQUESTED,
+      occurredAt: '2026-01-01T00:00:00.000Z',
+    });
+    const prepared = barcodes.transitionPrintLifecycle(requested, {
+      eventId: 'event-prepared',
+      state: barcodes.PRINT_LIFECYCLE_STATES.PREPARED,
+      occurredAt: '2026-01-01T00:00:01.000Z',
+    });
+    const plan = barcodes.preparePrintExecution({
+      executionId: 'execution-1',
+      job,
+      previousLifecycle: requested,
+      lifecycle: prepared,
+    });
+    const registry = barcodes.createDefaultPrinterAdapterRegistry();
+    const adapter = barcodes.resolvePrinterAdapterContract(plan, registry);
+
+    assert(Object.isFrozen(registry));
+    assert(Object.isFrozen(adapter));
+    assert.deepEqual(adapter, plan.adapter);
+    assert.equal(adapter.inputContract, 'barcode_execution_plan_v1');
+    assert.equal(adapter.resultContract, 'external_printer_adapter_result_v1');
+    assert.throws(() =>
+      barcodes.createPrinterAdapterContract({
+        adapterId: 'unsafe-adapter',
+        executorType: plan.executor.executorType,
+        execute() {},
+      })
+    );
+    assert.throws(() => barcodes.validatePrinterAdapterContract(registry[1], plan));
   });
 
   it('validates complete adapter results and rejects partial or unknown responses', () => {

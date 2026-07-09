@@ -1,8 +1,10 @@
+const { isDeepStrictEqual } = require('node:util');
 const { PRINT_LIFECYCLE_STATES } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
 const { createLabelLayout } = require('./label-layout.engine');
 const { validateIdentifier } = require('./model-validation');
 const { createPreviewDocument } = require('./preview-document.model');
+const { resolvePrinterAdapterContract } = require('./printer-adapter.contract');
 const { createPrinterExecutorContract } = require('./printer-executor.contract');
 const { validatePrintJobModel } = require('./print-job.model');
 const {
@@ -33,6 +35,15 @@ function preparePrintExecution(input = {}) {
   const layout = createLabelLayout(job);
   const preview = createPreviewDocument(job, layout);
   const executor = createPrinterExecutorContract(job.printer);
+  const adapter = resolvePrinterAdapterContract(
+    Object.freeze({
+      kind: 'barcode_execution_plan',
+      schemaVersion: 1,
+      immutable: true,
+      executor,
+    }),
+    input.adapterRegistry
+  );
 
   return Object.freeze({
     kind: 'barcode_execution_plan',
@@ -49,6 +60,7 @@ function preparePrintExecution(input = {}) {
     lifecycle,
     printer: job.printer,
     executor,
+    adapter,
     layout,
     preview,
     executionCapabilities: Object.freeze({
@@ -94,4 +106,3 @@ module.exports = {
   preparePrintExecution,
   validatePrintExecutionPlan,
 };
-const { isDeepStrictEqual } = require('node:util');

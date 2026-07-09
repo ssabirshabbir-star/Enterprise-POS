@@ -95,6 +95,16 @@ const ADAPTER_RESULT_STATUSES = Object.freeze({
   CANCELLED: 'cancelled',
 });
 
+const PRINTER_EXECUTOR_TYPES = Object.freeze({
+  THERMAL_LABEL: 'thermal_label_executor',
+  STANDARD_LABEL: 'standard_label_executor',
+  A4_SHEET: 'a4_sheet_executor',
+});
+
+const PRINTER_ADAPTER_MODES = Object.freeze({
+  CONTRACT_ONLY: 'contract_only',
+});
+
 const BARCODE_PERMISSIONS = Object.freeze({
   VALIDATE_LABEL: 'barcodes.labels.validate',
   REQUEST_PRINT: 'barcodes.print.request',
@@ -117,6 +127,8 @@ module.exports = {
   BARCODE_PERMISSIONS,
   LABEL_SIZES,
   ORIENTATIONS,
+  PRINTER_ADAPTER_MODES,
+  PRINTER_EXECUTOR_TYPES,
   PRINTER_TARGET_KINDS,
   PRINTER_TYPES,
   PRINT_JOB_LIMITS,

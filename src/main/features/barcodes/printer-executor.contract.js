@@ -1,12 +1,12 @@
 const { isDeepStrictEqual } = require('node:util');
-const { PRINTER_TARGET_KINDS } = require('./barcode.constants');
+const { PRINTER_EXECUTOR_TYPES, PRINTER_TARGET_KINDS } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
 const { createPrinterTarget } = require('./printer-target.model');
 
 const EXECUTOR_TYPES = Object.freeze({
-  [PRINTER_TARGET_KINDS.THERMAL_LABEL]: 'thermal_label_executor',
-  [PRINTER_TARGET_KINDS.STANDARD_LABEL]: 'standard_label_executor',
-  [PRINTER_TARGET_KINDS.A4_SHEET]: 'a4_sheet_executor',
+  [PRINTER_TARGET_KINDS.THERMAL_LABEL]: PRINTER_EXECUTOR_TYPES.THERMAL_LABEL,
+  [PRINTER_TARGET_KINDS.STANDARD_LABEL]: PRINTER_EXECUTOR_TYPES.STANDARD_LABEL,
+  [PRINTER_TARGET_KINDS.A4_SHEET]: PRINTER_EXECUTOR_TYPES.A4_SHEET,
 });
 
 function createPrinterExecutorContract(printer) {
