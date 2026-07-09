@@ -11,6 +11,14 @@ const { createLabelRenderDocument } = require('./label-render.engine');
 const { createLabelLayout } = require('./label-layout.engine');
 const { createPreviewDocument } = require('./preview-document.model');
 const {
+  createPreviewWindowContract,
+  validatePreviewWindowContract,
+} = require('./preview-window.contract');
+const {
+  createPrintDialogContract,
+  validatePrintDialogContract,
+} = require('./print-dialog.contract');
+const {
   createDefaultPrinterAdapterRegistry,
   createPrinterAdapterContract,
   resolvePrinterAdapterContract,
@@ -34,6 +42,8 @@ module.exports = {
   createLabelRenderDocument,
   createLabelLayout,
   createPreviewDocument,
+  createPreviewWindowContract,
+  createPrintDialogContract,
   createPrintJob,
   createPrintLifecycleEvent,
   createPrinterAdapterContract,
@@ -44,5 +54,7 @@ module.exports = {
   resolvePrinterAdapterContract,
   transitionPrintLifecycle,
   validateAuthoritativeProducts,
+  validatePreviewWindowContract,
+  validatePrintDialogContract,
   validatePrinterAdapterContract,
 };

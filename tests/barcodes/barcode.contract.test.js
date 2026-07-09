@@ -209,6 +209,73 @@ describe('barcode contracts', () => {
     assert.throws(() => barcodes.validatePrinterAdapterContract(registry[1], plan));
   });
 
+  it('keeps preview window and print dialog contracts design-only', () => {
+    const job = printJob();
+    const requested = lifecycle({
+      eventId: 'event-requested',
+      state: barcodes.PRINT_LIFECYCLE_STATES.REQUESTED,
+      occurredAt: '2026-01-01T00:00:00.000Z',
+    });
+    const prepared = barcodes.transitionPrintLifecycle(requested, {
+      eventId: 'event-prepared',
+      state: barcodes.PRINT_LIFECYCLE_STATES.PREPARED,
+      occurredAt: '2026-01-01T00:00:01.000Z',
+    });
+    const plan = barcodes.preparePrintExecution({
+      executionId: 'execution-1',
+      job,
+      previousLifecycle: requested,
+      lifecycle: prepared,
+    });
+    const previewWindow = barcodes.createPreviewWindowContract({
+      previewWindowId: 'preview-window-1',
+      executionPlan: plan,
+    });
+    const printDialog = barcodes.createPrintDialogContract({
+      printDialogId: 'print-dialog-1',
+      executionPlan: plan,
+    });
+
+    assert(Object.isFrozen(previewWindow));
+    assert(Object.isFrozen(printDialog));
+    assert.equal(previewWindow.mode, barcodes.PREVIEW_WINDOW_MODES.DESIGN_ONLY);
+    assert.equal(printDialog.mode, barcodes.PRINT_DIALOG_MODES.DESIGN_ONLY);
+    assert.equal(previewWindow.windowCreationEnabled, false);
+    assert.equal(previewWindow.electronPreview, false);
+    assert.equal(previewWindow.filesystemOutput, false);
+    assert.equal(previewWindow.osPrint, false);
+    assert.equal(previewWindow.open, undefined);
+    assert.equal(printDialog.dialogCreationEnabled, false);
+    assert.equal(printDialog.printExecutionEnabled, false);
+    assert.equal(printDialog.electronDialog, false);
+    assert.equal(printDialog.filesystemOutput, false);
+    assert.equal(printDialog.osPrint, false);
+    assert.equal(printDialog.print, undefined);
+    assert.equal(printDialog.labelSummary.totalOutputLabels, job.totalOutputLabels);
+    assert.equal(
+      barcodes.validatePreviewWindowContract(previewWindow, plan).previewWindowId,
+      previewWindow.previewWindowId
+    );
+    assert.equal(
+      barcodes.validatePrintDialogContract(printDialog, plan).printDialogId,
+      printDialog.printDialogId
+    );
+    assert.throws(() =>
+      barcodes.createPreviewWindowContract({
+        previewWindowId: 'unsafe-preview',
+        executionPlan: plan,
+        open() {},
+      })
+    );
+    assert.throws(() =>
+      barcodes.createPrintDialogContract({
+        printDialogId: 'unsafe-dialog',
+        executionPlan: plan,
+        print() {},
+      })
+    );
+  });
+
   it('validates complete adapter results and rejects partial or unknown responses', () => {
     const job = printJob();
     const requested = lifecycle({

@@ -105,6 +105,14 @@ const PRINTER_ADAPTER_MODES = Object.freeze({
   CONTRACT_ONLY: 'contract_only',
 });
 
+const PREVIEW_WINDOW_MODES = Object.freeze({
+  DESIGN_ONLY: 'design_only',
+});
+
+const PRINT_DIALOG_MODES = Object.freeze({
+  DESIGN_ONLY: 'design_only',
+});
+
 const BARCODE_PERMISSIONS = Object.freeze({
   VALIDATE_LABEL: 'barcodes.labels.validate',
   REQUEST_PRINT: 'barcodes.print.request',
@@ -127,6 +135,8 @@ module.exports = {
   BARCODE_PERMISSIONS,
   LABEL_SIZES,
   ORIENTATIONS,
+  PREVIEW_WINDOW_MODES,
+  PRINT_DIALOG_MODES,
   PRINTER_ADAPTER_MODES,
   PRINTER_EXECUTOR_TYPES,
   PRINTER_TARGET_KINDS,

@@ -17,6 +17,8 @@ const BARCODE_ERROR_CODES = Object.freeze({
   INVALID_ORIENTATION: 'barcode.invalid_orientation',
   INVALID_PRINTER: 'barcode.invalid_printer',
   INVALID_PREVIEW: 'barcode.invalid_preview',
+  INVALID_PREVIEW_WINDOW: 'barcode.invalid_preview_window',
+  INVALID_PRINT_DIALOG: 'barcode.invalid_print_dialog',
   INVALID_PRODUCT: 'barcode.invalid_product',
   INVALID_REQUEST: 'barcode.invalid_request',
   INVALID_TRANSITION: 'barcode.invalid_transition',
