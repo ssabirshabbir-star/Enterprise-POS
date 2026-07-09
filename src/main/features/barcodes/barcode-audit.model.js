@@ -1,6 +1,7 @@
 const { BARCODE_AUDIT_EVENTS } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
 const { freezePlainData } = require('./immutable');
+const { validateOptionalText } = require('./model-validation');
 
 function createBarcodeAuditEvent(input = {}) {
   const eventType = String(input.eventType || '').trim();
@@ -48,7 +49,12 @@ function createBarcodeAuditEvent(input = {}) {
     userId,
     productIds: Object.freeze(productIds),
     occurredAt,
-    errorCode: input.errorCode ? String(input.errorCode) : null,
+    errorCode: validateOptionalText(
+      input.errorCode,
+      'errorCode',
+      120,
+      BARCODE_ERROR_CODES.INVALID_REQUEST
+    ),
     metadata: freezePlainData(input.metadata || {}, 'metadata'),
   });
 }

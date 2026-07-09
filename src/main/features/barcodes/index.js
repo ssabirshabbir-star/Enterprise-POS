@@ -1,7 +1,10 @@
 const constants = require('./barcode.constants');
 const errors = require('./barcode.error');
 const validation = require('./barcode.validation');
+const { createAdapterResult } = require('./adapter-result.model');
+const { validateAuthoritativeProducts } = require('./authoritative-product.validation');
 const { createBarcodeAuditEvent } = require('./barcode-audit.model');
+const { createBarcodeOrchestrator } = require('./barcode-orchestrator.service');
 const { createBarcodeLabel } = require('./barcode-label.model');
 const { encodeBarcode } = require('./barcode.encoder');
 const { createLabelRenderDocument } = require('./label-render.engine');
@@ -17,6 +20,8 @@ module.exports = {
   ...constants,
   ...errors,
   ...validation,
+  createAdapterResult,
+  createBarcodeOrchestrator,
   createBarcodeAuditEvent,
   createBarcodeLabel,
   createLabelRenderDocument,
@@ -29,4 +34,5 @@ module.exports = {
   encodeBarcode,
   preparePrintExecution,
   transitionPrintLifecycle,
+  validateAuthoritativeProducts,
 };

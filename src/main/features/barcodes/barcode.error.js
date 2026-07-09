@@ -1,6 +1,7 @@
 const BARCODE_ERROR_CODES = Object.freeze({
   ACCESS_DENIED: 'barcode.access_denied',
   AUTHENTICATION_REQUIRED: 'barcode.authentication_required',
+  DUPLICATE_LIFECYCLE_EVENT: 'barcode.duplicate_lifecycle_event',
   ENCODING_FAILED: 'barcode.encoding_failed',
   INVALID_BARCODE: 'barcode.invalid_value',
   INVALID_BATCH: 'barcode.invalid_batch',
@@ -19,7 +20,10 @@ const BARCODE_ERROR_CODES = Object.freeze({
   INVALID_PRODUCT: 'barcode.invalid_product',
   INVALID_REQUEST: 'barcode.invalid_request',
   INVALID_TRANSITION: 'barcode.invalid_transition',
+  INVALID_ADAPTER_RESULT: 'barcode.invalid_adapter_result',
+  PRODUCT_NOT_PRINTABLE: 'barcode.product_not_printable',
   RENDER_FAILED: 'barcode.render_failed',
+  STALE_PRODUCT: 'barcode.stale_product',
 });
 
 class BarcodeDomainError extends Error {

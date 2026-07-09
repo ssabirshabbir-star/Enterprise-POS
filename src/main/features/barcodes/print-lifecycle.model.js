@@ -125,6 +125,7 @@ function validatePrintLifecycleTransition(previous, next) {
   const candidate = validatePrintLifecycleEvent(next);
   if (
     candidate.jobId !== current.jobId ||
+    candidate.eventId === current.eventId ||
     candidate.previousEventId !== current.eventId ||
     !TRANSITIONS[current.state].includes(candidate.state)
   ) {

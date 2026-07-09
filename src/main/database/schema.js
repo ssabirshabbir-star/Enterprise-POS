@@ -371,6 +371,24 @@ async function initializeDatabase() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS barcode_print_events (
+        id BIGSERIAL PRIMARY KEY,
+        event_id VARCHAR(120) UNIQUE NOT NULL,
+        job_id VARCHAR(120) NOT NULL,
+        previous_event_id VARCHAR(120) REFERENCES barcode_print_events(event_id) ON DELETE RESTRICT,
+        lifecycle_state VARCHAR(40) NOT NULL,
+        audit_event VARCHAR(80) NOT NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        product_ids BIGINT[] NOT NULL,
+        result_id VARCHAR(120) UNIQUE,
+        error_code VARCHAR(120),
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        occurred_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
     await client.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users (LOWER(email));');
     await client.query(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (LOWER(username));'
@@ -385,6 +403,12 @@ async function initializeDatabase() {
     );
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs (created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_barcode_print_events_job ON barcode_print_events (job_id, occurred_at);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_barcode_print_events_created ON barcode_print_events (created_at DESC);'
     );
 
     await client.query(`

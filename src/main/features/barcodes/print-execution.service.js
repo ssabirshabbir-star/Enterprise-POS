@@ -60,6 +60,38 @@ function preparePrintExecution(input = {}) {
   });
 }
 
+function validatePrintExecutionPlan(plan) {
+  if (
+    !plan ||
+    plan.kind !== 'barcode_execution_plan' ||
+    plan.schemaVersion !== 1 ||
+    plan.immutable !== true ||
+    !Object.isFrozen(plan)
+  ) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_EXECUTION,
+      'An immutable barcode execution plan is required.',
+      'executionPlan'
+    );
+  }
+  const rebuilt = preparePrintExecution({
+    executionId: plan.executionId,
+    job: plan.job,
+    previousLifecycle: plan.lifecycleHistory?.[0],
+    lifecycle: plan.lifecycle,
+  });
+  if (!isDeepStrictEqual(plan, rebuilt)) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_EXECUTION,
+      'Barcode execution plan failed deterministic validation.',
+      'executionPlan'
+    );
+  }
+  return rebuilt;
+}
+
 module.exports = {
   preparePrintExecution,
+  validatePrintExecutionPlan,
 };
+const { isDeepStrictEqual } = require('node:util');

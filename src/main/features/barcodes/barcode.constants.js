@@ -89,6 +89,12 @@ const PRINT_LIFECYCLE_STATES = Object.freeze({
   COMPLETED: 'print_completed',
 });
 
+const ADAPTER_RESULT_STATUSES = Object.freeze({
+  PRINTED: 'printed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+});
+
 const BARCODE_PERMISSIONS = Object.freeze({
   VALIDATE_LABEL: 'barcodes.labels.validate',
   REQUEST_PRINT: 'barcodes.print.request',
@@ -105,6 +111,7 @@ const BARCODE_AUDIT_EVENTS = Object.freeze({
 });
 
 module.exports = {
+  ADAPTER_RESULT_STATUSES,
   BARCODE_AUDIT_EVENTS,
   BARCODE_FORMATS,
   BARCODE_PERMISSIONS,
