@@ -1394,13 +1394,6 @@
     font-size: 13px;
     font-weight: var(--epos-font-weight-black);
   }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid #completeSaleButton .epos-pay-amount {
-    display: block !important;
-    color: #065f46;
-    font-size: 10px;
-    font-weight: var(--epos-font-weight-black);
-    line-height: 1.1;
-  }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button {
     filter: saturate(0.78) brightness(0.98);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.36), inset 0 -2px 0 rgb(0 0 0 / 0.12), 0 2px 0 rgb(15 23 42 / 0.12), 0 6px 10px rgb(15 23 42 / 0.12) !important;

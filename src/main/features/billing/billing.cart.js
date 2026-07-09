@@ -319,7 +319,7 @@
     if (totalEl) totalEl.textContent = fmt(item.displayTotal);
   }
 
-  function refreshCartItemDisplay(index, field, value) {
+  function refreshCartItemDisplay(index, field, value, options = {}) {
     const item = getCart().items[index];
     if (!item) return;
     if (field === 'qty' && String(value).trim() === '') return;
@@ -350,7 +350,7 @@
       pulseCartRow(index);
       pulseSummaryTotals();
     }
-    if (field === 'price' && autoAdvanceUnitPrice) renderCart();
+    if (field === 'price' && autoAdvanceUnitPrice && options.commit === true) renderCart();
   }
 
   function unlockCartItemPrice(index, reason) {

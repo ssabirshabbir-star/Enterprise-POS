@@ -38,6 +38,7 @@
   let customerLoadSeq = 0;
   let heldSalesLoadSeq = 0;
   let cTimer = null; // customer search debounce — module-scoped for clarity
+  let pendingPriceUnlock = null;
 
   /** Lightweight, removable logger — non-intrusive, no side effects */
   const LOG = () => {};
@@ -66,6 +67,11 @@
       completeSaleButton: 'completeSaleButton',
       clearCartButton: 'clearCartButton',
       thermalPrintButton: 'thermalPrintButton',
+      priceUnlockModal: 'posPriceUnlockModal',
+      priceUnlockForm: 'posPriceUnlockModalForm',
+      priceUnlockReason: 'posPriceUnlockReason',
+      priceUnlockProduct: 'posPriceUnlockProduct',
+      priceUnlockMessage: 'posPriceUnlockMessage',
     },
     selectors: {
       hiddenControls: '.epos-billing-hidden-controls',
@@ -78,6 +84,7 @@
       paymentButton: '[data-payment-set]',
       cartTab: '[data-pos-cart]',
       customerClose: '[data-pos-customer-close]',
+      priceUnlockClose: '[data-pos-price-unlock-close]',
       discountModeWrap: '.epos-invoice-summary-discount',
     },
   };
@@ -124,6 +131,44 @@
     }
   }
 
+  function ensurePriceUnlockModal() {
+    if ($id('priceUnlockModal')) return;
+    const shell = document.querySelector('.epos-billing-shell');
+    if (!shell) return;
+    const modal = document.createElement('div');
+    modal.id = UI.ids.priceUnlockModal;
+    modal.className = 'epos-modal hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'posPriceUnlockModalTitle');
+    modal.innerHTML = `
+      <div class="epos-modal-backdrop" data-pos-price-unlock-close></div>
+      <form id="${UI.ids.priceUnlockForm}" class="epos-modal-card epos-modal-sm epos-form">
+        <div class="epos-modal-head">
+          <div>
+            <span class="epos-modal-kicker">Authorized Price Override</span>
+            <h3 id="posPriceUnlockModalTitle" class="epos-modal-title">Unlock Unit Price</h3>
+          </div>
+          <button type="button" class="epos-modal-close" data-pos-price-unlock-close aria-label="Close price unlock form">&times;</button>
+        </div>
+        <div class="epos-modal-body">
+          <div class="epos-form-grid">
+            <p id="${UI.ids.priceUnlockProduct}" class="epos-form-field wide"></p>
+            <label class="epos-form-field wide">
+              <span class="epos-form-label">Reason</span>
+              <textarea id="${UI.ids.priceUnlockReason}" required maxlength="500" placeholder="Enter the reason for this unit price override"></textarea>
+            </label>
+          </div>
+          <p id="${UI.ids.priceUnlockMessage}" class="hidden rounded-md px-3 py-2 text-sm" role="status"></p>
+        </div>
+        <div class="epos-form-actions">
+          <button type="button" class="epos-form-action-secondary" data-pos-price-unlock-close>Cancel</button>
+          <button type="submit" class="epos-form-action-primary">Unlock Price</button>
+        </div>
+      </form>`;
+    shell.appendChild(modal);
+  }
+
   async function unlockPriceFromUI(index) {
     const item = C().getCart().items[index];
     if (!item || item.allowSalePriceOverride !== true) {
@@ -144,14 +189,61 @@
       confirmed = false;
     }
     if (!confirmed) return;
-    const reason = window.prompt?.('Enter reason for unit price change:') || '';
-    if (!reason.trim()) {
-      C().showMsg('Price unlock reason is required.', true);
+    openPriceUnlockReason(index, item);
+  }
+
+  function showPriceUnlockMessage(message) {
+    const el = $id('priceUnlockMessage');
+    if (!el) return;
+    el.textContent = message || '';
+    el.classList.toggle('hidden', !message);
+  }
+
+  function closePriceUnlockReason() {
+    $id('priceUnlockModal')?.classList.add('hidden');
+    $id('priceUnlockForm')?.reset();
+    showPriceUnlockMessage('');
+    pendingPriceUnlock = null;
+  }
+
+  function openPriceUnlockReason(index, item) {
+    pendingPriceUnlock = { index, productId: Number(item.productId) };
+    const product = $id('priceUnlockProduct');
+    if (product) product.textContent = `Product: ${item.name}`;
+    $id('priceUnlockForm')?.reset();
+    showPriceUnlockMessage('');
+    $id('priceUnlockModal')?.classList.remove('hidden');
+    setTimeout(() => $id('priceUnlockReason')?.focus(), 0);
+  }
+
+  async function submitPriceUnlockReason(e) {
+    e.preventDefault();
+    const pending = pendingPriceUnlock;
+    const item = pending ? C().getCart().items[pending.index] : null;
+    if (
+      !item ||
+      Number(item.productId) !== pending.productId ||
+      item.allowSalePriceOverride !== true
+    ) {
+      showPriceUnlockMessage('The selected cart item is no longer available for price override.');
       return;
     }
-    if (C().unlockCartItemPrice(index, reason)) {
-      C().showMsg('Unit price unlocked for this item.');
+    const profile = await currentProfile();
+    if (profile?.role !== 'Admin') {
+      showPriceUnlockMessage('Only Admin can unlock unit price changes.');
+      return;
     }
+    const reason = String($id('priceUnlockReason')?.value || '').trim();
+    if (!reason) {
+      showPriceUnlockMessage('Price unlock reason is required.');
+      return;
+    }
+    if (!C().unlockCartItemPrice(pending.index, reason)) {
+      showPriceUnlockMessage('Unable to unlock this unit price.');
+      return;
+    }
+    closePriceUnlockReason();
+    C().showMsg('Unit price unlocked for this item.');
   }
 
   async function refreshBillingLiveState(options = {}) {
@@ -172,6 +264,10 @@
   function onKeyDown(e) {
     // Only active when the POS panel is visible
     if ($id('posPanel')?.classList.contains('hidden')) return;
+    if (!$id('priceUnlockModal')?.classList.contains('hidden')) {
+      if (e.key === 'Escape') closePriceUnlockReason();
+      return;
+    }
 
     const tag = (document.activeElement?.tagName || '').toLowerCase();
     const inInput =
@@ -622,7 +718,9 @@
         if (el.dataset.cartQty !== undefined)
           C().refreshCartItemDisplay(Number(el.dataset.cartQty), 'qty', el.value);
         if (el.dataset.cartPrice !== undefined)
-          C().refreshCartItemDisplay(Number(el.dataset.cartPrice), 'price', el.value);
+          C().refreshCartItemDisplay(Number(el.dataset.cartPrice), 'price', el.value, {
+            commit: e.type === 'change',
+          });
         if (el.dataset.cartDisc !== undefined)
           C().refreshCartItemDisplay(Number(el.dataset.cartDisc), 'disc', el.value);
       };
@@ -777,6 +875,12 @@
       .querySelectorAll(UI.selectors.customerClose)
       .forEach((el) => el.addEventListener('click', () => C().closeCustomerModal()));
 
+    // ── Authorized unit-price override modal ─────────────────────────────────
+    $id('priceUnlockForm')?.addEventListener('submit', submitPriceUnlockReason);
+    document
+      .querySelectorAll(UI.selectors.priceUnlockClose)
+      .forEach((el) => el.addEventListener('click', closePriceUnlockReason));
+
     // ── Global keyboard handler ───────────────────────────────────────────────
     document.addEventListener('keydown', onKeyDown);
   }
@@ -806,6 +910,7 @@
     // Fragment is in DOM — proceed with one-time setup and per-navigation refresh
     if (!initialized) {
       initialized = true;
+      ensurePriceUnlockModal();
       attachEvents(); // runs exactly once; inner guard as backup
     }
 
