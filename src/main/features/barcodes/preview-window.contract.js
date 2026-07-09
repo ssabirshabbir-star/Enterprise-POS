@@ -1,11 +1,14 @@
 const { isDeepStrictEqual } = require('node:util');
 const { PREVIEW_WINDOW_MODES } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
+const { createLabelLayout } = require('./label-layout.engine');
 const { validateIdentifier } = require('./model-validation');
+const { createPreviewDocument } = require('./preview-document.model');
 const { validatePrintExecutionPlan } = require('./print-execution.service');
+const { validatePrintJobModel } = require('./print-job.model');
 
 function createPreviewWindowContract(input = {}) {
-  const plan = validatePrintExecutionPlan(input.executionPlan);
+  const source = resolvePreviewSource(input);
   if (
     input.open !== undefined ||
     input.createWindow !== undefined ||
@@ -28,9 +31,10 @@ function createPreviewWindowContract(input = {}) {
       BARCODE_ERROR_CODES.INVALID_PREVIEW_WINDOW
     ),
     mode: PREVIEW_WINDOW_MODES.DESIGN_ONLY,
-    executionId: plan.executionId,
-    jobId: plan.job.jobId,
-    previewDocument: plan.preview,
+    executionId: source.executionId,
+    requestId: source.requestId,
+    jobId: source.job.jobId,
+    previewDocument: source.preview,
     title: 'Barcode Label Preview',
     windowCreationEnabled: false,
     electronPreview: false,
@@ -97,6 +101,41 @@ function validatePreviewWindowContract(contract, executionPlan = null) {
     );
   }
   return contract;
+}
+
+function resolvePreviewSource(input = {}) {
+  if (input.executionPlan) {
+    const plan = validatePrintExecutionPlan(input.executionPlan);
+    return {
+      executionId: plan.executionId,
+      requestId: null,
+      job: plan.job,
+      preview: plan.preview,
+    };
+  }
+
+  if (
+    !input.requestContext ||
+    input.requestContext.kind !== 'barcode_print_request_context' ||
+    input.requestContext.schemaVersion !== 1 ||
+    input.requestContext.immutable !== true ||
+    !Object.isFrozen(input.requestContext)
+  ) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW_WINDOW,
+      'Preview window contracts require an immutable request context or execution plan.',
+      'requestContext'
+    );
+  }
+
+  const job = validatePrintJobModel(input.requestContext.job);
+  const layout = createLabelLayout(job);
+  return {
+    executionId: null,
+    requestId: input.requestContext.lifecycle?.eventId || null,
+    job,
+    preview: createPreviewDocument(job, layout),
+  };
 }
 
 module.exports = {

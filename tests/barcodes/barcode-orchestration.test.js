@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { describe, it } = require('node:test');
+const { createBarcodeService } = require('../../src/main/features/barcodes/barcode.service');
 const { barcodes, lifecycle, printJob, product } = require('./fixtures');
 
 function harness({ initialPermissions, authoritativeProduct = product() } = {}) {
@@ -222,5 +223,95 @@ describe('barcode backend orchestration', () => {
       lifecycle: cancelled,
     });
     assert.equal(result.lifecycle.state, barcodes.PRINT_LIFECYCLE_STATES.CANCELLED);
+  });
+});
+
+describe('barcode preview request service', () => {
+  function serviceHarness({ permissions, authoritativeProduct = product(), productSequence } = {}) {
+    const records = [];
+    const sequence = Array.isArray(productSequence) ? [...productSequence] : null;
+    return {
+      records,
+      service: createBarcodeService({
+        authService: {
+          async getProfile() {
+            return {
+              ok: true,
+              profile: {
+                id: 7,
+                permissions: permissions || [barcodes.BARCODE_PERMISSIONS.REQUEST_PRINT],
+              },
+            };
+          },
+        },
+        productRepository: {
+          async findProductById(id) {
+            if (sequence?.length) {
+              const next = sequence.shift();
+              return Number(id) === Number(next?.id) ? next : null;
+            }
+            return Number(id) === Number(authoritativeProduct?.id) ? authoritativeProduct : null;
+          },
+        },
+        barcodeRepository: {
+          async persistLifecycleAudit(record) {
+            records.push(record);
+            return { id: records.length };
+          },
+        },
+      }),
+    };
+  }
+
+  function previewPayload(overrides = {}) {
+    return {
+      jobId: 'barcode-job-preview',
+      eventId: 'barcode-event-requested',
+      previewWindowId: 'preview-window-request',
+      printDialogId: 'print-dialog-request',
+      printer: { kind: 'thermal_label', name: 'Thermal Test', dpi: 203 },
+      productIds: [1],
+      label: {
+        labelSize: 'label_40x20',
+        copies: 1,
+        margins: { top: 1, right: 1, bottom: 1, left: 1 },
+        format: 'CODE128',
+      },
+      ...overrides,
+    };
+  }
+
+  it('creates immutable preview and dialog contracts with request permission only', async () => {
+    const test = serviceHarness();
+    const result = await test.service.requestPreview(previewPayload());
+
+    assert.equal(result.ok, true);
+    assert.equal(result.request.lifecycle.state, barcodes.PRINT_LIFECYCLE_STATES.REQUESTED);
+    assert.equal(result.preview.kind, 'barcode_preview_document');
+    assert.equal(result.preview.executable, false);
+    assert.equal(result.previewWindow.mode, barcodes.PREVIEW_WINDOW_MODES.DESIGN_ONLY);
+    assert.equal(result.previewWindow.windowCreationEnabled, false);
+    assert.equal(result.printDialog.mode, barcodes.PRINT_DIALOG_MODES.DESIGN_ONLY);
+    assert.equal(result.printDialog.printExecutionEnabled, false);
+    assert.equal(test.records.length, 1);
+    assert.equal(test.records[0].audit.eventType, barcodes.BARCODE_AUDIT_EVENTS.PRINT_REQUESTED);
+  });
+
+  it('rejects preview requests without request permission', async () => {
+    const test = serviceHarness({ permissions: [] });
+    const result = await test.service.requestPreview(previewPayload());
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, barcodes.BARCODE_ERROR_CODES.ACCESS_DENIED);
+  });
+
+  it('rejects stale authoritative products before returning preview data', async () => {
+    const test = serviceHarness({
+      productSequence: [product(1), product(1, { barcode: 'CHANGED' })],
+    });
+    const result = await test.service.requestPreview(previewPayload());
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, barcodes.BARCODE_ERROR_CODES.STALE_PRODUCT);
   });
 });

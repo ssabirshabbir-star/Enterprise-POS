@@ -23,6 +23,14 @@ function registerBarcodeRoutes(ipcMain) {
       return safeError(error, 'Barcode label validation error:');
     }
   });
+
+  ipcMain.handle('/barcodes/preview/request', async (_event, input) => {
+    try {
+      return await barcodeService.requestPreview(input || {});
+    } catch (error) {
+      return safeError(error, 'Barcode preview request error:');
+    }
+  });
 }
 
 module.exports = {

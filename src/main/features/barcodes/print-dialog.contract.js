@@ -1,11 +1,16 @@
 const { isDeepStrictEqual } = require('node:util');
 const { PRINT_DIALOG_MODES } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
+const { createLabelLayout } = require('./label-layout.engine');
 const { validateIdentifier } = require('./model-validation');
+const { createPreviewDocument } = require('./preview-document.model');
+const { resolvePrinterAdapterContract } = require('./printer-adapter.contract');
+const { createPrinterExecutorContract } = require('./printer-executor.contract');
 const { validatePrintExecutionPlan } = require('./print-execution.service');
+const { validatePrintJobModel } = require('./print-job.model');
 
 function createPrintDialogContract(input = {}) {
-  const plan = validatePrintExecutionPlan(input.executionPlan);
+  const source = resolveDialogSource(input);
   if (input.open !== undefined || input.print !== undefined || input.showDialog !== undefined) {
     throw new BarcodeDomainError(
       BARCODE_ERROR_CODES.INVALID_PRINT_DIALOG,
@@ -24,15 +29,16 @@ function createPrintDialogContract(input = {}) {
       BARCODE_ERROR_CODES.INVALID_PRINT_DIALOG
     ),
     mode: PRINT_DIALOG_MODES.DESIGN_ONLY,
-    executionId: plan.executionId,
-    jobId: plan.job.jobId,
-    printer: plan.printer,
-    adapter: plan.adapter,
+    executionId: source.executionId,
+    requestId: source.requestId,
+    jobId: source.job.jobId,
+    printer: source.job.printer,
+    adapter: source.adapter,
     labelSummary: Object.freeze({
-      pageCount: plan.preview.pageCount,
-      itemCount: plan.preview.itemCount,
-      totalOutputLabels: plan.job.totalOutputLabels,
-      layout: plan.printer.layout,
+      pageCount: source.preview.pageCount,
+      itemCount: source.preview.itemCount,
+      totalOutputLabels: source.job.totalOutputLabels,
+      layout: source.job.printer.layout,
     }),
     dialogCreationEnabled: false,
     printExecutionEnabled: false,
@@ -101,6 +107,52 @@ function validatePrintDialogContract(contract, executionPlan = null) {
     );
   }
   return contract;
+}
+
+function resolveDialogSource(input = {}) {
+  if (input.executionPlan) {
+    const plan = validatePrintExecutionPlan(input.executionPlan);
+    return {
+      executionId: plan.executionId,
+      requestId: null,
+      job: plan.job,
+      preview: plan.preview,
+      adapter: plan.adapter,
+    };
+  }
+
+  if (
+    !input.requestContext ||
+    input.requestContext.kind !== 'barcode_print_request_context' ||
+    input.requestContext.schemaVersion !== 1 ||
+    input.requestContext.immutable !== true ||
+    !Object.isFrozen(input.requestContext)
+  ) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PRINT_DIALOG,
+      'Print dialog contracts require an immutable request context or execution plan.',
+      'requestContext'
+    );
+  }
+
+  const job = validatePrintJobModel(input.requestContext.job);
+  const layout = createLabelLayout(job);
+  const executor = createPrinterExecutorContract(job.printer);
+  const adapter = resolvePrinterAdapterContract(
+    Object.freeze({
+      kind: 'barcode_execution_plan',
+      schemaVersion: 1,
+      immutable: true,
+      executor,
+    })
+  );
+  return {
+    executionId: null,
+    requestId: input.requestContext.lifecycle?.eventId || null,
+    job,
+    preview: createPreviewDocument(job, layout),
+    adapter,
+  };
 }
 
 module.exports = {
