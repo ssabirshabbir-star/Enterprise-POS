@@ -83,8 +83,10 @@ const PRINT_JOB_LIMITS = Object.freeze({
 const PRINT_LIFECYCLE_STATES = Object.freeze({
   REQUESTED: 'print_requested',
   PREPARED: 'print_prepared',
+  READY: 'print_ready',
   CANCELLED: 'print_cancelled',
   FAILED: 'print_failed',
+  COMPLETED: 'print_completed',
 });
 
 const BARCODE_PERMISSIONS = Object.freeze({
@@ -95,7 +97,10 @@ const BARCODE_PERMISSIONS = Object.freeze({
 
 const BARCODE_AUDIT_EVENTS = Object.freeze({
   PRINT_REQUESTED: 'barcode.print.requested',
+  PRINT_PREPARED: 'barcode.print.prepared',
+  PRINT_READY: 'barcode.print.ready',
   PRINTED: 'barcode.printed',
+  PRINT_CANCELLED: 'barcode.print.cancelled',
   FAILED: 'barcode.print.failed',
 });
 

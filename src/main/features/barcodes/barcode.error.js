@@ -6,6 +6,7 @@ const BARCODE_ERROR_CODES = Object.freeze({
   INVALID_BATCH: 'barcode.invalid_batch',
   INVALID_COPIES: 'barcode.invalid_copies',
   INVALID_DPI: 'barcode.invalid_dpi',
+  INVALID_EXECUTION: 'barcode.invalid_execution',
   INVALID_FORMAT: 'barcode.invalid_format',
   INVALID_JOB: 'barcode.invalid_job',
   INVALID_LABEL_SIZE: 'barcode.invalid_label_size',
@@ -14,8 +15,10 @@ const BARCODE_ERROR_CODES = Object.freeze({
   INVALID_MARGIN: 'barcode.invalid_margin',
   INVALID_ORIENTATION: 'barcode.invalid_orientation',
   INVALID_PRINTER: 'barcode.invalid_printer',
+  INVALID_PREVIEW: 'barcode.invalid_preview',
   INVALID_PRODUCT: 'barcode.invalid_product',
   INVALID_REQUEST: 'barcode.invalid_request',
+  INVALID_TRANSITION: 'barcode.invalid_transition',
   RENDER_FAILED: 'barcode.render_failed',
 });
 

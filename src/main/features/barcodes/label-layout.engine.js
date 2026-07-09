@@ -1,7 +1,7 @@
 const { isDeepStrictEqual } = require('node:util');
 const { ORIENTATIONS, PRINTER_TARGET_KINDS } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
-const { createPrintJob } = require('./print-job.model');
+const { validatePrintJobModel } = require('./print-job.model');
 
 const A4 = Object.freeze({
   widthMm: 210,
@@ -14,29 +14,6 @@ function roundMm(value) {
 
 function mmToPx(value, dpi) {
   return Math.round((value * dpi) / 25.4);
-}
-
-function validatePrintJob(job) {
-  if (!job || job.kind !== 'barcode_print_job' || !Object.isFrozen(job)) {
-    throw new BarcodeDomainError(
-      BARCODE_ERROR_CODES.INVALID_LAYOUT,
-      'Layout requires an immutable print job.',
-      'job'
-    );
-  }
-  const rebuilt = createPrintJob({
-    jobId: job.jobId,
-    printer: job.printer,
-    documents: job.items?.map((item) => item.document),
-  });
-  if (!isDeepStrictEqual(job, rebuilt)) {
-    throw new BarcodeDomainError(
-      BARCODE_ERROR_CODES.INVALID_LAYOUT,
-      'Print job failed deterministic layout validation.',
-      'job'
-    );
-  }
-  return rebuilt;
 }
 
 function pixelBounds(xMm, yMm, widthMm, heightMm, dpi) {
@@ -165,7 +142,7 @@ function a4SheetLayout(job) {
 }
 
 function createLabelLayout(job) {
-  const validatedJob = validatePrintJob(job);
+  const validatedJob = validatePrintJobModel(job);
   const pages =
     validatedJob.printer.kind === PRINTER_TARGET_KINDS.A4_SHEET
       ? a4SheetLayout(validatedJob)
@@ -185,6 +162,33 @@ function createLabelLayout(job) {
   });
 }
 
+function validateLabelLayoutModel(job, layout) {
+  const validatedJob = validatePrintJobModel(job);
+  if (
+    !layout ||
+    layout.kind !== 'barcode_print_layout' ||
+    layout.schemaVersion !== 1 ||
+    layout.immutable !== true ||
+    !Object.isFrozen(layout)
+  ) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_LAYOUT,
+      'An immutable barcode label layout is required.',
+      'layout'
+    );
+  }
+  const rebuilt = createLabelLayout(validatedJob);
+  if (!isDeepStrictEqual(layout, rebuilt)) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_LAYOUT,
+      'Barcode label layout failed deterministic validation.',
+      'layout'
+    );
+  }
+  return rebuilt;
+}
+
 module.exports = {
   createLabelLayout,
+  validateLabelLayoutModel,
 };

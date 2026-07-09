@@ -2,15 +2,8 @@ const { isDeepStrictEqual } = require('node:util');
 const { PRINT_JOB_LIMITS } = require('./barcode.constants');
 const { BARCODE_ERROR_CODES, BarcodeDomainError } = require('./barcode.error');
 const { createLabelRenderDocument } = require('./label-render.engine');
+const { validateIdentifier } = require('./model-validation');
 const { createPrinterTarget } = require('./printer-target.model');
-
-function validateIdentifier(value, field) {
-  const identifier = String(value || '').trim();
-  if (!identifier || identifier.length > 120 || /[\u0000-\u001F\u007F-\u009F]/.test(identifier)) {
-    throw new BarcodeDomainError(BARCODE_ERROR_CODES.INVALID_JOB, `${field} is invalid.`, field);
-  }
-  return identifier;
-}
 
 function rebuildRenderDocument(document) {
   if (
@@ -122,7 +115,7 @@ function createPrintJob(input = {}) {
     kind: 'barcode_print_job',
     schemaVersion: 1,
     immutable: true,
-    jobId: validateIdentifier(input.jobId, 'jobId'),
+    jobId: validateIdentifier(input.jobId, 'jobId', BARCODE_ERROR_CODES.INVALID_JOB),
     printer,
     labelSizeId,
     distinctLabelCount: items.length,
@@ -132,6 +125,46 @@ function createPrintJob(input = {}) {
   });
 }
 
+function validatePrintJobModel(job) {
+  if (
+    !job ||
+    job.kind !== 'barcode_print_job' ||
+    job.schemaVersion !== 1 ||
+    job.immutable !== true ||
+    !Object.isFrozen(job)
+  ) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_JOB,
+      'An immutable barcode print job is required.',
+      'job'
+    );
+  }
+
+  let rebuilt;
+  try {
+    rebuilt = createPrintJob({
+      jobId: job.jobId,
+      printer: job.printer,
+      documents: job.items?.map((item) => item.document),
+    });
+  } catch {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_JOB,
+      'Barcode print job failed validation.',
+      'job'
+    );
+  }
+  if (!isDeepStrictEqual(job, rebuilt)) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_JOB,
+      'Barcode print job failed deterministic validation.',
+      'job'
+    );
+  }
+  return rebuilt;
+}
+
 module.exports = {
   createPrintJob,
+  validatePrintJobModel,
 };
