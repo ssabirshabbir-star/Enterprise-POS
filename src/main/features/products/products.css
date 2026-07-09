@@ -95,7 +95,7 @@
     justify-content: flex-end;
     gap: 6px;
     flex-wrap: nowrap;
-    min-width: 140px;
+    min-width: 132px;
   }
 
   .epos-products-btn {
@@ -202,7 +202,7 @@
 
   .epos-products-filter-group {
     display: grid;
-    grid-template-columns: repeat(3, minmax(110px, 1fr)) minmax(96px, 112px);
+    grid-template-columns: repeat(3, minmax(110px, 1fr)) 132px;
     gap: 6px;
     min-width: 0;
   }
@@ -222,8 +222,11 @@
 
   .epos-products-filter-group button {
     border-color: #c7d2fe !important;
+    height: var(--epos-products-control-height);
+    border-radius: 9px !important;
     background: linear-gradient(135deg, #2563eb, #4f46e5);
     color: #ffffff;
+    line-height: 1;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -362,24 +365,29 @@
   .epos-products-table th:nth-child(8),
   .epos-products-table td:nth-child(8) {
     width: 92px;
+    padding-inline: 7px !important;
+    text-align: right !important;
     white-space: nowrap;
   }
 
   .epos-products-table th:nth-child(9),
   .epos-products-table td:nth-child(9) {
     width: 78px;
-    padding-left: 16px !important;
+    padding-inline: 7px !important;
+    text-align: right !important;
   }
 
   .epos-products-table th:nth-child(10),
   .epos-products-table td:nth-child(10) {
     width: 90px;
-    padding-left: 14px !important;
+    padding-inline: 7px !important;
+    text-align: left !important;
   }
 
   .epos-products-table th:nth-child(11),
   .epos-products-table td:nth-child(11) {
     width: 86px;
+    text-align: center !important;
   }
 
   .epos-products-table td {
@@ -508,34 +516,43 @@
     color: #e11d48;
   }
 
-  .epos-products-row-actions {
-    display: flex;
-    gap: 5px;
+  .epos-products-table [data-edit-product],
+  .epos-products-table [data-delete-product] {
+    display: inline-flex;
+    min-width: 0;
+    height: 26px;
     align-items: center;
-  }
-
-  .epos-products-action {
-    display: inline-grid;
-    width: 24px;
-    height: 24px;
-    place-items: center;
-    border: 0;
+    justify-content: center;
+    border: 1px solid #4f6ef7;
     border-radius: 6px;
-    background: #eef2ff;
-    color: #2563eb;
-    font-size: 12px;
-    font-weight: 950;
+    background: #ffffff;
+    color: #315cf6;
+    padding: 0 7px;
+    font-size: 10.5px;
+    font-weight: 850;
+    line-height: 1;
     cursor: pointer;
+    vertical-align: middle;
+    transition: background-color 100ms ease, transform 100ms ease;
   }
 
-  .epos-products-action.delete {
-    background: #ffe4e6;
-    color: #ef4444;
+  .epos-products-table [data-delete-product] {
+    border-color: #ff5b68;
+    color: #e63646;
   }
 
-  .epos-products-action[title="Edit"] {
-    background: #ffedd5;
-    color: #f97316;
+  .epos-products-table [data-edit-product] + [data-delete-product] {
+    margin-left: 6px;
+  }
+
+  .epos-products-table [data-edit-product]:hover {
+    background: #eef4ff;
+    transform: translateY(-1px);
+  }
+
+  .epos-products-table [data-delete-product]:hover {
+    background: #fff1f2;
+    transform: translateY(-1px);
   }
 
   .epos-products-footer {
