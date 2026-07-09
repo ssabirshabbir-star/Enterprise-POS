@@ -140,6 +140,10 @@ contextBridge.exposeInMainWorld('posApi', {
     downloadReceiptPdf: (receipt, options) =>
       ipcRenderer.invoke('/printing/receipt/pdf', { receipt, options }),
   },
+  barcodes: {
+    capabilities: () => ipcRenderer.invoke('/barcodes/capabilities'),
+    validateLabel: (input) => ipcRenderer.invoke('/barcodes/labels/validate', input),
+  },
   reports: {
     overview: (filters) => ipcRenderer.invoke('/reports/overview', filters),
   },

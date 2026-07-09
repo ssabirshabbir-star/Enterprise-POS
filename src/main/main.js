@@ -11,6 +11,7 @@ const { registerPurchaseOrderRoutes } = require('./features/purchase-orders/po.c
 const { registerBillingRoutes } = require('./features/billing/billing.controller');
 const { registerSalesHistoryRoutes } = require('./features/sales-history/sales-history.controller');
 const { registerPrintingRoutes } = require('./features/printing/printing.controller');
+const { registerBarcodeRoutes } = require('./features/barcodes/barcode.controller');
 const { registerReportsRoutes } = require('./features/reports/reports.controller');
 const { registerDashboardRoutes } = require('./features/dashboard/dashboard.controller');
 const { registerCustomerRoutes } = require('./features/customers/customers.controller');
@@ -95,6 +96,7 @@ app.whenReady().then(async () => {
   registerBillingRoutes(ipcMain);
   registerSalesHistoryRoutes(ipcMain);
   registerPrintingRoutes(ipcMain);
+  registerBarcodeRoutes(ipcMain);
   registerReportsRoutes(ipcMain);
   registerDashboardRoutes(ipcMain);
   registerCustomerRoutes(ipcMain);
