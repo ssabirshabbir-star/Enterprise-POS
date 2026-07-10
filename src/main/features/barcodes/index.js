@@ -10,6 +10,7 @@ const { encodeBarcode } = require('./barcode.encoder');
 const { createLabelRenderDocument } = require('./label-render.engine');
 const { createLabelLayout } = require('./label-layout.engine');
 const { createPreviewDocument } = require('./preview-document.model');
+const { createPreviewSession, validatePreviewSession } = require('./preview-session.model');
 const {
   createPreviewWindowContract,
   validatePreviewWindowContract,
@@ -46,6 +47,7 @@ module.exports = {
   createLabelRenderDocument,
   createLabelLayout,
   createPreviewDocument,
+  createPreviewSession,
   createPreviewWindowContract,
   createPreviewWindowManager,
   createPrintDialogContract,
@@ -60,6 +62,7 @@ module.exports = {
   resolvePrinterAdapterContract,
   transitionPrintLifecycle,
   validateAuthoritativeProducts,
+  validatePreviewSession,
   validatePreviewWindowContract,
   validatePrintDialogContract,
   validatePrinterAdapterContract,

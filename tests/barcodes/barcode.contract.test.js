@@ -343,6 +343,115 @@ describe('barcode contracts', () => {
     assert.equal(manager.get('preview-window-managed'), null);
   });
 
+  it('creates deterministic immutable preview sessions from certified plain data only', () => {
+    const job = printJob();
+    const requested = lifecycle({
+      eventId: 'event-requested',
+      state: barcodes.PRINT_LIFECYCLE_STATES.REQUESTED,
+      occurredAt: '2026-01-01T00:00:00.000Z',
+    });
+    const prepared = barcodes.transitionPrintLifecycle(requested, {
+      eventId: 'event-prepared',
+      state: barcodes.PRINT_LIFECYCLE_STATES.PREPARED,
+      occurredAt: '2026-01-01T00:00:01.000Z',
+    });
+    const plan = barcodes.preparePrintExecution({
+      executionId: 'execution-1',
+      job,
+      previousLifecycle: requested,
+      lifecycle: prepared,
+    });
+    const request = Object.freeze({
+      kind: 'barcode_print_request_context',
+      schemaVersion: 1,
+      immutable: true,
+      user: Object.freeze({ id: 7 }),
+      job,
+      lifecycle: requested,
+      authoritativeProducts: Object.freeze([product()]),
+    });
+    const preview = barcodes.createPreviewDocument(job, barcodes.createLabelLayout(job));
+    const previewWindow = barcodes.createPreviewWindowContract({
+      previewWindowId: 'preview-session-window',
+      requestContext: request,
+    });
+    const printDialog = barcodes.createPrintDialogContract({
+      printDialogId: 'preview-session-dialog',
+      requestContext: request,
+    });
+
+    const session = barcodes.createPreviewSession({
+      request,
+      preview,
+      previewWindow,
+      printDialog,
+    });
+    const equivalent = barcodes.createPreviewSession({
+      request,
+      preview,
+      previewWindow,
+      printDialog,
+    });
+
+    assert(Object.isFrozen(session));
+    assert(Object.isFrozen(session.request));
+    assert(Object.isFrozen(session.request.authoritativeProducts[0]));
+    assert(Object.isFrozen(session.preview.pages));
+    assert.deepEqual(session, equivalent);
+    assert.equal(barcodes.validatePreviewSession(session).sessionId, session.sessionId);
+    assert.equal(session.executable, false);
+    assert.equal(session.electronPreview, false);
+    assert.equal(session.rendererDispatch, false);
+    assert.equal(session.filesystemOutput, false);
+    assert.equal(session.osPrint, false);
+    assert.equal(session.preview.executable, false);
+    assert.equal(session.previewWindow.windowCreationEnabled, false);
+    assert.equal(session.previewWindow.capabilities.createElectronWindow, false);
+    assert.equal(session.previewWindow.capabilities.writeFile, false);
+    assert.equal(session.previewWindow.capabilities.print, false);
+    assert.equal(session.printDialog.dialogCreationEnabled, false);
+    assert.equal(session.printDialog.printExecutionEnabled, false);
+    assert.equal(session.printDialog.filesystemOutput, false);
+    assert.equal(session.printDialog.osPrint, false);
+    assert.equal(session.printDialog.print, undefined);
+
+    assert.throws(() =>
+      barcodes.createPreviewSession({
+        request,
+        preview,
+        previewWindow: { ...previewWindow, windowCreationEnabled: true },
+        printDialog,
+      })
+    );
+    assert.throws(() =>
+      barcodes.createPreviewSession({
+        request,
+        preview,
+        previewWindow,
+        printDialog: { ...printDialog, printExecutionEnabled: true },
+      })
+    );
+    assert.throws(() =>
+      barcodes.createPreviewSession({
+        request: { ...request, callback() {} },
+        preview,
+        previewWindow,
+        printDialog,
+      })
+    );
+    assert.throws(() =>
+      barcodes.createPreviewSession({
+        request,
+        preview,
+        previewWindow,
+        printDialog,
+        browserWindow: Object.create({ webContents: {} }),
+      })
+    );
+    assert.throws(() => barcodes.validatePreviewSession({ ...session, executable: true }));
+    assert.equal(plan.executionCapabilities.osPrint, false);
+  });
+
   it('validates complete adapter results and rejects partial or unknown responses', () => {
     const job = printJob();
     const requested = lifecycle({
