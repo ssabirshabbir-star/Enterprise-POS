@@ -15,6 +15,10 @@ const {
   validatePreviewWindowContract,
 } = require('./preview-window.contract');
 const {
+  PREVIEW_WINDOW_MANAGER_STATES,
+  createPreviewWindowManager,
+} = require('./preview-window.manager');
+const {
   createPrintDialogContract,
   validatePrintDialogContract,
 } = require('./print-dialog.contract');
@@ -43,6 +47,7 @@ module.exports = {
   createLabelLayout,
   createPreviewDocument,
   createPreviewWindowContract,
+  createPreviewWindowManager,
   createPrintDialogContract,
   createPrintJob,
   createPrintLifecycleEvent,
@@ -51,6 +56,7 @@ module.exports = {
   createPrinterTarget,
   encodeBarcode,
   preparePrintExecution,
+  PREVIEW_WINDOW_MANAGER_STATES,
   resolvePrinterAdapterContract,
   transitionPrintLifecycle,
   validateAuthoritativeProducts,

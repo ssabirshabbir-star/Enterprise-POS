@@ -276,6 +276,73 @@ describe('barcode contracts', () => {
     );
   });
 
+  it('manages preview window contracts as internal plain-data state only', () => {
+    const job = printJob();
+    const requested = lifecycle({
+      eventId: 'event-requested',
+      state: barcodes.PRINT_LIFECYCLE_STATES.REQUESTED,
+      occurredAt: '2026-01-01T00:00:00.000Z',
+    });
+    const prepared = barcodes.transitionPrintLifecycle(requested, {
+      eventId: 'event-prepared',
+      state: barcodes.PRINT_LIFECYCLE_STATES.PREPARED,
+      occurredAt: '2026-01-01T00:00:01.000Z',
+    });
+    const plan = barcodes.preparePrintExecution({
+      executionId: 'execution-1',
+      job,
+      previousLifecycle: requested,
+      lifecycle: prepared,
+    });
+    const previewWindow = barcodes.createPreviewWindowContract({
+      previewWindowId: 'preview-window-managed',
+      executionPlan: plan,
+    });
+    const timestamps = ['2026-01-01T00:00:02.000Z', '2026-01-01T00:00:03.000Z'];
+    const manager = barcodes.createPreviewWindowManager({
+      maxWindows: 1,
+      now: () => timestamps.shift(),
+    });
+
+    const record = manager.register(previewWindow, { source: 'contract-test' });
+    assert(Object.isFrozen(manager));
+    assert(Object.isFrozen(record));
+    assert(Object.isFrozen(record.contract));
+    assert(Object.isFrozen(record.metadata));
+    assert.equal(record.state, barcodes.PREVIEW_WINDOW_MANAGER_STATES.REGISTERED);
+    assert.equal(record.executable, false);
+    assert.equal(record.electronPreview, false);
+    assert.equal(record.rendererDispatch, false);
+    assert.equal(record.filesystemOutput, false);
+    assert.equal(record.osPrint, false);
+    assert.equal(record.contract.open, undefined);
+    assert.equal(record.contract.createWindow, undefined);
+    assert.equal(record.contract.webContents, undefined);
+    assert.equal(manager.get('preview-window-managed').previewWindowId, record.previewWindowId);
+    assert.equal(manager.list().length, 1);
+
+    assert.throws(() => manager.register(previewWindow));
+    assert.throws(() =>
+      manager.register({
+        ...previewWindow,
+        previewWindowId: 'unsafe-managed-preview',
+        open() {},
+      })
+    );
+
+    const closed = manager.close('preview-window-managed', 'visual review complete');
+    assert.equal(closed.state, barcodes.PREVIEW_WINDOW_MANAGER_STATES.CLOSED);
+    assert.equal(closed.closeReason, 'visual review complete');
+    assert.equal(manager.list().length, 0);
+    assert.equal(manager.list({ includeClosed: true }).length, 1);
+
+    const cleanup = manager.cleanupClosed();
+    assert(Object.isFrozen(cleanup));
+    assert.equal(cleanup.removedCount, 1);
+    assert.equal(cleanup.remainingCount, 0);
+    assert.equal(manager.get('preview-window-managed'), null);
+  });
+
   it('validates complete adapter results and rejects partial or unknown responses', () => {
     const job = printJob();
     const requested = lifecycle({
