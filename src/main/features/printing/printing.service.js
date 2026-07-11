@@ -2,6 +2,35 @@ const fs = require('fs/promises');
 const { BrowserWindow } = require('electron');
 const printingRepository = require('./printing.repository');
 
+const RECEIPT_PAPER_PROFILES = Object.freeze({
+  '58mm': Object.freeze({
+    paperWidth: '58mm',
+    pageWidthMm: 58,
+    printableInsetMm: 3,
+    receiptColumns: 32,
+    fontSizePx: 11,
+  }),
+  '80mm': Object.freeze({
+    paperWidth: '80mm',
+    pageWidthMm: 80,
+    printableInsetMm: 4,
+    receiptWidthMm: 69,
+    receiptColumns: 48,
+    fontSizePx: 12,
+  }),
+  A4: Object.freeze({
+    paperWidth: 'A4',
+    pageWidthMm: 210,
+    printableInsetMm: 8,
+    receiptColumns: 72,
+    fontSizePx: 12,
+  }),
+});
+
+function receiptPaperProfile(paperWidth) {
+  return RECEIPT_PAPER_PROFILES[paperWidth] || RECEIPT_PAPER_PROFILES['80mm'];
+}
+
 function line(width, char = '-') {
   return char.repeat(width);
 }
@@ -11,7 +40,7 @@ function formatMoney(value) {
 }
 
 function receiptWidth(paperWidth) {
-  return paperWidth === '58mm' ? 32 : 48;
+  return receiptPaperProfile(paperWidth).receiptColumns;
 }
 
 async function getPrinterSettings() {
@@ -27,9 +56,7 @@ async function getPrinterSettings() {
 }
 
 async function savePrinterSettings(settings = {}) {
-  const paperWidth = ['58mm', '80mm', 'A4'].includes(settings.paperWidth)
-    ? settings.paperWidth
-    : '80mm';
+  const paperWidth = receiptPaperProfile(settings.paperWidth).paperWidth;
   return printingRepository.savePrinterSettingsRow({
     printerName: String(settings.printerName || '').trim() || null,
     paperWidth,
@@ -89,7 +116,9 @@ function buildEscPosReceipt(receipt, settings) {
 }
 
 function buildReceiptHtml(receipt, settings) {
-  const width = settings.paperWidth === '58mm' ? '220px' : '302px';
+  const paperProfile = receiptPaperProfile(settings.paperWidth);
+  const receiptWidthMm =
+    paperProfile.receiptWidthMm || paperProfile.pageWidthMm - paperProfile.printableInsetMm * 2;
   const rows = (receipt.items || [])
     .map(
       (item) => `
@@ -118,12 +147,26 @@ function buildReceiptHtml(receipt, settings) {
       <head>
         <meta charset="utf-8" />
         <style>
-          body { margin: 0; font-family: Consolas, 'Noto Nastaliq Urdu', monospace; }
-          .receipt { width: ${width}; padding: 10px; font-size: 12px; color: #111; }
+          * { box-sizing: border-box; }
+          html, body { margin: 0; padding: 0; }
+          body {
+            font-family: Consolas, 'Noto Nastaliq Urdu', monospace;
+            color: #111;
+          }
+          .receipt {
+            width: ${receiptWidthMm}mm;
+            max-width: ${receiptWidthMm}mm;
+            margin: 0 0 0 ${paperProfile.printableInsetMm}mm;
+            padding: 2mm 0;
+            font-size: ${paperProfile.fontSizePx}px;
+            color: #111;
+            overflow-wrap: anywhere;
+          }
           .center { text-align: center; }
           .line { border-top: 1px dashed #333; margin: 8px 0; }
           .row { display: flex; justify-content: space-between; gap: 8px; }
           .item { margin: 6px 0; }
+          .item-heading { font-weight: 700; margin: 6px 0; }
           .total { font-weight: 700; font-size: 14px; }
         </style>
       </head>
@@ -136,6 +179,10 @@ function buildReceiptHtml(receipt, settings) {
           <div>Cashier: ${receipt.cashierName || '-'}</div>
           <div>Customer: ${receipt.customerName || 'Walk-in Customer'}</div>
           <div class="line"></div>
+          <div class="item-heading">
+            <div>Item</div>
+            <div>Qty x Price - Discount = Total</div>
+          </div>
           ${rows}
           <div class="line"></div>
           <div class="row"><span>Subtotal</span><span>${formatMoney(receipt.subtotal)}</span></div>
@@ -318,7 +365,7 @@ async function printReceipt(receipt, options = {}) {
   const printResult = await new Promise((resolve) => {
     printWindow.webContents.print(
       {
-        silent: Boolean(settings.silentPrint),
+        silent: true,
         deviceName: settings.printerName || undefined,
         printBackground: true,
         margins: { marginType: 'none' },

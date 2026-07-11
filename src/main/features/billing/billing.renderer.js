@@ -805,7 +805,7 @@
       ?.addEventListener('click', () => printReceiptFromUI());
     document
       .getElementById('thermalPrintMirrorButton')
-      ?.addEventListener('click', () => $id('thermalPrintButton')?.click());
+      ?.addEventListener('click', () => printReceiptFromUI());
     document.getElementById('posDownloadPdfButton')?.addEventListener('click', downloadPdfFromUI);
     document
       .getElementById('reprintLastBillButton')
