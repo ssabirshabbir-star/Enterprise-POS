@@ -1,0 +1,509 @@
+.epos-barcode-designer {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  color: #101828;
+  background: #edf3fb;
+  font-family:
+    Inter,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+
+.epos-barcode-designer * {
+  box-sizing: border-box;
+}
+
+.epos-barcode-shell {
+  display: grid;
+  grid-template-columns: 306px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.epos-barcode-panel,
+.epos-barcode-preview-area {
+  min-height: 0;
+}
+
+.epos-barcode-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border-right: 1px solid #d7e0ec;
+}
+
+.epos-barcode-panel-body {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.epos-barcode-panel-head,
+.epos-barcode-fieldset,
+.epos-barcode-actions {
+  padding-inline: 13px;
+}
+
+.epos-barcode-panel-head {
+  padding-top: 9px;
+}
+
+.epos-barcode-panel-head h1,
+.epos-barcode-preview-head h1 {
+  margin: 0;
+  color: #101828;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.epos-barcode-panel-head p,
+.epos-barcode-preview-head p {
+  margin: 2px 0 0;
+  color: #53657d;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.epos-barcode-fieldset {
+  display: grid;
+  gap: 4px;
+  padding-block: 0 5px;
+  border-bottom: 1px solid #e4ebf5;
+}
+
+.epos-barcode-fieldset h2 {
+  margin: 0;
+  color: #273449;
+  letter-spacing: 0.06em;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.epos-barcode-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: #26364c;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.epos-barcode-field input,
+.epos-barcode-field select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  color: #132033;
+  background: #f9fbff;
+  border: 1px solid #c9d6e7;
+  border-radius: 8px;
+  outline: none;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.epos-barcode-field input:focus,
+.epos-barcode-field select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.epos-barcode-field small {
+  color: #52657d;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.epos-barcode-select-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.epos-barcode-select-actions button {
+  height: 22px;
+  cursor: pointer;
+  border: 1px solid #233a5b;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.epos-barcode-select-actions button:first-child {
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.epos-barcode-select-actions button:last-child {
+  color: #101828;
+  background: #d8dee8;
+}
+
+.epos-barcode-product-list {
+  display: grid;
+  gap: 3px;
+  max-height: 122px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 3px;
+  scrollbar-gutter: stable;
+}
+
+.epos-barcode-product-row {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) 82px;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 2px 3px;
+  background: #f8fbff;
+  border: 1px solid #e1e8f2;
+  border-radius: 8px;
+}
+
+.epos-barcode-product-row input[type="checkbox"] {
+  justify-self: center;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+.epos-barcode-product-details {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.epos-barcode-product-row strong {
+  display: block;
+  overflow: hidden;
+  color: #172033;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.epos-barcode-product-row small {
+  display: block;
+  overflow: hidden;
+  color: #53657d;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.epos-barcode-product-row .epos-barcode-copies {
+  appearance: textfield;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 22px;
+  min-height: 0;
+  min-width: 0;
+  margin: auto 0;
+  padding: 0 2px;
+  text-align: center;
+  border: 1px solid #cbd7e8;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 20px;
+  vertical-align: middle;
+}
+
+.epos-barcode-product-row .epos-barcode-copies::-webkit-inner-spin-button,
+.epos-barcode-product-row .epos-barcode-copies::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.epos-barcode-copy-stepper {
+  display: grid;
+  grid-template-columns: 20px 34px 20px;
+  align-items: center;
+  place-self: center end;
+  gap: 3px;
+}
+
+.epos-barcode-copy-stepper button,
+.epos-barcode-copy-stepper input {
+  box-sizing: border-box;
+  height: 22px;
+  border: 1px solid #cbd7e8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.epos-barcode-copy-stepper button {
+  cursor: pointer;
+  padding: 0;
+}
+
+.epos-barcode-copy-stepper button:hover {
+  background: #eef4ff;
+}
+
+.epos-barcode-copy-stepper input {
+  min-width: 0;
+  padding: 0 3px;
+  appearance: textfield;
+}
+
+.epos-barcode-copy-stepper input::-webkit-inner-spin-button,
+.epos-barcode-copy-stepper input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.epos-barcode-check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 12px;
+}
+
+.epos-barcode-check-grid label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  color: #273449;
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 17px;
+}
+
+.epos-barcode-check-grid input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.epos-barcode-date-pair,
+.epos-barcode-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+#barcodePackingDateField {
+  grid-column: 1;
+}
+
+#barcodeExpiryDateField {
+  grid-column: 2;
+}
+
+.epos-barcode-date-pair.is-hidden,
+.epos-barcode-date-pair .is-hidden {
+  display: none;
+}
+
+.epos-barcode-date-pair input {
+  height: 28px;
+}
+
+.epos-barcode-message {
+  min-height: 18px;
+  margin: 0;
+  padding: 0 14px;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.epos-barcode-message.error {
+  color: #b42318;
+}
+
+.epos-barcode-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding-block: 5px;
+  background: #fff;
+  border-top: 1px solid #dfe7f2;
+}
+
+.epos-barcode-actions button,
+.epos-barcode-preview-head button {
+  height: 32px;
+  cursor: pointer;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 950;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+.epos-barcode-actions .neutral {
+  background: #475569;
+}
+
+.epos-barcode-actions .success {
+  background: #10b981;
+}
+
+.epos-barcode-actions .primary,
+.epos-barcode-preview-head button {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+}
+
+.epos-barcode-actions button:disabled,
+.epos-barcode-preview-head button:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+  filter: grayscale(0.2);
+}
+
+.epos-barcode-actions button.guarded,
+.epos-barcode-preview-head button[aria-disabled="true"] {
+  cursor: pointer;
+  opacity: 1;
+  filter: none;
+}
+
+.epos-barcode-preview-area {
+  display: flex;
+  flex-direction: column;
+  background: #edf3fb;
+}
+
+.epos-barcode-preview-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 92px;
+  padding: 22px 20px 14px;
+  background: #fff;
+  border-bottom: 1px solid #d7e0ec;
+}
+
+.epos-barcode-preview-head button {
+  width: 162px;
+}
+
+.epos-barcode-preview-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding: 38px 28px 52px;
+}
+
+.epos-barcode-preview-page {
+  position: relative;
+  flex: 0 0 auto;
+  background: #edf3fb;
+}
+
+.epos-barcode-label {
+  display: grid;
+  position: absolute;
+  align-content: center;
+  justify-items: center;
+  padding: 10px 12px;
+  color: #111827;
+  background: #fff;
+  border: 1px dashed #8aa7ca;
+  border-radius: 8px;
+}
+
+.epos-barcode-label-title {
+  overflow: hidden;
+  max-width: 100%;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--barcode-title-size, 11px);
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.epos-barcode-label-meta,
+.epos-barcode-label-digits,
+.epos-barcode-label-dates {
+  color: #344054;
+  font-size: var(--barcode-meta-size, 9px);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.epos-barcode-label-price {
+  color: #00875a;
+  font-size: calc(var(--barcode-meta-size, 9px) + 1px);
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.epos-barcode-bars {
+  display: flex;
+  align-items: stretch;
+  width: calc(100% - 18px);
+  height: var(--barcode-bar-height, 36px);
+  margin: 8px 0 4px;
+  background: #fff;
+}
+
+.epos-barcode-bars span {
+  display: block;
+  height: 100%;
+  flex: var(--bar-run, 1) 0 0;
+}
+
+.epos-barcode-bars span.bar {
+  background: #000;
+}
+
+.epos-barcode-label-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.epos-barcode-empty {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  color: #53657d;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+@media (max-width: 900px) {
+  .epos-barcode-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .epos-barcode-panel {
+    max-height: 48vh;
+    border-right: 0;
+    border-bottom: 1px solid #d7e0ec;
+  }
+}

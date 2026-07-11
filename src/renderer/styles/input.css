@@ -9,6 +9,7 @@
 @import "./compact.css";
 @import "../../Components/Sidebar/sidebar.css";
 @import "../../main/features/products/products.css";
+@import "../../main/features/barcodes/barcode-designer.css";
 @import "../../main/features/access-control/access-control.css";
 @import "../../main/features/customers/customers.css";
 @import "../../main/features/suppliers/suppliers.css";

@@ -100,19 +100,40 @@
     }
   }
 
-  async function printBarcode(productId) {
+  async function printBarcode(product) {
     const gate = featureCheck('products.print_barcode');
     if (!gate.ok) return { ok: false, message: gate.message };
+    const productId = Number(product?.id ?? product?.productId ?? product);
     if (!productId) {
       return { ok: false, message: 'Save the product first to print a barcode.' };
     }
-    try {
-      const res = await window.posApi.printing?.printBarcode?.({ productId: Number(productId) });
-      const { ok, message } = apiOk(res, 'Unable to print barcode.');
-      return { ok, message: ok ? 'Barcode sent to printer.' : message };
-    } catch {
-      return { ok: false, message: 'Unable to print barcode. Check printer settings.' };
+    if (!window.BarcodeDesignerLauncher?.open) {
+      return { ok: false, message: 'Barcode designer is unavailable.' };
     }
+    const productsResult = await loadProducts({});
+    if (!productsResult.ok) return productsResult;
+    const products = (productsResult.products || [])
+      .filter((item) => Number(item?.id ?? item?.productId) > 0 && item?.barcode)
+      .map((item) => {
+        const itemId = Number(item.id ?? item.productId);
+        return {
+          productId: itemId,
+          name: item.name,
+          sku: item.sku,
+          barcode: item.barcode,
+          salePrice: item.salePrice,
+          currentStock: item.currentStock,
+          copies: itemId === productId ? Number(product?.copies) || 1 : 1,
+          selected: itemId === productId,
+        };
+      });
+    if (!products.some((item) => item.productId === productId)) {
+      return { ok: false, message: 'Selected product is not available for barcode preview.' };
+    }
+    return window.BarcodeDesignerLauncher.open({
+      mode: 'products',
+      products,
+    });
   }
 
   async function loadCatalog() {

@@ -173,6 +173,43 @@ describe('barcode contracts', () => {
     assert.equal(plan.executionCapabilities.osPrint, false);
   });
 
+  it('creates immutable resolved preview layout for renderer and print parity', () => {
+    const job = printJob();
+    const preview = barcodes.createPreviewDocument(job, barcodes.createLabelLayout(job));
+    const layout = barcodes.createResolvedPreviewLayout(preview, {
+      columns: 3,
+      gap: 5,
+      labelWidth: 64,
+      labelHeight: 34,
+      printMargin: 8,
+      barcodeHeight: 9,
+      showTitle: true,
+      showSku: true,
+      showPrice: true,
+      showBarcodeDigits: true,
+      showPacking: true,
+      showExpiry: true,
+      labelTitle: 'Shelf',
+      packingDate: '2026-06-09',
+      expiryDate: '2026-06-30',
+    });
+
+    assert(Object.isFrozen(layout));
+    assert(Object.isFrozen(layout.pages));
+    assert.equal(layout.presentation.columns, 3);
+    assert.equal(layout.presentation.columnGapMm, 5);
+    assert.equal(layout.presentation.rowGapMm, 5);
+    assert.equal(layout.presentation.labelWidthMm, 64);
+    assert.equal(layout.presentation.labelHeightMm, 34);
+    assert.equal(layout.presentation.barcodeHeightMm, 9);
+    assert.equal(layout.presentation.marginMm.left, 8);
+    assert.equal(layout.itemCount, 1);
+    assert.equal(layout.pages[0].items[0].placement.boundsMm.xMm, 8);
+    assert.equal(layout.pages[0].items[0].placement.boundsMm.yMm, 8);
+    assert.equal(layout.pages[0].items[0].label.product.id, 1);
+    assert.equal(barcodes.validateResolvedPreviewLayout(layout), layout);
+  });
+
   it('keeps printer adapter infrastructure contract-only and compatible', () => {
     const job = printJob();
     const requested = lifecycle({
@@ -381,12 +418,14 @@ describe('barcode contracts', () => {
     });
 
     const session = barcodes.createPreviewSession({
+      sessionId: 'barcode-preview-11111111-1111-4111-8111-111111111111',
       request,
       preview,
       previewWindow,
       printDialog,
     });
     const equivalent = barcodes.createPreviewSession({
+      sessionId: 'barcode-preview-11111111-1111-4111-8111-111111111111',
       request,
       preview,
       previewWindow,
@@ -417,6 +456,7 @@ describe('barcode contracts', () => {
 
     assert.throws(() =>
       barcodes.createPreviewSession({
+        sessionId: 'barcode-preview-11111111-1111-4111-8111-111111111111',
         request,
         preview,
         previewWindow: { ...previewWindow, windowCreationEnabled: true },
@@ -425,6 +465,7 @@ describe('barcode contracts', () => {
     );
     assert.throws(() =>
       barcodes.createPreviewSession({
+        sessionId: 'barcode-preview-11111111-1111-4111-8111-111111111111',
         request,
         preview,
         previewWindow,
@@ -433,6 +474,7 @@ describe('barcode contracts', () => {
     );
     assert.throws(() =>
       barcodes.createPreviewSession({
+        sessionId: 'barcode-preview-11111111-1111-4111-8111-111111111111',
         request: { ...request, callback() {} },
         preview,
         previewWindow,
@@ -441,6 +483,7 @@ describe('barcode contracts', () => {
     );
     assert.throws(() =>
       barcodes.createPreviewSession({
+        sessionId: 'barcode-preview-11111111-1111-4111-8111-111111111111',
         request,
         preview,
         previewWindow,
@@ -449,6 +492,15 @@ describe('barcode contracts', () => {
       })
     );
     assert.throws(() => barcodes.validatePreviewSession({ ...session, executable: true }));
+    assert.throws(() =>
+      barcodes.createPreviewSession({
+        sessionId: `${job.jobId}:${requested.eventId}`,
+        request,
+        preview,
+        previewWindow,
+        printDialog,
+      })
+    );
     assert.equal(plan.executionCapabilities.osPrint, false);
   });
 

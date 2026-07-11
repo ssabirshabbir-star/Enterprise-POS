@@ -64,6 +64,7 @@
       formFooter: '#productForm .pf-footer',
       tab: '[data-product-tab]',
       editProduct: '[data-edit-product]',
+      printBarcodeProduct: '[data-print-barcode-product]',
       deleteProduct: '[data-delete-product]',
       catalogForm: '.catalogForm',
       catalogDelete: '[data-catalog-delete]',
@@ -210,6 +211,7 @@
           : UIX().Badge.render({ label: 'Inactive', variant: 'inactive' });
         const actions = _canWrite
           ? `
+        ${UIX().Button.render({ label: 'Print Barcode', variant: 'blue', className: 'epos-products-barcode-action epos-ui-button-gap', attrs: { 'data-print-barcode-product': p.id } })}
         ${UIX().Button.render({ label: 'Edit', variant: 'blue', className: 'epos-ui-button-gap', attrs: { 'data-edit-product': p.id } })}
         ${UIX().Button.render({ label: 'Delete', variant: 'danger', attrs: { 'data-delete-product': p.id, 'data-product-name': p.name } })}
       `
@@ -506,7 +508,13 @@
   }
 
   async function printBarcodeFromForm() {
-    const res = await A().printBarcode($id('productId')?.value);
+    const productId = Number($id('productId')?.value);
+    const res = await A().printBarcode({ productId, copies: 1 });
+    showMsg(res?.message || 'Unable to print barcode.', !res?.ok);
+  }
+
+  async function printBarcodeFromTable(productId) {
+    const res = await A().printBarcode({ productId: Number(productId), copies: 1 });
     showMsg(res?.message || 'Unable to print barcode.', !res?.ok);
   }
 
@@ -604,6 +612,12 @@
       const editBtn = e.target.closest(UI.selectors.editProduct);
       if (editBtn) {
         loadProductForEdit(Number(editBtn.dataset.editProduct));
+        return;
+      }
+
+      const barcodeBtn = e.target.closest(UI.selectors.printBarcodeProduct);
+      if (barcodeBtn) {
+        printBarcodeFromTable(Number(barcodeBtn.dataset.printBarcodeProduct));
         return;
       }
 

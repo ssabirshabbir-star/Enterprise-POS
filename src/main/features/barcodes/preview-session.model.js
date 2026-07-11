@@ -5,6 +5,7 @@ const { validatePrintDialogContract } = require('./print-dialog.contract');
 
 function createPreviewSession(input = {}) {
   assertPlainData(input, 'previewSession');
+  const sessionId = validateSessionId(input.sessionId);
   const request = validateRequestContext(input.request);
   const preview = validatePreviewDocument(input.preview);
   const previewWindow = validatePreviewWindowContract(input.previewWindow);
@@ -37,7 +38,7 @@ function createPreviewSession(input = {}) {
     kind: 'barcode_preview_session',
     schemaVersion: 1,
     immutable: true,
-    sessionId: `${request.job.jobId}:${request.lifecycle.eventId}`,
+    sessionId,
     jobId: request.job.jobId,
     requestId: request.lifecycle.eventId,
     request,
@@ -82,6 +83,7 @@ function validatePreviewSession(session) {
   }
 
   const rebuilt = createPreviewSession({
+    sessionId: session.sessionId,
     request: session.request,
     preview: session.preview,
     previewWindow: session.previewWindow,
@@ -95,6 +97,22 @@ function validatePreviewSession(session) {
     );
   }
   return session;
+}
+
+function validateSessionId(value) {
+  const sessionId = String(value || '').trim();
+  if (
+    !/^barcode-preview-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      sessionId
+    )
+  ) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'A backend-generated barcode preview session id is required.',
+      'sessionId'
+    );
+  }
+  return sessionId;
 }
 
 function validateRequestContext(request) {

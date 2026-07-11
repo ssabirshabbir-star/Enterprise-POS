@@ -31,6 +31,14 @@ function registerBarcodeRoutes(ipcMain) {
       return safeError(error, 'Barcode preview request error:');
     }
   });
+
+  ipcMain.handle('/barcodes/preview/print', async (_event, input) => {
+    try {
+      return await barcodeService.printPreview(input || {});
+    } catch (error) {
+      return safeError(error, 'Barcode preview print error:');
+    }
+  });
 }
 
 module.exports = {

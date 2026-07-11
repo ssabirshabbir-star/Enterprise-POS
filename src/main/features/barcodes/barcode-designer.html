@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Barcode Label Preview</title>
+    <link rel="stylesheet" href="../../../renderer/styles/output.css" />
+  </head>
+  <body class="epos-barcode-designer">
+    <main class="epos-barcode-shell" aria-label="Barcode Label Preview">
+      <aside class="epos-barcode-panel" aria-label="Barcode Label Designer">
+        <div class="epos-barcode-panel-body">
+          <header class="epos-barcode-panel-head">
+            <h1>Barcode Label Designer</h1>
+            <p>Choose products, copies, fields, dates and print layout.</p>
+          </header>
+
+          <section class="epos-barcode-fieldset" aria-label="Printer">
+            <label class="epos-barcode-field">
+              <span>Printer</span>
+              <select id="barcodeDesignerPrinter">
+                <option value="">System default printer</option>
+              </select>
+              <small>Select a printer installed in Windows.</small>
+            </label>
+          </section>
+
+          <section id="barcodeDesignerProductsSection" class="epos-barcode-fieldset" aria-label="Products">
+            <div class="epos-barcode-select-actions">
+              <button id="barcodeDesignerSelectAll" type="button">Select All</button>
+              <button id="barcodeDesignerClear" type="button">Clear</button>
+            </div>
+            <div id="barcodeDesignerProductList" class="epos-barcode-product-list"></div>
+          </section>
+
+          <section class="epos-barcode-fieldset" aria-label="Label Content">
+            <h2>LABEL CONTENT</h2>
+            <div class="epos-barcode-check-grid">
+              <label><span>Product title</span><input id="barcodeShowTitle" type="checkbox" /></label>
+              <label><span>SKU / code</span><input id="barcodeShowSku" type="checkbox" /></label>
+              <label><span>Price</span><input id="barcodeShowPrice" type="checkbox" /></label>
+              <label><span>Barcode digits</span><input id="barcodeShowBarcodeDigits" type="checkbox" /></label>
+              <label><span>Packing date</span><input id="barcodeShowPacking" type="checkbox" /></label>
+              <label><span>Expiry date</span><input id="barcodeShowExpiry" type="checkbox" /></label>
+            </div>
+            <div class="epos-barcode-date-pair">
+              <label id="barcodePackingDateField" class="epos-barcode-field">
+                <input id="barcodePackingDate" type="date" aria-label="Packing date" />
+              </label>
+              <label id="barcodeExpiryDateField" class="epos-barcode-field">
+                <input id="barcodeExpiryDate" type="date" aria-label="Expiry date" />
+              </label>
+            </div>
+            <label class="epos-barcode-field">
+              <span>Custom title</span>
+              <input id="barcodeLabelTitle" type="text" placeholder="Optional title for all labels" />
+            </label>
+          </section>
+
+          <section class="epos-barcode-fieldset" aria-label="Layout">
+            <h2>LAYOUT</h2>
+            <div class="epos-barcode-layout-grid">
+              <label class="epos-barcode-field">
+                <span>Product name size</span>
+                <input id="barcodeTitleSize" type="number" min="8" max="20" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Meta px</span>
+                <input id="barcodeMetaSize" type="number" min="7" max="16" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Columns</span>
+                <input id="barcodeColumns" type="number" min="1" max="5" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Gap mm</span>
+                <input id="barcodeGap" type="number" min="0" max="20" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Width mm</span>
+                <input id="barcodeLabelWidth" type="number" min="30" max="100" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Height mm</span>
+                <input id="barcodeLabelHeight" type="number" min="18" max="60" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Barcode mm</span>
+                <input id="barcodeBarcodeHeight" type="number" min="6" max="30" step="1" />
+              </label>
+              <label class="epos-barcode-field">
+                <span>Margin mm</span>
+                <input id="barcodePrintMargin" type="number" min="0" max="20" step="1" />
+              </label>
+            </div>
+          </section>
+
+          <p id="barcodeDesignerMessage" class="epos-barcode-message" role="status"></p>
+        </div>
+
+        <footer class="epos-barcode-actions">
+          <button id="barcodeDesignerReset" type="button" class="neutral">Reset</button>
+          <button id="barcodeDesignerSave" type="button" class="success">Save</button>
+          <button
+            id="barcodeDesignerPrint"
+            type="button"
+            class="primary"
+            aria-disabled="false"
+            title="Print the current barcode label preview."
+          >
+            Print
+          </button>
+        </footer>
+      </aside>
+
+      <section class="epos-barcode-preview-area" aria-label="Live Barcode Preview">
+        <header class="epos-barcode-preview-head">
+          <div>
+            <h1>Live Barcode Preview</h1>
+            <p id="barcodeDesignerCount">0 printable labels selected.</p>
+          </div>
+          <button
+            id="barcodeDesignerPrintTop"
+            type="button"
+            aria-disabled="false"
+            title="Print the current barcode label preview."
+          >
+            Print Barcodes
+          </button>
+        </header>
+        <div id="barcodeDesignerPreview" class="epos-barcode-preview-grid"></div>
+      </section>
+    </main>
+
+    <script src="./barcode-designer.renderer.js"></script>
+  </body>
+</html>

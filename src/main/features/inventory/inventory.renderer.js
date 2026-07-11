@@ -397,7 +397,21 @@
       showMsg(api().placeholder('transfer').message, true);
     });
     $id('inventoryBarcodeButton')?.addEventListener('click', () => {
-      showMsg(api().placeholder('barcode').message, true);
+      const products = _allItems
+        .filter((item) => item?.productId && item?.barcode)
+        .map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          sku: item.sku,
+          barcode: item.barcode,
+          salePrice: item.salePrice,
+          currentStock: item.currentStock,
+          copies: 1,
+        }));
+      const result = window.BarcodeDesignerLauncher?.open
+        ? window.BarcodeDesignerLauncher.open({ mode: 'inventory', products })
+        : { ok: false, message: 'Barcode designer is unavailable.' };
+      showMsg(result.message || 'Unable to open barcode designer.', !result.ok);
     });
     document.querySelectorAll('[data-page-tool="inventory"]').forEach((btn) =>
       btn.addEventListener('click', () => {

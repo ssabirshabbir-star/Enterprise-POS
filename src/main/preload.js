@@ -144,6 +144,7 @@ contextBridge.exposeInMainWorld('posApi', {
     capabilities: () => ipcRenderer.invoke('/barcodes/capabilities'),
     validateLabel: (input) => ipcRenderer.invoke('/barcodes/labels/validate', input),
     requestPreview: (input) => ipcRenderer.invoke('/barcodes/preview/request', input),
+    printPreview: (input) => ipcRenderer.invoke('/barcodes/preview/print', input),
   },
   reports: {
     overview: (filters) => ipcRenderer.invoke('/reports/overview', filters),

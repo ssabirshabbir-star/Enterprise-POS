@@ -1,4 +1,5 @@
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const { loadEnvironment } = require('./config/env');
 const { closeDatabase } = require('./database/connection');
@@ -61,6 +62,29 @@ function createWindow() {
     if (isZoomShortcut) {
       event.preventDefault();
     }
+  });
+  const barcodeDesignerUrl = pathToFileURL(
+    path.join(__dirname, 'features', 'barcodes', 'barcode-designer.html')
+  ).toString();
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url !== barcodeDesignerUrl) return { action: 'deny' };
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: 1180,
+        height: 760,
+        minWidth: 960,
+        minHeight: 620,
+        autoHideMenuBar: true,
+        backgroundColor: '#edf3fb',
+        title: 'Barcode Label Preview',
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      },
+    };
   });
 
   if (startupStatus.ok) {

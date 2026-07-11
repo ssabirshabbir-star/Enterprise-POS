@@ -303,7 +303,7 @@
 
   .epos-products-table {
     width: 100%;
-    min-width: 980px;
+    min-width: 1088px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
@@ -386,7 +386,7 @@
 
   .epos-products-table th:nth-child(11),
   .epos-products-table td:nth-child(11) {
-    width: 86px;
+    width: 190px;
     text-align: center !important;
   }
 
@@ -516,6 +516,7 @@
     color: #e11d48;
   }
 
+  .epos-products-table [data-print-barcode-product],
   .epos-products-table [data-edit-product],
   .epos-products-table [data-delete-product] {
     display: inline-flex;
@@ -536,13 +537,27 @@
     transition: background-color 100ms ease, transform 100ms ease;
   }
 
+  .epos-products-table [data-print-barcode-product] {
+    min-width: 82px;
+    border-color: #0ea5e9;
+    background: #eff8ff;
+    color: #0369a1;
+    white-space: nowrap;
+  }
+
   .epos-products-table [data-delete-product] {
     border-color: #ff5b68;
     color: #e63646;
   }
 
+  .epos-products-table [data-print-barcode-product] + [data-edit-product],
   .epos-products-table [data-edit-product] + [data-delete-product] {
     margin-left: 6px;
+  }
+
+  .epos-products-table [data-print-barcode-product]:hover {
+    background: #e0f2fe;
+    transform: translateY(-1px);
   }
 
   .epos-products-table [data-edit-product]:hover {
