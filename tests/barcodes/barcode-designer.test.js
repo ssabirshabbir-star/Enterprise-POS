@@ -568,7 +568,7 @@ test('barcode designer uses the same product list in inventory and products laun
   assert(html.includes('barcodeDesignerProductsSection'));
   assert(!html.includes('barcodeDesignerSingleProductSection'));
   assert(!html.includes('barcodeDesignerSingleProduct'));
-  assert(renderer.includes('function renderProductList()'));
+  assert(renderer.includes('function renderProductList(options = {})'));
   assert(renderer.includes('if (section) section.hidden = false;'));
   assert(!renderer.includes('function renderSingleProductControl()'));
   assert(!renderer.includes('hydrateSingleProductFromPreview'));
@@ -576,10 +576,87 @@ test('barcode designer uses the same product list in inventory and products laun
   assert(renderer.includes('data-product-copy-step="${index}:1"'));
   assert(renderer.includes('data-product-copies="${index}"'));
   assert(
-    renderer.includes("document.querySelectorAll('input:not([data-product-copies]), select')")
+    renderer.includes("'input:not([data-product-copies]):not([data-product-search]), select'")
   );
   assert(!css.includes('.epos-barcode-single-product-card'));
   assert(css.includes('.epos-barcode-copy-stepper'));
+});
+
+test('barcode designer restores shared product search above select actions', () => {
+  const html = fs.readFileSync(designerHtmlPath, 'utf8');
+  const renderer = fs.readFileSync(rendererPath, 'utf8');
+
+  const searchStart = html.indexOf('id="barcodeDesignerProductSearch"');
+  const selectStart = html.indexOf('id="barcodeDesignerSelectAll"');
+  const listStart = html.indexOf('id="barcodeDesignerProductList"');
+
+  assert(searchStart > -1);
+  assert(selectStart > searchStart);
+  assert(listStart > selectStart);
+  assert.equal((html.match(/data-product-search/g) || []).length, 1);
+  assert(renderer.includes('function handleProductSearch(event)'));
+  assert(
+    renderer.includes(
+      "$('barcodeDesignerProductSearch')?.addEventListener('input', handleProductSearch)"
+    )
+  );
+  assert(renderer.includes('input:not([data-product-copies]):not([data-product-search]), select'));
+  const searchFunction = renderer.slice(
+    renderer.indexOf('function handleProductSearch(event)'),
+    renderer.indexOf('function updateVisibleSelection(selected)')
+  );
+  assert(searchFunction.includes('renderProductList({ resetScroll: true })'));
+  assert(!searchFunction.includes('schedulePreview'));
+  assert(!html.includes('barcodeDesignerProductSearchResults'));
+});
+
+test('barcode designer product search filters visible rows without mutating selection data', () => {
+  const hooks = loadRendererHooks();
+  const products = [
+    {
+      productId: 1,
+      name: 'Almonds 250g',
+      sku: 'GROC-096',
+      barcode: '8801000000096',
+      selected: true,
+      copies: 5,
+    },
+    {
+      productId: 2,
+      name: 'Honey Bottle',
+      sku: 'GROC-036',
+      barcode: '8801000000036',
+      selected: false,
+      copies: 1,
+    },
+    {
+      productId: 3,
+      name: 'Black Pepper',
+      sku: 'SPICE-011',
+      barcode: '9900000000011',
+      selected: false,
+      copies: 2,
+    },
+  ];
+
+  assert.equal(hooks.productMatchesSearch(products[0], 'almonds'), true);
+  assert.equal(hooks.productMatchesSearch(products[1], 'groc-036'), true);
+  assert.equal(hooks.productMatchesSearch(products[2], '000011'), true);
+  assert.equal(hooks.productMatchesSearch(products[2], 'GROC'), false);
+
+  const filtered = hooks.visibleProductEntries(products, 'groc').map(({ product, index }) => ({
+    productId: product.productId,
+    index,
+    selected: product.selected,
+    copies: product.copies,
+  }));
+
+  assert.deepEqual(filtered, [
+    { productId: 1, index: 0, selected: true, copies: 5 },
+    { productId: 2, index: 1, selected: false, copies: 1 },
+  ]);
+  assert.equal(products[0].selected, true);
+  assert.equal(products[0].copies, 5);
 });
 
 test('barcode designer validates copy edits before requesting preview', () => {
@@ -780,6 +857,13 @@ test('barcode designer CSS keeps date pair stable and product list compact', () 
   assert(css.includes('grid-template-columns: 20px 34px 20px;'));
   assert(css.includes('::-webkit-inner-spin-button'));
   assert(css.includes('scrollbar-gutter: stable;'));
+  assert(css.includes('.epos-barcode-product-search'));
+  assert(css.includes('.epos-barcode-product-search input'));
+  assert(css.includes('.epos-barcode-preview-area'));
+  assert(css.includes('overflow: hidden;'));
+  assert(css.includes('.epos-barcode-preview-grid'));
+  assert(css.includes('flex: 1 1 0;'));
+  assert(css.includes('overflow: auto;'));
   assert(css.includes('#barcodePackingDateField'));
   assert(css.includes('grid-column: 1;'));
   assert(css.includes('#barcodeExpiryDateField'));

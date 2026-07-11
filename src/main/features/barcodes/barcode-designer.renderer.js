@@ -38,6 +38,7 @@
   let state = {
     launch: { mode: 'inventory', products: [] },
     products: [],
+    productSearch: '',
     settings: { ...DEFAULTS },
     previewSeq: 0,
     lastPreview: null,
@@ -195,6 +196,26 @@
     return products.filter((product) => product.selected && product.copies > 0);
   }
 
+  function normalizeProductSearch(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function productMatchesSearch(product, query) {
+    const search = normalizeProductSearch(query);
+    if (!search) return true;
+    return [product?.name, product?.sku, product?.barcode]
+      .map((value) => String(value || '').toLowerCase())
+      .some((value) => value.includes(search));
+  }
+
+  function visibleProductEntries(products = state.products, query = state.productSearch) {
+    return products
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => productMatchesSearch(product, query));
+  }
+
   function buildPreviewRequest(products = state.products, settings = state.settings) {
     const safeSettings = normalizeSettings(settings);
     const labelSize = closestLabelSize(safeSettings);
@@ -310,14 +331,8 @@
     });
   }
 
-  function renderProductList() {
-    const section = $('barcodeDesignerProductsSection');
-    if (section) section.hidden = false;
-    const list = $('barcodeDesignerProductList');
-    if (!list) return;
-    list.innerHTML = state.products
-      .map(
-        (product, index) => `
+  function renderProductRow(product, index) {
+    return `
         <label class="epos-barcode-product-row">
           <input type="checkbox" data-product-selected="${index}" ${product.selected ? 'checked' : ''} />
           <span class="epos-barcode-product-details">
@@ -329,9 +344,19 @@
             <input class="epos-barcode-copies" type="number" min="1" max="100" value="${product.copies}" data-product-copies="${index}" aria-label="Copies for ${esc(product.name)}" />
             <button type="button" data-product-copy-step="${index}:1" aria-label="Increase copies for ${esc(product.name)}">+</button>
           </span>
-        </label>`
-      )
-      .join('');
+        </label>`;
+  }
+
+  function renderProductList(options = {}) {
+    const section = $('barcodeDesignerProductsSection');
+    if (section) section.hidden = false;
+    const list = $('barcodeDesignerProductList');
+    if (!list) return;
+    const entries = visibleProductEntries();
+    list.innerHTML = entries.length
+      ? entries.map(({ product, index }) => renderProductRow(product, index)).join('')
+      : '<p class="epos-barcode-empty">No matching products.</p>';
+    if (options.resetScroll) list.scrollTop = 0;
   }
 
   function readCopiesValue(value) {
@@ -610,23 +635,37 @@
     schedulePreview();
   }
 
+  function handleProductSearch(event) {
+    state.productSearch = String(event.target?.value || '');
+    renderProductList({ resetScroll: true });
+  }
+
+  function updateVisibleSelection(selected) {
+    const visibleIndexes = new Set(visibleProductEntries().map(({ index }) => index));
+    if (!visibleIndexes.size) return;
+    state.products = state.products.map((product, index) =>
+      visibleIndexes.has(index) ? { ...product, selected } : product
+    );
+    renderProductList();
+    schedulePreview();
+  }
+
   function bindEvents() {
-    document.querySelectorAll('input:not([data-product-copies]), select').forEach((el) => {
-      el.addEventListener('input', schedulePreview);
-      el.addEventListener('change', schedulePreview);
-    });
+    document
+      .querySelectorAll('input:not([data-product-copies]):not([data-product-search]), select')
+      .forEach((el) => {
+        el.addEventListener('input', schedulePreview);
+        el.addEventListener('change', schedulePreview);
+      });
+    $('barcodeDesignerProductSearch')?.addEventListener('input', handleProductSearch);
     $('barcodeDesignerProductList')?.addEventListener('input', handleProductInput);
     $('barcodeDesignerProductList')?.addEventListener('change', handleProductInput);
     $('barcodeDesignerProductList')?.addEventListener('click', handleCopyStep);
     $('barcodeDesignerSelectAll')?.addEventListener('click', () => {
-      state.products = state.products.map((product) => ({ ...product, selected: true }));
-      renderProductList();
-      schedulePreview();
+      updateVisibleSelection(true);
     });
     $('barcodeDesignerClear')?.addEventListener('click', () => {
-      state.products = state.products.map((product) => ({ ...product, selected: false }));
-      renderProductList();
-      schedulePreview();
+      updateVisibleSelection(false);
     });
     $('barcodeDesignerReset')?.addEventListener('click', () => {
       state.settings = normalizeSettings();
@@ -695,8 +734,12 @@
       normalizePrinters,
       normalizeLaunchPayload,
       normalizeSettings,
+      normalizeProductSearch,
+      productMatchesSearch,
+      visibleProductEntries,
       readResolvedPreview,
       renderPreview,
+      renderProductList,
       renderPrinterOptions,
       readCopiesValue,
       saveSettings,

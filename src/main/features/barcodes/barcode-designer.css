@@ -98,7 +98,8 @@
 }
 
 .epos-barcode-field input,
-.epos-barcode-field select {
+.epos-barcode-field select,
+.epos-barcode-product-search input {
   width: 100%;
   min-width: 0;
   height: 28px;
@@ -113,7 +114,8 @@
 }
 
 .epos-barcode-field input:focus,
-.epos-barcode-field select:focus {
+.epos-barcode-field select:focus,
+.epos-barcode-product-search input:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
 }
@@ -123,6 +125,15 @@
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+}
+
+.epos-barcode-product-search {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: #26364c;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .epos-barcode-select-actions {
@@ -386,6 +397,8 @@
 .epos-barcode-preview-area {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: #edf3fb;
 }
 
@@ -412,6 +425,9 @@
   flex-direction: column;
   align-items: center;
   gap: 32px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
   padding: 38px 28px 52px;
 }
 
