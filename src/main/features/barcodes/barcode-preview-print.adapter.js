@@ -154,9 +154,8 @@ function buildPreviewPrintHtml(preview) {
       .label { position: absolute; border: var(--label-border, 0.25mm dashed #94a3b8); padding: var(--label-padding, 1mm); text-align: center; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
       .title { display: block; font-size: var(--title-size, 11px); font-weight: 800; margin-bottom: 0.5mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .meta, .digits, .date { display: block; color: #334155; font-size: var(--meta-size, 9px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .bars { display: flex; justify-content: center; align-items: stretch; gap: 0; height: var(--barcode-height, 8mm); margin: 1mm auto 0.5mm; max-width: 100%; overflow: hidden; }
-      .bar { display: inline-block; width: calc(var(--bar-run, 1) * 1px); background: #000; }
-      .space { display: inline-block; width: calc(var(--bar-run, 1) * 1px); }
+      .bars { display: block; height: var(--barcode-height, 8mm); margin: 1mm auto 0.5mm; max-width: 100%; overflow: hidden; }
+      .barcode-svg { display: block; width: 100%; height: 100%; }
       .price { display: block; color: #008a52; font-size: var(--meta-size, 9px); font-weight: 800; margin-top: 0.5mm; }
       .dates { display: flex; justify-content: space-between; gap: 1mm; margin-top: 0.8mm; }
       @media print { body { margin: 0; } }
@@ -212,7 +211,7 @@ function renderLabel(label, presentation) {
   return `
     ${presentation.showTitle ? `<strong class="title">${escapeHtml(title)}</strong>` : ''}
     ${presentation.showSku ? `<span class="meta">${escapeHtml(text.sku || product.sku || '')}</span>` : ''}
-    <div class="bars" aria-hidden="true">${barsHtml(encoded)}</div>
+    <div class="bars" aria-hidden="true">${barcodeSvgHtml(encoded)}</div>
     ${presentation.showBarcodeDigits ? `<span class="digits">${escapeHtml(text.barcode_value || barcode.value || product.barcode || '')}</span>` : ''}
     ${presentation.showPrice ? `<span class="price">${escapeHtml(text.price || priceText(product))}</span>` : ''}
     ${dates.length ? `<span class="dates">${dates.map(([labelText, value]) => `<span class="date">${escapeHtml(labelText)} ${escapeHtml(formatDate(value))}</span>`).join('')}</span>` : ''}`;
@@ -265,15 +264,115 @@ function nonNegativeNumber(value) {
   return Number.isFinite(number) && number >= 0 ? Number(number.toFixed(2)) : 0;
 }
 
-function barsHtml(encoded) {
-  const runs = Array.isArray(encoded.runs) ? encoded.runs.slice(0, 180) : [];
-  if (!runs.length) return '<span class="bar" style="--bar-run:1"></span>';
-  return runs
+function barcodeSvgHtml(encoded) {
+  const geometry = normalizeLinearBarcodeGeometry(encoded);
+  let x = 0;
+  let barIndex = 0;
+  const rects = geometry.runs
     .map((run, index) => {
-      const size = Math.max(1, Number(run) || 1);
-      return `<span class="${index % 2 === 0 ? 'bar' : 'space'}" style="--bar-run:${size}"></span>`;
+      const startX = x;
+      x += run;
+      if (index % 2 !== 0) return '';
+      const height = geometry.barHeights[barIndex];
+      const bottom = geometry.barBottoms[barIndex];
+      const y = geometry.height - bottom - height;
+      barIndex += 1;
+      return `<rect x="${svgNumber(startX)}" y="${svgNumber(y)}" width="${svgNumber(run)}" height="${svgNumber(height)}" fill="#000"></rect>`;
     })
     .join('');
+
+  return `<svg class="barcode-svg" xmlns="http://www.w3.org/2000/svg" width="${svgNumber(geometry.width)}" height="${svgNumber(geometry.height)}" viewBox="0 0 ${svgNumber(geometry.width)} ${svgNumber(geometry.height)}" preserveAspectRatio="none" focusable="false">${rects}</svg>`;
+}
+
+function normalizeLinearBarcodeGeometry(encoded) {
+  if (!encoded || encoded.kind !== 'linear_modules') {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'Printable barcode geometry is required.',
+      'barcode.encoded'
+    );
+  }
+
+  const runs = normalizePositiveNumbers(encoded.runs, 'barcode.encoded.runs');
+  const barCount = Math.ceil(runs.length / 2);
+  const barHeights = normalizePositiveNumbers(encoded.barHeights, 'barcode.encoded.barHeights');
+  const barBottoms = normalizeNonNegativeNumbers(encoded.barBottoms, 'barcode.encoded.barBottoms');
+  if (barHeights.length !== barCount || barBottoms.length !== barCount) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'Printable barcode geometry is inconsistent.',
+      'barcode.encoded'
+    );
+  }
+
+  const width = runs.reduce((sum, run) => sum + run, 0);
+  const height = barHeights.reduce(
+    (max, barHeight, index) => Math.max(max, barHeight + barBottoms[index]),
+    0
+  );
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'Printable barcode dimensions are invalid.',
+      'barcode.encoded'
+    );
+  }
+
+  return { runs, barHeights, barBottoms, width, height };
+}
+
+function normalizePositiveNumbers(values, field) {
+  if (!Array.isArray(values) || !values.length) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'Printable barcode geometry is missing.',
+      field
+    );
+  }
+  return values.map((value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0) {
+      throw new BarcodeDomainError(
+        BARCODE_ERROR_CODES.INVALID_PREVIEW,
+        'Printable barcode geometry contains an invalid number.',
+        field
+      );
+    }
+    return number;
+  });
+}
+
+function normalizeNonNegativeNumbers(values, field) {
+  if (!Array.isArray(values) || !values.length) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'Printable barcode geometry is missing.',
+      field
+    );
+  }
+  return values.map((value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) {
+      throw new BarcodeDomainError(
+        BARCODE_ERROR_CODES.INVALID_PREVIEW,
+        'Printable barcode geometry contains an invalid number.',
+        field
+      );
+    }
+    return number;
+  });
+}
+
+function svgNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    throw new BarcodeDomainError(
+      BARCODE_ERROR_CODES.INVALID_PREVIEW,
+      'Printable barcode SVG coordinate is invalid.',
+      'barcode.encoded'
+    );
+  }
+  return Number(number.toFixed(4)).toString();
 }
 
 function escapeHtml(value) {

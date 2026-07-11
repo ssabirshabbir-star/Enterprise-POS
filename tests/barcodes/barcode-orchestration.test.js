@@ -727,6 +727,18 @@ describe('barcode preview print adapter', () => {
     return { adapter, windows };
   }
 
+  function deepFreeze(value) {
+    if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+    Object.values(value).forEach(deepFreeze);
+    return Object.freeze(value);
+  }
+
+  function previewWithMutatedEncoded(mutator) {
+    const preview = JSON.parse(JSON.stringify(sessionFixture().preview));
+    mutator(preview.resolvedLayout.pages[0].items[0].label.barcode.encoded);
+    return deepFreeze(preview);
+  }
+
   it('executes Electron print for a validated preview session and cleans the window', async () => {
     const { adapter, windows } = adapterHarness();
     const result = await adapter.printPreviewSession(sessionFixture(), {
@@ -764,6 +776,18 @@ describe('barcode preview print adapter', () => {
   it('serializes print HTML from certified preview pages, placements, and presentation only', () => {
     const session = sessionFixture();
     const html = buildPreviewPrintHtml(session.preview);
+    const encoded = session.preview.resolvedLayout.pages[0].items[0].label.barcode.encoded;
+    const svg = html.match(/<svg[\s\S]*?<\/svg>/)?.[0] || '';
+    const rects = Array.from(
+      svg.matchAll(
+        /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#000"><\/rect>/g
+      )
+    );
+    const totalRunWidth = encoded.runs.reduce((sum, run) => sum + run, 0);
+    const maxBarHeight = encoded.barHeights.reduce(
+      (max, height, index) => Math.max(max, height + encoded.barBottoms[index]),
+      0
+    );
 
     assert.equal(session.preview.resolvedLayout.presentation.columns, 2);
     assert.equal(session.preview.resolvedLayout.presentation.columnGapMm, 4);
@@ -779,6 +803,20 @@ describe('barcode preview print adapter', () => {
     assert(html.includes('PKR 11.00'));
     assert(html.includes('Pack: 09-Jun-2026'));
     assert(html.includes('Exp: 30-Jun-2026'));
+    assert(svg.includes('class="barcode-svg"'));
+    assert(svg.includes('xmlns="http://www.w3.org/2000/svg"'));
+    assert(svg.includes(`width="${totalRunWidth}"`));
+    assert(svg.includes(`height="${maxBarHeight}"`));
+    assert(svg.includes(`viewBox="0 0 ${totalRunWidth} ${maxBarHeight}"`));
+    assert(svg.includes('preserveAspectRatio="none"'));
+    assert.equal(rects.length, Math.ceil(encoded.runs.length / 2));
+    rects.forEach((rect) => {
+      assert(Number(rect[3]) > 0);
+      assert(Number(rect[4]) > 0);
+    });
+    assert(!html.includes('background: #000'));
+    assert(!html.includes('class="bar"'));
+    assert(!html.includes('--bar-run'));
     assert(!html.includes('<script'));
   });
 
@@ -807,7 +845,11 @@ describe('barcode preview print adapter', () => {
     const html = buildPreviewPrintHtml(preview);
 
     assert(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+    assert(html.includes('<svg class="barcode-svg"'));
+    assert(html.includes('<rect'));
+    assert(html.includes('fill="#000"'));
     assert(!html.includes('<img'));
+    assert(!html.includes('<foreignObject'));
     assert(!html.includes('SKU-1'));
     assert(!html.includes('BARCODE-1'));
     assert(!html.includes('PKR 11.00'));
@@ -815,6 +857,45 @@ describe('barcode preview print adapter', () => {
     assert(html.includes('Exp: 31-Dec-2026'));
     assert(!html.includes('<script'));
     assert(!html.includes('javascript:'));
+  });
+
+  it('rejects invalid foreground SVG barcode geometry', () => {
+    assert.throws(
+      () =>
+        buildPreviewPrintHtml(
+          previewWithMutatedEncoded((encoded) => {
+            encoded.runs[0] = 0;
+          })
+        ),
+      /Printable barcode geometry/
+    );
+    assert.throws(
+      () =>
+        buildPreviewPrintHtml(
+          previewWithMutatedEncoded((encoded) => {
+            encoded.runs[0] = Number.POSITIVE_INFINITY;
+          })
+        ),
+      /Printable barcode geometry/
+    );
+    assert.throws(
+      () =>
+        buildPreviewPrintHtml(
+          previewWithMutatedEncoded((encoded) => {
+            encoded.barHeights[0] = 0;
+          })
+        ),
+      /Printable barcode geometry/
+    );
+    assert.throws(
+      () =>
+        buildPreviewPrintHtml(
+          previewWithMutatedEncoded((encoded) => {
+            encoded.barBottoms[0] = -1;
+          })
+        ),
+      /Printable barcode geometry/
+    );
   });
 
   it('guards duplicate Electron print callbacks and cleans load failures', async () => {
