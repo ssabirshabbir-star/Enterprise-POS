@@ -377,6 +377,8 @@
       set('currentStock', product.currentStock);
       const allowOverrideEl = $id('allowSalePriceOverride');
       if (allowOverrideEl) allowOverrideEl.checked = product.allowSalePriceOverride === true;
+      const allowPriceChangeEl = $id('allowPriceChange');
+      if (allowPriceChangeEl) allowPriceChangeEl.checked = product.allowPriceChange === true;
       const autoUpdateEl = $id('autoUpdateSalePriceFromPurchase');
       if (autoUpdateEl) autoUpdateEl.checked = product.autoUpdateSalePriceFromPurchase === true;
       const trackExpiryEl = $id('trackExpiry');
@@ -394,6 +396,7 @@
       if (idEl) idEl.value = '';
       [
         'allowSalePriceOverride',
+        'allowPriceChange',
         'autoUpdateSalePriceFromPurchase',
         'trackExpiry',
         'expiryRequired',
@@ -458,6 +461,7 @@
       minStockLevel: parseFloat($id('minStockLevel')?.value || '0') || 0,
       currentStock: parseFloat($id('currentStock')?.value || '0') || 0,
       allowSalePriceOverride: $id('allowSalePriceOverride')?.checked === true,
+      allowPriceChange: $id('allowPriceChange')?.checked === true,
       autoUpdateSalePriceFromPurchase: $id('autoUpdateSalePriceFromPurchase')?.checked === true,
       trackExpiry: $id('trackExpiry')?.checked === true,
       expiryRequired: $id('expiryRequired')?.checked === true,

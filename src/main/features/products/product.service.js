@@ -76,6 +76,10 @@ function generateBarcode() {
   return `88${Date.now()}${Math.floor(100 + Math.random() * 900)}`.slice(0, 18);
 }
 
+function pricesDiffer(left, right) {
+  return Number(Number(left || 0).toFixed(2)) !== Number(Number(right || 0).toFixed(2));
+}
+
 async function buildUniqueCodes(payload, exceptId = null) {
   let sku = payload.sku || generateSku(payload.name);
   let barcode = payload.barcode || generateBarcode();
@@ -227,6 +231,22 @@ async function updateProduct(productId, payload) {
   if (!Object.prototype.hasOwnProperty.call(payload || {}, 'variantId')) {
     validation.value.variantId = existing.variantId ?? null;
   }
+  if (!validation.value.allowPriceChangePresent) {
+    validation.value.allowPriceChange = existing.allowPriceChange === true;
+  }
+
+  const storedSalePrice =
+    existing.salePrice === undefined || existing.salePrice === null
+      ? validation.value.salePrice
+      : existing.salePrice;
+  const salePriceChanged = pricesDiffer(validation.value.salePrice, storedSalePrice);
+  if (salePriceChanged && existing.allowPriceChange !== true) {
+    return {
+      ok: false,
+      message:
+        'Sale Price cannot be changed because Allow Price Change is disabled for this product.',
+    };
+  }
 
   const variantCheck = await validateVariantAssignment(validation.value.variantId, {
     existingVariantId: existing.variantId,
@@ -261,6 +281,10 @@ async function updateProduct(productId, payload) {
       barcode: product.barcode,
       previousVariantId: existing.variantId,
       variantId: product.variantId,
+      previousSalePrice: Number(existing.salePrice),
+      salePrice: Number(product.salePrice),
+      previousAllowPriceChange: existing.allowPriceChange === true,
+      allowPriceChange: product.allowPriceChange === true,
     },
   });
 

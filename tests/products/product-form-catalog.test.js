@@ -64,6 +64,18 @@ test('Product Form has one form and one shared catalog dialog', () => {
   assert.deepEqual(duplicateIds, []);
 });
 
+test('Product Form exposes Allow Price Change as an enabled product policy control', () => {
+  const html = read(indexHtmlPath);
+  const renderer = read(productsRendererPath);
+
+  const control = html.match(/<input[^>]+id="allowPriceChange"[^>]*>/)?.[0] || '';
+  assert.ok(control, 'Allow Price Change control should have a stable id');
+  assert.doesNotMatch(control, /\sdisabled(?:\s|>|=)/);
+  assert.match(renderer, /product\.allowPriceChange === true/);
+  assert.match(renderer, /'allowPriceChange'/);
+  assert.match(renderer, /allowPriceChange: \$id\('allowPriceChange'\)\?\.checked === true/);
+});
+
 test('supported catalog plus buttons are enabled including Variant', () => {
   const html = read(indexHtmlPath);
   for (const type of ['categories', 'brands', 'units', 'variants']) {

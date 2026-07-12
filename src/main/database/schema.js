@@ -475,6 +475,7 @@ async function initializeDatabase() {
         min_stock_level NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (min_stock_level >= 0),
         current_stock NUMERIC(14, 3) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
         allow_sale_price_override BOOLEAN NOT NULL DEFAULT FALSE,
+        allow_price_change BOOLEAN NOT NULL DEFAULT FALSE,
         auto_update_sale_price_from_purchase BOOLEAN NOT NULL DEFAULT FALSE,
         track_expiry BOOLEAN NOT NULL DEFAULT FALSE,
         expiry_required BOOLEAN NOT NULL DEFAULT FALSE,
@@ -1263,6 +1264,9 @@ async function initializeDatabase() {
     );
     await client.query(
       'ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_sale_price_override BOOLEAN NOT NULL DEFAULT FALSE;'
+    );
+    await client.query(
+      'ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_price_change BOOLEAN NOT NULL DEFAULT FALSE;'
     );
     await client.query(
       'ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_update_sale_price_from_purchase BOOLEAN NOT NULL DEFAULT FALSE;'

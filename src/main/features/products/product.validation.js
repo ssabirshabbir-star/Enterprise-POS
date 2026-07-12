@@ -42,6 +42,18 @@ function parseNullableNonNegativeInteger(value, field) {
   return { ok: true, value: number };
 }
 
+function parseOptionalBoolean(payload, field, defaultValue = false) {
+  if (!Object.prototype.hasOwnProperty.call(payload, field)) {
+    return { ok: true, value: defaultValue, present: false };
+  }
+
+  const value = payload[field];
+  if (value === true || value === false) {
+    return { ok: true, value, present: true };
+  }
+  return { ok: false, message: `${field} must be true or false.` };
+}
+
 function validateProductPayload(payload) {
   const name = cleanString(payload.name);
   const sku = cleanString(payload.sku).toUpperCase();
@@ -78,6 +90,7 @@ function validateProductPayload(payload) {
     payload.expiryAlertDays,
     'Expiry alert days'
   );
+  const allowPriceChange = parseOptionalBoolean(payload, 'allowPriceChange', false);
 
   const checks = [
     categoryId,
@@ -90,6 +103,7 @@ function validateProductPayload(payload) {
     minStockLevel,
     currentStock,
     expiryAlertDays,
+    allowPriceChange,
   ];
   const failed = checks.find((check) => !check.ok);
   if (failed) {
@@ -116,6 +130,8 @@ function validateProductPayload(payload) {
       minStockLevel: minStockLevel.value,
       currentStock: currentStock.value,
       allowSalePriceOverride: payload.allowSalePriceOverride === true,
+      allowPriceChange: allowPriceChange.value,
+      allowPriceChangePresent: allowPriceChange.present,
       autoUpdateSalePriceFromPurchase: payload.autoUpdateSalePriceFromPurchase === true,
       trackExpiry: payload.trackExpiry === true,
       expiryRequired: payload.expiryRequired === true,
