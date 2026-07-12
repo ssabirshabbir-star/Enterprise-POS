@@ -448,6 +448,18 @@ async function initializeDatabase() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS variants (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(140) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        deleted_at TIMESTAMPTZ
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
         name VARCHAR(220) NOT NULL,
@@ -456,6 +468,7 @@ async function initializeDatabase() {
         category_id INTEGER REFERENCES categories(id),
         brand_id INTEGER REFERENCES brands(id),
         unit_id INTEGER REFERENCES units(id),
+        variant_id INTEGER REFERENCES variants(id),
         purchase_price NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (purchase_price >= 0),
         sale_price NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (sale_price >= 0),
         wholesale_price NUMERIC(14, 2) NOT NULL DEFAULT 0 CHECK (wholesale_price >= 0),
@@ -1224,6 +1237,13 @@ async function initializeDatabase() {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_units_name_unique ON units (LOWER(name)) WHERE deleted_at IS NULL;'
     );
     await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_name_unique ON variants (LOWER(name)) WHERE deleted_at IS NULL;'
+    );
+    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS product_image TEXT;');
+    await client.query(
+      'ALTER TABLE products ADD COLUMN IF NOT EXISTS variant_id INTEGER REFERENCES variants(id);'
+    );
+    await client.query(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku_unique ON products (LOWER(sku)) WHERE deleted_at IS NULL;'
     );
     await client.query(
@@ -1238,7 +1258,9 @@ async function initializeDatabase() {
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products (brand_id) WHERE deleted_at IS NULL;'
     );
-    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS product_image TEXT;');
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_products_variant_id ON products (variant_id) WHERE deleted_at IS NULL;'
+    );
     await client.query(
       'ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_sale_price_override BOOLEAN NOT NULL DEFAULT FALSE;'
     );

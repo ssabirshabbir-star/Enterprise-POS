@@ -68,6 +68,7 @@ function validateProductPayload(payload) {
   const categoryId = parseNullableId(payload.categoryId, 'Category');
   const brandId = parseNullableId(payload.brandId, 'Brand');
   const unitId = parseNullableId(payload.unitId, 'Unit');
+  const variantId = parseNullableId(payload.variantId, 'Variant');
   const purchasePrice = parseMoney(payload.purchasePrice, 'Purchase price');
   const salePrice = parseMoney(payload.salePrice, 'Sale price');
   const wholesalePrice = parseMoney(payload.wholesalePrice, 'Wholesale price');
@@ -82,6 +83,7 @@ function validateProductPayload(payload) {
     categoryId,
     brandId,
     unitId,
+    variantId,
     purchasePrice,
     salePrice,
     wholesalePrice,
@@ -107,6 +109,7 @@ function validateProductPayload(payload) {
       categoryId: categoryId.value,
       brandId: brandId.value,
       unitId: unitId.value,
+      variantId: variantId.value,
       purchasePrice: purchasePrice.value,
       salePrice: salePrice.value,
       wholesalePrice: wholesalePrice.value,

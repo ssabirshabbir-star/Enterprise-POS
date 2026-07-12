@@ -107,8 +107,7 @@
     variants: {
       label: 'Variant',
       formSelect: 'productVariantCatalogPreview',
-      placeholder: 'Not linked to product save',
-      supported: false,
+      placeholder: '— Select variant —',
     },
   });
 
@@ -370,6 +369,7 @@
       set('productCategory', product.categoryId);
       set('productBrand', product.brandId);
       set('productUnit', product.unitId);
+      set('productVariantCatalogPreview', product.variantId);
       set('purchasePrice', product.purchasePrice);
       set('salePrice', product.salePrice);
       set('wholesalePrice', product.wholesalePrice);
@@ -451,6 +451,7 @@
       categoryId: Number($id('productCategory')?.value) || null,
       brandId: Number($id('productBrand')?.value) || null,
       unitId: Number($id('productUnit')?.value) || null,
+      variantId: Number($id('productVariantCatalogPreview')?.value) || null,
       purchasePrice: parseFloat($id('purchasePrice')?.value || '0') || 0,
       salePrice: parseFloat($id('salePrice')?.value || '0') || 0,
       wholesalePrice: parseFloat($id('wholesalePrice')?.value || '0') || 0,
@@ -673,7 +674,7 @@
       }
       showCatalogMessage(res.message || `${type} saved.`);
       form.reset();
-      const selectedId = type === 'variants' ? undefined : res.item?.id;
+      const selectedId = res.item?.id;
       const refreshRes = await refreshCatalogType(type, selectedId);
       if (!refreshRes?.ok) {
         showCatalogMessage(refreshRes?.message || `Unable to refresh ${type}.`, true);

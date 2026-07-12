@@ -17,6 +17,8 @@ function mapProduct(row) {
     unitId: row.unit_id,
     unitName: row.unit_name,
     unitShortName: row.unit_short_name,
+    variantId: row.variant_id,
+    variantName: row.variant_name,
     purchasePrice: Number(row.purchase_price),
     salePrice: Number(row.sale_price),
     wholesalePrice: Number(row.wholesale_price),
@@ -42,11 +44,13 @@ const productSelect = `
     categories.name AS category_name,
     brands.name AS brand_name,
     units.name AS unit_name,
-    units.short_name AS unit_short_name
+    units.short_name AS unit_short_name,
+    variants.name AS variant_name
   FROM products
   LEFT JOIN categories ON categories.id = products.category_id
   LEFT JOIN brands ON brands.id = products.brand_id
   LEFT JOIN units ON units.id = products.unit_id
+  LEFT JOIN variants ON variants.id = products.variant_id
 `;
 
 async function listProducts({
@@ -164,13 +168,13 @@ async function createProduct(payload, actorId) {
     const result = await client.query(
       `
         INSERT INTO products (
-          name, sku, barcode, category_id, brand_id, unit_id,
+          name, sku, barcode, category_id, brand_id, unit_id, variant_id,
           purchase_price, sale_price, wholesale_price,
           min_stock_level, current_stock, allow_sale_price_override,
           auto_update_sale_price_from_purchase, track_expiry,
           expiry_required, expiry_alert_days, is_active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING id
       `,
       [
@@ -180,6 +184,7 @@ async function createProduct(payload, actorId) {
         payload.categoryId,
         payload.brandId,
         payload.unitId,
+        payload.variantId,
         payload.purchasePrice,
         payload.salePrice,
         payload.wholesalePrice,
@@ -247,17 +252,18 @@ async function updateProduct(productId, payload, actorId) {
           category_id = $5,
           brand_id = $6,
           unit_id = $7,
-          purchase_price = $8,
-          sale_price = $9,
-          wholesale_price = $10,
-          min_stock_level = $11,
-          current_stock = $12,
-          allow_sale_price_override = $13,
-          auto_update_sale_price_from_purchase = $14,
-          track_expiry = $15,
-          expiry_required = $16,
-          expiry_alert_days = $17,
-          is_active = $18,
+          variant_id = $8,
+          purchase_price = $9,
+          sale_price = $10,
+          wholesale_price = $11,
+          min_stock_level = $12,
+          current_stock = $13,
+          allow_sale_price_override = $14,
+          auto_update_sale_price_from_purchase = $15,
+          track_expiry = $16,
+          expiry_required = $17,
+          expiry_alert_days = $18,
+          is_active = $19,
           updated_at = NOW()
         WHERE id = $1 AND deleted_at IS NULL
         RETURNING id
@@ -270,6 +276,7 @@ async function updateProduct(productId, payload, actorId) {
         payload.categoryId,
         payload.brandId,
         payload.unitId,
+        payload.variantId,
         payload.purchasePrice,
         payload.salePrice,
         payload.wholesalePrice,

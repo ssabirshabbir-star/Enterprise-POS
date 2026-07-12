@@ -32,6 +32,37 @@ function parseId(id) {
   return productId;
 }
 
+function catalogLabel(type) {
+  return (
+    {
+      categories: 'Category',
+      brands: 'Brand',
+      units: 'Unit',
+      variants: 'Variant',
+    }[type] || 'Catalog item'
+  );
+}
+
+async function validateVariantAssignment(variantId, { existingVariantId = null } = {}) {
+  if (!variantId) {
+    return { ok: true };
+  }
+
+  if (Number(variantId) === Number(existingVariantId || 0)) {
+    const existing = await catalogRepository.findCatalogById('variants', variantId, {
+      includeInactive: true,
+    });
+    return existing ? { ok: true } : { ok: false, message: 'Variant is invalid.' };
+  }
+
+  const variant = await catalogRepository.findCatalogById('variants', variantId);
+  if (!variant) {
+    return { ok: false, message: 'Variant is invalid or inactive.' };
+  }
+
+  return { ok: true };
+}
+
 function generateSku(name) {
   const prefix = String(name || 'PRODUCT')
     .toUpperCase()
@@ -142,6 +173,11 @@ async function createProduct(payload) {
     return validation;
   }
 
+  const variantCheck = await validateVariantAssignment(validation.value.variantId);
+  if (!variantCheck.ok) {
+    return variantCheck;
+  }
+
   const codes = await buildUniqueCodes(validation.value);
   if (!codes.ok) {
     return codes;
@@ -156,7 +192,12 @@ async function createProduct(payload) {
     action: 'product.create',
     status: 'success',
     message: 'Product created',
-    metadata: { productId, sku: product.sku, barcode: product.barcode },
+    metadata: {
+      productId,
+      sku: product.sku,
+      barcode: product.barcode,
+      variantId: product.variantId,
+    },
   });
 
   return { ok: true, product, message: 'Product saved successfully.' };
@@ -183,6 +224,17 @@ async function updateProduct(productId, payload) {
     return validation;
   }
 
+  if (!Object.prototype.hasOwnProperty.call(payload || {}, 'variantId')) {
+    validation.value.variantId = existing.variantId ?? null;
+  }
+
+  const variantCheck = await validateVariantAssignment(validation.value.variantId, {
+    existingVariantId: existing.variantId,
+  });
+  if (!variantCheck.ok) {
+    return variantCheck;
+  }
+
   const codes = await buildUniqueCodes(validation.value, id);
   if (!codes.ok) {
     return codes;
@@ -203,7 +255,13 @@ async function updateProduct(productId, payload) {
     action: 'product.update',
     status: 'success',
     message: 'Product updated',
-    metadata: { productId: id, sku: product.sku, barcode: product.barcode },
+    metadata: {
+      productId: id,
+      sku: product.sku,
+      barcode: product.barcode,
+      previousVariantId: existing.variantId,
+      variantId: product.variantId,
+    },
   });
 
   return { ok: true, product, message: 'Product updated successfully.' };
@@ -252,7 +310,7 @@ async function createCatalog(type, payload) {
     return access;
   }
 
-  const label = type === 'categories' ? 'Category' : type === 'brands' ? 'Brand' : 'Unit';
+  const label = catalogLabel(type);
   const validation = validateCatalogPayload(payload || {}, label);
   if (!validation.ok) {
     return validation;
@@ -287,7 +345,7 @@ async function updateCatalog(type, id, payload) {
     return { ok: false, message: 'Invalid catalog id.' };
   }
 
-  const label = type === 'categories' ? 'Category' : type === 'brands' ? 'Brand' : 'Unit';
+  const label = catalogLabel(type);
   const validation = validateCatalogPayload(payload || {}, label);
   if (!validation.ok) {
     return validation;
@@ -323,6 +381,13 @@ async function deleteCatalog(type, id) {
   const catalogId = parseId(id);
   if (!catalogId) {
     return { ok: false, message: 'Invalid catalog id.' };
+  }
+
+  if (type === 'variants') {
+    const references = await catalogRepository.countCatalogProductReferences(type, catalogId);
+    if (references > 0) {
+      return { ok: false, message: 'Variant is assigned to products and cannot be deleted.' };
+    }
   }
 
   const deleted = await catalogRepository.softDeleteCatalog(type, catalogId);

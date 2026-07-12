@@ -23,7 +23,7 @@
     return window.FeatureGate.check(featureId);
   }
 
-  const SUPPORTED_CATALOG_TYPES = Object.freeze(['categories', 'brands', 'units']);
+  const SUPPORTED_CATALOG_TYPES = Object.freeze(['categories', 'brands', 'units', 'variants']);
 
   function isSupportedCatalogType(type) {
     return SUPPORTED_CATALOG_TYPES.includes(String(type || ''));
@@ -144,10 +144,11 @@
 
   async function loadCatalog() {
     try {
-      const [cats, brands, units] = await Promise.all([
+      const [cats, brands, units, variants] = await Promise.all([
         window.posApi.catalog.list('categories'),
         window.posApi.catalog.list('brands'),
         window.posApi.catalog.list('units'),
+        window.posApi.catalog.list('variants'),
       ]);
       return {
         ok: true,
@@ -155,13 +156,14 @@
           categories: cats?.items || [],
           brands: brands?.items || [],
           units: units?.items || [],
+          variants: variants?.items || [],
         },
       };
     } catch {
       return {
         ok: false,
-        message: 'Unable to load categories, brands, and units.',
-        catalog: { categories: [], brands: [], units: [] },
+        message: 'Unable to load product catalog values.',
+        catalog: { categories: [], brands: [], units: [], variants: [] },
       };
     }
   }

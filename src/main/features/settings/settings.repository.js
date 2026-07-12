@@ -66,6 +66,12 @@ const BACKUP_COVERAGE_POLICY = {
       dependency: 'Parent',
     },
     {
+      name: 'variants',
+      classification: 'Mandatory',
+      recoveryCriticality: 'High',
+      dependency: 'Parent',
+    },
+    {
       name: 'products',
       classification: 'Mandatory',
       recoveryCriticality: 'Critical',

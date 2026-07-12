@@ -64,17 +64,17 @@ test('Product Form has one form and one shared catalog dialog', () => {
   assert.deepEqual(duplicateIds, []);
 });
 
-test('supported catalog plus buttons are enabled and Variant is unavailable', () => {
+test('supported catalog plus buttons are enabled including Variant', () => {
   const html = read(indexHtmlPath);
-  for (const type of ['categories', 'brands', 'units']) {
+  for (const type of ['categories', 'brands', 'units', 'variants']) {
     const match = html.match(new RegExp(`<button[^>]+data-catalog-open="${type}"[^>]*>`));
     assert.ok(match, `${type} plus button should exist`);
     assert.doesNotMatch(match[0], /\sdisabled(?:\s|>|=)/, `${type} plus button should be enabled`);
   }
 
-  const variant = html.match(/<button[^>]+data-catalog-open="variants"[^>]*>/)?.[0] || '';
-  assert.match(variant, /\sdisabled(?:\s|>|=)/);
-  assert.match(variant, /not available yet/i);
+  const variantSelect =
+    html.match(/<select[^>]+id="productVariantCatalogPreview"[^>]*>/)?.[0] || '';
+  assert.doesNotMatch(variantSelect, /\sdisabled(?:\s|>|=)/);
 });
 
 test('Product Form stage indicators are informational, colored, and non-tab navigation', () => {
@@ -96,26 +96,31 @@ test('Product Form stage indicators are informational, colored, and non-tab navi
   assert.doesNotMatch(css, /\.pf-section-tabs|cursor:\s*pointer[^}]*pf-step/);
 });
 
-test('Products API supports only complete catalog backend types', async () => {
+test('Products API supports complete catalog backend types including variants', async () => {
   const { api, catalogCalls } = loadProductsApi();
 
   const categories = await api.loadCatalogType('categories');
   assert.equal(categories.ok, true);
   assert.deepEqual(catalogCalls[0], ['list', 'categories']);
 
-  const unsupported = await api.loadCatalogType('variants');
-  assert.equal(unsupported.ok, false);
-  assert.equal(catalogCalls.length, 1, 'unsupported catalog type must not call backend');
+  const variants = await api.loadCatalogType('variants');
+  assert.equal(variants.ok, true);
+  assert.deepEqual(catalogCalls[1], ['list', 'variants']);
 
   const saved = await api.saveCatalogItem('brands', { name: 'New Brand' });
   assert.equal(saved.ok, true);
   assert.equal(saved.item.id, 8);
-  assert.equal(catalogCalls[1][0], 'create');
-  assert.equal(catalogCalls[1][1], 'brands');
+  assert.equal(catalogCalls[2][0], 'create');
+  assert.equal(catalogCalls[2][1], 'brands');
 
-  const unsupportedSave = await api.saveCatalogItem('variants', { name: 'V1' });
+  const savedVariant = await api.saveCatalogItem('variants', { name: 'V1' });
+  assert.equal(savedVariant.ok, true);
+  assert.equal(catalogCalls[3][0], 'create');
+  assert.equal(catalogCalls[3][1], 'variants');
+
+  const unsupportedSave = await api.saveCatalogItem('taxes', { name: 'VAT' });
   assert.equal(unsupportedSave.ok, false);
-  assert.equal(catalogCalls.length, 2, 'unsupported save must not call backend');
+  assert.equal(catalogCalls.length, 4, 'unsupported save must not call backend');
 });
 
 test('supported Product catalog management is enabled by the feature gate', () => {
@@ -146,6 +151,19 @@ test('Products API fails closed for malformed catalog create responses', async (
   assert.deepEqual(catalogCalls, [['create', 'units']]);
 });
 
+test('Products API loads Variant with the shared catalog payload', async () => {
+  const { api, catalogCalls } = loadProductsApi();
+
+  const result = await api.loadCatalog();
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    catalogCalls.map((call) => call[1]),
+    ['categories', 'brands', 'units', 'variants']
+  );
+  assert.equal(result.catalog.variants[0].name, 'variants item');
+});
+
 test('Product renderer preserves form state while catalog dialog is used', () => {
   const renderer = read(productsRendererPath);
   const saveCatalogBlock = renderer.match(
@@ -154,6 +172,7 @@ test('Product renderer preserves form state while catalog dialog is used', () =>
 
   assert.ok(saveCatalogBlock, 'saveCatalogItemFromForm should exist');
   assert.match(saveCatalogBlock, /refreshCatalogType\(type, selectedId\)/);
+  assert.match(saveCatalogBlock, /const selectedId = res\.item\?\.id;/);
   assert.match(saveCatalogBlock, /if \(_catalogSaveInFlight\) return;/);
   assert.match(saveCatalogBlock, /if \(!payload\.name\)/);
   assert.match(saveCatalogBlock, /Unit short name is required/);
@@ -166,6 +185,11 @@ test('Add and Edit product paths use the same Product Form', () => {
 
   assert.match(renderer, /newProductButton[\s\S]*openProductForm\(null\)/);
   assert.match(renderer, /loadProductForEdit[\s\S]*openProductForm\(res\.product\)/);
+  assert.match(renderer, /set\('productVariantCatalogPreview', product\.variantId\)/);
+  assert.match(
+    renderer,
+    /variantId: Number\(\$id\('productVariantCatalogPreview'\)\?\.value\) \|\| null/
+  );
   assert.match(renderer, /barcodeButton\.disabled = !hasSavedProduct/);
   assert.match(renderer, /Save the product before printing a barcode/);
   assert.doesNotMatch(renderer, /location\.reload/);

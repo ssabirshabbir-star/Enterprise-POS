@@ -3,7 +3,8 @@ const { getPool } = require('../../database/connection');
 const TABLES = Object.freeze({
   categories: 'categories',
   brands: 'brands',
-  units: 'units'
+  units: 'units',
+  variants: 'variants',
 });
 
 function assertTable(table) {
@@ -25,7 +26,7 @@ function mapCatalog(row) {
     shortName: row.short_name,
     isActive: row.is_active,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
   };
 }
 
@@ -40,6 +41,22 @@ async function listCatalog(table) {
     `
   );
   return result.rows.map(mapCatalog);
+}
+
+async function findCatalogById(table, id, { includeInactive = false } = {}) {
+  const tableName = assertTable(table);
+  const result = await getPool().query(
+    `
+      SELECT *
+      FROM ${tableName}
+      WHERE id = $1
+        AND deleted_at IS NULL
+        ${includeInactive ? '' : 'AND is_active = TRUE'}
+      LIMIT 1
+    `,
+    [id]
+  );
+  return mapCatalog(result.rows[0]);
 }
 
 async function createCatalog(table, payload) {
@@ -57,7 +74,9 @@ async function createCatalog(table, payload) {
           VALUES ($1, $2, $3)
           RETURNING *
         `,
-    isUnit ? [payload.name, payload.shortName, payload.isActive] : [payload.name, payload.description, payload.isActive]
+    isUnit
+      ? [payload.name, payload.shortName, payload.isActive]
+      : [payload.name, payload.description, payload.isActive]
   );
   return mapCatalog(result.rows[0]);
 }
@@ -79,9 +98,28 @@ async function updateCatalog(table, id, payload) {
           WHERE id = $1 AND deleted_at IS NULL
           RETURNING *
         `,
-    isUnit ? [id, payload.name, payload.shortName, payload.isActive] : [id, payload.name, payload.description, payload.isActive]
+    isUnit
+      ? [id, payload.name, payload.shortName, payload.isActive]
+      : [id, payload.name, payload.description, payload.isActive]
   );
   return mapCatalog(result.rows[0]);
+}
+
+async function countCatalogProductReferences(table, id) {
+  const tableName = assertTable(table);
+  if (tableName !== 'variants') {
+    return 0;
+  }
+
+  const result = await getPool().query(
+    `
+      SELECT COUNT(*)::int AS total
+      FROM products
+      WHERE variant_id = $1 AND deleted_at IS NULL
+    `,
+    [id]
+  );
+  return Number(result.rows[0]?.total || 0);
 }
 
 async function softDeleteCatalog(table, id) {
@@ -98,8 +136,10 @@ async function softDeleteCatalog(table, id) {
 }
 
 module.exports = {
+  countCatalogProductReferences,
   createCatalog,
+  findCatalogById,
   listCatalog,
   softDeleteCatalog,
-  updateCatalog
+  updateCatalog,
 };
