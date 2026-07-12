@@ -54,11 +54,8 @@
       formMessage: 'productFormMsg',
       closeFormButton: 'closeProductFormButton',
       barcodePrintButton: 'barcodePrintButton',
-      catalogToggle: 'pfCatalogToggle',
       catalogPanel: 'pfCatalogPanel',
-      categoryList: 'categoryList',
-      brandList: 'brandList',
-      unitList: 'unitList',
+      catalogList: 'pfCatalogList',
     },
     selectors: {
       formFooter: '#productForm .pf-footer',
@@ -68,6 +65,7 @@
       deleteProduct: '[data-delete-product]',
       catalogForm: '.catalogForm',
       catalogDelete: '[data-catalog-delete]',
+      catalogClose: '[data-catalog-close]',
       pageTool: '[data-page-tool="products"]',
     },
     filterIds: ['productCategoryFilter', 'productBrandFilter', 'productUnitFilter'],
@@ -80,6 +78,39 @@
   let _currentTab = 'all'; // active tab key
   let _searchTimer = null; // debounce handle for search input
   let _productRefreshSeq = 0; // prevents stale async list responses from repainting the table
+  let _activeCatalogType = null;
+  let _productSaveInFlight = false;
+  let _catalogSaveInFlight = false;
+  const _catalogCache = {
+    categories: [],
+    brands: [],
+    units: [],
+    variants: [],
+  };
+  const CATALOG_CONFIG = Object.freeze({
+    categories: {
+      label: 'Category',
+      formSelect: 'productCategory',
+      filterSelect: 'productCategoryFilter',
+    },
+    brands: {
+      label: 'Brand',
+      formSelect: 'productBrand',
+      filterSelect: 'productBrandFilter',
+    },
+    units: {
+      label: 'Unit',
+      formSelect: 'productUnit',
+      filterSelect: 'productUnitFilter',
+      usesShortName: true,
+    },
+    variants: {
+      label: 'Variant',
+      formSelect: 'productVariantCatalogPreview',
+      placeholder: 'Not linked to product save',
+      supported: false,
+    },
+  });
 
   // Current filter state — read by products.api.js via getCurrentFilters()
   function getCurrentFilters() {
@@ -236,66 +267,84 @@
 
   // ── Catalog dropdowns + lists ─────────────────────────────────────────────
 
-  function renderCatalogDropdowns(catalog) {
-    const fill = (id, items, labelKey = 'name', extra = '') => {
-      const el = $id(id);
-      if (!el) return;
-      const saved = el.value;
-      el.innerHTML =
-        `<option value="">— Select —</option>${extra}` +
-        (items || [])
-          .map((i) => `<option value="${i.id}">${esc(i[labelKey] || i.name)}</option>`)
+  function renderCatalogType(type, items, selectedId) {
+    const config = CATALOG_CONFIG[type];
+    if (!config) return;
+    _catalogCache[type] = items || [];
+
+    const formSelect = $id(config.formSelect);
+    if (formSelect) {
+      const saved = selectedId ?? formSelect.value;
+      formSelect.innerHTML =
+        `<option value="">${config.placeholder || '— Select —'}</option>` +
+        _catalogCache[type]
+          .map((item) => `<option value="${item.id}">${esc(item.name)}</option>`)
           .join('');
-      el.value = saved; // restore selection
-    };
-    // Form dropdowns
-    fill('productCategory', catalog.categories);
-    fill('productBrand', catalog.brands);
-    fill('productUnit', catalog.units);
-    // Filter bar dropdowns
-    const fillFilter = (id, items) => {
-      const el = $id(id);
-      if (!el) return;
-      const saved = el.value;
-      el.innerHTML =
-        `<option value="">All</option>` +
-        (items || []).map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join('');
-      el.value = saved;
-    };
-    fillFilter('productCategoryFilter', catalog.categories);
-    fillFilter('productBrandFilter', catalog.brands);
-    fillFilter('productUnitFilter', catalog.units);
+      formSelect.value = String(saved ?? '');
+    }
+
+    const filterSelect = config.filterSelect ? $id(config.filterSelect) : null;
+    if (filterSelect) {
+      const saved = filterSelect.value;
+      filterSelect.innerHTML =
+        '<option value="">All</option>' +
+        _catalogCache[type]
+          .map((item) => `<option value="${item.id}">${esc(item.name)}</option>`)
+          .join('');
+      filterSelect.value = saved;
+    }
+
+    renderActiveCatalogList();
   }
 
-  function renderCatalogLists(catalog) {
-    const renderList = (elId, items, type) => {
-      const el = $id(elId);
-      if (!el) return;
-      if (!items?.length) {
-        el.innerHTML = UIX().Panel.render({
-          children: 'None yet.',
-          className: 'epos-products-catalog-empty',
-        });
-        return;
-      }
-      el.innerHTML = items
-        .map(
-          (i) =>
-            `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;font-size:.76rem">
-          <span>${esc(i.name)}${i.shortName ? ` (${esc(i.shortName)})` : ''}</span>
+  function renderCatalogDropdowns(catalog) {
+    Object.keys(CATALOG_CONFIG).forEach((type) => renderCatalogType(type, catalog[type] || []));
+  }
+
+  function renderActiveCatalogList() {
+    const el = $id('catalogList');
+    const items = _catalogCache[_activeCatalogType] || [];
+    if (!el || !_activeCatalogType) return;
+    if (!items.length) {
+      el.innerHTML = UIX().Panel.render({
+        children: 'No entries yet.',
+        className: 'epos-products-catalog-empty',
+      });
+      return;
+    }
+    el.innerHTML = items
+      .map(
+        (item) =>
+          `<div class="pf-catalog-list-item">
+          <span>${esc(item.name)}${item.shortName ? ` (${esc(item.shortName)})` : ''}</span>
           ${
             _canWrite
-              ? `<button type="button" data-catalog-delete="${type}" data-catalog-id="${i.id}" data-catalog-name="${esc(i.name)}"
-            style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:.8rem;padding:0 4px">✕</button>`
+              ? `<button type="button" data-catalog-delete="${_activeCatalogType}" data-catalog-id="${item.id}" data-catalog-name="${esc(item.name)}" aria-label="Delete ${esc(item.name)}">Delete</button>`
               : ''
           }
         </div>`
-        )
-        .join('');
-    };
-    renderList('categoryList', catalog.categories, 'categories');
-    renderList('brandList', catalog.brands, 'brands');
-    renderList('unitList', catalog.units, 'units');
+      )
+      .join('');
+  }
+
+  function renderCatalogLists(catalog) {
+    Object.keys(CATALOG_CONFIG).forEach((type) => {
+      _catalogCache[type] = catalog[type] || [];
+    });
+    renderActiveCatalogList();
+  }
+
+  function syncExpiryPolicyState() {
+    const trackExpiry = $id('trackExpiry');
+    const expiryRequired = $id('expiryRequired');
+    const expiryAlertDays = $id('expiryAlertDays');
+    const trackingEnabled = trackExpiry?.checked === true;
+
+    if (expiryRequired) {
+      if (!trackingEnabled) expiryRequired.checked = false;
+      expiryRequired.disabled = !trackingEnabled;
+    }
+    if (expiryAlertDays) expiryAlertDays.disabled = !trackingEnabled;
   }
 
   // ── Product form (modal in renderer/index.html shell) ────────────────────
@@ -355,6 +404,17 @@
       set('expiryAlertDays', '');
     }
 
+    const barcodeButton = $id('barcodePrintButton');
+    if (barcodeButton) {
+      const hasSavedProduct = Number($id('productId')?.value) > 0;
+      barcodeButton.disabled = !hasSavedProduct;
+      barcodeButton.title = hasSavedProduct
+        ? 'Open Barcode Designer for this saved product'
+        : 'Save the product before printing a barcode';
+    }
+
+    syncExpiryPolicyState();
+
     // Clear any previous form msg
     const msgEl = $id('formMessage');
     if (msgEl) msgEl.textContent = '';
@@ -371,7 +431,7 @@
     $id('form')?.reset();
     const idEl = $id('productId');
     if (idEl) idEl.value = '';
-    $id('catalogPanel')?.classList.add('hidden');
+    closeCatalogDialog();
   }
 
   // ── Tab state ─────────────────────────────────────────────────────────────
@@ -454,7 +514,7 @@
   async function refreshCatalog(showError) {
     const res = await A().loadCatalog();
     if (!res?.ok) {
-      if (showError) showMsg(res?.message || 'Unable to load categories, brands, and units.', true);
+      if (showError) showMsg(res?.message || 'Unable to load product catalogs.', true);
       return res;
     }
     renderCatalogDropdowns(res.catalog);
@@ -462,10 +522,70 @@
     return res;
   }
 
+  async function refreshCatalogType(type, selectedId) {
+    const res = await A().loadCatalogType(type);
+    if (!res?.ok) {
+      showMsg(res?.message || `Unable to load ${type}.`, true);
+      return res;
+    }
+    renderCatalogType(type, res.items || [], selectedId);
+    return res;
+  }
+
+  function closeCatalogDialog() {
+    const panel = $id('catalogPanel');
+    if (!panel) return;
+    panel.classList.add('hidden');
+    panel.querySelector(UI.selectors.catalogForm)?.reset();
+    _activeCatalogType = null;
+  }
+
+  function showCatalogMessage(text, isError) {
+    const message = $id('pfCatalogMessage');
+    if (!message) return;
+    message.textContent = text || '';
+    message.classList.toggle('error', Boolean(isError));
+    message.classList.toggle('hidden', !text);
+  }
+
+  async function openCatalogDialog(type) {
+    const config = CATALOG_CONFIG[type];
+    const panel = $id('catalogPanel');
+    const form = panel?.querySelector(UI.selectors.catalogForm);
+    if (!config || !panel || !form) return;
+    if (config.supported === false) {
+      showMsg(`${config.label} catalog is not available yet.`, true);
+      return;
+    }
+
+    _activeCatalogType = type;
+    form.reset();
+    form.dataset.type = type;
+    const title = $id('pfCatalogTitle');
+    const name = $id('pfCatalogName');
+    const submit = $id('pfCatalogSubmit');
+    const descriptionField = $id('pfCatalogDescriptionField');
+    const shortNameField = $id('pfCatalogShortNameField');
+    const shortName = $id('pfCatalogShortName');
+    if (title) title.textContent = `Add ${config.label}`;
+    if (name) name.placeholder = `${config.label} name`;
+    if (submit) submit.textContent = `Add ${config.label}`;
+    descriptionField?.classList.toggle('hidden', Boolean(config.usesShortName));
+    shortNameField?.classList.toggle('hidden', !config.usesShortName);
+    if (shortName) shortName.required = Boolean(config.usesShortName);
+
+    showCatalogMessage('');
+    panel.classList.remove('hidden');
+    await refreshCatalogType(type);
+    name?.focus();
+  }
+
   async function saveProductFromForm(e) {
     e.preventDefault();
+    if (_productSaveInFlight) return;
     const productId = $id('productId')?.value;
     const saveBtn = $id('saveProductButton');
+    _productSaveInFlight = true;
     if (saveBtn) saveBtn.disabled = true;
     try {
       const res = await A().saveProduct(productId, buildProductPayload());
@@ -477,6 +597,7 @@
       closeProductForm();
       await refreshProductLiveState({ filters: getCurrentFilters() });
     } finally {
+      _productSaveInFlight = false;
       if (saveBtn) saveBtn.disabled = false;
     }
   }
@@ -509,6 +630,10 @@
 
   async function printBarcodeFromForm() {
     const productId = Number($id('productId')?.value);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      showMsg('Save the product before printing a barcode.', true);
+      return;
+    }
     const res = await A().printBarcode({ productId, copies: 1 });
     showMsg(res?.message || 'Unable to print barcode.', !res?.ok);
   }
@@ -520,19 +645,43 @@
 
   async function saveCatalogItemFromForm(e) {
     e.preventDefault();
+    if (_catalogSaveInFlight) return;
     const form = e.target;
     const submitBtn = form.querySelector('[type="submit"]');
+    _catalogSaveInFlight = true;
     if (submitBtn) submitBtn.disabled = true;
     try {
-      const res = await A().saveCatalogItem(form.dataset.type, buildCatalogPayload(form));
-      if (!res?.ok) {
-        showMsg(res?.message || `Unable to save ${form.dataset.type}. Please try again.`, true);
+      const type = form.dataset.type;
+      const config = CATALOG_CONFIG[type];
+      if (!config || config.supported === false) {
+        showCatalogMessage('This catalog type is not available yet.', true);
         return;
       }
-      showMsg(res.message || `${form.dataset.type} saved.`);
+      const payload = buildCatalogPayload(form);
+      if (!payload.name) {
+        showCatalogMessage(`${config.label} name is required.`, true);
+        return;
+      }
+      if (config.usesShortName && !payload.shortName) {
+        showCatalogMessage('Unit short name is required.', true);
+        return;
+      }
+      const res = await A().saveCatalogItem(type, payload);
+      if (!res?.ok) {
+        showCatalogMessage(res?.message || `Unable to save ${type}. Please try again.`, true);
+        return;
+      }
+      showCatalogMessage(res.message || `${type} saved.`);
       form.reset();
-      await refreshProductLiveState({ includeCatalog: true, includeStats: false });
+      const selectedId = type === 'variants' ? undefined : res.item?.id;
+      const refreshRes = await refreshCatalogType(type, selectedId);
+      if (!refreshRes?.ok) {
+        showCatalogMessage(refreshRes?.message || `Unable to refresh ${type}.`, true);
+        return;
+      }
+      closeCatalogDialog();
     } finally {
+      _catalogSaveInFlight = false;
       if (submitBtn) submitBtn.disabled = false;
     }
   }
@@ -543,11 +692,11 @@
     if (!confirmed) return;
     const res = await A().deleteCatalogItem(type, id);
     if (!res?.ok) {
-      showMsg(res?.message || `Unable to delete ${type}. Please try again.`, true);
+      showCatalogMessage(res?.message || `Unable to delete ${type}. Please try again.`, true);
       return;
     }
-    showMsg(res.message || `${type} deleted.`);
-    await refreshProductLiveState({ includeCatalog: true, includeStats: false });
+    showCatalogMessage(res.message || `${type} deleted.`);
+    await refreshCatalogType(type);
   }
 
   function renderUI(state) {
@@ -628,6 +777,7 @@
 
     // ── Product form save (inside shell modal) ────────────────────────────────
     $id('form')?.addEventListener('submit', saveProductFromForm);
+    $id('trackExpiry')?.addEventListener('change', syncExpiryPolicyState);
 
     // ── Close product form ────────────────────────────────────────────────────
     $id('closeFormButton')?.addEventListener('click', () => closeProductForm());
@@ -635,35 +785,39 @@
     // ── Barcode print button ──────────────────────────────────────────────────
     $id('barcodePrintButton')?.addEventListener('click', printBarcodeFromForm);
 
-    // ── Catalog panel toggle ──────────────────────────────────────────────────
-    $id('catalogToggle')?.addEventListener('click', () => {
-      if (!requireFeature('products.catalog_management')) return;
-      const panel = $id('catalogPanel');
-      if (!panel) return;
-      const isHidden = panel.classList.contains('hidden');
-      if (isHidden) {
-        refreshCatalog(true);
-        panel.classList.remove('hidden');
-      } else panel.classList.add('hidden');
-    });
+    document.querySelectorAll('[data-catalog-open]').forEach((button) =>
+      button.addEventListener('click', () => {
+        if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+        if (!requireFeature('products.catalog_management')) return;
+        openCatalogDialog(button.dataset.catalogOpen);
+      })
+    );
 
-    // ── Catalog forms — add item (event delegation on each catalogForm) ────────
+    document
+      .querySelectorAll(UI.selectors.catalogClose)
+      .forEach((button) => button.addEventListener('click', closeCatalogDialog));
+
+    // ── Catalog form — add item ───────────────────────────────────────────────
     document
       .querySelectorAll(UI.selectors.catalogForm)
       .forEach((form) => form.addEventListener('submit', saveCatalogItemFromForm));
 
-    // ── Catalog lists — delete item (event delegation) ────────────────────────
-    ['categoryList', 'brandList', 'unitList'].forEach((listId) =>
-      $id(listId)?.addEventListener('click', (e) => {
-        const btn = e.target.closest(UI.selectors.catalogDelete);
-        if (!btn) return;
-        deleteCatalogItemFromList(
-          btn.dataset.catalogDelete,
-          Number(btn.dataset.catalogId),
-          btn.dataset.catalogName
-        );
-      })
-    );
+    // ── Active catalog list — delete item (event delegation) ─────────────────
+    $id('catalogList')?.addEventListener('click', (e) => {
+      const btn = e.target.closest(UI.selectors.catalogDelete);
+      if (!btn) return;
+      deleteCatalogItemFromList(
+        btn.dataset.catalogDelete,
+        Number(btn.dataset.catalogId),
+        btn.dataset.catalogName
+      );
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$id('catalogPanel')?.classList.contains('hidden')) {
+        closeCatalogDialog();
+      }
+    });
 
     // ── Import / Export tool buttons ──────────────────────────────────────────
     document.querySelectorAll(UI.selectors.pageTool).forEach((btn) =>

@@ -23,6 +23,12 @@
     return window.FeatureGate.check(featureId);
   }
 
+  const SUPPORTED_CATALOG_TYPES = Object.freeze(['categories', 'brands', 'units']);
+
+  function isSupportedCatalogType(type) {
+    return SUPPORTED_CATALOG_TYPES.includes(String(type || ''));
+  }
+
   async function loadProducts(filters) {
     try {
       LOG('loadProducts()', filters);
@@ -160,19 +166,41 @@
     }
   }
 
+  async function loadCatalogType(type) {
+    if (!isSupportedCatalogType(type)) {
+      return { ok: false, message: 'This catalog type is not available yet.', items: [] };
+    }
+    try {
+      const res = await window.posApi.catalog.list(type);
+      const { ok, message } = apiOk(res, `Unable to load ${type}.`);
+      return { ok, message, items: ok ? res?.items || [] : [] };
+    } catch {
+      return { ok: false, message: `Unable to load ${type}.`, items: [] };
+    }
+  }
+
   async function saveCatalogItem(type, payload) {
+    if (!isSupportedCatalogType(type)) {
+      return { ok: false, message: 'This catalog type is not available yet.' };
+    }
     const gate = featureCheck('products.catalog_management');
     if (!gate.ok) return { ok: false, message: gate.message };
     try {
       const res = await window.posApi.catalog.create(type, payload);
       const { ok, message } = apiOk(res, `Unable to save ${type}. Please try again.`);
-      return { ok, message: ok ? message || `${type} saved.` : message };
+      const item = res?.item && Number(res.item.id) > 0 ? res.item : null;
+      if (ok && !item)
+        return { ok: false, message: 'Catalog item was not returned by the backend.' };
+      return { ok, message: ok ? message || `${type} saved.` : message, item };
     } catch {
       return { ok: false, message: `Unable to save ${type}. Please try again.` };
     }
   }
 
   async function deleteCatalogItem(type, id) {
+    if (!isSupportedCatalogType(type)) {
+      return { ok: false, message: 'This catalog type is not available yet.' };
+    }
     const gate = featureCheck('products.catalog_management');
     if (!gate.ok) return { ok: false, message: gate.message };
     try {
@@ -204,6 +232,7 @@
     loadProductForEdit,
     printBarcode,
     loadCatalog,
+    loadCatalogType,
     saveCatalogItem,
     deleteCatalogItem,
     getToolActionMessage,

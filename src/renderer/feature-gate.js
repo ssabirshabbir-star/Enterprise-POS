@@ -40,8 +40,8 @@
       message: 'Dashboard top products widget is available.',
     },
     'products.catalog_management': {
-      status: STATUS.GUARDED,
-      message: 'Catalog management requires activation validation before use.',
+      status: STATUS.SAFE,
+      message: 'Product catalog management is available.',
     },
     'products.print_barcode': {
       status: STATUS.SAFE,

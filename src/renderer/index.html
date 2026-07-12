@@ -131,155 +131,188 @@
       <section id="usersModule" data-route-panel="/users" data-fragment="../main/features/access-control/index.html" class="mx-auto hidden max-w-7xl"></section>
       <section id="settingsModule" data-route-panel="/settings" data-fragment="../main/features/settings/index.html" class="mx-auto hidden max-w-7xl"></section>
 
-<section id="productFormPanel" class="fixed inset-0 z-20 hidden items-center justify-center bg-zinc-950/40" style="display:none;align-items:center;justify-content:center;">
-      <div class="pf-modal">
-        <!-- Header -->
-        <div class="pf-header">
+<section id="productFormPanel" class="fixed inset-0 z-20 hidden" style="display:none;">
+      <div class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="productFormTitle">
+        <header class="pf-header">
           <div class="pf-header-left">
-            <span class="pf-badge">PRODUCT</span>
-            <h2 id="productFormTitle" class="pf-title">Add Product</h2>
+            <span class="pf-hero-mark" aria-hidden="true"><span></span></span>
+            <div>
+              <h2 id="productFormTitle" class="pf-title">Add Product</h2>
+              <p class="pf-subtitle">Fill in the product details to add a new item to your inventory</p>
+            </div>
           </div>
-          <button id="closeProductFormButton" type="button" class="pf-close-btn">✕ Close</button>
-        </div>
+          <button id="closeProductFormButton" type="button" class="pf-close-btn" aria-label="Close product form">Close</button>
+        </header>
 
-        <!-- Main Product Form -->
         <form id="productForm" class="pf-body">
           <input type="hidden" id="productId" />
 
-          <!-- Row 1: Name (spans 3) + SKU -->
-          <div class="pf-field pf-span3">
-            <label class="pf-label" for="productName">Product Name <span class="pf-required">*</span></label>
-            <input id="productName" required class="pf-input" placeholder="Enter product name" />
-          </div>
-          <div class="pf-field">
-            <label class="pf-label" for="productSku">SKU</label>
-            <input id="productSku" class="pf-input pf-upper" placeholder="Auto if blank" />
-          </div>
+          <div class="pf-form-scroll">
+            <ol class="pf-section-steps" aria-label="Product form stages">
+              <li class="pf-step pf-step-identity">Product Information</li>
+              <li class="pf-step pf-step-pricing">Pricing &amp; Stock</li>
+              <li class="pf-step pf-step-policy">Tax &amp; Warranty</li>
+              <li class="pf-step pf-step-media">Images &amp; More</li>
+            </ol>
 
-          <!-- Row 2: Barcode + Category + Brand + Unit -->
-          <div class="pf-field">
-            <label class="pf-label" for="productBarcode">Barcode</label>
-            <input id="productBarcode" class="pf-input" placeholder="Scan or auto" />
-          </div>
-          <div class="pf-field">
-            <label class="pf-label" for="productCategory">Category</label>
-            <select id="productCategory" class="pf-input"></select>
-          </div>
-          <div class="pf-field">
-            <label class="pf-label" for="productBrand">Brand</label>
-            <select id="productBrand" class="pf-input"></select>
-          </div>
-          <div class="pf-field">
-            <label class="pf-label" for="productUnit">Unit</label>
-            <select id="productUnit" class="pf-input"></select>
-          </div>
-
-          <!-- Row 3: 3 Prices in a 3-col sub-row -->
-          <div class="pf-row-3">
-            <div class="pf-field">
-              <label class="pf-label" for="purchasePrice">Cost Price <span class="pf-required">*</span></label>
-              <input id="purchasePrice" type="number" min="0" step="0.01" value="0" required class="pf-input" />
-            </div>
-            <div class="pf-field">
-              <label class="pf-label" for="salePrice">Sale Price <span class="pf-required">*</span></label>
-              <input id="salePrice" type="number" min="0" step="0.01" value="0" required class="pf-input" />
-            </div>
-            <div class="pf-field">
-              <label class="pf-label" for="wholesalePrice">Wholesale Price</label>
-              <input id="wholesalePrice" type="number" min="0" step="0.01" value="0" class="pf-input" />
-            </div>
-          </div>
-
-          <!-- Row 4: Stock fields + Active toggle in a 3-col sub-row -->
-          <div class="pf-row-3">
-            <div class="pf-field">
-              <label class="pf-label" for="minStockLevel">Min Stock</label>
-              <input id="minStockLevel" type="number" min="0" step="0.001" value="0" class="pf-input" />
-            </div>
-            <div class="pf-field">
-              <label class="pf-label" for="currentStock">Current Stock</label>
-              <input id="currentStock" type="number" min="0" step="0.001" value="0" class="pf-input" />
-            </div>
-            <div class="pf-field pf-active-row">
-              <label class="pf-active-label">
-                <input id="productActive" type="checkbox" checked class="pf-checkbox" />
-                <span>Active Product</span>
-              </label>
-            </div>
-          </div>
-
-          <details id="productPolicySection" class="pf-policy-section">
-            <summary class="pf-policy-summary">
-              <span>Advanced Product Policies</span>
-              <small>Optional controls for products that need stricter handling</small>
-            </summary>
-            <div class="pf-policy-grid">
-              <div class="pf-field pf-active-row">
-                <label class="pf-active-label">
-                  <input id="allowSalePriceOverride" type="checkbox" class="pf-checkbox" />
-                  <span>Allow Price Override</span>
-                </label>
-              </div>
-              <div class="pf-field pf-active-row">
-                <label class="pf-active-label">
-                  <input id="autoUpdateSalePriceFromPurchase" type="checkbox" class="pf-checkbox" />
-                  <span>Auto Update Sale Price</span>
-                </label>
-              </div>
-              <div class="pf-field pf-active-row">
-                <label class="pf-active-label">
-                  <input id="trackExpiry" type="checkbox" class="pf-checkbox" />
-                  <span>Track Expiry</span>
-                </label>
-              </div>
-              <div class="pf-field pf-active-row">
-                <label class="pf-active-label">
-                  <input id="expiryRequired" type="checkbox" class="pf-checkbox" />
-                  <span>Expiry Required</span>
-                </label>
+            <section class="pf-product-grid" aria-label="Product information">
+              <div class="pf-field">
+                <label class="pf-label" for="productName">Product Name <span class="pf-required">*</span></label>
+                <input id="productName" required class="pf-input" placeholder="Enter product name" />
               </div>
               <div class="pf-field">
-                <label class="pf-label" for="expiryAlertDays">Expiry Alert Days</label>
-                <input id="expiryAlertDays" type="number" min="0" step="1" class="pf-input" placeholder="Optional" />
+                <label class="pf-label" for="productSku">SKU / Code</label>
+                <input id="productSku" class="pf-input pf-upper" placeholder="Auto if blank" />
               </div>
-            </div>
-          </details>
+              <div class="pf-field">
+                <label class="pf-label" for="productBarcode">Barcode</label>
+                <input id="productBarcode" class="pf-input" placeholder="Scan or enter barcode" />
+              </div>
+              <div class="pf-field">
+                <label class="pf-label" for="productCategory">Category</label>
+                <div class="pf-control-with-add">
+                  <select id="productCategory" class="pf-input"></select>
+                  <button type="button" class="pf-add-related" data-catalog-open="categories" aria-label="Manage categories" title="Manage categories">+</button>
+                </div>
+              </div>
+              <div class="pf-field">
+                <label class="pf-label" for="productBrand">Brand</label>
+                <div class="pf-control-with-add">
+                  <select id="productBrand" class="pf-input"></select>
+                  <button type="button" class="pf-add-related" data-catalog-open="brands" aria-label="Manage brands" title="Manage brands">+</button>
+                </div>
+              </div>
+              <div class="pf-field">
+                <label class="pf-label" for="productUnit">Unit</label>
+                <div class="pf-control-with-add">
+                  <select id="productUnit" class="pf-input"></select>
+                  <button type="button" class="pf-add-related" data-catalog-open="units" aria-label="Manage units" title="Manage units">+</button>
+                </div>
+              </div>
+              <div class="pf-field">
+                <label class="pf-label">Variant</label>
+                <div class="pf-control-with-add">
+                  <select id="productVariantCatalogPreview" class="pf-input" disabled><option>Not linked to product save</option></select>
+                  <button type="button" class="pf-add-related" data-catalog-open="variants" aria-label="Variant catalog is not available yet" title="Variant catalog is not available yet" disabled>+</button>
+                </div>
+              </div>
+              <div class="pf-field">
+                <label class="pf-label">Tags</label>
+                <input class="pf-input" placeholder="Prototype only" disabled />
+              </div>
+              <div class="pf-field pf-description-field">
+                <label class="pf-label">Description</label>
+                <textarea class="pf-input pf-textarea" placeholder="Prototype only" disabled></textarea>
+              </div>
+              <div class="pf-field pf-image-field">
+                <label class="pf-label">Product Image</label>
+                <div class="pf-image-placeholder">
+                  <strong>Image upload prototype only</strong>
+                  <small>Upload unavailable</small>
+                </div>
+              </div>
+            </section>
 
+            <section class="pf-lower-grid">
+              <article class="pf-form-card pf-card-pricing">
+                <header><span class="pf-card-dot green"></span><h3>Pricing Information</h3></header>
+                <div class="pf-card-fields two-column">
+                  <div class="pf-field"><label class="pf-label" for="purchasePrice">Cost Price <span class="pf-required">*</span></label><input id="purchasePrice" type="number" min="0" step="0.01" value="0" required class="pf-input" /></div>
+                  <div class="pf-field"><label class="pf-label" for="salePrice">Sale Price <span class="pf-required">*</span></label><input id="salePrice" type="number" min="0" step="0.01" value="0" required class="pf-input" /></div>
+                  <div class="pf-field"><label class="pf-label">Profit</label><input class="pf-input" value="0.00" disabled /></div>
+                  <div class="pf-field"><label class="pf-label">Discount</label><input class="pf-input" value="0.00" disabled /></div>
+                  <div class="pf-field"><label class="pf-label" for="wholesalePrice">Wholesale Price</label><input id="wholesalePrice" type="number" min="0" step="0.01" value="0" class="pf-input" /></div>
+                  <div class="pf-field"><label class="pf-label">MRP</label><input class="pf-input" value="0.00" disabled /></div>
+                </div>
+              </article>
 
-          <!-- Footer actions -->
-          <div class="pf-footer">
-            <button id="pfCatalogToggle" type="button" class="pf-catalog-toggle-btn">⊕ Manage Categories / Brands / Units</button>
-            <div class="pf-footer-actions">
-              <button id="barcodePrintButton" type="button" class="pf-btn-secondary">⎙ Print Barcode</button>
-              <button id="saveProductButton" type="submit" class="pf-btn-primary">✓ Save Product</button>
-            </div>
+              <article class="pf-form-card pf-card-stock">
+                <header><span class="pf-card-dot blue"></span><h3>Stock Information</h3></header>
+                <div class="pf-card-fields">
+                  <div class="pf-field"><label class="pf-label" for="currentStock">Opening Stock</label><input id="currentStock" type="number" min="0" step="0.001" value="0" class="pf-input" /></div>
+                  <div class="pf-field"><label class="pf-label" for="minStockLevel">Reorder Level</label><input id="minStockLevel" type="number" min="0" step="0.001" value="0" class="pf-input" /></div>
+                  <div class="pf-field"><label class="pf-label">Item Location</label><select class="pf-input" disabled><option>Prototype only</option></select></div>
+                </div>
+              </article>
+
+              <article class="pf-form-card pf-card-additional">
+                <header><span class="pf-card-dot amber"></span><h3>Additional Information</h3></header>
+                <div class="pf-card-fields">
+                  <div class="pf-field"><label class="pf-label">Weight</label><input class="pf-input" value="0.00" disabled /></div>
+                  <div class="pf-field"><label class="pf-label">Warranty</label><select class="pf-input" disabled><option>Prototype only</option></select></div>
+                  <span class="pf-section-label">Dimensions</span>
+                  <div class="pf-dimensions">
+                    <input class="pf-input" placeholder="Length" disabled />
+                    <input class="pf-input" placeholder="Width" disabled />
+                    <input class="pf-input" placeholder="Height" disabled />
+                  </div>
+                </div>
+              </article>
+
+              <article class="pf-form-card pf-card-status">
+                <header><span class="pf-card-dot pink"></span><h3>Status &amp; Options</h3></header>
+                <div id="productPolicySection" class="pf-status-switch-grid">
+                  <div class="pf-switch-column">
+                    <label class="pf-switch-row"><input id="productActive" type="checkbox" checked /><span class="pf-switch-track"></span><span>Status</span></label>
+                    <label class="pf-switch-row"><input id="trackExpiry" type="checkbox" /><span class="pf-switch-track"></span><span>Track Expiry</span></label>
+                    <label class="pf-switch-row"><input id="expiryRequired" type="checkbox" /><span class="pf-switch-track"></span><span>Expiry Required</span></label>
+                    <div class="pf-field pf-expiry-alert"><label class="pf-label" for="expiryAlertDays">Expiry Alert Days</label><input id="expiryAlertDays" type="number" min="0" step="1" class="pf-input" placeholder="Optional" /></div>
+                    <label class="pf-switch-row"><input type="checkbox" disabled /><span class="pf-switch-track"></span><span>Allow Backorder</span></label>
+                  </div>
+                  <div class="pf-switch-column">
+                    <label class="pf-switch-row"><input id="allowSalePriceOverride" type="checkbox" /><span class="pf-switch-track"></span><span>Allow Price Override</span></label>
+                    <label class="pf-switch-row"><input type="checkbox" disabled /><span class="pf-switch-track"></span><span>Featured Product</span></label>
+                    <label class="pf-switch-row"><input type="checkbox" disabled /><span class="pf-switch-track"></span><span>Allow Price Change</span></label>
+                    <label class="pf-switch-row"><input id="autoUpdateSalePriceFromPurchase" type="checkbox" /><span class="pf-switch-track"></span><span>Auto Update Sale Price</span></label>
+                  </div>
+                </div>
+              </article>
+            </section>
           </div>
+
+          <footer class="pf-footer">
+            <div class="pf-footer-left">
+              <button type="button" class="pf-btn-outline" disabled>Clear Form</button>
+              <button id="barcodePrintButton" type="button" class="pf-btn-secondary">Print Barcode</button>
+            </div>
+            <div class="pf-footer-actions">
+              <button type="button" class="pf-btn-secondary" disabled>Save as Draft</button>
+              <button type="button" class="pf-btn-blue" disabled>Save &amp; Add Another</button>
+              <button id="saveProductButton" type="submit" class="pf-btn-primary">Save Product</button>
+            </div>
+          </footer>
         </form>
 
-        <!-- Collapsible Catalog Panel -->
-        <div id="pfCatalogPanel" class="pf-catalog-panel hidden">
-          <div class="pf-catalog-grid">
+        <div id="pfCatalogPanel" class="pf-catalog-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="pfCatalogTitle">
+          <button type="button" class="pf-catalog-backdrop" data-catalog-close aria-label="Close catalog dialog"></button>
+          <div class="pf-catalog-dialog-card">
+            <header class="pf-catalog-dialog-head">
+              <div>
+                <span class="pf-catalog-kicker">Product Catalog</span>
+                <h3 id="pfCatalogTitle">Add Catalog Entry</h3>
+              </div>
+              <button type="button" class="pf-catalog-close" data-catalog-close aria-label="Close catalog dialog">Close</button>
+            </header>
             <form class="catalogForm pf-catalog-form" data-type="categories">
-              <h4 class="pf-catalog-title">📁 Category</h4>
-              <input name="name" class="pf-input pf-sm" placeholder="Category name" required />
-              <input name="description" class="pf-input pf-sm" placeholder="Description (optional)" />
-              <button type="submit" class="pf-catalog-add-btn">+ Add Category</button>
-              <div id="categoryList" class="pf-catalog-list"></div>
+              <p id="pfCatalogMessage" class="pf-catalog-message hidden" role="status"></p>
+              <div class="pf-field">
+                <label class="pf-label" for="pfCatalogName">Name</label>
+                <input id="pfCatalogName" name="name" class="pf-input" required />
+              </div>
+              <div id="pfCatalogDescriptionField" class="pf-field">
+                <label class="pf-label" for="pfCatalogDescription">Description</label>
+                <input id="pfCatalogDescription" name="description" class="pf-input" placeholder="Optional" />
+              </div>
+              <div id="pfCatalogShortNameField" class="pf-field hidden">
+                <label class="pf-label" for="pfCatalogShortName">Short Name</label>
+                <input id="pfCatalogShortName" name="shortName" class="pf-input" />
+              </div>
+              <button id="pfCatalogSubmit" type="submit" class="pf-catalog-add-btn">Add Entry</button>
             </form>
-            <form class="catalogForm pf-catalog-form" data-type="brands">
-              <h4 class="pf-catalog-title">🏷️ Brand</h4>
-              <input name="name" class="pf-input pf-sm" placeholder="Brand name" required />
-              <input name="description" class="pf-input pf-sm" placeholder="Description (optional)" />
-              <button type="submit" class="pf-catalog-add-btn">+ Add Brand</button>
-              <div id="brandList" class="pf-catalog-list"></div>
-            </form>
-            <form class="catalogForm pf-catalog-form" data-type="units">
-              <h4 class="pf-catalog-title">📐 Unit</h4>
-              <input name="name" class="pf-input pf-sm" placeholder="Unit name" required />
-              <input name="shortName" class="pf-input pf-sm" placeholder="Short name" required />
-              <button type="submit" class="pf-catalog-add-btn">+ Add Unit</button>
-              <div id="unitList" class="pf-catalog-list"></div>
-            </form>
+            <section class="pf-catalog-current" aria-labelledby="pfCatalogCurrentTitle">
+              <h4 id="pfCatalogCurrentTitle">Current Entries</h4>
+              <div id="pfCatalogList" class="pf-catalog-list"></div>
+            </section>
           </div>
         </div>
       </div>
