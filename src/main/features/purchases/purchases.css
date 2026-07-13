@@ -153,7 +153,7 @@
 
   .epos-purchases-filter-row {
     display: grid;
-    grid-template-columns: 160px 22px 160px minmax(150px, 1fr) minmax(150px, 1fr) minmax(165px, 1fr) 92px 92px 84px;
+    grid-template-columns: 160px 22px 160px 132px 124px 150px minmax(112px, 1fr) minmax(118px, 1fr) minmax(96px, 0.85fr);
     gap: 12px;
     align-items: center;
     padding: 14px 18px;
@@ -252,7 +252,11 @@
   }
 
   .epos-purchases-search-row button {
-    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    height: 42px;
     padding-inline: 11px;
     box-shadow: none;
     white-space: nowrap;
@@ -617,6 +621,68 @@
     font-weight: 950;
   }
 
+  #purchaseFormModal.epos-purchases-modal {
+    padding: 12px;
+  }
+
+  #purchaseFormModal .epos-purchases-modal-backdrop {
+    background: rgb(15 23 42 / 0.62);
+  }
+
+  #purchaseFormModal .epos-purchases-modal-card {
+    display: flex;
+    width: min(1300px, calc(100vw - 32px));
+    max-height: min(88vh, 780px);
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid #dfe6f2;
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 28px 70px rgb(15 23 42 / 0.24);
+  }
+
+  #purchaseFormModal .epos-purchases-modal-head {
+    min-height: 50px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 0;
+    background: linear-gradient(100deg, #6536e8 0%, #168de8 28%, #13b981 52%, #f5b20b 75%, #f43f75 100%);
+    color: #ffffff;
+    padding: 6px 14px;
+  }
+
+  #purchaseFormModal .epos-purchases-modal-head p {
+    color: rgb(255 255 255 / 0.9);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  #purchaseFormModal .epos-purchases-modal-head h3 {
+    color: #ffffff;
+    font-size: 18px;
+    line-height: 1.05;
+  }
+
+  #purchaseFormModal .epos-purchases-modal-head button {
+    width: auto;
+    min-width: 34px;
+    min-height: 30px;
+    height: auto;
+    border-color: rgb(255 255 255 / 0.58);
+    background: rgb(255 255 255 / 0.14);
+    color: #ffffff;
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  #purchaseFormModal .epos-purchases-form {
+    overflow: auto;
+  }
+
   .epos-purchases-supplier-form,
   .epos-purchases-form-grid,
   .epos-purchases-item-row {
@@ -627,17 +693,19 @@
   .epos-purchases-form {
     display: flex;
     min-height: 0;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 10px;
     overflow: auto;
-    padding-right: 2px;
+    padding: 10px 14px 12px;
+    scrollbar-gutter: stable;
   }
 
   .epos-purchases-form-section {
     min-width: 0;
-    border: 1px solid #e3eaf6;
-    border-radius: 12px;
-    background: linear-gradient(180deg, #ffffff, #fbfdff);
+    border: 1px solid #dce5f2;
+    border-radius: 9px;
+    background: #ffffff;
     padding: 10px;
   }
 
@@ -645,7 +713,9 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    margin-bottom: 8px;
+    border-bottom: 1px solid #e8edf5;
+    margin-bottom: 9px;
+    padding-bottom: 8px;
   }
 
   .epos-purchases-section-title > span {
@@ -654,8 +724,8 @@
     height: 28px;
     flex: 0 0 auto;
     place-items: center;
-    border-radius: 9px;
-    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    border-radius: 50%;
+    background: #2563eb;
     color: #fff;
     font-weight: 950;
   }
@@ -663,14 +733,14 @@
   .epos-purchases-section-title strong {
     display: block;
     color: #11184d;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 950;
   }
 
   .epos-purchases-section-title small,
   .epos-purchases-form label small {
     color: #64748b;
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 750;
   }
 
@@ -681,18 +751,27 @@
 
   .epos-purchases-form-grid span,
   .epos-purchases-item-row label span {
-    color: #344174;
-    font-size: 11px;
+    color: #17223f;
+    font-size: 10px;
     font-weight: 900;
   }
 
   .epos-purchases-supplier-form {
-    grid-template-columns: 130px repeat(3, minmax(0, 1fr)) 120px;
+    grid-template-columns: 118px minmax(170px, 220px) minmax(150px, 190px) minmax(170px, 220px) 118px;
     align-items: center;
+    justify-content: start;
     min-width: 0;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border: 1px solid #dce5f2;
+    border-radius: 9px;
+    background: #f8fbff;
+    margin: 10px 14px 0;
     padding: 8px 10px;
+  }
+
+  .epos-purchases-supplier-form strong {
+    color: #17223f;
+    font-size: 11px;
+    font-weight: 950;
   }
 
   .epos-purchases-supplier-form input,
@@ -700,36 +779,76 @@
   .epos-purchases-form select {
     width: 100%;
     min-width: 0;
-    min-height: 36px;
-    border: 1px solid #d6dfef;
-    border-radius: 8px;
-    padding: 0 11px;
-    font-size: 13px;
-    font-weight: 800;
+    min-height: 34px;
+    border: 1px solid #d5dfed;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #17223f;
+    padding: 0 9px;
+    font-size: 11.5px;
+    font-weight: 700;
     outline: none;
+  }
+
+  .epos-purchases-supplier-form input:focus,
+  .epos-purchases-form input:focus,
+  .epos-purchases-form select:focus {
+    border-color: #3868ff;
+    box-shadow: 0 0 0 3px rgb(56 104 255 / 0.14);
   }
 
   .epos-purchases-supplier-form button,
   .epos-purchases-item-row button,
   .epos-purchases-save {
-    min-height: 36px;
+    min-height: 34px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 7px;
     background: linear-gradient(135deg, #7c3aed, #4f46e5);
     color: #fff;
     padding: 0 14px;
-    font-size: 13px;
+    font-size: 11.5px;
     font-weight: 950;
   }
 
   .epos-purchases-form-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+    gap: 7px 9px;
+  }
+
+  .epos-purchases-form-grid .purchase-field-wide {
+    grid-column: span 8;
+  }
+
+  .epos-purchases-form-grid .purchase-field-medium {
+    grid-column: span 6;
+  }
+
+  .epos-purchases-form-grid .purchase-field-compact {
+    grid-column: span 3;
   }
 
   .epos-purchases-item-row {
-    grid-template-columns: minmax(260px, 1.4fr) minmax(210px, 1.1fr) minmax(130px, 0.75fr) repeat(3, minmax(86px, 0.48fr)) 106px;
+    grid-template-columns: repeat(20, minmax(0, 1fr));
     align-items: end;
     min-width: 0;
+    gap: 7px;
+  }
+
+  .epos-purchases-item-row .purchase-field-search {
+    grid-column: span 7;
+  }
+
+  .epos-purchases-item-row .purchase-field-selected {
+    grid-column: span 3;
+  }
+
+  .epos-purchases-item-row .purchase-field-batch {
+    grid-column: span 2;
+  }
+
+  .epos-purchases-item-row .purchase-field-compact,
+  .epos-purchases-item-row button {
+    grid-column: span 2;
   }
 
   .epos-purchases-item-row label {
@@ -747,7 +866,7 @@
   .epos-purchases-items-list {
     display: grid;
     gap: 7px;
-    max-height: 118px;
+    max-height: 112px;
     overflow: auto;
     font-size: 13px;
   }
@@ -764,6 +883,7 @@
   }
 
   .epos-purchases-totals {
+    border: 1px solid #dce5f2;
     border-radius: 8px;
     background: #f8fafc;
     padding: 9px 10px;
@@ -773,15 +893,46 @@
   }
 
   .epos-purchases-save {
-    width: 100%;
     flex: 0 0 auto;
+    min-width: 0;
     background: linear-gradient(135deg, #22c55e, #059669);
+    white-space: nowrap;
+  }
+
+  .epos-purchases-form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+    gap: 7px;
+    border-top: 1px solid #dfe6f2;
+    background: #ffffff;
+    margin: 0 -14px -12px;
+    padding: 7px 24px;
+  }
+
+  .epos-purchases-form-actions .epos-purchases-save {
+    width: 100%;
+    padding: 0 8px;
+    font-size: 10.5px;
+  }
+
+  .epos-purchases-form-actions .epos-purchases-save:first-child {
+    grid-column: 17 / span 2;
+    border: 0;
+    background: linear-gradient(135deg, #ef4444, #be123c);
+    color: #ffffff;
+  }
+
+  .epos-purchases-form-actions .epos-purchases-save:last-child {
+    grid-column: 19 / span 2;
   }
 
   .epos-purchases-form-review {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
+    flex: 0 0 auto;
+    overflow: visible;
   }
 
   @media (max-width: 1366px) {
@@ -813,7 +964,7 @@
     }
 
     .epos-purchases-filter-row {
-      grid-template-columns: 132px 14px 132px minmax(110px, 1fr) minmax(110px, 1fr) minmax(124px, 1fr) 92px 82px 64px;
+      grid-template-columns: 132px 14px 132px 118px 112px 142px minmax(102px, 1fr) minmax(108px, 1fr) minmax(82px, 0.8fr);
       gap: 7px;
       padding: 10px;
     }
@@ -826,7 +977,7 @@
     }
 
     .epos-purchases-keyword {
-      flex-basis: 300px;
+      flex: 0 0 400px;
       min-width: 270px;
       min-height: 36px;
       padding-inline: 10px;
@@ -837,9 +988,14 @@
     }
 
     .epos-purchases-search-row button {
-      min-height: 29px;
+      min-height: 36px;
+      height: 36px;
       padding-inline: 8px;
       font-size: 12px;
+    }
+
+    .epos-purchases-search-row button[data-purchase-range="today"] {
+      flex: 0 0 86px;
     }
 
     .epos-purchases-toolbar {
@@ -877,7 +1033,7 @@
     }
 
     .epos-purchases-modal-card {
-      width: min(1080px, calc(100vw - 72px));
+      width: min(1300px, calc(100vw - 32px));
       max-height: calc(100vh - 72px);
       padding: 10px;
       gap: 8px;
@@ -888,29 +1044,39 @@
     }
 
     .epos-purchases-form-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(20, minmax(0, 1fr));
     }
 
     .epos-purchases-item-row {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(20, minmax(0, 1fr));
       gap: 6px;
     }
 
-    .epos-purchases-item-row label.wide {
+    .epos-purchases-form-grid .purchase-field-wide {
+      grid-column: span 8;
+    }
+
+    .epos-purchases-form-grid .purchase-field-medium {
+      grid-column: span 6;
+    }
+
+    .epos-purchases-form-grid .purchase-field-compact {
       grid-column: span 3;
     }
 
-    .epos-purchases-item-row label:nth-of-type(2) {
+    .epos-purchases-item-row .purchase-field-search {
+      grid-column: span 7;
+    }
+
+    .epos-purchases-item-row .purchase-field-selected {
+      grid-column: span 3;
+    }
+
+    .epos-purchases-item-row .purchase-field-batch {
       grid-column: span 2;
     }
 
-    .epos-purchases-item-row label:nth-of-type(3),
-    .epos-purchases-item-row label:nth-of-type(4),
-    .epos-purchases-item-row label:nth-of-type(5),
-    .epos-purchases-item-row label:nth-of-type(6) {
-      grid-column: span 1;
-    }
-
+    .epos-purchases-item-row .purchase-field-compact,
     .epos-purchases-item-row button {
       grid-column: span 2;
     }

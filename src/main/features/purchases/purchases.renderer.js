@@ -179,8 +179,8 @@
           <td>${esc(purchasePaymentMethod(p))}</td>
           <td><span class="epos-purchase-actions">
             <button type="button" data-purchase-view="${p.id}">View</button>
-            <button type="button" disabled title="Purchase printing is planned for a future phase.">Print Soon</button>
-            <button type="button" disabled title="Rollback is not enabled in Purchases Phase 1.">Rollback Soon</button>
+            <button type="button" disabled title="Purchase printing is planned for a future phase.">Print</button>
+            <button type="button" disabled title="Rollback is not enabled in Purchases Phase 1.">Rollback</button>
           </span></td>
         </tr>`;
       })

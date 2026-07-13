@@ -7,7 +7,7 @@
     }
 
     .epos-purchases-page .epos-purchases-modal-card {
-      width: min(1160px, calc(100vw - 56px));
+      width: min(1300px, calc(100vw - 32px));
       max-height: calc(100vh - 42px);
       overflow: auto;
     }
@@ -17,44 +17,92 @@
     }
 
     .epos-purchases-page .epos-purchases-form-grid {
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(20, minmax(0, 1fr));
     }
 
     .epos-purchases-page .epos-purchases-item-row {
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(20, minmax(0, 1fr));
     }
 
-    .epos-purchases-page .epos-purchases-item-row .wide {
+    .epos-purchases-page .epos-purchases-form-grid .purchase-field-wide {
+      grid-column: span 8;
+    }
+
+    .epos-purchases-page .epos-purchases-form-grid .purchase-field-medium {
+      grid-column: span 6;
+    }
+
+    .epos-purchases-page .epos-purchases-form-grid .purchase-field-compact {
+      grid-column: span 3;
+    }
+
+    .epos-purchases-page .epos-purchases-item-row .purchase-field-search {
+      grid-column: span 7;
+    }
+
+    .epos-purchases-page .epos-purchases-item-row .purchase-field-selected {
+      grid-column: span 3;
+    }
+
+    .epos-purchases-page .epos-purchases-item-row .purchase-field-batch {
+      grid-column: span 2;
+    }
+
+    .epos-purchases-page .epos-purchases-item-row .purchase-field-compact {
+      grid-column: span 2;
+    }
+
+    .epos-purchases-page .epos-purchases-item-row button {
       grid-column: span 2;
     }
 
     .epos-purchases-page .epos-purchases-form-actions {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(20, minmax(0, 1fr));
+      gap: 7px;
       position: sticky;
       bottom: 0;
       z-index: 2;
       background: linear-gradient(180deg, rgb(255 255 255 / 0.72), #fff 36%);
-      padding-top: 8px;
+      padding: 8px 24px 7px;
+    }
+
+    .epos-purchases-page .epos-purchases-form-actions .epos-purchases-save {
+      width: 100%;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    .epos-purchases-page .epos-purchases-form-actions .epos-purchases-save:first-child {
+      grid-column: 17 / span 2;
+    }
+
+    .epos-purchases-page .epos-purchases-form-actions .epos-purchases-save:last-child {
+      grid-column: 19 / span 2;
     }
 
     .epos-purchases-page .epos-purchases-table th:nth-child(11),
     .epos-purchases-page .epos-purchases-table td:nth-child(11) {
-      width: 142px;
-      min-width: 142px;
+      width: 150px;
+      min-width: 150px;
     }
 
     .epos-purchases-page .epos-purchase-actions {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 4px;
-      align-items: stretch;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 3px;
+      flex-wrap: nowrap;
     }
 
     .epos-purchases-page .epos-purchase-actions button {
-      width: 100%;
-      min-height: 26px;
+      width: auto;
+      min-width: 0;
+      min-height: 22px;
+      height: 22px;
+      padding: 0 5px;
+      font-size: 10px;
+      line-height: 1;
       white-space: nowrap;
     }
 
@@ -80,16 +128,49 @@
 
     @media (max-width: 1366px) {
       .epos-purchases-page .epos-purchases-modal-card {
-        width: min(1120px, calc(100vw - 44px));
+        width: min(1300px, calc(100vw - 32px));
         max-height: calc(100vh - 36px);
       }
 
       .epos-purchases-page .epos-purchases-form-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(20, minmax(0, 1fr));
       }
 
-      .epos-purchases-page .epos-purchases-item-row .wide {
-        grid-column: 1 / -1;
+      .epos-purchases-page .epos-purchases-item-row {
+        grid-template-columns: repeat(20, minmax(0, 1fr));
+      }
+
+      .epos-purchases-page .epos-purchases-form-grid .purchase-field-wide {
+        grid-column: span 8;
+      }
+
+      .epos-purchases-page .epos-purchases-form-grid .purchase-field-medium {
+        grid-column: span 6;
+      }
+
+      .epos-purchases-page .epos-purchases-form-grid .purchase-field-compact {
+        grid-column: span 3;
+      }
+
+      .epos-purchases-page .epos-purchases-item-row .purchase-field-search {
+        grid-column: span 7;
+      }
+
+      .epos-purchases-page .epos-purchases-item-row .purchase-field-selected {
+        grid-column: span 3;
+      }
+
+      .epos-purchases-page .epos-purchases-item-row .purchase-field-batch {
+        grid-column: span 2;
+      }
+
+      .epos-purchases-page .epos-purchases-item-row .purchase-field-compact,
+      .epos-purchases-page .epos-purchases-item-row button {
+        grid-column: span 2;
+      }
+
+      .epos-purchases-page .epos-purchases-form-actions {
+        grid-template-columns: repeat(20, minmax(0, 1fr));
       }
     }
   </style>
@@ -157,8 +238,8 @@
       <select id="purchaseSupplierFilter" aria-label="Supplier"><option value="">All Suppliers</option></select>
       <select id="purchaseMethodFilter" aria-label="Payment Method"><option value="">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option><option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option></select>
       <select id="purchasePaymentFilter" aria-label="Payment status"><option value="">All Payment Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial</option><option value="UNPAID">Unpaid</option></select>
-      <button type="button" data-purchase-payment-shortcut="OVERDUE" class="epos-purchases-overdue" disabled title="Overdue shortcut is planned for a future purchase phase.">&#9888; Overdue (Soon)</button>
-      <button type="button" data-purchase-due-today id="purchaseDueTodayButton" class="epos-purchases-due-today" disabled title="Due Today shortcut is planned for a future purchase phase.">&#128197; Due Today (Soon)</button>
+      <button type="button" data-purchase-payment-shortcut="OVERDUE" class="epos-purchases-overdue" disabled title="Overdue shortcut is planned for a future purchase phase.">&#9888; Overdue</button>
+      <button type="button" data-purchase-due-today id="purchaseDueTodayButton" class="epos-purchases-due-today" disabled title="Due Today shortcut is planned for a future purchase phase.">&#128197; Due Today</button>
       <button type="button" id="purchaseClearFiltersButton" class="epos-purchases-ghost">&#8635; Clear</button>
     </div>
 
@@ -167,25 +248,25 @@
         <span>&#128269;</span>
         <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
       </label>
-      <button type="button" data-purchase-range="today" disabled title="Quick date ranges are planned for a future purchase phase.">Today (Soon)</button>
-      <button type="button" data-purchase-range="yesterday" disabled title="Quick date ranges are planned for a future purchase phase.">Yesterday (Soon)</button>
-      <button type="button" data-purchase-range="7" disabled title="Quick date ranges are planned for a future purchase phase.">Last 7 Days (Soon)</button>
-      <button type="button" data-purchase-range="30" disabled title="Quick date ranges are planned for a future purchase phase.">Last 30 Days (Soon)</button>
-      <button type="button" data-purchase-range="month" class="green" disabled title="Quick date ranges are planned for a future purchase phase.">This Month (Soon)</button>
-      <button type="button" data-purchase-range="last-month" disabled title="Quick date ranges are planned for a future purchase phase.">Last Month (Soon)</button>
-      <button type="button" data-purchase-range="year" disabled title="Quick date ranges are planned for a future purchase phase.">This Financial Year (Soon)</button>
+      <button type="button" data-purchase-range="today" disabled title="Quick date ranges are planned for a future purchase phase.">Today</button>
+      <button type="button" data-purchase-range="yesterday" disabled title="Quick date ranges are planned for a future purchase phase.">Yesterday</button>
+      <button type="button" data-purchase-range="7" disabled title="Quick date ranges are planned for a future purchase phase.">Last 7 Days</button>
+      <button type="button" data-purchase-range="30" disabled title="Quick date ranges are planned for a future purchase phase.">Last 30 Days</button>
+      <button type="button" data-purchase-range="month" class="green" disabled title="Quick date ranges are planned for a future purchase phase.">This Month</button>
+      <button type="button" data-purchase-range="last-month" disabled title="Quick date ranges are planned for a future purchase phase.">Last Month</button>
+      <button type="button" data-purchase-range="year" disabled title="Quick date ranges are planned for a future purchase phase.">This Financial Year</button>
     </div>
   </section>
 
   <section class="epos-purchases-toolbar" aria-label="Purchase actions">
     <button type="button" id="openPurchaseFormButton" class="primary">+ Add Purchase</button>
-    <button type="button" data-page-tool="purchases" data-tool-action="import" class="green" disabled title="Bulk import is planned for a future purchase phase.">&#8681; Import (Soon)</button>
-    <button type="button" data-page-tool="purchases" data-tool-action="excel" class="blue" disabled title="Export is planned for a future purchase phase.">&#8679; Export (Soon)</button>
-    <button type="button" data-page-tool="purchases" data-tool-action="print" class="orange" disabled title="Purchase printing is planned for a future purchase phase.">&#128424; Print (Soon)</button>
-    <button type="button" class="sky" id="purchaseWhatsAppButton" disabled title="WhatsApp purchase records is planned for a future phase"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:4px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> WhatsApp (Soon)</button>
-    <button type="button" id="purchasePaymentButton" class="emerald" disabled title="Payment settlement is planned for a future purchase phase.">&#9745; Payment (Soon)</button>
-    <button type="button" id="purchaseMoreActionsButton" class="pink" disabled title="More purchase actions are planned for a future phase.">&#10035; More Actions (Soon)</button>
-    <button type="button" id="purchaseColumnsButton" class="ghost" disabled title="Column customization is planned for a future purchase phase.">&#9881; Columns (Soon)</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="import" class="green" disabled title="Bulk import is planned for a future purchase phase.">&#8681; Import</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="excel" class="blue" disabled title="Export is planned for a future purchase phase.">&#8679; Export</button>
+    <button type="button" data-page-tool="purchases" data-tool-action="print" class="orange" disabled title="Purchase printing is planned for a future purchase phase.">&#128424; Print</button>
+    <button type="button" class="sky" id="purchaseWhatsAppButton" disabled title="WhatsApp purchase records is planned for a future phase"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:4px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> WhatsApp</button>
+    <button type="button" id="purchasePaymentButton" class="emerald" disabled title="Payment settlement is planned for a future purchase phase.">&#9745; Payment</button>
+    <button type="button" id="purchaseMoreActionsButton" class="pink" disabled title="More purchase actions are planned for a future phase.">&#10035; More Actions</button>
+    <button type="button" id="purchaseColumnsButton" class="ghost" disabled title="Column customization is planned for a future purchase phase.">&#9881; Columns</button>
   </section>
 
   <section class="epos-purchases-table-card">
@@ -254,13 +335,13 @@
             </div>
           </div>
           <div class="epos-purchases-form-grid">
-            <label><span>Supplier</span><select id="purchaseSupplier"></select><small>Posts payable to supplier ledger.</small></label>
-            <label><span>Invoice Number</span><input id="purchaseInvoice" placeholder="PUR-2026-0001" required /><small>Unique supplier purchase reference.</small></label>
-            <label><span>Purchase Date</span><input id="purchaseDate" type="date" required /><small>Stock and ledger posting date.</small></label>
-            <label><span>Expiration Date</span><input id="purchaseItemExpiry" type="date" /><small>Applies to the next item added.</small></label>
-            <label><span>Discount</span><input id="purchaseDiscount" type="number" min="0" step="0.01" placeholder="0.00" value="0" /><small>Invoice-level discount amount.</small></label>
-            <label><span>Tax</span><input id="purchaseTax" type="number" min="0" step="0.01" placeholder="0.00" value="0" /><small>Invoice-level tax amount.</small></label>
-            <label><span>Paid Amount</span><input id="purchasePaid" type="number" min="0" step="0.01" placeholder="0.00" value="0" /><small>Reduces supplier payable balance.</small></label>
+            <label class="purchase-field-wide"><span>Supplier</span><select id="purchaseSupplier"></select><small>Posts payable to supplier ledger.</small></label>
+            <label class="purchase-field-medium"><span>Invoice Number</span><input id="purchaseInvoice" placeholder="PUR-2026-0001" required /><small>Unique supplier purchase reference.</small></label>
+            <label class="purchase-field-compact"><span>Purchase Date</span><input id="purchaseDate" type="date" required /><small>Stock and ledger posting date.</small></label>
+            <label class="purchase-field-compact"><span>Expiration Date</span><input id="purchaseItemExpiry" type="date" /><small>Applies to the next item added.</small></label>
+            <label class="purchase-field-compact"><span>Discount</span><input id="purchaseDiscount" type="number" min="0" step="0.01" placeholder="0.00" value="0" /><small>Invoice-level discount amount.</small></label>
+            <label class="purchase-field-compact"><span>Tax</span><input id="purchaseTax" type="number" min="0" step="0.01" placeholder="0.00" value="0" /><small>Invoice-level tax amount.</small></label>
+            <label class="purchase-field-compact"><span>Paid Amount</span><input id="purchasePaid" type="number" min="0" step="0.01" placeholder="0.00" value="0" /><small>Reduces supplier payable balance.</small></label>
           </div>
         </section>
 
@@ -273,13 +354,13 @@
             </div>
           </div>
           <div class="epos-purchases-item-row">
-            <label class="wide"><span>Search / Scan Product</span><input id="purchaseItemLookup" list="purchaseProductLookupList" placeholder="Scan barcode, SKU, code or product name" autocomplete="off" /></label>
+            <label class="purchase-field-search"><span>Search / Scan Product</span><input id="purchaseItemLookup" list="purchaseProductLookupList" placeholder="Scan barcode, SKU, code or product name" autocomplete="off" /></label>
             <datalist id="purchaseProductLookupList"></datalist>
-            <label><span>Selected Product</span><select id="purchaseItemProduct" aria-label="Selected product"></select></label>
-            <label><span>Batch Number</span><input id="purchaseItemBatch" placeholder="Batch / lot no." /></label>
-            <label><span>Qty</span><input id="purchaseItemQty" type="number" min="0.001" step="0.001" placeholder="0" /></label>
-            <label><span>Cost</span><input id="purchaseItemCost" type="number" min="0" step="0.01" placeholder="0.00" /></label>
-            <label><span>Sale</span><input id="purchaseItemSale" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+            <label class="purchase-field-selected"><span>Selected Product</span><select id="purchaseItemProduct" aria-label="Selected product"></select></label>
+            <label class="purchase-field-batch"><span>Batch Number</span><input id="purchaseItemBatch" placeholder="Batch / lot no." /></label>
+            <label class="purchase-field-compact"><span>Qty</span><input id="purchaseItemQty" type="number" min="0.001" step="0.001" placeholder="0" /></label>
+            <label class="purchase-field-compact"><span>Cost</span><input id="purchaseItemCost" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+            <label class="purchase-field-compact"><span>Sale</span><input id="purchaseItemSale" type="number" min="0" step="0.01" placeholder="0.00" /></label>
             <button id="addPurchaseItemButton" type="button">Add Item</button>
           </div>
         </section>
