@@ -546,6 +546,66 @@ async function initializeDatabase() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS inventory_import_batches (
+        id BIGSERIAL PRIMARY KEY,
+        idempotency_key VARCHAR(120) NOT NULL,
+        owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        source_digest VARCHAR(64),
+        commit_plan_digest VARCHAR(64) NOT NULL,
+        preflight_digest VARCHAR(64) NOT NULL,
+        contract_version VARCHAR(80) NOT NULL,
+        status VARCHAR(40) NOT NULL,
+        total_rows INTEGER NOT NULL DEFAULT 0 CHECK (total_rows >= 0),
+        created_product_count INTEGER NOT NULL DEFAULT 0 CHECK (created_product_count >= 0),
+        existing_product_count INTEGER NOT NULL DEFAULT 0 CHECK (existing_product_count >= 0),
+        stock_applied_count INTEGER NOT NULL DEFAULT 0 CHECK (stock_applied_count >= 0),
+        blocked_or_failed_count INTEGER NOT NULL DEFAULT 0 CHECK (blocked_or_failed_count >= 0),
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        failure_code VARCHAR(120),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT inventory_import_batches_status_check
+          CHECK (status IN ('PENDING','COMMITTED','FAILED','ROLLED_BACK','REPLAY_REJECTED'))
+      );
+    `);
+
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_import_batches_idempotency ON inventory_import_batches (idempotency_key);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_inventory_import_batches_owner_created ON inventory_import_batches (owner_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_inventory_import_batches_preflight_digest ON inventory_import_batches (preflight_digest);'
+    );
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS inventory_import_row_results (
+        id BIGSERIAL PRIMARY KEY,
+        batch_id BIGINT NOT NULL REFERENCES inventory_import_batches(id) ON DELETE CASCADE,
+        source_row_number INTEGER NOT NULL CHECK (source_row_number >= 0),
+        product_action VARCHAR(60) NOT NULL,
+        resulting_product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+        stock_action VARCHAR(60) NOT NULL,
+        resulting_stock_movement_id BIGINT REFERENCES stock_movements(id) ON DELETE SET NULL,
+        quantity NUMERIC(14, 3),
+        status VARCHAR(40) NOT NULL,
+        result_code VARCHAR(120),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT inventory_import_row_results_status_check
+          CHECK (status IN ('PENDING','COMMITTED','FAILED','SKIPPED'))
+      );
+    `);
+
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_inventory_import_row_results_batch ON inventory_import_row_results (batch_id, source_row_number);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_inventory_import_row_results_product ON inventory_import_row_results (resulting_product_id);'
+    );
+
+    await client.query(`
       INSERT INTO inventory (product_id, warehouse_id, current_stock, min_stock_level)
       SELECT products.id, warehouses.id, products.current_stock, products.min_stock_level
       FROM products

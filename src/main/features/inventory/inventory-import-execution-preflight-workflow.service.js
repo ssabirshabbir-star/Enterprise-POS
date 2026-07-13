@@ -112,7 +112,7 @@ function safePreflightResponse(result, message) {
     preflightDigest: result.executionPreflight.preflightDigest,
     preflightSummary: result.executionPreflight.summary,
     databaseWrite: false,
-    commitReady: false,
+    commitReady: result.executionPreflight.commitReady,
     rendererAuthoritative: false,
     requiresTransaction: true,
     requiresExecutionConfirmation: true,

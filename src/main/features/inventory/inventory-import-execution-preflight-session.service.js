@@ -60,7 +60,7 @@ function createInventoryImportExecutionPreflightSession(input = {}) {
     rowCount: document.summary.totalRows,
     rendererAuthoritative: false,
     databaseWrite: false,
-    commitReady: false,
+    commitReady: document.commitReady,
     requiresTransaction: true,
     requiresExecutionConfirmation: true,
     requiresReplayProtection: true,
@@ -77,7 +77,7 @@ function validateInventoryImportExecutionPreflightSession(session) {
     !Object.isFrozen(session) ||
     session.rendererAuthoritative !== false ||
     session.databaseWrite !== false ||
-    session.commitReady !== false ||
+    typeof session.commitReady !== 'boolean' ||
     session.requiresTransaction !== true ||
     session.requiresExecutionConfirmation !== true ||
     session.requiresReplayProtection !== true ||
@@ -92,7 +92,8 @@ function validateInventoryImportExecutionPreflightSession(session) {
     session.sourceCommitPlanSessionId !== document.sourceCommitPlanSessionId ||
     session.sourceCommitPlanDigest !== document.sourceCommitPlanDigest ||
     session.preflightDigest !== document.preflightDigest ||
-    session.rowCount !== document.summary.totalRows
+    session.rowCount !== document.summary.totalRows ||
+    session.commitReady !== document.commitReady
   ) {
     fail('Inventory import execution preflight session failed deterministic validation.', 'executionPreflightSession');
   }
@@ -124,7 +125,7 @@ function publicSession(session) {
     rowCount: session.rowCount,
     rendererAuthoritative: false,
     databaseWrite: false,
-    commitReady: false,
+    commitReady: session.commitReady,
     requiresTransaction: true,
     requiresExecutionConfirmation: true,
     requiresReplayProtection: true,

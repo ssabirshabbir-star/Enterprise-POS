@@ -19,6 +19,10 @@ const {
   validateInventoryImportExecutionPreflightDocument,
 } = require('../../src/main/features/inventory/inventory-import-execution-preflight.model');
 const {
+  IMPORT_EXECUTION_POLICY_CODES,
+  IMPORT_EXECUTION_STOCK_STRATEGIES,
+} = require('../../src/main/features/inventory/inventory-import-execution-contract.model');
+const {
   EXECUTION_PREFLIGHT_SESSION_ID_PATTERN,
   MAX_EXECUTION_PREFLIGHT_SESSIONS,
   createInventoryImportExecutionPreflightSessionService,
@@ -238,6 +242,7 @@ test('Phase 5H model creates immutable preflight and revalidates CREATE_PRODUCT 
   assert.equal(document.rendererAuthoritative, false);
   assert.equal(document.requiresTransaction, true);
   assert.equal(document.rows[0].currentDisposition, PREFLIGHT_ROW_DISPOSITIONS.CURRENTLY_ELIGIBLE);
+  assert.equal(document.rows[0].executionContractEvidence.strategy, IMPORT_EXECUTION_STOCK_STRATEGIES.NO_STOCK);
   assert(document.rows[1].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.SKU_NOW_EXISTS));
   assert(document.rows[2].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.BARCODE_NOW_EXISTS));
   assert.equal(document.summary.currentlyEligibleRows, 1);
@@ -297,7 +302,7 @@ test('Phase 5H preserves existing-product semantics and blocks stale matched pro
   assert(inactive.rows[0].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.MATCHED_PRODUCT_INACTIVE));
 });
 
-test('Phase 5H fails closed for catalogs, warehouse, inventory target, opening-stock ambiguity, and prior blocked rows', () => {
+test('Phase 5H certifies new-product initial stock but blocks existing-product opening stock policy', () => {
   const plan = commitPlan([
     matchedRow({ sourceRowNumber: 1, categoryName: 'Grocery', categoryId: 10 }),
     matchedRow({ sourceRowNumber: 2, openingQuantity: '5.000', sku: 'STOCK-NEW', barcode: 'STOCK-BAR' }),
@@ -328,11 +333,52 @@ test('Phase 5H fails closed for catalogs, warehouse, inventory target, opening-s
   });
   assert(document.rows[0].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.REQUIRED_CATALOG_INACTIVE));
   assert(document.rows[1].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.WAREHOUSE_INACTIVE));
-  assert(document.rows[1].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.OPENING_STOCK_STATE_UNRESOLVED));
-  assert(document.rows[2].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.OPENING_STOCK_STATE_UNRESOLVED));
+  assert(!document.rows[1].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.OPENING_STOCK_STATE_UNRESOLVED));
+  assert.equal(document.rows[1].executionContractEvidence.strategy, IMPORT_EXECUTION_STOCK_STRATEGIES.PRODUCT_INITIAL_STOCK);
+  assert.equal(document.rows[1].executionContractEvidence.movementType, 'INITIAL_STOCK');
+  assert.equal(document.rows[1].executionContractEvidence.doubleApplicationAllowed, false);
+  assert(document.rows[2].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.EXISTING_PRODUCT_OPENING_STOCK_UNSUPPORTED));
+  assert.equal(document.rows[2].executionContractEvidence.supported, false);
+  assert.equal(document.rows[2].executionContractEvidence.policyCode, IMPORT_EXECUTION_POLICY_CODES.EXISTING_PRODUCT_OPENING_STOCK_UNSUPPORTED);
   assert(document.rows[3].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.SOURCE_PLAN_NOT_EXECUTABLE));
   assert(document.rows[3].originalBlockReasonCodes.includes('MISSING_REQUIRED_BARCODE'));
   assert.equal(document.summary.openingStockRows, 0);
+});
+
+test('Phase 5H marks only fully supported current-state preflights as commit ready', () => {
+  const ready = createInventoryImportExecutionPreflightDocument({
+    commitPlan: commitPlan([
+      matchedRow({ sourceRowNumber: 1, openingQuantity: '5.000', sku: 'STOCK-NEW', barcode: 'STOCK-BAR' }),
+      matchedRow({ sourceRowNumber: 2, sku: 'NEW-2', barcode: 'BARNEW2' }),
+    ]),
+    commitPlanSessionId: COMMIT_PLAN_SESSION_ID,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    preflightId: 'inventory-import-execution-preflight-document-12121212-1212-4212-8212-121212121212',
+    permissionContext: { canAdjustInventory: true, canCreateProduct: true },
+    currentState: currentState(),
+  });
+  assert.equal(ready.commitReady, true);
+  assert.equal(ready.databaseWrite, false);
+  assert.equal(ready.requiresTransaction, true);
+  assert.equal(ready.requiresReplayProtection, true);
+  assert.equal(ready.requiresAuditPersistence, true);
+  assert.equal(ready.requiresExecutionConfirmation, true);
+  assert.equal(ready.summary.currentlyEligibleRows, 2);
+  assert.equal(ready.summary.openingStockRows, 1);
+  assert.equal(validateInventoryImportExecutionPreflightDocument(ready), ready);
+
+  const blocked = createInventoryImportExecutionPreflightDocument({
+    commitPlan: commitPlan([
+      matchedRow({ productAction: 'existing', matchedProduct: product(3), openingQuantity: '2.000', sku: 'SKU-3', barcode: 'BAR3000', evidence: { inventoryTargetId: 103 } }),
+    ]),
+    commitPlanSessionId: COMMIT_PLAN_SESSION_ID,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    preflightId: 'inventory-import-execution-preflight-document-13131313-1313-4313-8313-131313131313',
+    permissionContext: { canAdjustInventory: true, canCreateProduct: true },
+    currentState: currentState({ products: [product(3)], inventoryTargets: [inventoryTarget(3)], movementSummaries: [movement(3)] }),
+  });
+  assert.equal(blocked.commitReady, false);
+  assert.equal(blocked.summary.blockedRows, 1);
 });
 
 test('Phase 5H digest is deterministic, changes with material current-state evidence, and does not mutate inputs', () => {
@@ -413,6 +459,8 @@ test('Phase 5H session service enforces owner binding, TTL, capacity, determinis
     permissionContext: { canAdjustInventory: true, canCreateProduct: true },
   });
   assert.equal(created.ok, true);
+  assert.equal(created.executionPreflight.commitReady, true);
+  assert.equal(created.executionPreflightSession.commitReady, true);
   assert.match(created.executionPreflightSession.sessionId, EXECUTION_PREFLIGHT_SESSION_ID_PATTERN);
   assert.equal(service.getExecutionPreflightSession({ ownerId: 2, sessionId: created.executionPreflightSession.sessionId }).ok, false);
   assert.equal(service.getExecutionPreflightSession({ ownerId: 1, sessionId: created.executionPreflightSession.sessionId }).ok, true);
@@ -457,7 +505,8 @@ test('Phase 5H workflow creates and retrieves preflight sessions while rejecting
   const created = await workflow.createImportExecutionPreflight({ sessionId: COMMIT_PLAN_SESSION_ID });
   assert.equal(created.ok, true);
   assert.equal(created.executionPreflight.databaseWrite, false);
-  assert.equal(created.executionPreflight.commitReady, false);
+  assert.equal(created.executionPreflight.commitReady, true);
+  assert.equal(created.commitReady, true);
   assert.equal(planServiceCalls.length, 1);
   const retrieved = await workflow.getImportExecutionPreflightSession({ sessionId: created.sessionId });
   assert.equal(retrieved.ok, true);

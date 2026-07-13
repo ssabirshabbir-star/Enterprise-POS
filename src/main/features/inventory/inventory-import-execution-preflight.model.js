@@ -8,6 +8,13 @@ const {
   deepFreezePlainData,
   validateInventoryImportCommitPlanDocument,
 } = require('./inventory-import-commit-plan.model');
+const {
+  IMPORT_EXECUTION_CONTRACT_VERSION,
+  IMPORT_EXECUTION_POLICY_CODES,
+  IMPORT_EXECUTION_STOCK_STRATEGIES,
+  createInventoryImportExecutionContract,
+  findExecutionStockPolicy,
+} = require('./inventory-import-execution-contract.model');
 const { normalizeCatalogName, normalizeMatchingIdentifier } = require('./inventory-import-matching.contract');
 
 const EXECUTION_PREFLIGHT_DOCUMENT_KIND = 'inventory_import_execution_preflight_document';
@@ -28,6 +35,7 @@ const PREFLIGHT_REASON_CODES = Object.freeze({
   MATCHED_PRODUCT_CHANGED: 'MATCHED_PRODUCT_CHANGED',
   MATCHED_PRODUCT_INACTIVE: 'MATCHED_PRODUCT_INACTIVE',
   MATCHED_PRODUCT_MISSING: 'MATCHED_PRODUCT_MISSING',
+  EXISTING_PRODUCT_OPENING_STOCK_UNSUPPORTED: 'EXISTING_PRODUCT_OPENING_STOCK_UNSUPPORTED',
   OPENING_STOCK_STATE_UNRESOLVED: 'OPENING_STOCK_STATE_UNRESOLVED',
   REQUIRED_CATALOG_INACTIVE: 'REQUIRED_CATALOG_INACTIVE',
   REQUIRED_CATALOG_MISSING: 'REQUIRED_CATALOG_MISSING',
@@ -235,7 +243,10 @@ function stockReasons(planRow, currentState, productBlocked) {
   const reasons = [];
   if (productBlocked) reasons.push(PREFLIGHT_REASON_CODES.SOURCE_PLAN_NOT_EXECUTABLE);
   reasons.push(...warehouseReasons(planRow, currentState));
-  if (planRow.productAction === PRODUCT_ACTIONS.USE_EXISTING_PRODUCT) {
+  const policy = findExecutionStockPolicy(planRow.productAction, planRow.stockAction);
+  if (policy?.strategy === IMPORT_EXECUTION_STOCK_STRATEGIES.UNSUPPORTED) {
+    reasons.push(policy.reasonCode || PREFLIGHT_REASON_CODES.SOURCE_PLAN_NOT_EXECUTABLE);
+  } else if (planRow.productAction === PRODUCT_ACTIONS.USE_EXISTING_PRODUCT) {
     const productId = Number(planRow.matchedProduct?.productId);
     const target = currentState.inventoryTargets.find((item) => item.productId === productId);
     if (!target) reasons.push(PREFLIGHT_REASON_CODES.INVENTORY_TARGET_INVALID);
@@ -243,10 +254,32 @@ function stockReasons(planRow, currentState, productBlocked) {
     if (!movement || movement.movementCount > 0 || target?.quantity !== '0') {
       reasons.push(PREFLIGHT_REASON_CODES.OPENING_STOCK_STATE_UNRESOLVED);
     }
-  } else {
+  } else if (!policy || policy.strategy !== IMPORT_EXECUTION_STOCK_STRATEGIES.PRODUCT_INITIAL_STOCK) {
     reasons.push(PREFLIGHT_REASON_CODES.OPENING_STOCK_STATE_UNRESOLVED);
   }
   return reasons;
+}
+
+function executionContractEvidence(planRow) {
+  const policy = findExecutionStockPolicy(planRow.productAction, planRow.stockAction);
+  if (!policy) {
+    return {
+      contractVersion: IMPORT_EXECUTION_CONTRACT_VERSION,
+      supported: false,
+      strategy: IMPORT_EXECUTION_STOCK_STRATEGIES.UNSUPPORTED,
+      reasonCode: PREFLIGHT_REASON_CODES.SOURCE_PLAN_NOT_EXECUTABLE,
+    };
+  }
+  return {
+    contractVersion: IMPORT_EXECUTION_CONTRACT_VERSION,
+    supported: policy.strategy !== IMPORT_EXECUTION_STOCK_STRATEGIES.UNSUPPORTED,
+    strategy: policy.strategy,
+    movementType: policy.movementType || null,
+    referenceType: policy.referenceType || null,
+    reason: policy.reason || null,
+    policyCode: policy.policyCode || policy.reasonCode || null,
+    doubleApplicationAllowed: policy.doubleApplicationAllowed === true,
+  };
 }
 
 function createPreflightRow(planRow, currentState, permissionContext) {
@@ -293,6 +326,7 @@ function createPreflightRow(planRow, currentState, permissionContext) {
         canCreateProduct: permissionContext.canCreateProduct === true,
       },
     },
+    executionContractEvidence: executionContractEvidence(planRow),
   };
 }
 
@@ -334,6 +368,11 @@ function summarizePreflightRows(rows) {
   return summary;
 }
 
+function preflightCommitReady(rows, summary) {
+  if (!rows.length) return false;
+  return summary.blockedRows === 0 && rows.every((row) => row.currentlyEligible === true);
+}
+
 function createInventoryImportExecutionPreflightDocument(input = {}) {
   assertPlainData(input, 'executionPreflightInput');
   const allowedKeys = new Set([
@@ -361,6 +400,8 @@ function createInventoryImportExecutionPreflightDocument(input = {}) {
   const currentState = normalizeCurrentState(input.currentState || {});
   const rows = commitPlan.planRows.map((row) => createPreflightRow(row, currentState, permissionContext));
   const summary = summarizePreflightRows(rows);
+  const executionContract = createInventoryImportExecutionContract();
+  const commitReady = preflightCommitReady(rows, summary);
   const createdAt = timestamp(input.createdAt || new Date().toISOString(), 'createdAt');
   const preflightId = String(input.preflightId || `inventory-import-execution-preflight-document-${randomUUID()}`).trim();
   if (!/^inventory-import-execution-preflight-document-[0-9a-f-]{36}$/i.test(preflightId)) {
@@ -372,11 +413,13 @@ function createInventoryImportExecutionPreflightDocument(input = {}) {
     schemaVersion: 1,
     databaseWrite: false,
     rendererAuthoritative: false,
-    commitReady: false,
+    commitReady,
     requiresTransaction: true,
     requiresExecutionConfirmation: true,
     requiresReplayProtection: true,
     requiresAuditPersistence: true,
+    executionContractVersion: executionContract.version,
+    executionContractDigest: executionContract.contractDigest,
     sourceCommitPlanSessionId: commitPlanSessionId,
     sourceCommitPlanDigest: commitPlan.planDigest,
     rows,
@@ -393,6 +436,7 @@ function createInventoryImportExecutionPreflightDocument(input = {}) {
 }
 
 function validateInventoryImportExecutionPreflightDocument(document) {
+  const executionContract = createInventoryImportExecutionContract();
   if (
     !document ||
     document.kind !== EXECUTION_PREFLIGHT_DOCUMENT_KIND ||
@@ -402,13 +446,15 @@ function validateInventoryImportExecutionPreflightDocument(document) {
     !Object.isFrozen(document) ||
     document.databaseWrite !== false ||
     document.rendererAuthoritative !== false ||
-    document.commitReady !== false ||
+    typeof document.commitReady !== 'boolean' ||
     document.requiresTransaction !== true ||
     document.requiresExecutionConfirmation !== true ||
     document.requiresReplayProtection !== true ||
     document.requiresAuditPersistence !== true ||
     !Array.isArray(document.rows) ||
     !document.summary ||
+    document.executionContractVersion !== IMPORT_EXECUTION_CONTRACT_VERSION ||
+    document.executionContractDigest !== executionContract.contractDigest ||
     !/^[0-9a-f]{64}$/i.test(String(document.preflightDigest || ''))
   ) {
     fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'An immutable inventory import execution preflight document is required.', 'executionPreflight');
@@ -426,12 +472,18 @@ function validateInventoryImportExecutionPreflightDocument(document) {
     requiresExecutionConfirmation: document.requiresExecutionConfirmation,
     requiresReplayProtection: document.requiresReplayProtection,
     requiresAuditPersistence: document.requiresAuditPersistence,
+    executionContractVersion: document.executionContractVersion,
+    executionContractDigest: document.executionContractDigest,
     sourceCommitPlanSessionId: document.sourceCommitPlanSessionId,
     sourceCommitPlanDigest: document.sourceCommitPlanDigest,
     rows: document.rows,
     summary: document.summary,
   };
-  if (!isDeepStrictEqual(expectedSummary, document.summary) || digestPreflightContent(digestContent) !== document.preflightDigest) {
+  if (
+    !isDeepStrictEqual(expectedSummary, document.summary) ||
+    preflightCommitReady(document.rows, document.summary) !== document.commitReady ||
+    digestPreflightContent(digestContent) !== document.preflightDigest
+  ) {
     fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Inventory import execution preflight failed deterministic validation.', 'executionPreflight');
   }
   return document;
