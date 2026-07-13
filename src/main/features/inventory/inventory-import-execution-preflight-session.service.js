@@ -277,8 +277,33 @@ function createInventoryImportExecutionPreflightSessionService(dependencies = {}
     return sessions.size;
   }
 
+  function consumeExecutionPreflightSession(input = {}) {
+    try {
+      const sessionId = validateExecutionPreflightSessionId(input.sessionId);
+      const ownerId = validateOwnerId(input.ownerId);
+      const entry = sessions.get(sessionId);
+      if (!entry) {
+        clearExpiredExecutionPreflightSessions();
+        return { ok: false, code: EXECUTION_PREFLIGHT_SESSION_ERROR_CODES.NOT_FOUND, message: 'Inventory import execution preflight expired or is no longer available.' };
+      }
+      if (Number(entry.expiresAt) <= now()) {
+        sessions.delete(sessionId);
+        return { ok: false, code: EXECUTION_PREFLIGHT_SESSION_ERROR_CODES.EXPIRED, message: 'Inventory import execution preflight expired or is no longer available.' };
+      }
+      if (entry.ownerId !== ownerId) {
+        return { ok: false, code: EXECUTION_PREFLIGHT_SESSION_ERROR_CODES.OWNER_MISMATCH, message: 'Inventory import execution preflight expired or is no longer available.' };
+      }
+      validateInventoryImportExecutionPreflightSession(entry.session);
+      sessions.delete(sessionId);
+      return { ok: true, sessionId };
+    } catch (error) {
+      return errorResult(error);
+    }
+  }
+
   return Object.freeze({
     clearExpiredExecutionPreflightSessions,
+    consumeExecutionPreflightSession,
     createExecutionPreflightSession,
     getExecutionPreflightSession,
     getExecutionPreflightSessionCount,
@@ -294,6 +319,7 @@ module.exports = {
   EXECUTION_PREFLIGHT_SESSION_TTL_MS,
   MAX_EXECUTION_PREFLIGHT_SESSIONS,
   createInventoryImportExecutionPreflightSessionService,
+  consumeExecutionPreflightSession: defaultService.consumeExecutionPreflightSession,
   createExecutionPreflightSession: defaultService.createExecutionPreflightSession,
   getExecutionPreflightSession: defaultService.getExecutionPreflightSession,
   validateInventoryImportExecutionPreflightSession,
