@@ -243,6 +243,112 @@ test('Phase 5F creates deterministic commit plans for existing, new, stock, empt
   validateInventoryImportCommitPlanDocument(plan);
 });
 
+test('Phase 5F blocks barcode-less new product plans without generating barcode evidence', () => {
+  const barcodeLessRows = [
+    row({
+      sourceRowNumber: 1,
+      classification: 'POTENTIAL_NEW_PRODUCT',
+      status: 'MATCHING_ELIGIBLE',
+      barcode: '',
+      openingQuantity: '3.000',
+    }),
+    row({
+      sourceRowNumber: 2,
+      classification: 'POTENTIAL_NEW_PRODUCT',
+      status: 'MATCHING_ELIGIBLE',
+      barcode: '   ',
+    }),
+    row({
+      sourceRowNumber: 3,
+      classification: 'POTENTIAL_NEW_PRODUCT',
+      status: 'MATCHING_ELIGIBLE',
+      barcode: null,
+    }),
+  ];
+  const first = planFromRows(barcodeLessRows);
+  const second = planFromRows(barcodeLessRows);
+
+  first.planRows.forEach((planRow) => {
+    assert.notEqual(planRow.productAction, PRODUCT_ACTIONS.CREATE_PRODUCT);
+    assert.notEqual(planRow.stockAction, STOCK_ACTIONS.APPLY_OPENING_STOCK);
+    assert.equal(planRow.productAction, PRODUCT_ACTIONS.BLOCKED);
+    assert.equal(planRow.disposition, ROW_DISPOSITIONS.BLOCKED);
+    assert.equal(planRow.planningEligible, false);
+    assert.equal(planRow.blocked, true);
+    assert.equal(planRow.blockReasonCodes.includes('MISSING_REQUIRED_BARCODE'), true);
+  });
+  assert.deepEqual(first.planSummary, {
+    totalRows: 3,
+    executableRows: 0,
+    blockedRows: 3,
+    createProductRows: 0,
+    existingProductRows: 0,
+    openingStockRows: 0,
+    noStockRows: 2,
+    emptyRows: 0,
+    warningRows: 0,
+    permissionBlockedRows: 0,
+    duplicateRows: 0,
+    ambiguousRows: 0,
+    unsupportedRows: 0,
+  });
+  assert.equal(first.commitReady, false);
+  assert.equal(first.requiresRevalidation, true);
+  assert.equal(first.planDigest, second.planDigest);
+  validateInventoryImportCommitPlanDocument(first);
+});
+
+test('Phase 5F preserves valid barcode new-product planning and existing-product SKU matching', () => {
+  const validBarcode = row({
+    sourceRowNumber: 1,
+    classification: 'POTENTIAL_NEW_PRODUCT',
+    status: 'MATCHING_ELIGIBLE',
+    barcode: 'BAR-VALID-001',
+    openingQuantity: '4.000',
+  });
+  const existingWithoutSourceBarcode = row({
+    sourceRowNumber: 2,
+    matchedProduct: product(2),
+    classification: 'EXISTING_PRODUCT_CANDIDATE',
+    status: 'MATCHING_ELIGIBLE',
+    barcode: '',
+  });
+  const validPlan = planFromRows([validBarcode, existingWithoutSourceBarcode]);
+  const missingBarcodePlan = planFromRows([
+    row({
+      sourceRowNumber: 1,
+      classification: 'POTENTIAL_NEW_PRODUCT',
+      status: 'MATCHING_ELIGIBLE',
+      barcode: '',
+      openingQuantity: '4.000',
+    }),
+  ]);
+
+  assert.equal(validPlan.planRows[0].productAction, PRODUCT_ACTIONS.CREATE_PRODUCT);
+  assert.equal(validPlan.planRows[0].stockAction, STOCK_ACTIONS.APPLY_OPENING_STOCK);
+  assert.equal(validPlan.planRows[0].normalizedSource.barcode, 'BAR-VALID-001');
+  assert.equal(validPlan.planRows[0].staleEvidence.normalizedBarcode, 'bar-valid-001');
+  assert.equal(validPlan.planRows[1].productAction, PRODUCT_ACTIONS.USE_EXISTING_PRODUCT);
+  assert.equal(validPlan.planRows[1].stockAction, STOCK_ACTIONS.NO_STOCK_ACTION);
+  assert.deepEqual(validPlan.planSummary, {
+    totalRows: 2,
+    executableRows: 2,
+    blockedRows: 0,
+    createProductRows: 1,
+    existingProductRows: 1,
+    openingStockRows: 1,
+    noStockRows: 1,
+    emptyRows: 0,
+    warningRows: 0,
+    permissionBlockedRows: 0,
+    duplicateRows: 0,
+    ambiguousRows: 0,
+    unsupportedRows: 0,
+  });
+  assert.notEqual(validPlan.planDigest, missingBarcodePlan.planDigest);
+  validateInventoryImportCommitPlanDocument(validPlan);
+});
+
 test('Phase 5F conservatively blocks unsupported product, catalog, warehouse, inventory, permission, and ambiguity states', () => {
   const cases = [
     row({ sourceRowNumber: 1, productName: '', status: 'MATCHING_ELIGIBLE', classification: 'POTENTIAL_NEW_PRODUCT' }),

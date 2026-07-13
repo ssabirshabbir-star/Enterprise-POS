@@ -73,6 +73,10 @@ const AMBIGUITY_CODES = new Set([
   'DUPLICATE_PRODUCT_TARGET',
 ]);
 
+const POLICY_BLOCK_REASON_CODES = Object.freeze({
+  MISSING_REQUIRED_BARCODE: 'MISSING_REQUIRED_BARCODE',
+});
+
 class InventoryImportCommitPlanError extends Error {
   constructor(code, message, field = null) {
     super(message);
@@ -157,6 +161,10 @@ function nonNegativeInteger(value, field) {
 
 function isPositiveDecimal(value) {
   return /[1-9]/.test(String(value || '0').replace('.', ''));
+}
+
+function hasRequiredBarcodeEvidence(normalized) {
+  return typeof normalized.barcode === 'string' && normalized.barcode.trim().length > 0;
 }
 
 function findingCodes(row, severity = null) {
@@ -267,7 +275,7 @@ function rowHasAmbiguity(row) {
     : (row.matchingFindings || []).some((finding) => AMBIGUITY_CODES.has(finding.code));
 }
 
-function determineProductAction(row, normalized, errors, unsupportedActions) {
+function determineProductAction(row, normalized, errors, unsupportedActions, policyBlockReasons) {
   if (row.status === 'EMPTY_ROW') return PRODUCT_ACTIONS.NO_PRODUCT_ACTION;
   if (row.status === 'METADATA_MISMATCH') return PRODUCT_ACTIONS.UNSUPPORTED;
   if (errors.length) return PRODUCT_ACTIONS.BLOCKED;
@@ -281,6 +289,10 @@ function determineProductAction(row, normalized, errors, unsupportedActions) {
     const missing = [];
     if (!normalized.productName) missing.push('Product Name');
     if (!normalized.sku) missing.push('SKU');
+    if (!hasRequiredBarcodeEvidence(normalized)) {
+      missing.push('Barcode');
+      policyBlockReasons.push(POLICY_BLOCK_REASON_CODES.MISSING_REQUIRED_BARCODE);
+    }
     if (!normalized.costPrice) missing.push('Cost Price');
     if (!normalized.sellingPrice) missing.push('Selling Price');
     if (missing.length) return PRODUCT_ACTIONS.BLOCKED;
@@ -325,13 +337,14 @@ function createPlanRow(row, sourceMatchingDigest) {
   const errors = findingCodes(row, 'ERROR');
   const warnings = findingCodes(row, 'WARNING');
   const unsupportedActions = [];
-  const productAction = determineProductAction(row, normalized, errors, unsupportedActions);
+  const policyBlockReasons = [];
+  const productAction = determineProductAction(row, normalized, errors, unsupportedActions, policyBlockReasons);
   const stockAction = determineStockAction(row, normalized, errors, productAction);
   if (!Object.values(PRODUCT_ACTIONS).includes(productAction) || !Object.values(STOCK_ACTIONS).includes(stockAction)) {
     fail(COMMIT_PLAN_ERROR_CODES.INVALID_ACTION, 'Inventory import commit plan action is invalid.', 'action');
   }
   const disposition = determineDisposition({ row, productAction, stockAction, errors, warnings });
-  const blockReasons = [...new Set(errors)];
+  const blockReasons = [...new Set([...errors, ...policyBlockReasons])];
   if (disposition === ROW_DISPOSITIONS.BLOCKED && !blockReasons.length) {
     if (productAction === PRODUCT_ACTIONS.BLOCKED) blockReasons.push('PRODUCT_ACTION_BLOCKED');
     if (stockAction === STOCK_ACTIONS.BLOCKED) blockReasons.push('STOCK_ACTION_BLOCKED');
