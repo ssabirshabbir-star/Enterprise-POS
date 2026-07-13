@@ -285,7 +285,7 @@
   .epos-suppliers-table {
     width: 100% !important;
     max-width: none !important;
-    min-width: 1160px;
+    min-width: 1080px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
@@ -319,7 +319,10 @@
   .epos-suppliers-table th:nth-child(1),
   .epos-suppliers-table td:nth-child(1) { width: 42px; text-align: center; padding: 4px 6px !important; }
   .epos-suppliers-table th:nth-child(2),
-  .epos-suppliers-table td:nth-child(2) { width: 20%; }
+  .epos-suppliers-table td:nth-child(2) {
+    width: 170px;
+    white-space: nowrap;
+  }
   .epos-suppliers-table th:nth-child(3),
   .epos-suppliers-table td:nth-child(3) { width: 10%; white-space: nowrap; }
   .epos-suppliers-table th:nth-child(4),
@@ -335,7 +338,11 @@
   .epos-suppliers-table th:nth-child(9),
   .epos-suppliers-table td:nth-child(9) { width: 6%; }
   .epos-suppliers-table th:nth-child(10),
-  .epos-suppliers-table td:nth-child(10) { width: 190px; min-width: 190px; }
+  .epos-suppliers-table td:nth-child(10) {
+    width: 178px;
+    min-width: 178px;
+    padding-inline: 6px !important;
+  }
 
   .epos-suppliers-table td {
     border-bottom: 1px solid #e8eef7;
@@ -415,7 +422,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 3px;
     white-space: nowrap;
     overflow: visible !important;
   }

@@ -176,7 +176,7 @@
           : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Inactive</span>';
         return `<tr data-supplier-row="${s.id}" style="cursor:pointer${selected ? ';background:#eef3ff' : ''}">
         <td style="color:#9ca3af;font-size:.75rem">${i + 1}</td>
-        <td style="font-weight:600;font-size:.82rem">${esc(s.name)}</td>
+        <td title="${esc(s.name)}" style="font-weight:600;font-size:.82rem">${esc(s.name)}</td>
         <td style="font-size:.75rem">${esc(s.phone || '—')}</td>
         <td style="text-align:right;font-size:.78rem">${money(supplierTotalPurchases(s))}</td>
         <td style="text-align:right;font-size:.78rem">${money(supplierTotalPayments(s))}</td>
