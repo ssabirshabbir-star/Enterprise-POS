@@ -372,6 +372,15 @@
     box-shadow: 0 10px 20px rgb(16 185 129 / 0.14);
   }
 
+  .epos-customers-bulk-top:disabled,
+  .epos-customers-filters button:disabled {
+    cursor: not-allowed;
+    opacity: 0.64;
+    filter: saturate(0.72) brightness(0.98);
+    box-shadow: none;
+    transform: none;
+  }
+
   .epos-customers-message {
     margin: 0 12px 8px;
     border-radius: 10px;

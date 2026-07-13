@@ -12,7 +12,7 @@
       <span>⌕</span>
       <input id="customerPageSearch" placeholder="Search customers by name, phone, email or CNIC..." />
     </label>
-    <button id="customerBulkActionsButton" type="button" class="epos-customers-bulk-top" hidden aria-hidden="true">Bulk Actions</button>
+    <button id="customerBulkActionsButton" type="button" class="epos-customers-bulk-top" disabled aria-disabled="true" title="Bulk customer actions are planned for a future phase.">Bulk Actions</button>
   </section>
 
 
@@ -32,12 +32,12 @@
 
       <div class="epos-customers-filters">
         <button id="customerAddButton" type="button" class="add">+ Add Customer</button>
-        <button id="openCustomerGroupsButton" type="button" class="groups" hidden aria-hidden="true">Customer Groups</button>
-        <button type="button" data-page-tool="customers" data-tool-action="import" class="import" hidden aria-hidden="true">Import</button>
-        <button type="button" data-page-tool="customers" data-tool-action="excel" class="export" hidden aria-hidden="true">Export</button>
+        <button id="openCustomerGroupsButton" type="button" class="groups" disabled aria-disabled="true" title="Customer groups are planned for a future phase.">Customer Groups</button>
+        <button type="button" data-page-tool="customers" data-tool-action="import" class="import" disabled aria-disabled="true" title="Customer import is planned for a future phase.">Import</button>
+        <button type="button" data-page-tool="customers" data-tool-action="excel" class="export" disabled aria-disabled="true" title="Customer export is planned for a future phase.">Export</button>
         <button type="button" class="ledger" id="customerLedgerShortcut">Customer Ledger</button>
         <button type="button" class="delete-inactive" id="customerDeleteInactiveButton" disabled title="Delete inactive customers is not available in Core Release.">Delete Inactive</button>
-        <button type="button" data-page-tool="customers" data-tool-action="print" class="print" hidden aria-hidden="true">Print</button>
+        <button type="button" data-page-tool="customers" data-tool-action="print" class="print" disabled aria-disabled="true" title="Customer print is planned for a future phase.">Print</button>
         <button id="customerWhatsAppButton" type="button" class="whatsapp" disabled title="WhatsApp messaging is not available in Core Release.">WhatsApp</button>
       </div>
 
