@@ -43,14 +43,14 @@
         <button id="userAddButton" type="button" class="epos-users-action violet">+ Add User</button>
         <button type="button" data-user-admin-tab="roles" class="userAdminTab epos-users-action orange">Roles</button>
         <button type="button" data-user-admin-tab="permissions" class="userAdminTab epos-users-action green" title="View role permissions only.">Permissions</button>
-        <button type="button" data-page-tool="users" data-tool-action="import" class="epos-users-action blue" disabled aria-disabled="true" title="User import is unavailable until validation and recovery rules are approved.">Import Unavailable</button>
-        <button type="button" data-page-tool="users" data-tool-action="excel" class="epos-users-action pink" disabled aria-disabled="true" title="User export is unavailable until export format and review rules are approved.">Export Unavailable</button>
+        <button type="button" data-page-tool="users" data-tool-action="import" class="epos-users-action blue" disabled aria-disabled="true" title="User import is unavailable until validation and recovery rules are approved.">Import</button>
+        <button type="button" data-page-tool="users" data-tool-action="excel" class="epos-users-action pink" disabled aria-disabled="true" title="User export is unavailable until export format and review rules are approved.">Export</button>
       </div>
     </div>
     <div class="epos-users-tabs epos-users-tabs-secondary">
-      <button type="button" data-user-admin-tab="map" class="userAdminTab" disabled aria-disabled="true" title="Role Permission Map is unavailable until separately approved.">Role Permission Map Unavailable</button>
-      <button type="button" data-user-admin-tab="activity" class="userAdminTab">Activity Log</button>
-      <button type="button" data-user-admin-tab="sessions" class="userAdminTab">Active Sessions</button>
+      <button type="button" data-user-admin-tab="map" class="userAdminTab epos-users-secondary-tab map" disabled aria-disabled="true" title="Role Permission Map is unavailable until separately approved.">Role Permission Map</button>
+      <button type="button" data-user-admin-tab="activity" class="userAdminTab epos-users-secondary-tab activity">Activity Log</button>
+      <button type="button" data-user-admin-tab="sessions" class="userAdminTab epos-users-secondary-tab sessions">Active Sessions</button>
     </div>
   </section>
   <p id="userToolbarMessage" class="hidden epos-users-message"></p>
@@ -209,9 +209,9 @@
         <option value="Expired">Expired</option>
         <option value="Revoked">Revoked</option>
       </select>
-      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Force logout is unavailable until session governance is approved.">Force Logout Unavailable</button>
-      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Logout all sessions is unavailable until session governance is approved.">Logout All Unavailable</button>
-      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Session export is unavailable.">Export Unavailable</button>
+      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Force logout is unavailable until session governance is approved.">Force Logout</button>
+      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Logout all sessions is unavailable until session governance is approved.">Logout All</button>
+      <button type="button" class="epos-users-action neutral" disabled aria-disabled="true" title="Session export is unavailable.">Export</button>
     </div>
     <div id="userSessionList" class="epos-users-permission-matrix">Active sessions will appear here.</div>
   </div>

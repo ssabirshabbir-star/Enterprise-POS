@@ -181,13 +181,25 @@
   .epos-users-wide-action.pink { background: linear-gradient(135deg, #fb7185, #ec4899); }
   .epos-users-wide-action.neutral { background: #eef2ff; color: #344174; box-shadow: none; }
 
+  .epos-users-action:disabled,
+  .epos-users-wide-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.64;
+    filter: saturate(0.72) brightness(0.98);
+    box-shadow: none;
+    transform: none;
+  }
+
   .epos-users-tabs {
     display: flex;
     width: auto;
     max-width: 100%;
     flex: 0 0 auto;
-    overflow: hidden;
-    border-radius: 12px;
+    gap: 8px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     box-shadow: none;
   }
 
@@ -199,12 +211,16 @@
     min-width: 106px;
     min-height: 36px;
     border: 0;
-    border-right: 1px solid #e6eaf6;
+    border-right: 0;
+    border-radius: 9px;
     background: #ffffff;
     color: #10184e;
     font-size: 12px;
     font-weight: 850;
     cursor: pointer;
+    box-shadow: 0 12px 22px rgb(49 56 120 / 0.14);
+    transform: none;
+    transition: none;
   }
 
   .epos-users-tabs button.epos-users-action {
@@ -223,10 +239,49 @@
     min-width: 148px;
   }
 
+  .epos-users-tabs button.epos-users-secondary-tab {
+    color: #ffffff;
+    opacity: 1;
+  }
+
+  .epos-users-tabs button.epos-users-secondary-tab.map {
+    background: linear-gradient(135deg, #6366f1, #2563eb);
+  }
+
+  .epos-users-tabs button.epos-users-secondary-tab.activity {
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+  }
+
+  .epos-users-tabs button.epos-users-secondary-tab.sessions {
+    background: #16a34a;
+    font-weight: 900;
+    box-shadow: 0 12px 22px rgb(22 163 74 / 0.18);
+  }
+
   .epos-users-tabs button.active,
   .epos-users-tabs button.epos-btn-primary {
-    background: linear-gradient(135deg, #7c3aed, #4f46e5);
     color: #ffffff;
+    opacity: 1;
+    box-shadow: 0 12px 22px rgb(49 56 120 / 0.14);
+  }
+
+  .epos-users-tabs button:hover,
+  .epos-users-tabs button:active {
+    filter: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .epos-users-tabs button:focus-visible {
+    outline: 2px solid rgb(37 99 235 / 0.5);
+    outline-offset: 2px;
+  }
+
+  .epos-users-tabs button:disabled {
+    cursor: not-allowed;
+    opacity: 0.64;
+    filter: saturate(0.72) brightness(0.98);
+    box-shadow: none;
   }
 
   .epos-users-layout {

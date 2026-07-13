@@ -847,8 +847,6 @@
     document.querySelectorAll('[data-user-admin-tab="map"], [data-page-tool]').forEach((button) => {
       button.disabled = true;
       if (!button.title) button.title = 'Unavailable';
-      if (!button.textContent.includes('Unavailable'))
-        button.textContent = `${button.textContent} · Unavailable`;
     });
     const selectAll = document.querySelector('.epos-users-table-wrap thead input[type="checkbox"]');
     if (selectAll) {
