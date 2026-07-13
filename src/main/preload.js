@@ -64,6 +64,9 @@ contextBridge.exposeInMainWorld('posApi', {
     list: (filters) => ipcRenderer.invoke('/inventory/list', filters),
     movements: (filters) => ipcRenderer.invoke('/inventory/movements', filters),
     adjust: (payload) => ipcRenderer.invoke('/inventory/adjust', payload),
+    requestImportPreview: () => ipcRenderer.invoke('/inventory/import/preview/request'),
+    getImportPreviewSession: (sessionId) =>
+      ipcRenderer.invoke('/inventory/import/preview/session', { sessionId }),
     updateImage: (payload) => ipcRenderer.invoke('/inventory/product-image', payload),
   },
   suppliers: {

@@ -35,6 +35,20 @@
     );
   }
 
+  async function requestImportPreview() {
+    return normalizeResult(
+      await window.posApi.inventory.requestImportPreview(),
+      'Inventory import preview failed.'
+    );
+  }
+
+  async function getImportPreviewSession(sessionId) {
+    return normalizeResult(
+      await window.posApi.inventory.getImportPreviewSession(sessionId),
+      'Inventory import preview is unavailable.'
+    );
+  }
+
   function placeholder(action) {
     const messages = {
       bulk: 'Inventory bulk actions are coming soon. They are not implemented yet.',
@@ -51,6 +65,8 @@
     loadInventory,
     loadMovements,
     adjustStock,
+    getImportPreviewSession,
+    requestImportPreview,
     updateProductImage,
     placeholder,
   };
