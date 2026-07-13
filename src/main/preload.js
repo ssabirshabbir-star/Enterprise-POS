@@ -71,6 +71,10 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/inventory/import/matching/analyze', { sessionId }),
     getMatchedImportPreviewSession: (sessionId) =>
       ipcRenderer.invoke('/inventory/import/matching/session', { sessionId }),
+    createImportCommitPlan: (sessionId) =>
+      ipcRenderer.invoke('/inventory/import/commit-plan/create', { sessionId }),
+    getImportCommitPlanSession: (sessionId) =>
+      ipcRenderer.invoke('/inventory/import/commit-plan/session', { sessionId }),
     updateImage: (payload) => ipcRenderer.invoke('/inventory/product-image', payload),
   },
   suppliers: {

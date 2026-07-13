@@ -63,6 +63,20 @@
     );
   }
 
+  async function createImportCommitPlan(sessionId) {
+    return normalizeResult(
+      await window.posApi.inventory.createImportCommitPlan(sessionId),
+      'Inventory import commit plan failed.'
+    );
+  }
+
+  async function getImportCommitPlanSession(sessionId) {
+    return normalizeResult(
+      await window.posApi.inventory.getImportCommitPlanSession(sessionId),
+      'Inventory import commit plan is unavailable.'
+    );
+  }
+
   function placeholder(action) {
     const messages = {
       bulk: 'Inventory bulk actions are coming soon. They are not implemented yet.',
@@ -80,6 +94,8 @@
     loadMovements,
     adjustStock,
     analyzeImportPreview,
+    createImportCommitPlan,
+    getImportCommitPlanSession,
     getMatchedImportPreviewSession,
     getImportPreviewSession,
     requestImportPreview,

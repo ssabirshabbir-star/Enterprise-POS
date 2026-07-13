@@ -1,6 +1,7 @@
 const inventoryService = require('./inventory.service');
 const inventoryImportPreviewService = require('./inventory-import-preview.service');
 const inventoryImportMatchingWorkflowService = require('./inventory-import-matching-workflow.service');
+const inventoryImportCommitPlanWorkflowService = require('./inventory-import-commit-plan-workflow.service');
 const { BrowserWindow, dialog } = require('electron');
 const { logError } = require('../../utils/safe-logger');
 
@@ -100,6 +101,22 @@ function registerInventoryRoutes(ipcMain) {
       return await inventoryImportMatchingWorkflowService.getMatchedImportPreviewSession(payload);
     } catch (error) {
       return safeError(error, 'Inventory import matched preview session error:');
+    }
+  });
+
+  ipcMain.handle('/inventory/import/commit-plan/create', async (_event, payload) => {
+    try {
+      return await inventoryImportCommitPlanWorkflowService.createImportCommitPlan(payload);
+    } catch (error) {
+      return safeError(error, 'Inventory import commit plan create error:');
+    }
+  });
+
+  ipcMain.handle('/inventory/import/commit-plan/session', async (_event, payload) => {
+    try {
+      return await inventoryImportCommitPlanWorkflowService.getImportCommitPlanSession(payload);
+    } catch (error) {
+      return safeError(error, 'Inventory import commit plan session error:');
     }
   });
 
