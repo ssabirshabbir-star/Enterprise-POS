@@ -811,6 +811,43 @@
     background: #2563eb;
   }
 
+  .epos-inventory-import-actions button[disabled],
+  .epos-inventory-import-actions button[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+
+  .epos-inventory-import-confirm {
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 18px;
+    box-shadow: 0 24px 80px rgb(15 23 42 / 0.24);
+  }
+
+  .epos-inventory-import-confirm-summary {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    color: #334155;
+    font-size: 13px;
+  }
+
+  .epos-inventory-import-confirm-summary p {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 7px;
+  }
+
+  .epos-inventory-import-confirm-summary strong {
+    color: #0f172a;
+  }
+
   @media (max-width: 1400px) {
     .epos-inventory-page {
       gap: 9px;

@@ -453,5 +453,6 @@ test('Phase 5G API and preload expose only narrow commit-plan session methods', 
   );
   assert.doesNotMatch(inventoryPreloadBlock, /ownerId|permissions|productAction|stockAction|executeImport|commitImport|finalizeImport|applyImport/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
-  assert.doesNotMatch(renderer, /createImportCommitPlan|getImportCommitPlanSession|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.match(renderer, /createImportCommitPlan\(_matchedPreviewSessionId\)/);
+  assert.doesNotMatch(renderer, /getImportCommitPlanSession|window\.posApi|ipcRenderer|executeImport|commitImport|finalizeImport|applyImport/);
 });

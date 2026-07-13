@@ -797,7 +797,8 @@ test('Phase 5H controller, API, and preload expose only narrow preflight session
   assert.match(preloadSource, /getImportExecutionPreflightSession:\s*\(sessionId\)\s*=>\s*ipcRenderer\.invoke\('\/inventory\/import\/execution-preflight\/session',\s*\{\s*sessionId\s*\}\)/);
   const inventoryPreloadBlock = preloadSource.slice(preloadSource.indexOf('  inventory: {'), preloadSource.indexOf('  suppliers: {'));
   assert.doesNotMatch(inventoryPreloadBlock, /ownerId|permissions|productAction|stockAction|executeImport|commitImport|finalizeImport|applyImport/);
-  assert.doesNotMatch(renderer, /createImportExecutionPreflight|getImportExecutionPreflightSession|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.match(renderer, /createImportExecutionPreflight\(_commitPlanSessionId\)/);
+  assert.doesNotMatch(renderer, /getImportExecutionPreflightSession|window\.posApi|ipcRenderer|executeImport|commitImport|finalizeImport|applyImport/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
 });
 

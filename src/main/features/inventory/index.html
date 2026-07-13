@@ -143,15 +143,16 @@
       <div class="epos-inventory-modal-head">
         <div>
           <h3 id="inventoryImportPreviewTitle">CSV Import Preview</h3>
-          <p>Read-only review. No products, stock, or records are changed in this phase.</p>
+          <p>Certified review. Products and opening stock change only after final confirmation.</p>
         </div>
         <button type="button" id="closeImportPreviewButton" data-close-import-preview aria-label="Close import preview">×</button>
       </div>
 
       <div id="inventoryImportPreviewStatus" class="epos-inventory-import-status" role="status">Select a CSV file to preview.</div>
+      <div id="inventoryImportExecutionStatus" class="epos-inventory-import-status hidden" role="status"></div>
 
       <div class="epos-inventory-import-notice">
-        This preview is temporary. Final execution is unavailable, and no products have been created, no product records have been updated, and no stock has been changed.
+        This preview is temporary. Execution is available only after backend preflight confirms the import is commit-ready.
       </div>
 
       <div class="epos-inventory-import-meta" aria-label="Import preview source">
@@ -161,6 +162,7 @@
       </div>
 
       <div id="importPreviewSummary" class="epos-inventory-import-summary" aria-label="Matched preview summary"></div>
+      <div id="importExecutionSummary" class="epos-inventory-import-summary" aria-label="Certified execution summary"></div>
 
       <div class="epos-inventory-import-table-wrap">
         <table class="epos-inventory-import-table">
@@ -181,7 +183,27 @@
 
       <div class="epos-inventory-import-actions">
         <button type="button" id="restartImportPreviewButton">Select Another CSV</button>
+        <button type="button" id="executeInventoryImportButton" disabled aria-disabled="true">Import</button>
         <button type="button" id="closeImportPreviewFooterButton">Close</button>
+      </div>
+    </div>
+  </section>
+  <section id="inventoryImportExecutionConfirmModal" class="epos-inventory-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="inventoryImportExecutionConfirmTitle">
+    <div class="epos-inventory-import-confirm" role="document">
+      <div class="epos-inventory-modal-head">
+        <div>
+          <h3 id="inventoryImportExecutionConfirmTitle">Confirm Inventory Import</h3>
+          <p>This will permanently create certified Products and opening-stock records.</p>
+        </div>
+        <button type="button" id="cancelImportExecutionTopButton" data-cancel-import-execution aria-label="Cancel inventory import confirmation">×</button>
+      </div>
+      <div id="inventoryImportExecutionConfirmSummary" class="epos-inventory-import-confirm-summary"></div>
+      <div class="epos-inventory-import-notice">
+        Confirm only if the certified summary matches the intended import. Product, stock, warehouse, catalog, owner, and permission authority comes from the backend.
+      </div>
+      <div class="epos-inventory-import-actions">
+        <button type="button" id="cancelImportExecutionButton" data-cancel-import-execution>Cancel</button>
+        <button type="button" id="confirmImportExecutionButton">Confirm Import</button>
       </div>
     </div>
   </section>

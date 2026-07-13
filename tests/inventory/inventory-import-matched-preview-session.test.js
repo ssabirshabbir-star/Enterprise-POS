@@ -422,6 +422,6 @@ test('matched preview files are isolated from UI, IPC, database, filesystem, act
   const html = fs.readFileSync(path.join(root, 'src/main/features/inventory/index.html'), 'utf8');
   assert.match(html, /id="inventoryImportPreviewButton"/);
   assert.match(html, /data-tool-action="import-preview"[^>]*>Preview CSV Import/);
-  assert.match(html, /Final execution is unavailable/);
+  assert.match(html, /Execution is available only after backend preflight confirms/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
 });

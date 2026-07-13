@@ -467,7 +467,7 @@ test('API, preload, and UI source expose matching read methods with read-only im
   assert.doesNotMatch(preloadSource, /ownerId:\s*ownerId|role:\s*role|fs\.|require\('fs'\)/);
   assert.match(htmlSource, /id="inventoryImportPreviewButton"/);
   assert.match(htmlSource, /data-tool-action="import-preview"[^>]*>Preview CSV Import/);
-  assert.match(htmlSource, /Final execution is unavailable/);
+  assert.match(htmlSource, /Execution is available only after backend preflight confirms/);
   assert.doesNotMatch(htmlSource, /Execute Import|Finalize Import|Commit Import|Import Now/);
   assert.doesNotMatch(workflowSource, /INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|CREATE\s+TABLE/i);
 });

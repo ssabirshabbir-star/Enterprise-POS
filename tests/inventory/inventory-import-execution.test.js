@@ -373,7 +373,7 @@ test('Phase 5I repository rolls back on stale state and database-backed replay c
   assert.equal(replayClient.queries.filter((query) => /INSERT INTO products/i.test(query.sql)).length, 0);
 });
 
-test('Phase 5I runtime execution remains protected from renderer, HTML, and CSS execution wiring', () => {
+test('Phase 5K runtime execution remains protected behind certified renderer workflow wiring', () => {
   const preload = fs.readFileSync(path.join(root, 'src/main/preload.js'), 'utf8');
   const api = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.api.js'), 'utf8');
   const controller = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.controller.js'), 'utf8');
@@ -382,7 +382,9 @@ test('Phase 5I runtime execution remains protected from renderer, HTML, and CSS 
   assert.match(preload, /executeCertifiedImport/);
   assert.match(api, /executeCertifiedImport/);
   assert.match(controller, /\/inventory\/import\/execution\/certified/);
-  assert.doesNotMatch(renderer, /executeCertifiedImport|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.match(renderer, /InventoryApi[\s\S]*executeCertifiedImport|api\(\)\.executeCertifiedImport/);
+  assert.doesNotMatch(renderer, /\/inventory\/import\/execution\/certified|window\.posApi|ipcRenderer|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.match(html, /id="executeInventoryImportButton"[^>]*disabled/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
 });
 
@@ -470,7 +472,7 @@ test('Phase 5J controller exposes certified execution through strict workflow de
   }
 });
 
-test('Phase 5J preload and Inventory API expose one narrow certified execution method without renderer wiring', async () => {
+test('Phase 5J preload and Inventory API expose one narrow certified execution method for Phase 5K renderer wiring', async () => {
   const preloadSource = fs.readFileSync(path.join(root, 'src/main/preload.js'), 'utf8');
   const apiSource = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.api.js'), 'utf8');
   const renderer = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.renderer.js'), 'utf8');
@@ -497,7 +499,9 @@ test('Phase 5J preload and Inventory API expose one narrow certified execution m
   assert.match(preloadSource, /executeCertifiedImport:\s*\(payload\)\s*=>\s*ipcRenderer\.invoke\('\/inventory\/import\/execution\/certified',\s*payload\)/);
   const inventoryPreloadBlock = preloadSource.slice(preloadSource.indexOf('  inventory: {'), preloadSource.indexOf('  suppliers: {'));
   assert.doesNotMatch(inventoryPreloadBlock, /ipcRenderer\.invoke\([^)]*route|generic|ownerId|permissions|productAction|stockAction|warehouseId|quantity|actorId/);
-  assert.doesNotMatch(renderer, /executeCertifiedImport|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.match(renderer, /executeCertifiedImport\(request\)/);
+  assert.doesNotMatch(renderer, /window\.posApi|ipcRenderer|\/inventory\/import\/execution\/certified|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.match(html, /id="executeInventoryImportButton"[^>]*disabled/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
-  assert.doesNotMatch(css, /execution|execute|committed|import-success|import-error/);
+  assert.doesNotMatch(css, /import-success|import-error/);
 });
