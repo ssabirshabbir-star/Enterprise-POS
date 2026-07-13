@@ -435,6 +435,26 @@
     return Number.isFinite(value) && value >= 0 ? value : 0;
   }
 
+  function hasValidExecutionSummary(summary, rowCount) {
+    if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return false;
+    const requiredKeys = [
+      'totalRows',
+      'blockedRows',
+      'createProductRows',
+      'existingProductRows',
+      'openingStockRows',
+      'noStockRows',
+    ];
+    return (
+      requiredKeys.every((key) => {
+        const value = summary[key];
+        return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+      }) &&
+      summary.totalRows === rowCount &&
+      summary.blockedRows === 0
+    );
+  }
+
   function executionPreflightRows(preflight) {
     return Array.isArray(preflight?.rows) ? preflight.rows : [];
   }
@@ -525,11 +545,12 @@
     const preflight = result.executionPreflight;
     const preflightDigest = result.preflightDigest || preflight?.preflightDigest;
     const contractDigest = preflight?.executionContractDigest || result.executionContractDigest;
+    const rows = executionPreflightRows(preflight);
     if (typeof sessionId !== 'string' || !sessionId.trim()) return null;
     if (typeof preflightDigest !== 'string' || !/^[0-9a-f]{64}$/i.test(preflightDigest)) return null;
-    if (contractDigest && !/^[0-9a-f]{64}$/i.test(String(contractDigest))) return null;
-    if (!preflight || preflight.commitReady !== true || !executionPreflightRows(preflight).length) return null;
-    if (summaryValue(preflight.summary, 'blockedRows') > 0) return null;
+    if (typeof contractDigest !== 'string' || !/^[0-9a-f]{64}$/i.test(contractDigest)) return null;
+    if (!preflight || preflight.commitReady !== true || !rows.length) return null;
+    if (!hasValidExecutionSummary(preflight.summary, rows.length)) return null;
     return { sessionId, preflight, preflightDigest, contractDigest: contractDigest || null };
   }
 

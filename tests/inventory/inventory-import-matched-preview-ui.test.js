@@ -582,6 +582,62 @@ test('Phase 5K keeps Import disabled until a commit-ready execution preflight ex
   assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /not currently eligible/i);
 });
 
+test('Phase 5K fails closed when commit-ready preflight is missing certified execution evidence', async () => {
+  const missingContract = await loadRenderer({
+    createImportExecutionPreflight: async () => {
+      const executionPreflight = commitReadyPreflight({ executionContractDigest: undefined });
+      delete executionPreflight.executionContractDigest;
+      return {
+        ok: true,
+        sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174001',
+        executionPreflight,
+        preflightDigest: executionPreflight.preflightDigest,
+      };
+    },
+    executeCertifiedImport: async () => {
+      throw new Error('execution should not be called');
+    },
+  });
+  await missingContract.document.getElementById('inventoryImportPreviewButton').click();
+  assert.equal(missingContract.document.getElementById('executeInventoryImportButton').disabled, true);
+  assert.match(missingContract.document.getElementById('inventoryImportExecutionStatus').textContent, /not currently eligible/i);
+
+  const missingSummary = await loadRenderer({
+    createImportExecutionPreflight: async () => {
+      const executionPreflight = commitReadyPreflight({ summary: undefined });
+      delete executionPreflight.summary;
+      return {
+        ok: true,
+        sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174002',
+        executionPreflight,
+        preflightDigest: executionPreflight.preflightDigest,
+      };
+    },
+    executeCertifiedImport: async () => {
+      throw new Error('execution should not be called');
+    },
+  });
+  await missingSummary.document.getElementById('inventoryImportPreviewButton').click();
+  assert.equal(missingSummary.document.getElementById('executeInventoryImportButton').disabled, true);
+
+  const malformedSummary = await loadRenderer({
+    createImportExecutionPreflight: async () => {
+      const executionPreflight = commitReadyPreflight({ summary: { totalRows: '1', blockedRows: 0 } });
+      return {
+        ok: true,
+        sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174003',
+        executionPreflight,
+        preflightDigest: executionPreflight.preflightDigest,
+      };
+    },
+    executeCertifiedImport: async () => {
+      throw new Error('execution should not be called');
+    },
+  });
+  await malformedSummary.document.getElementById('inventoryImportPreviewButton').click();
+  assert.equal(malformedSummary.document.getElementById('executeInventoryImportButton').disabled, true);
+});
+
 test('Phase 5K confirmation cancel sends no execution request and confirmed execution sends strict digest payload once', async () => {
   const executeCalls = [];
   let loadCalls = 0;
