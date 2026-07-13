@@ -3,6 +3,7 @@ const inventoryImportPreviewService = require('./inventory-import-preview.servic
 const inventoryImportMatchingWorkflowService = require('./inventory-import-matching-workflow.service');
 const inventoryImportCommitPlanWorkflowService = require('./inventory-import-commit-plan-workflow.service');
 const inventoryImportExecutionPreflightWorkflowService = require('./inventory-import-execution-preflight-workflow.service');
+const inventoryImportExecutionWorkflowService = require('./inventory-import-execution-workflow.service');
 const { BrowserWindow, dialog } = require('electron');
 const { logError } = require('../../utils/safe-logger');
 
@@ -14,6 +15,33 @@ function normalizePreviewSessionPayload(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
   const sessionId = String(payload.sessionId || '').trim();
   return sessionId ? { sessionId } : null;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function containsExecutableValue(value, seen = new Set()) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'bigint') return true;
+  if (typeof value !== 'object') return false;
+  if (seen.has(value)) return true;
+  if (Object.getPrototypeOf(value) !== Object.prototype && !Array.isArray(value)) return true;
+  seen.add(value);
+  const found = Object.values(value).some((child) => containsExecutableValue(child, seen));
+  seen.delete(value);
+  return found;
+}
+
+function normalizeImportExecutionPayload(payload) {
+  const allowedKeys = new Set(['sessionId', 'expectedPreflightDigest', 'expectedContractDigest']);
+  if (!isPlainObject(payload) || containsExecutableValue(payload)) return null;
+  if (Object.keys(payload).some((key) => !allowedKeys.has(key))) return null;
+  return {
+    sessionId: payload.sessionId,
+    expectedPreflightDigest: payload.expectedPreflightDigest,
+    expectedContractDigest: payload.expectedContractDigest,
+  };
 }
 
 function safeError(error, label) {
@@ -134,6 +162,16 @@ function registerInventoryRoutes(ipcMain) {
       return await inventoryImportExecutionPreflightWorkflowService.getImportExecutionPreflightSession(payload);
     } catch (error) {
       return safeError(error, 'Inventory import execution preflight session error:');
+    }
+  });
+
+  ipcMain.handle('/inventory/import/execution/certified', async (_event, payload) => {
+    try {
+      const request = normalizeImportExecutionPayload(payload);
+      if (!request) return { ok: false, message: 'Invalid inventory import execution request.' };
+      return await inventoryImportExecutionWorkflowService.executeCertifiedImport(request);
+    } catch (error) {
+      return safeError(error, 'Inventory import execution error:');
     }
   });
 

@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 const {
   PRODUCT_ACTIONS,
   STOCK_ACTIONS,
@@ -371,15 +373,131 @@ test('Phase 5I repository rolls back on stale state and database-backed replay c
   assert.equal(replayClient.queries.filter((query) => /INSERT INTO products/i.test(query.sql)).length, 0);
 });
 
-test('Phase 5I runtime execution remains backend-only with no preload, renderer, HTML, or CSS exposure', () => {
+test('Phase 5I runtime execution remains protected from renderer, HTML, and CSS execution wiring', () => {
   const preload = fs.readFileSync(path.join(root, 'src/main/preload.js'), 'utf8');
   const api = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.api.js'), 'utf8');
   const controller = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.controller.js'), 'utf8');
   const renderer = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.renderer.js'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'src/main/features/inventory/index.html'), 'utf8');
-  assert.doesNotMatch(preload, /executeCertifiedImport|executeImport|commitImport|finalizeImport|applyImport/);
-  assert.doesNotMatch(api, /executeCertifiedImport|executeImport|commitImport|finalizeImport|applyImport/);
-  assert.doesNotMatch(controller, /\/inventory\/import\/execute|\/inventory\/import\/commit(?!-plan)|\/inventory\/import\/finalize|\/inventory\/import\/apply/);
+  assert.match(preload, /executeCertifiedImport/);
+  assert.match(api, /executeCertifiedImport/);
+  assert.match(controller, /\/inventory\/import\/execution\/certified/);
   assert.doesNotMatch(renderer, /executeCertifiedImport|executeImport|commitImport|finalizeImport|applyImport/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
+});
+
+test('Phase 5J controller exposes certified execution through strict workflow delegation only', async () => {
+  const controllerPath = path.join(root, 'src/main/features/inventory/inventory.controller.js');
+  const originalLoad = Module._load;
+  const calls = [];
+  const handlers = new Map();
+  const committedResult = createInventoryImportExecutionResult({
+    batchId: 50,
+    idempotencyKey: 'inventory-import-execution-' + 'a'.repeat(64),
+    ownerId: 10,
+    sourcePreflightSessionId: PREFLIGHT_SESSION_ID,
+    preflightDigest: 'b'.repeat(64),
+    commitPlanDigest: 'c'.repeat(64),
+    sourceDigest: null,
+    contractVersion: 'inventory-import-execution-contract-v1',
+    contractDigest: 'd'.repeat(64),
+    status: 'COMMITTED',
+    committedAt: '2026-01-02T00:00:00.000Z',
+    summary: { totalRows: 1, createdProductCount: 1, existingProductCount: 0, stockAppliedCount: 1, skippedCount: 0 },
+    rowResults: [{ rowResultId: 1, sourceRowNumber: 1, productAction: PRODUCT_ACTIONS.CREATE_PRODUCT, stockAction: STOCK_ACTIONS.APPLY_OPENING_STOCK, resultingProductId: 100, resultingStockMovementId: 200, quantity: '2.000', status: 'COMMITTED', resultCode: null }],
+    auditPersisted: true,
+  });
+  Module._load = function patchedLoad(request, parent, isMain) {
+    if (parent?.filename === controllerPath && request === './inventory-import-execution-workflow.service') {
+      return {
+        executeCertifiedImport: async (payload) => {
+          calls.push(payload);
+          if (payload.sessionId === 'replay') return { ok: false, code: IMPORT_EXECUTION_WORKFLOW_ERROR_CODES.REPLAY_CONFLICT, message: 'Inventory import execution has already been committed.' };
+          if (payload.sessionId === 'stale') return { ok: false, code: IMPORT_EXECUTION_WORKFLOW_ERROR_CODES.PREFLIGHT_NOT_READY, message: 'Execution preflight is not commit ready.' };
+          return { ok: true, executionResult: committedResult, lifecycleWarning: 'Execution committed, but preflight session cleanup could not be confirmed.' };
+        },
+      };
+    }
+    if (parent?.filename === controllerPath && request.startsWith('./inventory')) {
+      return new Proxy({}, { get: () => async () => ({ ok: true }) });
+    }
+    if (request === 'electron') return { BrowserWindow: { fromWebContents: () => ({}) }, dialog: { showOpenDialog: async () => ({ canceled: true }) } };
+    return originalLoad.call(this, request, parent, isMain);
+  };
+  try {
+    delete require.cache[controllerPath];
+    require(controllerPath).registerInventoryRoutes({ handle: (route, handler) => handlers.set(route, handler) });
+    const handler = handlers.get('/inventory/import/execution/certified');
+    assert.equal(typeof handler, 'function');
+    const payload = { sessionId: PREFLIGHT_SESSION_ID, expectedPreflightDigest: 'b'.repeat(64), expectedContractDigest: 'd'.repeat(64) };
+    const result = await handler({}, payload);
+    assert.equal(result.ok, true);
+    assert.equal(result.executionResult, committedResult);
+    assert.equal(result.lifecycleWarning, 'Execution committed, but preflight session cleanup could not be confirmed.');
+    assert.deepEqual(calls, [payload]);
+
+    const rejectedPayloads = [
+      { ...payload, ownerId: 10 },
+      { ...payload, permissions: ['inventory.adjust'] },
+      { ...payload, rows: [] },
+      { ...payload, productAction: PRODUCT_ACTIONS.CREATE_PRODUCT },
+      { ...payload, stockAction: STOCK_ACTIONS.APPLY_OPENING_STOCK },
+      { ...payload, warehouseId: 1 },
+      { ...payload, quantity: '2.000' },
+      { ...payload, actorId: 10 },
+      { ...payload, callback: () => null },
+      Object.assign(Object.create({ inherited: true }), payload),
+    ];
+    for (const bad of rejectedPayloads) {
+      const response = await handler({}, bad);
+      assert.equal(response.ok, false);
+      assert.equal(response.message, 'Invalid inventory import execution request.');
+    }
+    assert.equal(calls.length, 1);
+
+    assert.equal((await handler({}, { sessionId: 'replay', expectedPreflightDigest: 'b'.repeat(64) })).code, IMPORT_EXECUTION_WORKFLOW_ERROR_CODES.REPLAY_CONFLICT);
+    assert.equal((await handler({}, { sessionId: 'stale', expectedPreflightDigest: 'b'.repeat(64) })).code, IMPORT_EXECUTION_WORKFLOW_ERROR_CODES.PREFLIGHT_NOT_READY);
+    assert.equal(calls.length, 3);
+
+    await Promise.all([
+      handler({}, { sessionId: 'one', expectedPreflightDigest: 'b'.repeat(64) }),
+      handler({}, { sessionId: 'two', expectedPreflightDigest: 'b'.repeat(64) }),
+    ]);
+    assert.equal(calls.length, 5);
+  } finally {
+    Module._load = originalLoad;
+    delete require.cache[controllerPath];
+  }
+});
+
+test('Phase 5J preload and Inventory API expose one narrow certified execution method without renderer wiring', async () => {
+  const preloadSource = fs.readFileSync(path.join(root, 'src/main/preload.js'), 'utf8');
+  const apiSource = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.api.js'), 'utf8');
+  const renderer = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.renderer.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'src/main/features/inventory/index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.css'), 'utf8');
+  const invocations = [];
+  const payload = { sessionId: PREFLIGHT_SESSION_ID, expectedPreflightDigest: 'b'.repeat(64), expectedContractDigest: 'd'.repeat(64) };
+  const context = {
+    window: {
+      posApi: {
+        inventory: {
+          executeCertifiedImport: async (request) => {
+            invocations.push(request);
+            return { ok: true, batchId: 50, lifecycleWarning: 'warning' };
+          },
+        },
+      },
+    },
+  };
+  vm.runInNewContext(apiSource, context);
+  const result = await context.window.InventoryApi.executeCertifiedImport(payload);
+  assert.deepEqual(result, { ok: true, batchId: 50, lifecycleWarning: 'warning' });
+  assert.deepEqual(invocations, [payload]);
+  assert.match(preloadSource, /executeCertifiedImport:\s*\(payload\)\s*=>\s*ipcRenderer\.invoke\('\/inventory\/import\/execution\/certified',\s*payload\)/);
+  const inventoryPreloadBlock = preloadSource.slice(preloadSource.indexOf('  inventory: {'), preloadSource.indexOf('  suppliers: {'));
+  assert.doesNotMatch(inventoryPreloadBlock, /ipcRenderer\.invoke\([^)]*route|generic|ownerId|permissions|productAction|stockAction|warehouseId|quantity|actorId/);
+  assert.doesNotMatch(renderer, /executeCertifiedImport|executeImport|commitImport|finalizeImport|applyImport/);
+  assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
+  assert.doesNotMatch(css, /execution|execute|committed|import-success|import-error/);
 });

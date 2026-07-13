@@ -91,6 +91,13 @@
     );
   }
 
+  async function executeCertifiedImport(payload) {
+    return normalizeResult(
+      await window.posApi.inventory.executeCertifiedImport(payload),
+      'Inventory import execution failed.'
+    );
+  }
+
   function placeholder(action) {
     const messages = {
       bulk: 'Inventory bulk actions are coming soon. They are not implemented yet.',
@@ -110,6 +117,7 @@
     analyzeImportPreview,
     createImportCommitPlan,
     createImportExecutionPreflight,
+    executeCertifiedImport,
     getImportExecutionPreflightSession,
     getImportCommitPlanSession,
     getMatchedImportPreviewSession,
