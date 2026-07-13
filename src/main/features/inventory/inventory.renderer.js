@@ -15,6 +15,12 @@
   let _searchTimer = null;
   let _currentTab = 'all';
   let _page = 1;
+  let _importPreviewLoading = false;
+  let _importPreviewOpen = false;
+  let _previewSessionId = null;
+  let _matchedPreviewSessionId = null;
+  let _matchedPreviewDocument = null;
+  let _importPreviewTrigger = null;
   const PAGE_SIZE = 50;
 
   const LOG = () => {};
@@ -35,6 +41,22 @@
   }
   function money(v) {
     return `PKR ${Number(v || 0).toFixed(2)}`;
+  }
+
+  function setText(id, value) {
+    const el = $id(id);
+    if (el) el.textContent = value == null || value === '' ? '-' : String(value);
+  }
+
+  function clearNode(node) {
+    if (node) node.replaceChildren();
+  }
+
+  function createTextEl(tagName, className, text) {
+    const el = document.createElement(tagName);
+    if (className) el.className = className;
+    if (text != null) el.textContent = String(text);
+    return el;
   }
 
   // ── Feedback ─────────────────────────────────────────────────────────────
@@ -217,6 +239,288 @@
 
   // ── Stock Adjustment modal ────────────────────────────────────────────────
 
+  // Matched import preview is read-only. Backend sessions remain authoritative.
+
+  function formatImportDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString();
+  }
+
+  function importStatusText(row) {
+    const code = row?.status || row?.classification || 'UNKNOWN';
+    const labels = {
+      MATCHING_ELIGIBLE: 'Eligible for future import',
+      EXISTING_PRODUCT_CANDIDATE: 'Matched existing product',
+      POTENTIAL_NEW_PRODUCT: 'Eligible for future product creation',
+      OPENING_STOCK_NOT_ALLOWED: 'Blocked',
+      PRIMITIVE_INVALID: 'Invalid CSV row',
+      DUPLICATE_INPUT: 'Duplicate in file',
+      IDENTIFIER_CONFLICT: 'Ambiguous identifiers',
+      DUPLICATE_IN_DATABASE: 'Duplicate database match',
+      INACTIVE_PRODUCT_MATCH: 'Inactive product',
+      DELETED_PRODUCT_MATCH: 'Deleted product',
+      MISSING_CATALOG_REFERENCE: 'Missing catalog reference',
+      INACTIVE_CATALOG_REFERENCE: 'Inactive catalog reference',
+      DUPLICATE_CATALOG_REFERENCE: 'Duplicate catalog reference',
+      INVENTORY_TARGET_MISSING: 'Inventory target missing',
+      DUPLICATE_PRODUCT_TARGET: 'Duplicate product target',
+      PERMISSION_RESTRICTED: 'Permission restricted',
+      MATCHING_FAILED: 'Matching failed',
+    };
+    return labels[code] || String(code).replace(/_/g, ' ').toLowerCase();
+  }
+
+  function importStatusTone(row) {
+    const code = row?.status || row?.classification || '';
+    if (row?.eligible === true || code === 'MATCHING_ELIGIBLE') return 'ok';
+    if (
+      [
+        'PRIMITIVE_INVALID',
+        'OPENING_STOCK_NOT_ALLOWED',
+        'IDENTIFIER_CONFLICT',
+        'DUPLICATE_IN_DATABASE',
+        'DELETED_PRODUCT_MATCH',
+        'MISSING_CATALOG_REFERENCE',
+        'DUPLICATE_CATALOG_REFERENCE',
+        'INVENTORY_TARGET_MISSING',
+        'DUPLICATE_PRODUCT_TARGET',
+        'PERMISSION_RESTRICTED',
+        'MATCHING_FAILED',
+      ].includes(code)
+    ) {
+      return 'bad';
+    }
+    if (code === 'DUPLICATE_INPUT' || code === 'INACTIVE_PRODUCT_MATCH' || code === 'INACTIVE_CATALOG_REFERENCE') {
+      return 'warn';
+    }
+    return 'neutral';
+  }
+
+  function rowNormalized(row) {
+    return row?.phase3Row?.normalized || row?.normalized || {};
+  }
+
+  function rowProductText(row) {
+    const normalized = rowNormalized(row);
+    return normalized.productName || row?.matchedProduct?.productName || row?.matchedProduct?.name || '-';
+  }
+
+  function rowIdentifierText(row) {
+    const normalized = rowNormalized(row);
+    const sku = normalized.sku || row?.matchedProduct?.sku || '';
+    const barcode = normalized.barcode || row?.matchedProduct?.barcode || '';
+    if (sku && barcode) return `SKU ${sku} / Barcode ${barcode}`;
+    if (sku) return `SKU ${sku}`;
+    if (barcode) return `Barcode ${barcode}`;
+    return '-';
+  }
+
+  function findingLabel(finding) {
+    if (!finding) return '';
+    if (typeof finding === 'string') return finding;
+    const parts = [];
+    if (finding.severity) parts.push(String(finding.severity).toUpperCase());
+    if (finding.code) parts.push(finding.code);
+    if (finding.field) parts.push(`field ${finding.field}`);
+    if (finding.sourceRowNumber) parts.push(`row ${finding.sourceRowNumber}`);
+    return parts.join(' - ') || 'Review required';
+  }
+
+  function importPreviewSummaryValue(summary, keys, fallback) {
+    for (const key of keys) {
+      if (summary && summary[key] != null) return summary[key];
+    }
+    return fallback;
+  }
+
+  function renderImportPreviewSummary(documentModel) {
+    const container = $id('importPreviewSummary');
+    if (!container) return;
+    clearNode(container);
+    const summary = documentModel?.matchingSummary || {};
+    const cards = [
+      ['Total rows', importPreviewSummaryValue(summary, ['totalRows', 'rowCount'], documentModel?.rowCount || 0)],
+      ['Eligible', importPreviewSummaryValue(summary, ['matchingEligibleRows', 'eligibleRows'], 0)],
+      ['Existing matches', importPreviewSummaryValue(summary, ['existingProductCandidates', 'existingProductRows'], 0)],
+      ['Potential new products', importPreviewSummaryValue(summary, ['potentialNewProducts', 'newProductCandidates'], 0)],
+      ['Needs review', importPreviewSummaryValue(summary, ['warningCount', 'warningRows'], 0)],
+      ['Blocked', importPreviewSummaryValue(summary, ['errorCount', 'blockedRows'], 0)],
+    ];
+    cards.forEach(([label, value]) => {
+      const card = createTextEl('article', 'epos-inventory-import-summary-card');
+      card.appendChild(createTextEl('span', '', label));
+      card.appendChild(createTextEl('strong', '', value));
+      container.appendChild(card);
+    });
+  }
+
+  function renderImportPreviewRows(documentModel) {
+    const tbody = $id('importPreviewRows');
+    if (!tbody) return;
+    clearNode(tbody);
+    const rows = Array.isArray(documentModel?.matchedRows) ? documentModel.matchedRows : [];
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      const td = createTextEl('td', '', 'No rows returned.');
+      td.colSpan = 5;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    rows.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(createTextEl('td', 'epos-inventory-import-row-number', row?.sourceRowNumber || '-'));
+      tr.appendChild(createTextEl('td', '', rowProductText(row)));
+      tr.appendChild(createTextEl('td', '', rowIdentifierText(row)));
+      const statusCell = document.createElement('td');
+      statusCell.appendChild(createTextEl('span', `epos-inventory-import-status-badge ${importStatusTone(row)}`, importStatusText(row)));
+      tr.appendChild(statusCell);
+      const findingCell = document.createElement('td');
+      const findings = []
+        .concat(Array.isArray(row?.matchingFindings) ? row.matchingFindings : [])
+        .concat(Array.isArray(row?.findings) ? row.findings : []);
+      if (!findings.length) {
+        findingCell.textContent = 'No findings.';
+      } else {
+        const list = document.createElement('ul');
+        list.className = 'epos-inventory-import-findings';
+        findings.slice(0, 4).forEach((finding) => {
+          list.appendChild(createTextEl('li', '', findingLabel(finding)));
+        });
+        if (findings.length > 4) {
+          list.appendChild(createTextEl('li', '', `${findings.length - 4} more finding(s)`));
+        }
+        findingCell.appendChild(list);
+      }
+      tr.appendChild(findingCell);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function setImportPreviewStatus(text, isError) {
+    const el = $id('inventoryImportPreviewStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('error', Boolean(isError));
+  }
+
+  function resetImportPreviewContent() {
+    _previewSessionId = null;
+    _matchedPreviewSessionId = null;
+    _matchedPreviewDocument = null;
+    setText('importPreviewFileName', '-');
+    setText('importPreviewRowCount', '0');
+    setText('importPreviewExpiresAt', '-');
+    setImportPreviewStatus('Select a CSV file to preview.', false);
+    renderImportPreviewSummary({ matchingSummary: {}, rowCount: 0 });
+    renderImportPreviewRows({ matchedRows: [] });
+  }
+
+  function setImportPreviewLoading(isLoading, text) {
+    _importPreviewLoading = Boolean(isLoading);
+    ['inventoryImportPreviewButton', 'restartImportPreviewButton', 'closeImportPreviewButton', 'closeImportPreviewFooterButton'].forEach((id) => {
+      const button = $id(id);
+      if (button) button.disabled = _importPreviewLoading;
+    });
+    if (text) setImportPreviewStatus(text, false);
+  }
+
+  function openImportPreviewModal(trigger) {
+    const modal = $id('inventoryImportPreviewModal');
+    if (!modal) return;
+    _importPreviewOpen = true;
+    _importPreviewTrigger = trigger || document.activeElement || _importPreviewTrigger;
+    modal.classList.remove('hidden');
+    modal.removeAttribute('aria-hidden');
+    $id('closeImportPreviewButton')?.focus();
+  }
+
+  function closeImportPreviewModal() {
+    const modal = $id('inventoryImportPreviewModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    _importPreviewOpen = false;
+    setImportPreviewLoading(false);
+    if (_importPreviewTrigger?.focus) _importPreviewTrigger.focus();
+  }
+
+  function getPreviewSessionId(result) {
+    const id = result?.previewSession?.sessionId || result?.sessionId;
+    return typeof id === 'string' && id.trim() ? id : null;
+  }
+
+  function normalizeMatchedPreviewResponse(result) {
+    if (!result?.ok) return null;
+    const documentModel = result.matchedPreview;
+    const session = result.matchedPreviewSession;
+    if (!documentModel || !Array.isArray(documentModel.matchedRows)) return null;
+    if (!session || typeof session.sessionId !== 'string' || !session.sessionId.trim()) return null;
+    return { documentModel, session };
+  }
+
+  function renderMatchedPreview(documentModel, session) {
+    _matchedPreviewDocument = documentModel;
+    _matchedPreviewSessionId = session.sessionId;
+    setText('importPreviewFileName', documentModel.sourceBasename || documentModel.sourceFilename || '-');
+    setText('importPreviewRowCount', documentModel.rowCount ?? documentModel.sourceRowCount ?? 0);
+    setText('importPreviewExpiresAt', formatImportDate(session.expiresAt));
+    renderImportPreviewSummary(documentModel);
+    renderImportPreviewRows(documentModel);
+    setImportPreviewStatus('Matched preview loaded. This is read-only; final import execution is unavailable.', false);
+  }
+
+  function previewErrorMessage(result, fallback) {
+    const code = result?.code || result?.error?.code || '';
+    if (/EXPIRED|STALE|NOT_FOUND/i.test(code)) return 'Preview expired or unavailable. Select the CSV again.';
+    return result?.message || fallback;
+  }
+
+  async function startImportPreviewWorkflow(event) {
+    if (_importPreviewLoading) return;
+    openImportPreviewModal(event?.currentTarget || event?.target || null);
+    resetImportPreviewContent();
+    setImportPreviewLoading(true, 'Selecting CSV file...');
+    try {
+      const preview = await api().requestImportPreview();
+      if (preview?.canceled || preview?.status === 'canceled') {
+        setImportPreviewStatus('CSV selection cancelled.', false);
+        return;
+      }
+      if (!preview?.ok) {
+        setImportPreviewStatus(previewErrorMessage(preview, 'Unable to create an import preview.'), true);
+        return;
+      }
+      const previewSessionId = getPreviewSessionId(preview);
+      if (!previewSessionId) {
+        setImportPreviewStatus('Preview session could not be created. Select the CSV again.', true);
+        return;
+      }
+      _previewSessionId = previewSessionId;
+      setImportPreviewStatus('Analyzing matched preview...', false);
+      const matched = await api().analyzeImportPreview(previewSessionId);
+      const normalized = normalizeMatchedPreviewResponse(matched);
+      if (!normalized) {
+        setImportPreviewStatus(previewErrorMessage(matched, 'Unable to analyze the import preview.'), true);
+        return;
+      }
+      renderMatchedPreview(normalized.documentModel, normalized.session);
+    } catch (err) {
+      LOG('import preview error:', err);
+      setImportPreviewStatus('Unable to preview this CSV import. Please try again.', true);
+    } finally {
+      setImportPreviewLoading(false);
+    }
+  }
+
+  function restartImportPreviewWorkflow(event) {
+    if (_importPreviewLoading) return;
+    resetImportPreviewContent();
+    startImportPreviewWorkflow(event);
+  }
+
   function openAdjustModal(productId, productName) {
     const modal = $id('inventoryAdjustmentModal');
     if (!modal) return;
@@ -315,6 +619,7 @@
     _msgTimer = null;
     $id('inventoryMessage')?.classList.add('hidden');
     closeAdjustModal();
+    closeImportPreviewModal();
   }
 
   // ── Event binding ─────────────────────────────────────────────────────────
@@ -389,6 +694,26 @@
       .forEach((el) => el.addEventListener('click', () => closeAdjustModal()));
     $id('stockAdjustmentForm')?.addEventListener('submit', (e) => saveAdjustment(e));
 
+    // Read-only CSV import matched preview
+    $id('inventoryImportPreviewButton')?.addEventListener('click', (event) =>
+      startImportPreviewWorkflow(event)
+    );
+    $id('restartImportPreviewButton')?.addEventListener('click', (event) =>
+      restartImportPreviewWorkflow(event)
+    );
+    $id('closeImportPreviewButton')?.addEventListener('click', () => closeImportPreviewModal());
+    $id('closeImportPreviewFooterButton')?.addEventListener('click', () =>
+      closeImportPreviewModal()
+    );
+    document
+      .querySelectorAll('[data-close-import-preview]')
+      .forEach((el) => el.addEventListener('click', () => closeImportPreviewModal()));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && _importPreviewOpen && !_importPreviewLoading) {
+        closeImportPreviewModal();
+      }
+    });
+
     // Toolbar placeholders
     $id('inventoryBulkButton')?.addEventListener('click', () => {
       showMsg(api().placeholder('bulk').message, true);
@@ -415,6 +740,7 @@
     });
     document.querySelectorAll('[data-page-tool="inventory"]').forEach((btn) =>
       btn.addEventListener('click', () => {
+        if (btn.dataset.toolAction === 'import-preview') return;
         const action = btn.dataset.toolAction === 'import' ? 'import' : 'export';
         showMsg(api().placeholder(action).message, true);
       })

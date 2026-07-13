@@ -451,7 +451,7 @@ test('controller registers only narrow matching routes and delegates to workflow
   }
 });
 
-test('API, preload, and UI source expose matching read methods without enabling Import', () => {
+test('API, preload, and UI source expose matching read methods with read-only import preview UI', () => {
   const apiSource = fs.readFileSync(path.join(root, 'src/main/features/inventory/inventory.api.js'), 'utf8');
   const preloadSource = fs.readFileSync(path.join(root, 'src/main/preload.js'), 'utf8');
   const htmlSource = fs.readFileSync(path.join(root, 'src/main/features/inventory/index.html'), 'utf8');
@@ -465,6 +465,9 @@ test('API, preload, and UI source expose matching read methods without enabling 
   assert.match(preloadSource, /\/inventory\/import\/matching\/analyze/);
   assert.match(preloadSource, /\/inventory\/import\/matching\/session/);
   assert.doesNotMatch(preloadSource, /ownerId:\s*ownerId|role:\s*role|fs\.|require\('fs'\)/);
-  assert.match(htmlSource, /data-tool-action="import"[^>]*disabled/);
+  assert.match(htmlSource, /id="inventoryImportPreviewButton"/);
+  assert.match(htmlSource, /data-tool-action="import-preview"[^>]*>Preview CSV Import/);
+  assert.match(htmlSource, /Final execution is unavailable/);
+  assert.doesNotMatch(htmlSource, /Execute Import|Finalize Import|Commit Import|Import Now/);
   assert.doesNotMatch(workflowSource, /INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|CREATE\s+TABLE/i);
 });

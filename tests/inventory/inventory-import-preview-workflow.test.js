@@ -124,6 +124,12 @@ function loadInventoryController({ dialogMock, previewServiceMock } = {}) {
       };
     }
     if (request === './inventory-import-preview.service') return previewService;
+    if (request === './inventory-import-matching-workflow.service') {
+      return {
+        analyzeImportPreview: async () => ({ ok: true }),
+        getMatchedImportPreviewSession: async () => ({ ok: true }),
+      };
+    }
     return originalLoad.call(this, request, parent, isMain);
   };
 
@@ -616,7 +622,7 @@ test('Inventory import preview controller cancel and dialog failures are executa
   assert(!String(failed.message).includes('C:\\secret'));
 });
 
-test('Inventory import preview controller and preload expose narrow CSV preview path while UI remains disabled', () => {
+test('Inventory import preview controller and preload expose narrow CSV preview path while UI exposes only read-only preview', () => {
   const controller = read(controllerPath);
   const preload = read(preloadPath);
   const api = read(apiPath);
@@ -638,8 +644,9 @@ test('Inventory import preview controller and preload expose narrow CSV preview 
   );
   assert.match(api, /requestImportPreview/);
   assert.match(api, /getImportPreviewSession/);
-  assert.match(
-    html,
-    /data-tool-action="import" disabled aria-disabled="true"[^>]*>Import Unavailable/
-  );
+  assert.match(html, /id="inventoryImportPreviewButton"/);
+  assert.match(html, /data-tool-action="import-preview"[^>]*>Preview CSV Import/);
+  assert.match(html, /Final execution is unavailable/);
+  assert.doesNotMatch(html, /Import Unavailable/);
+  assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
 });

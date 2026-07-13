@@ -482,6 +482,8 @@ test('Phase 5B service is isolated from UI, IPC, filesystem, SQL, and write surf
   );
 
   const html = fs.readFileSync(path.join(root, 'src/main/features/inventory/index.html'), 'utf8');
-  assert.match(html, /Import Unavailable/);
-  assert.match(html, /disabled/);
+  assert.match(html, /id="inventoryImportPreviewButton"/);
+  assert.match(html, /data-tool-action="import-preview"[^>]*>Preview CSV Import/);
+  assert.match(html, /Final execution is unavailable/);
+  assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);
 });

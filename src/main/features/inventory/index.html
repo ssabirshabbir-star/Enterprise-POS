@@ -74,7 +74,7 @@
         <button type="button" class="blue" id="inventoryBarcodeButton" title="Open barcode label designer">Print Barcode</button>
         <button type="button" class="indigo navLink" data-route="/pos">Quick Sale</button>
         <button type="button" class="emerald navLink" data-route="/purchases">New Purchase</button>
-        <button type="button" class="slate" data-page-tool="inventory" data-tool-action="import" disabled aria-disabled="true" title="Inventory import is unavailable until certification.">Import Unavailable</button>
+        <button type="button" class="slate" id="inventoryImportPreviewButton" data-page-tool="inventory" data-tool-action="import-preview" title="Preview a CSV import without changing products or stock.">Preview CSV Import</button>
         <button type="button" class="cyan" data-page-tool="inventory" data-tool-action="excel" disabled aria-disabled="true" title="Inventory export is unavailable until certification.">Export Unavailable</button>
         <button type="button" class="rose navLink" id="inventoryAddProductButton" data-route="/products">Add New Product</button>
       </div>
@@ -137,6 +137,53 @@
       <input id="adjustReason" placeholder="Reason" required />
       <button id="saveAdjustmentButton" type="submit">Save Adjustment</button>
     </form>
+  </section>
+  <section id="inventoryImportPreviewModal" class="epos-inventory-modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="inventoryImportPreviewTitle">
+    <div class="epos-inventory-import-preview" role="document">
+      <div class="epos-inventory-modal-head">
+        <div>
+          <h3 id="inventoryImportPreviewTitle">CSV Import Preview</h3>
+          <p>Read-only review. No products, stock, or records are changed in this phase.</p>
+        </div>
+        <button type="button" id="closeImportPreviewButton" data-close-import-preview aria-label="Close import preview">×</button>
+      </div>
+
+      <div id="inventoryImportPreviewStatus" class="epos-inventory-import-status" role="status">Select a CSV file to preview.</div>
+
+      <div class="epos-inventory-import-notice">
+        This preview is temporary. Final execution is unavailable, and no products have been created, no product records have been updated, and no stock has been changed.
+      </div>
+
+      <div class="epos-inventory-import-meta" aria-label="Import preview source">
+        <span>File <strong id="importPreviewFileName">-</strong></span>
+        <span>Rows <strong id="importPreviewRowCount">0</strong></span>
+        <span>Expires <strong id="importPreviewExpiresAt">-</strong></span>
+      </div>
+
+      <div id="importPreviewSummary" class="epos-inventory-import-summary" aria-label="Matched preview summary"></div>
+
+      <div class="epos-inventory-import-table-wrap">
+        <table class="epos-inventory-import-table">
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Product</th>
+              <th>SKU / Barcode</th>
+              <th>Status</th>
+              <th>Findings</th>
+            </tr>
+          </thead>
+          <tbody id="importPreviewRows">
+            <tr><td colspan="5">No preview loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="epos-inventory-import-actions">
+        <button type="button" id="restartImportPreviewButton">Select Another CSV</button>
+        <button type="button" id="closeImportPreviewFooterButton">Close</button>
+      </div>
+    </div>
   </section>
   <div id="movementHistory" class="hidden"></div>
 </div>
