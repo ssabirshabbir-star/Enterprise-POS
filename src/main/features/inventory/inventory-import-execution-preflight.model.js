@@ -51,6 +51,10 @@ const PREFLIGHT_ERROR_CODES = Object.freeze({
   INVALID_INPUT: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INPUT_INVALID',
 });
 
+const CATALOG_TYPES = Object.freeze(['category', 'brand', 'unit', 'variant']);
+const EXECUTION_SOURCE_EVIDENCE_KIND = 'inventory_import_execution_source_evidence';
+const EXECUTION_SOURCE_EVIDENCE_VERSION = 1;
+
 class InventoryImportExecutionPreflightError extends Error {
   constructor(code, message, field = null) {
     super(message);
@@ -159,6 +163,138 @@ function normalizeCurrentState(currentState = {}) {
     inventoryTargets: normalizeInventoryTargets(currentState.inventoryTargets),
     movementSummaries: normalizeMovementSummaries(currentState.movementSummaries),
   };
+}
+
+function requiredObject(value, field) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, `${field} must be a plain object.`, field);
+  }
+  return value;
+}
+
+function rejectUnsupportedKeys(value, allowedKeys, field) {
+  Object.keys(value || {}).forEach((key) => {
+    if (!allowedKeys.has(key)) {
+      fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, `${field} contains unsupported fields.`, `${field}.${key}`);
+    }
+  });
+}
+
+function positiveIdOrNull(value, field) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number <= 0) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, `${field} is invalid.`, field);
+  }
+  return number;
+}
+
+function nonNegativeRowNumber(value, field) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, `${field} is invalid.`, field);
+  }
+  return number;
+}
+
+function requiredText(value, field) {
+  const text = String(value || '').trim();
+  if (!text) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, `${field} is required.`, field);
+  }
+  return text;
+}
+
+function optionalText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+function optionalBoolean(value) {
+  return value === null || value === undefined ? null : value === true;
+}
+
+function positiveDecimal(value, field) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+(?:\.\d+)?$/.test(text) || !/[1-9]/.test(text.replace('.', ''))) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, `${field} must be a positive decimal string.`, field);
+  }
+  return text;
+}
+
+function catalogMatchEvidence(match, field) {
+  const item = requiredObject(match, field);
+  rejectUnsupportedKeys(item, new Set(['id', 'name', 'active', 'deleted', 'updatedAt']), field);
+  return {
+    id: positiveIdOrNull(item.id, `${field}.id`),
+    name: String(item.name || ''),
+    normalizedName: normalizeCatalogName(item.name),
+    active: item.active === true,
+    deleted: item.deleted === true,
+    updatedAt: item.updatedAt || null,
+  };
+}
+
+function catalogExecutionEvidence(type, entry = {}) {
+  const source = entry || {};
+  requiredObject(source, `catalogEvidence.${type}`);
+  rejectUnsupportedKeys(source, new Set(['supplied', 'normalizedName', 'resolvedId', 'matches']), `catalogEvidence.${type}`);
+  const supplied = source.supplied === true;
+  const normalizedName = normalizeCatalogName(source.normalizedName);
+  const resolvedId = positiveIdOrNull(source.resolvedId, `catalogEvidence.${type}.resolvedId`);
+  const matches = Array.isArray(source.matches)
+    ? source.matches.map((match, index) => catalogMatchEvidence(match, `catalogEvidence.${type}.matches.${index}`))
+    : [];
+  if (!supplied) {
+    if (normalizedName || resolvedId || matches.length) {
+      fail(
+        PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT,
+        'Omitted catalog evidence must not contain resolved catalog data.',
+        `catalogEvidence.${type}`
+      );
+    }
+    return {
+      supplied: false,
+      normalizedName: '',
+      resolvedId: null,
+      resolvedName: null,
+      active: null,
+      deleted: null,
+      updatedAt: null,
+    };
+  }
+  if (!normalizedName) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Supplied catalog evidence requires a normalized name.', `catalogEvidence.${type}`);
+  }
+  const resolved = resolvedId ? matches.find((match) => match.id === resolvedId) || null : null;
+  if (resolvedId && !resolved) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Resolved catalog id must be present in certified matches.', `catalogEvidence.${type}`);
+  }
+  if (resolved && resolved.normalizedName !== normalizedName) {
+    fail(
+      PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT,
+      'Resolved catalog id and name evidence are inconsistent.',
+      `catalogEvidence.${type}`
+    );
+  }
+  return {
+    supplied: true,
+    normalizedName,
+    resolvedId,
+    resolvedName: resolved ? resolved.name : null,
+    active: resolved ? resolved.active === true : null,
+    deleted: resolved ? resolved.deleted === true : null,
+    updatedAt: resolved ? resolved.updatedAt || null : null,
+  };
+}
+
+function createCatalogExecutionEvidence(planRow) {
+  const catalogEvidence = planRow.catalogEvidence || {};
+  const output = {};
+  CATALOG_TYPES.forEach((type) => {
+    output[type] = catalogExecutionEvidence(type, catalogEvidence[type] || {});
+  });
+  return output;
 }
 
 function matchingProducts(products, field, value) {
@@ -282,7 +418,96 @@ function executionContractEvidence(planRow) {
   };
 }
 
-function createPreflightRow(planRow, currentState, permissionContext) {
+function productCreationEvidence(planRow) {
+  if (planRow.productAction !== PRODUCT_ACTIONS.CREATE_PRODUCT) return null;
+  const source = planRow.normalizedSource || {};
+  return {
+    productName: requiredText(source.productName, 'normalizedSource.productName'),
+    sku: requiredText(source.sku, 'normalizedSource.sku'),
+    barcode: requiredText(source.barcode, 'normalizedSource.barcode'),
+    category: optionalText(source.category),
+    brand: optionalText(source.brand),
+    unit: optionalText(source.unit),
+    variant: optionalText(source.variant),
+    costPrice: requiredText(source.costPrice, 'normalizedSource.costPrice'),
+    sellingPrice: requiredText(source.sellingPrice, 'normalizedSource.sellingPrice'),
+    wholesalePrice: optionalText(source.wholesalePrice || '0'),
+    openingQuantity: optionalText(source.openingQuantity || '0'),
+    minimumStock: optionalText(source.minimumStock || '0'),
+    active: optionalBoolean(source.active),
+    trackExpiry: optionalBoolean(source.trackExpiry),
+    expiryRequired: optionalBoolean(source.expiryRequired),
+    expiryAlertDays: source.expiryAlertDays === null || source.expiryAlertDays === undefined ? null : Number(source.expiryAlertDays),
+    allowPriceChange: optionalBoolean(source.allowPriceChange),
+  };
+}
+
+function matchedProductExecutionEvidence(planRow) {
+  if (planRow.productAction !== PRODUCT_ACTIONS.USE_EXISTING_PRODUCT) return null;
+  const product = planRow.matchedProduct || {};
+  return {
+    productId: positiveIdOrNull(product.productId, 'matchedProduct.productId'),
+    sku: String(product.sku || ''),
+    barcode: String(product.barcode || ''),
+    productName: String(product.productName || ''),
+    active: product.active === true,
+    deleted: product.deleted === true,
+    updatedAt: product.updatedAt || null,
+  };
+}
+
+function warehouseExecutionEvidence(planRow, currentState) {
+  const required = planRow.stockAction === STOCK_ACTIONS.APPLY_OPENING_STOCK;
+  const warehouse = currentState.defaultWarehouse;
+  return {
+    required,
+    warehouseId: warehouse ? positiveIdOrNull(warehouse.warehouseId, 'defaultWarehouse.warehouseId') : null,
+    name: warehouse ? String(warehouse.name || '') : null,
+    active: warehouse ? warehouse.active === true : null,
+    updatedAt: warehouse ? warehouse.updatedAt || null : null,
+  };
+}
+
+function openingStockExecutionEvidence(planRow) {
+  const applicable = planRow.stockAction === STOCK_ACTIONS.APPLY_OPENING_STOCK;
+  return {
+    applicable,
+    quantity: applicable ? positiveDecimal(planRow.normalizedSource?.openingQuantity, 'normalizedSource.openingQuantity') : '0',
+    productAction: planRow.productAction,
+    stockAction: planRow.stockAction,
+  };
+}
+
+function createExecutionSourceEvidence(planRow, currentState, sourceContext = {}) {
+  const sourceDigest = sourceContext.sourceDigest || null;
+  if (sourceDigest !== null && !/^[0-9a-f]{64}$/i.test(String(sourceDigest))) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Source digest is invalid.', 'sourceDigest');
+  }
+  return {
+    kind: EXECUTION_SOURCE_EVIDENCE_KIND,
+    schemaVersion: EXECUTION_SOURCE_EVIDENCE_VERSION,
+    sourceRowNumber: nonNegativeRowNumber(planRow.sourceRowNumber, 'sourceRowNumber'),
+    sourceDigest,
+    sourceCommitPlanDigest: sourceContext.sourceCommitPlanDigest,
+    productAction: planRow.productAction,
+    stockAction: planRow.stockAction,
+    productCreationEvidence: productCreationEvidence(planRow),
+    existingProductEvidence: matchedProductExecutionEvidence(planRow),
+    catalogEvidence: createCatalogExecutionEvidence(planRow),
+    warehouseEvidence: warehouseExecutionEvidence(planRow, currentState),
+    openingStockEvidence: openingStockExecutionEvidence(planRow),
+    inventoryTargetEvidence: {
+      inventoryTargetId: planRow.inventoryTargetEvidence?.inventoryTargetId || null,
+      requiresRevalidation: true,
+    },
+    stockMovementEvidence: {
+      movementCount: Number(planRow.stockMovementEvidence?.movementCount || 0),
+      latestMovementAt: planRow.stockMovementEvidence?.latestMovementAt || null,
+    },
+  };
+}
+
+function createPreflightRow(planRow, currentState, permissionContext, sourceContext = {}) {
   const originalReasons = [...(planRow.blockReasonCodes || [])];
   const currentProductReasons = productReasons(planRow, currentState, permissionContext);
   const productBlocked = currentProductReasons.length > 0;
@@ -310,6 +535,7 @@ function createPreflightRow(planRow, currentState, permissionContext) {
     currentBlockReasonCodes: currentReasons,
     normalizedSource: planRow.normalizedSource,
     matchedProduct: planRow.matchedProduct || null,
+    executionSourceEvidence: createExecutionSourceEvidence(planRow, currentState, sourceContext),
     currentEvidence: {
       matchedProduct: findMatchedProduct(currentState.products, planRow),
       skuMatches: matchingProducts(currentState.products, 'normalizedSku', planRow.normalizedSource?.sku),
@@ -328,6 +554,117 @@ function createPreflightRow(planRow, currentState, permissionContext) {
     },
     executionContractEvidence: executionContractEvidence(planRow),
   };
+}
+
+function validateCatalogExecutionEvidence(type, evidence) {
+  const entry = requiredObject(evidence, `executionSourceEvidence.catalogEvidence.${type}`);
+  rejectUnsupportedKeys(
+    entry,
+    new Set(['supplied', 'normalizedName', 'resolvedId', 'resolvedName', 'active', 'deleted', 'updatedAt']),
+    `executionSourceEvidence.catalogEvidence.${type}`
+  );
+  if (typeof entry.supplied !== 'boolean') {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Catalog evidence supplied flag is invalid.', `catalogEvidence.${type}.supplied`);
+  }
+  const normalizedName = normalizeCatalogName(entry.normalizedName);
+  const resolvedId = positiveIdOrNull(entry.resolvedId, `catalogEvidence.${type}.resolvedId`);
+  if (!entry.supplied && (normalizedName || resolvedId || entry.resolvedName !== null || entry.active !== null || entry.deleted !== null)) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Omitted catalog evidence must remain explicitly empty.', `catalogEvidence.${type}`);
+  }
+  if (entry.supplied && !normalizedName) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Supplied catalog evidence requires a normalized name.', `catalogEvidence.${type}`);
+  }
+}
+
+function validateExecutionSourceEvidence(row) {
+  const evidence = requiredObject(row.executionSourceEvidence, 'executionSourceEvidence');
+  rejectUnsupportedKeys(
+    evidence,
+    new Set([
+      'kind',
+      'schemaVersion',
+      'sourceRowNumber',
+      'sourceDigest',
+      'sourceCommitPlanDigest',
+      'productAction',
+      'stockAction',
+      'productCreationEvidence',
+      'existingProductEvidence',
+      'catalogEvidence',
+      'warehouseEvidence',
+      'openingStockEvidence',
+      'inventoryTargetEvidence',
+      'stockMovementEvidence',
+    ]),
+    'executionSourceEvidence'
+  );
+  if (
+    evidence.kind !== EXECUTION_SOURCE_EVIDENCE_KIND ||
+    evidence.schemaVersion !== EXECUTION_SOURCE_EVIDENCE_VERSION ||
+    evidence.sourceRowNumber !== row.sourceRowNumber ||
+    evidence.productAction !== row.originalProductAction ||
+    evidence.stockAction !== row.originalStockAction ||
+    (evidence.sourceDigest !== null && !/^[0-9a-f]{64}$/i.test(String(evidence.sourceDigest || ''))) ||
+    !/^[0-9a-f]{64}$/i.test(String(evidence.sourceCommitPlanDigest || ''))
+  ) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Execution source evidence is inconsistent.', 'executionSourceEvidence');
+  }
+  const catalogEvidence = requiredObject(evidence.catalogEvidence, 'executionSourceEvidence.catalogEvidence');
+  rejectUnsupportedKeys(catalogEvidence, new Set(CATALOG_TYPES), 'executionSourceEvidence.catalogEvidence');
+  CATALOG_TYPES.forEach((type) => validateCatalogExecutionEvidence(type, catalogEvidence[type]));
+  if (row.originalProductAction === PRODUCT_ACTIONS.CREATE_PRODUCT) {
+    const productEvidence = requiredObject(evidence.productCreationEvidence, 'executionSourceEvidence.productCreationEvidence');
+    rejectUnsupportedKeys(
+      productEvidence,
+      new Set([
+        'productName',
+        'sku',
+        'barcode',
+        'category',
+        'brand',
+        'unit',
+        'variant',
+        'costPrice',
+        'sellingPrice',
+        'wholesalePrice',
+        'openingQuantity',
+        'minimumStock',
+        'active',
+        'trackExpiry',
+        'expiryRequired',
+        'expiryAlertDays',
+        'allowPriceChange',
+      ]),
+      'executionSourceEvidence.productCreationEvidence'
+    );
+    requiredText(productEvidence.productName, 'executionSourceEvidence.productCreationEvidence.productName');
+    requiredText(productEvidence.sku, 'executionSourceEvidence.productCreationEvidence.sku');
+    requiredText(productEvidence.barcode, 'executionSourceEvidence.productCreationEvidence.barcode');
+    requiredText(productEvidence.costPrice, 'executionSourceEvidence.productCreationEvidence.costPrice');
+    requiredText(productEvidence.sellingPrice, 'executionSourceEvidence.productCreationEvidence.sellingPrice');
+    if (!isDeepStrictEqual(productEvidence, productCreationEvidence({ ...row, productAction: PRODUCT_ACTIONS.CREATE_PRODUCT, normalizedSource: row.normalizedSource }))) {
+      fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Product creation evidence must match the certified source row.', 'executionSourceEvidence.productCreationEvidence');
+    }
+  } else if (evidence.productCreationEvidence !== null) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Product creation evidence is only valid for CREATE_PRODUCT rows.', 'executionSourceEvidence.productCreationEvidence');
+  }
+  if (row.originalProductAction === PRODUCT_ACTIONS.USE_EXISTING_PRODUCT) {
+    requiredObject(evidence.existingProductEvidence, 'executionSourceEvidence.existingProductEvidence');
+  } else if (evidence.existingProductEvidence !== null) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Existing product evidence is only valid for existing-product rows.', 'executionSourceEvidence.existingProductEvidence');
+  }
+  const warehouseEvidence = requiredObject(evidence.warehouseEvidence, 'executionSourceEvidence.warehouseEvidence');
+  rejectUnsupportedKeys(warehouseEvidence, new Set(['required', 'warehouseId', 'name', 'active', 'updatedAt']), 'executionSourceEvidence.warehouseEvidence');
+  if (warehouseEvidence.required !== (row.originalStockAction === STOCK_ACTIONS.APPLY_OPENING_STOCK)) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Warehouse evidence requirement is inconsistent.', 'executionSourceEvidence.warehouseEvidence');
+  }
+  if (warehouseEvidence.warehouseId !== null) positiveIdOrNull(warehouseEvidence.warehouseId, 'executionSourceEvidence.warehouseEvidence.warehouseId');
+  const stockEvidence = requiredObject(evidence.openingStockEvidence, 'executionSourceEvidence.openingStockEvidence');
+  rejectUnsupportedKeys(stockEvidence, new Set(['applicable', 'quantity', 'productAction', 'stockAction']), 'executionSourceEvidence.openingStockEvidence');
+  if (stockEvidence.applicable !== (row.originalStockAction === STOCK_ACTIONS.APPLY_OPENING_STOCK)) {
+    fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'Opening stock evidence applicability is inconsistent.', 'executionSourceEvidence.openingStockEvidence');
+  }
+  if (stockEvidence.applicable) positiveDecimal(stockEvidence.quantity, 'executionSourceEvidence.openingStockEvidence.quantity');
 }
 
 function summarizePreflightRows(rows) {
@@ -398,7 +735,11 @@ function createInventoryImportExecutionPreflightDocument(input = {}) {
     canCreateProduct: input.permissionContext?.canCreateProduct === true,
   };
   const currentState = normalizeCurrentState(input.currentState || {});
-  const rows = commitPlan.planRows.map((row) => createPreflightRow(row, currentState, permissionContext));
+  const sourceContext = {
+    sourceDigest: commitPlan.sourceDigest || null,
+    sourceCommitPlanDigest: commitPlan.planDigest,
+  };
+  const rows = commitPlan.planRows.map((row) => createPreflightRow(row, currentState, permissionContext, sourceContext));
   const summary = summarizePreflightRows(rows);
   const executionContract = createInventoryImportExecutionContract();
   const commitReady = preflightCommitReady(rows, summary);
@@ -460,6 +801,7 @@ function validateInventoryImportExecutionPreflightDocument(document) {
     fail(PREFLIGHT_ERROR_CODES.INVALID_DOCUMENT, 'An immutable inventory import execution preflight document is required.', 'executionPreflight');
   }
   assertPlainData(document, 'executionPreflight');
+  document.rows.forEach((row) => validateExecutionSourceEvidence(row));
   const expectedSummary = summarizePreflightRows(document.rows);
   const digestContent = {
     kind: document.kind,

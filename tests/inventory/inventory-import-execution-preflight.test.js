@@ -8,6 +8,8 @@ const {
   PRODUCT_ACTIONS,
   STOCK_ACTIONS,
   createInventoryImportCommitPlanDocument,
+  deepFreezePlainData,
+  digestCommitPlanContent,
 } = require('../../src/main/features/inventory/inventory-import-commit-plan.model');
 const {
   createInventoryImportCommitPlanSessionService,
@@ -16,6 +18,7 @@ const {
   PREFLIGHT_REASON_CODES,
   PREFLIGHT_ROW_DISPOSITIONS,
   createInventoryImportExecutionPreflightDocument,
+  digestPreflightContent,
   validateInventoryImportExecutionPreflightDocument,
 } = require('../../src/main/features/inventory/inventory-import-execution-preflight.model');
 const {
@@ -116,6 +119,12 @@ function matchedRow({
   barcode = `BAR${sourceRowNumber}000`,
   categoryName = '',
   categoryId = null,
+  brandName = '',
+  brandId = null,
+  unitName = '',
+  unitId = null,
+  variantName = '',
+  variantId = null,
   evidence = {},
 } = {}) {
   const isExisting = productAction === 'existing';
@@ -129,9 +138,9 @@ function matchedRow({
         sku,
         barcode,
         category: categoryName,
-        brand: '',
-        unit: '',
-        variant: '',
+        brand: brandName,
+        unit: unitName,
+        variant: variantName,
         costPrice: '10.00',
         sellingPrice: '12.00',
         wholesalePrice: '0',
@@ -165,9 +174,30 @@ function matchedRow({
             ? [{ id: categoryId, name: categoryName, active: true, deleted: false, updatedAt: '2026-01-01T00:00:00.000Z' }]
             : [],
         },
-        brand: { supplied: false, normalizedName: '', resolvedId: null, matches: [], findings: [] },
-        unit: { supplied: false, normalizedName: '', resolvedId: null, matches: [], findings: [] },
-        variant: { supplied: false, normalizedName: '', resolvedId: null, matches: [], findings: [] },
+        brand: {
+          supplied: Boolean(brandName),
+          normalizedName: brandName ? String(brandName).toLowerCase() : '',
+          resolvedId: brandId,
+          matches: brandId
+            ? [{ id: brandId, name: brandName, active: true, deleted: false, updatedAt: '2026-01-01T00:00:00.000Z' }]
+            : [],
+        },
+        unit: {
+          supplied: Boolean(unitName),
+          normalizedName: unitName ? String(unitName).toLowerCase() : '',
+          resolvedId: unitId,
+          matches: unitId
+            ? [{ id: unitId, name: unitName, active: true, deleted: false, updatedAt: '2026-01-01T00:00:00.000Z' }]
+            : [],
+        },
+        variant: {
+          supplied: Boolean(variantName),
+          normalizedName: variantName ? String(variantName).toLowerCase() : '',
+          resolvedId: variantId,
+          matches: variantId
+            ? [{ id: variantId, name: variantName, active: true, deleted: false, updatedAt: '2026-01-01T00:00:00.000Z' }]
+            : [],
+        },
       },
       inventoryTargetId: evidence.inventoryTargetId || null,
       movementCount: evidence.movementCount || 0,
@@ -218,6 +248,55 @@ function authFor(profile = { id: 10, role: 'Admin' }) {
   return { async getProfile() { return profile ? { ok: true, profile } : { ok: false }; } };
 }
 
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function withRecomputedPreflightDigest(document) {
+  const digestContent = {
+    kind: document.kind,
+    version: document.version,
+    schemaVersion: document.schemaVersion,
+    databaseWrite: document.databaseWrite,
+    rendererAuthoritative: document.rendererAuthoritative,
+    commitReady: document.commitReady,
+    requiresTransaction: document.requiresTransaction,
+    requiresExecutionConfirmation: document.requiresExecutionConfirmation,
+    requiresReplayProtection: document.requiresReplayProtection,
+    requiresAuditPersistence: document.requiresAuditPersistence,
+    executionContractVersion: document.executionContractVersion,
+    executionContractDigest: document.executionContractDigest,
+    sourceCommitPlanSessionId: document.sourceCommitPlanSessionId,
+    sourceCommitPlanDigest: document.sourceCommitPlanDigest,
+    rows: document.rows,
+    summary: document.summary,
+  };
+  return deepFreezePlainData({ ...document, preflightDigest: digestPreflightContent(digestContent) });
+}
+
+function withRecomputedCommitPlanDigest(document) {
+  const digestContent = {
+    kind: document.kind,
+    version: document.version,
+    schemaVersion: document.schemaVersion,
+    databaseWrite: document.databaseWrite,
+    commitReady: document.commitReady,
+    rendererAuthoritative: document.rendererAuthoritative,
+    requiresRevalidation: document.requiresRevalidation,
+    sourceMatchedPreviewSessionId: document.sourceMatchedPreviewSessionId,
+    sourceMatchingDigest: document.sourceMatchingDigest,
+    sourcePreviewSessionId: document.sourcePreviewSessionId,
+    sourcePreviewId: document.sourcePreviewId,
+    sourceDocumentVersion: document.sourceDocumentVersion,
+    sourceBasename: document.sourceBasename,
+    sourceRowCount: document.sourceRowCount,
+    sourceDigest: document.sourceDigest,
+    planRows: document.planRows,
+    planSummary: document.planSummary,
+  };
+  return deepFreezePlainData({ ...document, planDigest: digestCommitPlanContent(digestContent) });
+}
+
 test('Phase 5H model creates immutable preflight and revalidates CREATE_PRODUCT conflicts and permissions', () => {
   const plan = commitPlan([
     matchedRow({ sourceRowNumber: 1, sku: 'NEW-1', barcode: 'BARNEW1' }),
@@ -266,6 +345,147 @@ test('Phase 5H model creates immutable preflight and revalidates CREATE_PRODUCT 
   );
 });
 
+test('Phase 5H retains self-contained execution source evidence for future product creation', () => {
+  const mutableState = currentState({
+    catalogs: {
+      category: [catalog('category', { id: 10, name: 'Grocery' })],
+      brand: [catalog('brand', { id: 20, name: 'Acme' })],
+      unit: [catalog('unit', { id: 30, name: 'Piece' })],
+      variant: [catalog('variant', { id: 40, name: 'Large' })],
+    },
+  });
+  const plan = commitPlan([
+    matchedRow({
+      sourceRowNumber: 1,
+      openingQuantity: '4.500',
+      sku: 'CREATE-SKU',
+      barcode: 'CREATE-BAR',
+      categoryName: 'Grocery',
+      categoryId: 10,
+      brandName: 'Acme',
+      brandId: 20,
+      unitName: 'Piece',
+      unitId: 30,
+      variantName: 'Large',
+      variantId: 40,
+    }),
+    matchedRow({ sourceRowNumber: 2, sku: 'NO-CATALOG', barcode: 'NO-CATALOG-BAR' }),
+  ]);
+  const document = createInventoryImportExecutionPreflightDocument({
+    commitPlan: plan,
+    commitPlanSessionId: COMMIT_PLAN_SESSION_ID,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    preflightId: 'inventory-import-execution-preflight-document-14141414-1414-4414-8414-141414141414',
+    permissionContext: { canAdjustInventory: true, canCreateProduct: true },
+    currentState: mutableState,
+  });
+  const evidence = document.rows[0].executionSourceEvidence;
+  assert.equal(evidence.kind, 'inventory_import_execution_source_evidence');
+  assert.equal(evidence.sourceCommitPlanDigest, plan.planDigest);
+  assert.equal(evidence.productAction, PRODUCT_ACTIONS.CREATE_PRODUCT);
+  assert.equal(evidence.stockAction, STOCK_ACTIONS.APPLY_OPENING_STOCK);
+  assert.deepEqual(
+    {
+      productName: evidence.productCreationEvidence.productName,
+      sku: evidence.productCreationEvidence.sku,
+      barcode: evidence.productCreationEvidence.barcode,
+      costPrice: evidence.productCreationEvidence.costPrice,
+      sellingPrice: evidence.productCreationEvidence.sellingPrice,
+    },
+    {
+      productName: 'Product 1',
+      sku: 'CREATE-SKU',
+      barcode: 'CREATE-BAR',
+      costPrice: '10.00',
+      sellingPrice: '12.00',
+    }
+  );
+  assert.equal(evidence.catalogEvidence.category.resolvedId, 10);
+  assert.equal(evidence.catalogEvidence.category.resolvedName, 'Grocery');
+  assert.equal(evidence.catalogEvidence.brand.resolvedId, 20);
+  assert.equal(evidence.catalogEvidence.unit.resolvedId, 30);
+  assert.equal(evidence.catalogEvidence.variant.resolvedId, 40);
+  assert.equal(evidence.warehouseEvidence.warehouseId, 7);
+  assert.equal(evidence.warehouseEvidence.name, 'Main Warehouse');
+  assert.equal(evidence.openingStockEvidence.quantity, '4.500');
+  assert.equal(evidence.openingStockEvidence.applicable, true);
+  assert.equal(document.rows[1].executionSourceEvidence.catalogEvidence.category.supplied, false);
+  assert.equal(document.rows[1].executionSourceEvidence.catalogEvidence.category.resolvedId, null);
+  assert(Object.isFrozen(evidence));
+  assert(Object.isFrozen(evidence.catalogEvidence.category));
+  assert(Object.isFrozen(evidence.productCreationEvidence));
+  assert(Object.isFrozen(evidence.warehouseEvidence));
+  mutableState.defaultWarehouse.name = 'Changed Warehouse';
+  mutableState.catalogs.category[0].name = 'Changed Category';
+  assert.equal(document.rows[0].executionSourceEvidence.warehouseEvidence.name, 'Main Warehouse');
+  assert.equal(document.rows[0].executionSourceEvidence.catalogEvidence.category.resolvedName, 'Grocery');
+  assert.equal(validateInventoryImportExecutionPreflightDocument(document), document);
+});
+
+test('Phase 5H validates execution source evidence strictly and covers it with digest integrity', () => {
+  const plan = commitPlan([
+    matchedRow({
+      sourceRowNumber: 1,
+      openingQuantity: '3.000',
+      sku: 'CREATE-SKU',
+      barcode: 'CREATE-BAR',
+      categoryName: 'Grocery',
+      categoryId: 10,
+    }),
+  ]);
+  const document = createInventoryImportExecutionPreflightDocument({
+    commitPlan: plan,
+    commitPlanSessionId: COMMIT_PLAN_SESSION_ID,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    preflightId: 'inventory-import-execution-preflight-document-15151515-1515-4515-8515-151515151515',
+    permissionContext: { canAdjustInventory: true, canCreateProduct: true },
+    currentState: currentState({ catalogs: { category: [catalog('category')], brand: [], unit: [], variant: [] } }),
+  });
+  const changedCatalog = clone(document);
+  changedCatalog.rows[0].executionSourceEvidence.catalogEvidence.category.resolvedId = 11;
+  assert.throws(() => validateInventoryImportExecutionPreflightDocument(deepFreezePlainData(changedCatalog)), {
+    code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INVALID',
+  });
+
+  const missingBarcode = clone(document);
+  missingBarcode.rows[0].executionSourceEvidence.productCreationEvidence.barcode = '';
+  assert.throws(() => validateInventoryImportExecutionPreflightDocument(withRecomputedPreflightDigest(missingBarcode)), {
+    code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INVALID',
+  });
+
+  const unsupportedField = clone(document);
+  unsupportedField.rows[0].executionSourceEvidence.catalogEvidence.category.callback = 'not allowed';
+  assert.throws(() => validateInventoryImportExecutionPreflightDocument(withRecomputedPreflightDigest(unsupportedField)), {
+    code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INVALID',
+  });
+
+  const invalidWarehouse = clone(document);
+  invalidWarehouse.rows[0].executionSourceEvidence.warehouseEvidence.warehouseId = 'bad';
+  assert.throws(() => validateInventoryImportExecutionPreflightDocument(withRecomputedPreflightDigest(invalidWarehouse)), {
+    code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INVALID',
+  });
+
+  const invalidOpeningStock = clone(document);
+  invalidOpeningStock.rows[0].executionSourceEvidence.openingStockEvidence.quantity = '-1';
+  assert.throws(() => validateInventoryImportExecutionPreflightDocument(withRecomputedPreflightDigest(invalidOpeningStock)), {
+    code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INVALID',
+  });
+
+  const mismatchedPlan = clone(plan);
+  mismatchedPlan.planRows[0].catalogEvidence.category.matches[0].name = 'Other Category';
+  assert.throws(
+    () => createInventoryImportExecutionPreflightDocument({
+      commitPlan: withRecomputedCommitPlanDigest(mismatchedPlan),
+      commitPlanSessionId: COMMIT_PLAN_SESSION_ID,
+      createdAt: '2026-01-02T00:00:00.000Z',
+      preflightId: 'inventory-import-execution-preflight-document-16161616-1616-4616-8616-161616161616',
+      permissionContext: { canAdjustInventory: true, canCreateProduct: true },
+      currentState: currentState({ catalogs: { category: [catalog('category')], brand: [], unit: [], variant: [] } }),
+    }),
+    { code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_INVALID' }
+  );
+});
+
 test('Phase 5H preserves existing-product semantics and blocks stale matched products without rematching', () => {
   const existing = product(10, { sku: 'EXIST-10', barcode: 'BAR10' });
   const plan = commitPlan([
@@ -288,6 +508,9 @@ test('Phase 5H preserves existing-product semantics and blocks stale matched pro
     }),
   });
   assert.equal(document.rows[0].currentDisposition, PREFLIGHT_ROW_DISPOSITIONS.CURRENTLY_ELIGIBLE);
+  assert.equal(document.rows[0].executionSourceEvidence.productCreationEvidence, null);
+  assert.equal(document.rows[0].executionSourceEvidence.existingProductEvidence.productId, 10);
+  assert.equal(document.rows[0].executionSourceEvidence.existingProductEvidence.sku, 'EXIST-10');
   assert(document.rows[1].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.MATCHED_PRODUCT_MISSING));
   assert(document.rows[2].currentBlockReasonCodes.includes(PREFLIGHT_REASON_CODES.MATCHED_PRODUCT_CHANGED));
 
@@ -460,6 +683,11 @@ test('Phase 5H session service enforces owner binding, TTL, capacity, determinis
   });
   assert.equal(created.ok, true);
   assert.equal(created.executionPreflight.commitReady, true);
+  assert.equal(created.executionPreflight.sourceCommitPlanSessionId, COMMIT_PLAN_SESSION_ID);
+  assert.equal(created.executionPreflight.rows[0].executionSourceEvidence.sourceCommitPlanDigest, plan.planDigest);
+  assert.equal(Object.hasOwn(created.executionPreflight, 'planRows'), false);
+  assert.equal(Object.hasOwn(created.executionPreflight.rows[0].executionSourceEvidence, 'commitPlanSessionId'), false);
+  assert.equal(Object.hasOwn(created.executionPreflight.rows[0].executionSourceEvidence.productCreationEvidence, 'generatedBarcode'), false);
   assert.equal(created.executionPreflightSession.commitReady, true);
   assert.match(created.executionPreflightSession.sessionId, EXECUTION_PREFLIGHT_SESSION_ID_PATTERN);
   assert.equal(service.getExecutionPreflightSession({ ownerId: 2, sessionId: created.executionPreflightSession.sessionId }).ok, false);
