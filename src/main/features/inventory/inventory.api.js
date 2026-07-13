@@ -77,6 +77,20 @@
     );
   }
 
+  async function createImportExecutionPreflight(sessionId) {
+    return normalizeResult(
+      await window.posApi.inventory.createImportExecutionPreflight(sessionId),
+      'Inventory import execution preflight failed.'
+    );
+  }
+
+  async function getImportExecutionPreflightSession(sessionId) {
+    return normalizeResult(
+      await window.posApi.inventory.getImportExecutionPreflightSession(sessionId),
+      'Inventory import execution preflight is unavailable.'
+    );
+  }
+
   function placeholder(action) {
     const messages = {
       bulk: 'Inventory bulk actions are coming soon. They are not implemented yet.',
@@ -95,6 +109,8 @@
     adjustStock,
     analyzeImportPreview,
     createImportCommitPlan,
+    createImportExecutionPreflight,
+    getImportExecutionPreflightSession,
     getImportCommitPlanSession,
     getMatchedImportPreviewSession,
     getImportPreviewSession,
