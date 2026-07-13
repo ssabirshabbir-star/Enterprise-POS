@@ -645,7 +645,7 @@ test('Inventory import preview controller and preload expose narrow CSV preview 
   assert.match(api, /requestImportPreview/);
   assert.match(api, /getImportPreviewSession/);
   assert.match(html, /id="inventoryImportPreviewButton"/);
-  assert.match(html, /data-tool-action="import-preview"[^>]*>Preview CSV Import/);
+  assert.match(html, /data-tool-action="import-preview"[^>]*>Import CSV/);
   assert.match(html, /Execution is available only after backend preflight confirms/);
   assert.doesNotMatch(html, /Import Unavailable/);
   assert.doesNotMatch(html, /Execute Import|Finalize Import|Commit Import|Import Now/);

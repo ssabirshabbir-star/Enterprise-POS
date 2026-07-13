@@ -403,13 +403,67 @@ async function loadRenderer(apiOverrides = {}) {
 test('matched preview UI contract keeps import preview visible with certified execution controls disabled by default', () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
   assert.match(html, /id="inventoryImportPreviewButton"/);
-  assert.match(html, />Preview CSV Import</);
+  assert.match(html, />Import CSV</);
   assert.doesNotMatch(html, /Import Unavailable/);
   assert.match(html, /Execution is available only after backend preflight confirms/i);
   assert.match(html, /id="executeInventoryImportButton"[^>]*disabled/);
   assert.match(html, /Confirm Inventory Import/);
   assert.doesNotMatch(html, /id="inventoryImportPreviewButton"[^>]*disabled/);
   assert.doesNotMatch(html, /Finalize Import|Commit Import|Import Now/);
+});
+
+test('toolbar Import CSV launcher exists once, starts CSV selection, and is reusable after success', async () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const launcherMarkup = html.match(/<button\b[^>]*id="inventoryImportPreviewButton"[^>]*>Import CSV<\/button>/)?.[0] || '';
+  assert.equal((html.match(/id="inventoryImportPreviewButton"/g) || []).length, 1);
+  assert.match(launcherMarkup, /type="button"/);
+  assert.match(launcherMarkup, />Import CSV<\/button>/);
+  assert.doesNotMatch(launcherMarkup, /\sdisabled\b/);
+
+  let previewCalls = 0;
+  let executeCalls = 0;
+  const { document } = await loadRenderer({
+    requestImportPreview: async () => {
+      previewCalls += 1;
+      return { ok: true, previewSession: { sessionId: `inventory-import-preview-source-${previewCalls}` } };
+    },
+    executeCertifiedImport: async () => {
+      executeCalls += 1;
+      return {
+        ok: true,
+        executionResult: {
+          databaseWrite: true,
+          transactionCommitted: true,
+          executionComplete: true,
+          batchId: 50 + executeCalls,
+          summary: {
+            totalRows: 1,
+            createdProductCount: 1,
+            existingProductCount: 0,
+            stockAppliedCount: 1,
+            skippedCount: 0,
+          },
+          rowResults: [],
+        },
+      };
+    },
+  });
+
+  const launcher = document.getElementById('inventoryImportPreviewButton');
+  assert.equal(launcher.disabled, false);
+  await launcher.click();
+  assert.equal(previewCalls, 1);
+  assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
+
+  await document.getElementById('executeInventoryImportButton').click();
+  await document.getElementById('confirmImportExecutionButton').click();
+  assert.equal(executeCalls, 1);
+  assert.equal(document.getElementById('executeInventoryImportButton').disabled, true);
+  assert.equal(launcher.disabled, false);
+
+  await launcher.click();
+  assert.equal(previewCalls, 2);
+  assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
 });
 
 test('matched preview workflow selects CSV then analyzes only backend session id', async () => {
