@@ -172,7 +172,7 @@ async function assertExistingProduct(client, row) {
   return productId;
 }
 
-async function createProductInTransaction(client, row, actorId) {
+async function createProductInTransaction(client, row, actorId, policy) {
   const product = await assertCreateProductAvailable(client, row);
   const warehouseId = await assertWarehouse(client, row);
   const result = await client.query(
@@ -229,10 +229,18 @@ async function createProductInTransaction(client, row, actorId) {
           product_id, warehouse_id, movement_type, quantity, previous_stock, new_stock,
           reference_type, reason, notes, user_id, created_by
         )
-        VALUES ($1, $2, 'INITIAL_STOCK', $3, 0, $3, 'inventory.import', 'Opening stock', 'Opening stock from inventory import', $4, $4)
+        VALUES ($1, $2, $3, $4, 0, $4, $5, $6, 'Opening stock from product creation', $7, $7)
         RETURNING id
       `,
-      [productId, warehouseId, product.currentStock, actorId]
+      [
+        productId,
+        warehouseId,
+        policy.movementType,
+        product.currentStock,
+        policy.referenceType,
+        policy.reason,
+        actorId,
+      ]
     );
     movementId = movement.rows[0].id;
   }
@@ -340,7 +348,7 @@ function createInventoryImportExecutionRepository(dependencies = {}) {
         const policy = assertSupportedRow(row);
         let result;
         if (row.originalProductAction === PRODUCT_ACTIONS.CREATE_PRODUCT) {
-          result = await createProductInTransaction(client, row, actorId);
+          result = await createProductInTransaction(client, row, actorId, policy);
         } else if (row.originalProductAction === PRODUCT_ACTIONS.USE_EXISTING_PRODUCT) {
           const productId = await assertExistingProduct(client, row);
           result = { productId, movementId: null, quantity: null };

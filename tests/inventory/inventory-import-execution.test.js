@@ -324,6 +324,10 @@ test('Phase 5I repository executes certified new-product initial stock once in o
   assert.equal(client.queries.filter((query) => /INSERT INTO products/i.test(query.sql)).length, 1);
   assert.equal(client.queries.filter((query) => /INSERT INTO inventory /i.test(query.sql)).length, 1);
   assert.equal(client.queries.filter((query) => /INSERT INTO stock_movements/i.test(query.sql)).length, 1);
+  const movementQuery = client.queries.find((query) => /INSERT INTO stock_movements/i.test(query.sql));
+  assert.equal(movementQuery.params.includes('INITIAL_STOCK'), true);
+  assert.equal(movementQuery.params.includes('product.create'), true);
+  assert.equal(movementQuery.params.includes('Opening stock'), true);
   assert.equal(client.queries.filter((query) => /inventory_import_batches/i.test(query.sql) && /INSERT/i.test(query.sql)).length, 1);
   assert.equal(client.queries.filter((query) => /inventory_import_row_results/i.test(query.sql) && /INSERT/i.test(query.sql)).length, 1);
   assert.equal(client.queries.some((query) => String(query.params).includes('IMPORT-1')), true);
