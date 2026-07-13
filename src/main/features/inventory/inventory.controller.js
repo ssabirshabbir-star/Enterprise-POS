@@ -1,5 +1,6 @@
 const inventoryService = require('./inventory.service');
 const inventoryImportPreviewService = require('./inventory-import-preview.service');
+const inventoryImportMatchingWorkflowService = require('./inventory-import-matching-workflow.service');
 const { BrowserWindow, dialog } = require('electron');
 const { logError } = require('../../utils/safe-logger');
 
@@ -83,6 +84,22 @@ function registerInventoryRoutes(ipcMain) {
         ok: false,
         message: 'Inventory import preview is unavailable. Please select the CSV again.',
       };
+    }
+  });
+
+  ipcMain.handle('/inventory/import/matching/analyze', async (_event, payload) => {
+    try {
+      return await inventoryImportMatchingWorkflowService.analyzeImportPreview(payload);
+    } catch (error) {
+      return safeError(error, 'Inventory import matching analysis error:');
+    }
+  });
+
+  ipcMain.handle('/inventory/import/matching/session', async (_event, payload) => {
+    try {
+      return await inventoryImportMatchingWorkflowService.getMatchedImportPreviewSession(payload);
+    } catch (error) {
+      return safeError(error, 'Inventory import matched preview session error:');
     }
   });
 
