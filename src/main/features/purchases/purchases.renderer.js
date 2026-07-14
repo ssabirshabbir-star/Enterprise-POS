@@ -142,10 +142,6 @@
     set('purchaseStatPaidAmount', money(paid));
     set('purchaseStatOverdue', '-');
     set('purchaseStatOverdueAmount', 'Planned');
-    set('purchaseFooterCount', count);
-    set('purchaseFooterTotal', money(spend));
-    set('purchaseFooterPaid', money(paid));
-    set('purchaseFooterDue', money(due));
     set('purchasePageInfo', count ? `1-${count} of ${count}` : '0-0 of 0');
   }
 

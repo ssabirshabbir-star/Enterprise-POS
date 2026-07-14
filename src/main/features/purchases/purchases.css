@@ -494,35 +494,18 @@
   .epos-purchase-actions button:nth-child(3) { background: #ffe4e6; color: #e11d48; }
 
   .epos-purchases-footer {
-    display: grid;
-    grid-template-columns: 130px 180px 180px 180px minmax(0, 1fr);
-    gap: 8px;
+    display: flex;
     align-items: center;
-    padding: 10px 14px;
+    justify-content: flex-end;
+    min-height: 44px;
+    padding: 6px 14px;
   }
 
-  .epos-purchases-footer article {
-    border-right: 1px solid #edf2f7;
-    padding-right: 12px;
-  }
-
-  .epos-purchases-footer span,
   .epos-purchases-pagination {
     color: #475569;
     font-size: 12px;
     font-weight: 800;
   }
-
-  .epos-purchases-footer strong {
-    display: block;
-    margin-top: 5px;
-    color: #0f172a;
-    font-size: 18px;
-    font-weight: 950;
-  }
-
-  .epos-purchases-footer strong.green { color: #059669; }
-  .epos-purchases-footer strong.red { color: #ef1f39; }
 
   .epos-purchases-pagination {
     display: flex;
@@ -1024,12 +1007,7 @@
     }
 
     .epos-purchases-footer {
-      grid-template-columns: 116px 168px 168px 168px minmax(0, 1fr);
-      padding: 7px 10px;
-    }
-
-    .epos-purchases-footer strong {
-      font-size: 17px;
+      padding: 6px 10px;
     }
 
     .epos-purchases-modal-card {
