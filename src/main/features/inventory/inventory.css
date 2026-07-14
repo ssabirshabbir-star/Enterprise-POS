@@ -28,9 +28,8 @@
     align-items: center;
     gap: 10px;
     height: 38px;
-    flex: 1 1 340px;
-    max-width: 460px;
-    min-width: 260px;
+    flex: 1 1 330px;
+    min-width: 300px;
     padding: 0 12px;
     border: 1px solid #dde5f2;
     border-radius: 11px;
@@ -166,66 +165,28 @@
     box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   }
 
-  .epos-inventory-tabs {
+  .epos-inventory-toolbar {
     display: flex;
     align-items: center;
-    gap: 22px;
-    padding: 12px 18px 0;
+    gap: 8px;
+    padding: 10px 14px 8px;
     border-bottom: 1px solid #e7edf7;
-  }
-
-  .epos-inventory-tabs button {
-    position: relative;
-    height: 38px;
-    border: 0;
-    background: transparent;
-    font-size: 13px;
-    font-weight: 850;
-    color: #18213a;
-  }
-
-  .epos-inventory-tabs button.active {
-    color: #3b36ff;
-  }
-
-  .epos-inventory-tabs button.active::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
-    height: 3px;
-    border-radius: 999px 999px 0 0;
-    background: linear-gradient(90deg, #5b5ff7, #7c3aed);
-  }
-
-  .epos-inventory-filter-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(140px, 1fr)) 92px;
-    gap: 10px;
-    padding: 14px 18px 10px;
   }
 
   .epos-inventory-field {
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 44px;
+    flex: 0 0 132px;
+    height: 38px;
     min-width: 0;
     border: 1px solid #d9e2f0;
     border-radius: 10px;
     background: #ffffff;
-    padding: 0 12px;
+    padding: 0 10px;
   }
 
-  .epos-inventory-field.search {
-    justify-content: space-between;
-  }
-
-  .epos-inventory-field small {
-    display: block;
-    font-size: 10px;
-    color: #758199;
+  .epos-inventory-field:has(#inventoryStockStatusFilter) {
+    flex-basis: 146px;
   }
 
   .epos-inventory-field input,
@@ -238,11 +199,13 @@
     font-size: 13px;
     font-weight: 750;
     color: #17213b;
+    text-overflow: clip;
   }
 
   .epos-inventory-filter-btn,
   .epos-inventory-reset-btn {
-    height: 44px;
+    flex: 0 0 76px;
+    height: 38px;
     border: 1px solid #d9e2f0;
     border-radius: 10px;
     background: #ffffff;
@@ -252,7 +215,7 @@
 
   .epos-inventory-action-row {
     display: block;
-    padding: 4px 18px 10px;
+    padding: 6px 14px 8px;
   }
 
   .epos-inventory-action-buttons {
@@ -887,29 +850,27 @@
     }
 
     .epos-inventory-search {
-      flex-basis: 300px;
-      min-width: 230px;
-      max-width: 360px;
+      flex-basis: 280px;
+      min-width: 220px;
     }
 
-    .epos-inventory-tabs {
-      gap: 12px;
-      padding: 10px 14px 0;
-    }
-
-    .epos-inventory-tabs button {
-      font-size: 12px;
-    }
-
-    .epos-inventory-filter-row {
-      grid-template-columns: repeat(4, minmax(118px, 1fr)) 76px;
+    .epos-inventory-toolbar {
+      flex-wrap: wrap;
       gap: 8px;
-      padding: 10px 14px 8px;
+      padding: 10px 12px 8px;
     }
 
-    .epos-inventory-field,
+    .epos-inventory-field {
+      flex: 1 1 118px;
+    }
+
+    .epos-inventory-field:has(#inventoryStockStatusFilter) {
+      flex-basis: 136px;
+    }
+
     .epos-inventory-filter-btn,
     .epos-inventory-reset-btn {
+      flex: 0 0 76px;
       height: 38px;
     }
 

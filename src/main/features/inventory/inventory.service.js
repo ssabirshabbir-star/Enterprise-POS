@@ -48,6 +48,12 @@ function normalizeExportFilters(filters = {}) {
     : ['low', 'out'].includes(inventoryTab)
       ? inventoryTab
       : '';
+  const normalizedInventoryTab =
+    stockStatusInput === 'recent'
+      ? 'recent'
+      : ['all', 'low', 'out', 'recent'].includes(inventoryTab)
+        ? inventoryTab
+        : 'all';
 
   return {
     search: String(filters.search || '')
@@ -57,7 +63,7 @@ function normalizeExportFilters(filters = {}) {
     brandId: parseNullableId(filters.brandId),
     supplierId: parseNullableId(filters.supplierId),
     stockStatus,
-    inventoryTab: ['all', 'low', 'out', 'recent'].includes(inventoryTab) ? inventoryTab : 'all',
+    inventoryTab: normalizedInventoryTab,
   };
 }
 

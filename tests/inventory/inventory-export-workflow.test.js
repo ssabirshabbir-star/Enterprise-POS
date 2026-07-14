@@ -207,6 +207,34 @@ test('Inventory export treats stale stock value tab state as the all-items view'
   await fsp.rm(tmpDir, { recursive: true, force: true });
 });
 
+test('Inventory export maps Recently Added dropdown state to the existing recent inventory tab contract', async () => {
+  const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'inventory-export-recent-'));
+  const filePath = path.join(tmpDir, 'export.csv');
+  const { service, calls } = loadInventoryService({
+    rows: [{ name: 'A', sku: 'A-1', currentStock: 2, minStockLevel: 1, status: 'IN_STOCK' }],
+  });
+
+  const result = await service.exportInventoryCsv({
+    filePath,
+    filters: {
+      inventoryTab: 'all',
+      stockStatus: 'recent',
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls.filters[0], {
+    search: '',
+    categoryId: null,
+    brandId: null,
+    supplierId: null,
+    stockStatus: '',
+    inventoryTab: 'recent',
+  });
+
+  await fsp.rm(tmpDir, { recursive: true, force: true });
+});
+
 test('Inventory service returns permission denied without writing a file', async () => {
   const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'inventory-export-denied-'));
   const filePath = path.join(tmpDir, 'export.csv');

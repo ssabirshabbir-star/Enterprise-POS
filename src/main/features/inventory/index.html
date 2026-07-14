@@ -28,38 +28,28 @@
   </section>
 
   <section class="epos-inventory-shell">
-    <nav class="epos-inventory-tabs" aria-label="Inventory filters">
+    <div class="epos-inventory-toolbar" aria-label="Inventory filters">
       <div class="epos-inventory-search">
         <span>⌕</span>
         <input id="inventorySearch" type="search" placeholder="Search by Product Name, SKU, Barcode, Batch..." autocomplete="off" />
         <kbd>Ctrl + K</kbd>
       </div>
-      <button type="button" class="active" data-inventory-tab="all">All Items</button>
-      <button type="button" data-inventory-tab="low">Low Stock</button>
-      <button type="button" data-inventory-tab="out">Out of Stock</button>
-      <button type="button" data-inventory-tab="recent">Recently Added</button>
-    </nav>
-
-    <div class="epos-inventory-filter-row">
       <label class="epos-inventory-field">
-        <small>Category</small>
-        <select id="inventoryCategoryFilter"><option value="">All Categories</option></select>
+        <select id="inventoryCategoryFilter" aria-label="Category filter" title="Category filter"><option value="">All Categories</option></select>
       </label>
       <label class="epos-inventory-field">
-        <small>Brand</small>
-        <select id="inventoryBrandFilter"><option value="">All Brands</option></select>
+        <select id="inventoryBrandFilter" aria-label="Brand filter" title="Brand filter"><option value="">All Brands</option></select>
       </label>
       <label class="epos-inventory-field">
-        <small>Supplier</small>
-        <select id="inventorySupplierFilter"><option value="">All Suppliers</option></select>
+        <select id="inventorySupplierFilter" aria-label="Supplier filter" title="Supplier filter"><option value="">All Suppliers</option></select>
       </label>
       <label class="epos-inventory-field">
-        <small>Stock Status</small>
-        <select id="inventoryStockStatusFilter">
+        <select id="inventoryStockStatusFilter" aria-label="Stock status filter" title="Stock status filter">
           <option value="">All Status</option>
           <option value="in">In Stock</option>
           <option value="low">Low Stock</option>
           <option value="out">Out of Stock</option>
+          <option value="recent">Recently Added</option>
         </select>
       </label>
       <button type="button" class="epos-inventory-reset-btn" id="inventoryResetFiltersButton">Reset</button>

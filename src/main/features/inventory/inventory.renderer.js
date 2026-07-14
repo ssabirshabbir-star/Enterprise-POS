@@ -13,7 +13,6 @@
   let _allItems = [];
   let _msgTimer = null;
   let _searchTimer = null;
-  let _currentTab = 'all';
   let _page = 1;
   let _exportInFlight = false;
   let _importPreviewLoading = false;
@@ -141,27 +140,20 @@
           Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)
       );
     if (stockStat === 'out') list = list.filter((x) => Number(x.currentStock || 0) <= 0);
-
-    if (_currentTab === 'low')
-      list = list.filter(
-        (x) =>
-          Number(x.currentStock || 0) > 0 &&
-          Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)
-      );
-    if (_currentTab === 'out') list = list.filter((x) => Number(x.currentStock || 0) <= 0);
-    if (_currentTab === 'recent') list = list.slice(0, 50);
+    if (stockStat === 'recent') list = list.slice(0, 50);
 
     return list;
   }
 
   function currentExportFilters() {
+    const stockStatus = $id('inventoryStockStatusFilter')?.value || '';
     return {
       search: ($id('inventorySearch')?.value || '').trim(),
       categoryId: $id('inventoryCategoryFilter')?.value || '',
       brandId: $id('inventoryBrandFilter')?.value || '',
       supplierId: $id('inventorySupplierFilter')?.value || '',
-      stockStatus: $id('inventoryStockStatusFilter')?.value || '',
-      inventoryTab: _currentTab,
+      stockStatus,
+      inventoryTab: stockStatus === 'recent' ? 'recent' : 'all',
     };
   }
 
@@ -1130,18 +1122,6 @@
       renderTable(_allItems);
     });
 
-    // Tabs
-    document.querySelectorAll('[data-inventory-tab]').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        _currentTab = btn.dataset.inventoryTab;
-        document
-          .querySelectorAll('[data-inventory-tab]')
-          .forEach((b) => b.classList.toggle('active', b.dataset.inventoryTab === _currentTab));
-        _page = 1;
-        renderTable(_allItems);
-      })
-    );
-
     // Rows per page
     $id('inventoryRowsPerPage')?.addEventListener('change', () => {
       _page = 1;
@@ -1262,7 +1242,6 @@
       attachEvents();
     }
     _page = 1;
-    _currentTab = 'all';
     loadInventory();
     LOG('init() complete');
   }

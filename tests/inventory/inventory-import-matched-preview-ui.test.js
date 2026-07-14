@@ -171,9 +171,6 @@ class FakeDocument {
 
   querySelectorAll(selector) {
     const elements = Array.from(this.elements.values());
-    if (selector === '[data-inventory-tab]') {
-      return elements.filter((element) => element.dataset.inventoryTab);
-    }
     if (selector === '[data-close-inventory-modal]') {
       return elements.filter((element) => element.dataset.closeInventoryModal != null);
     }
@@ -260,12 +257,6 @@ function createDom() {
   document.getElementById('inventoryRowsPerPage').value = '50';
   document.getElementById('executeInventoryImportButton').disabled = true;
   document.getElementById('executeInventoryImportButton').setAttribute('aria-disabled', 'true');
-
-  const allTab = document.createRegisteredElement('inventoryTabAll', 'button');
-  allTab.dataset.inventoryTab = 'all';
-  allTab.classList.add('active');
-  const lowTab = document.createRegisteredElement('inventoryTabLow', 'button');
-  lowTab.dataset.inventoryTab = 'low';
 
   const closeAdjustment = document.createRegisteredElement(
     'closeInventoryAdjustmentButton',
@@ -459,19 +450,39 @@ test('inventory summary cards follow approved order and keep stock value last', 
   assert.match(css, /gap:\s*6px/);
 });
 
-test('inventory tabs omit the stale stock value filter while retaining stock value summary', () => {
+test('inventory filters are consolidated into one accessible search toolbar', () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const renderer = fs.readFileSync(rendererPath, 'utf8');
-  const tabsBlock = html.match(/<nav class="epos-inventory-tabs"[\s\S]*?<\/nav>/)?.[0] || '';
+  const toolbarBlock =
+    html.match(
+      /<div class="epos-inventory-toolbar"[\s\S]*?<button type="button" class="epos-inventory-reset-btn" id="inventoryResetFiltersButton">Reset<\/button>\s*<\/div>/
+    )?.[0] || '';
 
-  const tabLabels = Array.from(
-    tabsBlock.matchAll(/data-inventory-tab="[^"]+"[^>]*>([^<]+)<\/button>/g)
-  ).map((match) => match[1]);
-
-  assert.deepEqual(tabLabels, ['All Items', 'Low Stock', 'Out of Stock', 'Recently Added']);
-  assert.doesNotMatch(tabsBlock, /data-inventory-tab="value"|>Stock Value<\/button>/);
+  assert.match(
+    toolbarBlock,
+    /id="inventorySearch"[\s\S]*id="inventoryCategoryFilter"[\s\S]*id="inventoryBrandFilter"[\s\S]*id="inventorySupplierFilter"[\s\S]*id="inventoryStockStatusFilter"[\s\S]*id="inventoryResetFiltersButton"/
+  );
+  assert.doesNotMatch(html, /epos-inventory-tabs|epos-inventory-filter-row|data-inventory-tab/);
+  assert.doesNotMatch(
+    toolbarBlock,
+    /<small>Category<\/small>|<small>Brand<\/small>|<small>Supplier<\/small>|<small>Stock Status<\/small>/
+  );
+  assert.match(toolbarBlock, /id="inventoryCategoryFilter"[^>]*aria-label="Category filter"/);
+  assert.match(toolbarBlock, /id="inventoryBrandFilter"[^>]*aria-label="Brand filter"/);
+  assert.match(toolbarBlock, /id="inventorySupplierFilter"[^>]*aria-label="Supplier filter"/);
+  assert.match(
+    toolbarBlock,
+    /id="inventoryStockStatusFilter"[^>]*aria-label="Stock status filter"/
+  );
+  assert.match(
+    toolbarBlock,
+    /<option value="">All Status<\/option>[\s\S]*<option value="in">In Stock<\/option>[\s\S]*<option value="low">Low Stock<\/option>[\s\S]*<option value="out">Out of Stock<\/option>[\s\S]*<option value="recent">Recently Added<\/option>/
+  );
   assert.match(html, /<span>Total Stock Value<\/span>/);
-  assert.doesNotMatch(renderer, /_currentTab\s*===\s*['"]value['"]/);
+  assert.doesNotMatch(
+    renderer,
+    /_currentTab|querySelectorAll\('\[data-inventory-tab\]'\)|data-inventory-tab/
+  );
 });
 
 test('inventory table column contract gives long headers enough measured width', () => {
@@ -501,8 +512,11 @@ test('inventory summary spacing and requested header alignment stay scoped', () 
     css,
     /#dashboard main:has\(#inventoryModule:not\(\.hidden\)\)\s*{[\s\S]*?padding:\s*8px !important;/
   );
+  assert.match(css, /\.epos-inventory-toolbar\s*{[\s\S]*?padding:\s*10px 14px 8px;/);
+  assert.match(css, /\.epos-inventory-field\s*{[\s\S]*?flex:\s*0 0 132px;/);
   assert.match(css, /#inventoryModule\s*{[\s\S]*?height:\s*100%;/);
   assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?height:\s*100%;/);
+  assert.doesNotMatch(css, /epos-inventory-tabs|epos-inventory-filter-row/);
   assert.doesNotMatch(css, /height:\s*calc\(100vh - 7[04]px\)/);
   assert.match(
     css,
@@ -636,7 +650,6 @@ test('toolbar Export CSV coexists with Import CSV and preserves filter state', a
   document.getElementById('inventoryBrandFilter').value = '3';
   document.getElementById('inventorySupplierFilter').value = '4';
   document.getElementById('inventoryStockStatusFilter').value = 'low';
-  await document.getElementById('inventoryTabLow').click();
 
   const exportButton = document.getElementById('inventoryExportCsvButton');
   const importButton = document.getElementById('inventoryImportPreviewButton');
@@ -652,7 +665,7 @@ test('toolbar Export CSV coexists with Import CSV and preserves filter state', a
       brandId: '3',
       supplierId: '4',
       stockStatus: 'low',
-      inventoryTab: 'low',
+      inventoryTab: 'all',
     },
   ]);
   assert.equal(exportButton.disabled, false);
