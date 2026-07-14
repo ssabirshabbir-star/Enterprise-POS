@@ -448,6 +448,63 @@ async function getRestoreExecutionPolicy() {
   };
 }
 
+async function getRestoreStartupRecoveryAssessment() {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const assessment = await settingsRepository.getRestoreStartupRecoveryAssessment();
+  return {
+    ok: true,
+    ...assessment,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    message: assessment.startupRecovery?.message || 'Restore startup recovery state loaded.',
+  };
+}
+
+async function getRestoreRetentionAssessment(artifactPath = null) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const assessment = await settingsRepository.getRestoreRetentionAssessment({ artifactPath });
+  return {
+    ok: true,
+    ...assessment,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    message: assessment.retention?.reason || 'Restore retention assessment loaded.',
+  };
+}
+
+async function createRestoreFinalConfirmation({
+  operationId,
+  typedPhrase,
+  preflightDigest = null,
+  executionPolicyDigest = null,
+} = {}) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const result = await settingsRepository.createRestoreFinalConfirmation({
+    operationId,
+    ownerUserId: access.profile.id,
+    typedPhrase,
+    preflightDigest,
+    executionPolicyDigest,
+  });
+  return {
+    ...result,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    message:
+      result.message ||
+      'Restore final confirmation assessment completed. Production execution remains unavailable.',
+  };
+}
+
 async function prepareRestoreSafetyBackup(sourcePackagePath, options = {}) {
   const access = await requireSettingsAccess('backup.restore', true);
   if (!access.ok) return access;
@@ -2846,6 +2903,8 @@ module.exports = {
   getRestoreDryRunReport,
   getRestoreExecutionPolicy,
   getRestoreRecoveryState,
+  getRestoreRetentionAssessment,
+  getRestoreStartupRecoveryAssessment,
   getRestoreReadinessDashboard,
   getRestoreGovernanceAssessment,
   assessControlledRestoreEngineFoundation,
@@ -2853,6 +2912,7 @@ module.exports = {
   listRestoreDryRunReports,
   listBackups,
   prepareRestoreSafetyBackup,
+  createRestoreFinalConfirmation,
   saveSettings,
   verifyRestorePackage,
 };

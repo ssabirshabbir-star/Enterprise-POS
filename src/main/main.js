@@ -26,6 +26,7 @@ const { registerDeploymentRoutes } = require('./features/deployment/deployment.c
 const { registerLuckyDrawV2Routes } = require('./features/luckydraw_v2');
 const { initializeSessionStore } = require('./security/session-store');
 const { logError } = require('./utils/safe-logger');
+const settingsRepository = require('./features/settings/settings.repository');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -104,6 +105,15 @@ app.whenReady().then(async () => {
 
   try {
     await initializeDatabase();
+    const recoveryAssessment = await settingsRepository.getRestoreStartupRecoveryAssessment();
+    if (recoveryAssessment.startupRecovery?.maintenanceModeRequired) {
+      startupStatus = {
+        ok: false,
+        message:
+          recoveryAssessment.startupRecovery.message ||
+          'Restore recovery maintenance mode is active. Resolve recovery state before normal POS startup.',
+      };
+    }
   } catch (error) {
     logError('Database initialization failed:', error);
     startupStatus = {

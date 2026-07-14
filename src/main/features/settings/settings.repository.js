@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const { getPool, withTransaction } = require('../../database/connection');
 const restoreExecutionPolicyModel = require('../restore-engine/restore-execution-policy.model');
+const restoreProductionGovernanceModel = require('../restore-engine/restore-production-governance.model');
 const restoreRecoveryStateModel = require('../restore-engine/restore-recovery-state.model');
 const packageJson = require('../../../../package.json');
 
@@ -845,6 +846,19 @@ function operationRowToRecoveryState(row, transitionEvidence = []) {
             filePath: row.safety_backup_path,
             checksum: row.safety_backup_checksum,
             backupLogId: row.safety_backup_log_id,
+        }
+        : null,
+    finalConfirmationReference:
+      row.final_confirmation_id || row.final_confirmation_hash
+        ? {
+            confirmationId: row.final_confirmation_id,
+            confirmationHash: row.final_confirmation_hash,
+            issuedAt: row.final_confirmation_issued_at,
+            expiresAt: row.final_confirmation_expires_at,
+            consumedAt: row.final_confirmation_consumed_at,
+            databaseFingerprint: row.final_confirmation_database_fingerprint,
+            policyDigest: row.final_confirmation_policy_digest,
+            preflightDigest: row.final_confirmation_preflight_digest,
           }
         : null,
     failureCategory: row.failure_category,
@@ -1480,8 +1494,26 @@ async function getRestoreExecutionPolicy() {
   const recoveryState = await getRestoreRecoveryState();
   const activeOperation = await activeRestoreOperation();
   const safety = recoveryState.safetyBackupReference || null;
+  const databaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
   return restoreExecutionPolicyModel.createRestoreExecutionPolicy({
     recoveryState,
+    productionGovernance: {
+      databaseIdentity,
+      startupRecovery: restoreProductionGovernanceModel.assessStartupRecovery(recoveryState),
+      finalConfirmationRequired: true,
+      finalConfirmationPresent: Boolean(recoveryState.finalConfirmationReference?.confirmationId),
+      finalCertificationAssessment:
+        restoreProductionGovernanceModel.createFinalCertificationAssessment({
+          databaseIdentityValid:
+            databaseIdentity.ambiguous !== true &&
+            databaseIdentity.disposableCertificationDatabase !== true,
+          recoveryStartupCertified: true,
+          rollbackCertified: true,
+          retentionPolicyCertified: true,
+          safetyBackupVerified: recoveryState.currentState === 'SAFETY_BACKUP_VERIFIED',
+          operationLockValid: Boolean(activeOperation),
+        }),
+    },
     operationLock: {
       locked: Boolean(activeOperation),
       operationId: activeOperation?.operation_id || recoveryState.operationId,
@@ -1491,6 +1523,160 @@ async function getRestoreExecutionPolicy() {
       safetyBackupReference: safety,
     },
   });
+}
+
+async function createRestoreFinalConfirmation({
+  operationId,
+  ownerUserId,
+  typedPhrase,
+  preflightDigest = null,
+  executionPolicyDigest = null,
+} = {}) {
+  const policy = await getRestoreExecutionPolicy();
+  const databaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
+  return withTransaction(async (client) => {
+    const result = await client.query(
+      `
+        SELECT *
+        FROM restore_operations
+        WHERE operation_id = $1
+        FOR UPDATE
+      `,
+      [operationId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return {
+        ok: false,
+        confirmationCreated: false,
+        message: 'Restore operation was not found.',
+      };
+    }
+    if (String(row.owner_user_id || '') !== String(ownerUserId || '')) {
+      return {
+        ok: false,
+        confirmationCreated: false,
+        message: 'Restore final confirmation owner mismatch.',
+      };
+    }
+    if (row.terminal_at || row.final_confirmation_consumed_at) {
+      return {
+        ok: false,
+        confirmationCreated: false,
+        message: 'Restore final confirmation cannot be created for terminal or consumed operations.',
+      };
+    }
+    const confirmation = restoreProductionGovernanceModel.createConfirmationRecord({
+      operationId,
+      ownerUserId,
+      sourcePackageChecksum: row.source_package_checksum,
+      sourceManifestVersion: row.source_manifest_version,
+      safetyBackupChecksum: row.safety_backup_checksum,
+      databaseIdentity,
+      preflightDigest,
+      executionPolicyDigest: executionPolicyDigest || restoreProductionGovernanceModel.createPolicyDigest(policy),
+      recoveryState: row.state,
+      typedPhrase,
+    });
+    if (!confirmation.ok) {
+      return {
+        ok: false,
+        confirmationCreated: false,
+        blockers: confirmation.blockers,
+        databaseIdentity,
+        message: 'Restore final confirmation is blocked.',
+      };
+    }
+    const updated = await client.query(
+      `
+        UPDATE restore_operations
+        SET
+          final_confirmation_id = $2,
+          final_confirmation_hash = $3,
+          final_confirmation_issued_at = $4,
+          final_confirmation_expires_at = $5,
+          final_confirmation_database_fingerprint = $6,
+          final_confirmation_policy_digest = $7,
+          final_confirmation_preflight_digest = $8,
+          updated_at = NOW()
+        WHERE operation_id = $1
+        RETURNING *
+      `,
+      [
+        operationId,
+        confirmation.confirmationId,
+        confirmation.confirmationHash,
+        confirmation.issuedAt,
+        confirmation.expiresAt,
+        databaseIdentity.fingerprint,
+        confirmation.binding.executionPolicyDigest,
+        confirmation.binding.preflightDigest,
+      ]
+    );
+    await recordRestoreOperationActivity({
+      client,
+      userId: ownerUserId,
+      operationId,
+      action: RESTORE_OPERATION_ACTIVITY,
+      status: 'confirmation_issued',
+      message: 'Durable Restore final confirmation was issued. Production execution remains unavailable.',
+      metadata: {
+        confirmationId: confirmation.confirmationId,
+        confirmationHash: confirmation.confirmationHash,
+        databaseFingerprint: databaseIdentity.fingerprint,
+        expiresAt: confirmation.expiresAt,
+        restoreExecutionAvailable: false,
+      },
+    });
+    return {
+      ok: true,
+      confirmationCreated: true,
+      confirmation: {
+        confirmationId: confirmation.confirmationId,
+        confirmationHash: confirmation.confirmationHash,
+        issuedAt: confirmation.issuedAt,
+        expiresAt: confirmation.expiresAt,
+        databaseFingerprint: databaseIdentity.fingerprint,
+      },
+      recoveryState: operationRowToRecoveryState(updated.rows[0]),
+      executionEligible: false,
+      executionCertified: false,
+      restoreExecutionAvailable: false,
+      message:
+        'Restore final confirmation was recorded, but production Restore execution remains unavailable.',
+    };
+  });
+}
+
+async function getRestoreStartupRecoveryAssessment() {
+  const activeOperation = await activeRestoreOperation();
+  const recoveryState = activeOperation
+    ? operationRowToRecoveryState(
+        activeOperation,
+        await restoreOperationEvidence(activeOperation.operation_id)
+      )
+    : restoreRecoveryStateModel.createIdleRecoveryState();
+  return {
+    ok: true,
+    recoveryState,
+    startupRecovery: restoreProductionGovernanceModel.assessStartupRecovery(recoveryState),
+    noRestoreExecuted: true,
+    restoreExecutionAvailable: false,
+  };
+}
+
+async function getRestoreRetentionAssessment({ artifactPath = null } = {}) {
+  const recoveryState = await getRestoreRecoveryState();
+  return {
+    ok: true,
+    recoveryState,
+    retention: restoreProductionGovernanceModel.classifyRetention({
+      recoveryState,
+      artifactPath: artifactPath || recoveryState.safetyBackupReference?.filePath || '',
+    }),
+    noRestoreExecuted: true,
+    restoreExecutionAvailable: false,
+  };
 }
 
 function backupLogFilters(filters = {}) {
@@ -2544,10 +2730,13 @@ module.exports = {
   assessBackupPreflight,
   acquireRestoreOperationLock,
   cancelRestorePreparation,
+  createRestoreFinalConfirmation,
   exportBackup,
   getSettings,
   getRestoreExecutionPolicy,
   getRestoreRecoveryState,
+  getRestoreRetentionAssessment,
+  getRestoreStartupRecoveryAssessment,
   inspectRestorePackage,
   getRestoreDryRunReport,
   getRestoreReadinessDashboardEvidence,

@@ -74,6 +74,18 @@
     return api().settings.restoreExecutionPolicy();
   }
 
+  async function restoreStartupRecovery() {
+    return api().settings.restoreStartupRecovery();
+  }
+
+  async function restoreRetentionAssessment() {
+    return api().settings.restoreRetentionAssessment({});
+  }
+
+  async function restoreFinalConfirmation(payload) {
+    return api().settings.restoreFinalConfirmation(payload || {});
+  }
+
   async function prepareRestoreSafetyBackup() {
     return api().settings.prepareRestoreSafetyBackup();
   }
@@ -104,7 +116,10 @@
     listDryRunCertificationReports,
     listBackups,
     prepareRestoreSafetyBackup,
+    restoreFinalConfirmation,
     restoreExecutionPolicy,
+    restoreRetentionAssessment,
+    restoreStartupRecovery,
     restoreEngineFoundationAssessment,
     restoreGovernanceAssessment,
     restoreRecoveryState,

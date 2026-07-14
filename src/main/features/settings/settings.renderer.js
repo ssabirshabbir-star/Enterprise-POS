@@ -753,6 +753,12 @@
       ? policy.requiredActions
       : [];
     const safety = policy.safetyBackupReference || recovery.safetyBackupReference || {};
+    const databaseIdentity = policy.databaseIdentity || policy.productionGovernance?.databaseIdentity || {};
+    const startupRecovery = policy.startupRecovery || policy.productionGovernance?.startupRecovery || {};
+    const finalAssessment =
+      policy.finalCertificationAssessment ||
+      policy.productionGovernance?.finalCertificationAssessment ||
+      {};
     const lines = [
       'Restore Execution Policy - Read Only - No Restore Executed',
       `Execution Eligible: ${policy.executionEligible === true ? 'Yes' : 'No'}`,
@@ -766,6 +772,12 @@
       `Safety Backup Required: ${policy.safetyBackupRequired ? 'Yes' : 'No'}`,
       `Safety Backup Verified: ${policy.safetyBackupVerified ? 'Yes' : 'No'}`,
       `Restart Required: ${policy.restartRequired ? 'Yes' : 'No'}`,
+      `Database Identity: ${text(databaseIdentity.host)}:${text(databaseIdentity.port)}/${text(databaseIdentity.database)}`,
+      `Database Fingerprint: ${text(databaseIdentity.fingerprint)}`,
+      `Startup Lockout Required: ${startupRecovery.maintenanceModeRequired ? 'Yes' : 'No'}`,
+      `Final Certification Blockers: ${
+        Array.isArray(finalAssessment.blockers) ? finalAssessment.blockers.length : '-'
+      }`,
       '',
       'Recovery State:',
       `- Operation ID: ${text(recovery.operationId)}`,
@@ -803,6 +815,7 @@
     }
     panel.textContent = lines.join('\n');
     syncRestorePreparationControls(policy);
+    syncRestoreFinalConfirmationControls(policy);
   }
 
   function syncRestorePreparationControls(policy = lastRestorePolicy || {}) {
@@ -823,6 +836,71 @@
       cancel.disabled = restorePreparationBusy || !canCancel;
       cancel.setAttribute('aria-disabled', cancel.disabled ? 'true' : 'false');
     }
+  }
+
+  function syncRestoreFinalConfirmationControls(policy = lastRestorePolicy || {}) {
+    const button = $id('recordRestoreFinalConfirmationButton');
+    const phrase = $id('restoreFinalConfirmationPhrase');
+    const recovery = policy.recoveryState || {};
+    const canRecord =
+      recovery.currentState === 'SAFETY_BACKUP_VERIFIED' &&
+      policy.safetyBackupVerified === true &&
+      policy.restoreExecutionAvailable !== true;
+    if (button) {
+      button.disabled = restorePreparationBusy || !canRecord;
+      button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+    }
+    if (phrase) phrase.disabled = restorePreparationBusy || !canRecord;
+  }
+
+  function renderRestoreStartupRecovery(result = {}) {
+    const panel = $id('restoreStartupRecoveryStatus');
+    if (!panel) return;
+    const recovery = result.startupRecovery || {};
+    panel.textContent = [
+      'Startup Recovery Status - Read Only',
+      `Startup Allowed: ${recovery.startupAllowed ? 'Yes' : 'No'}`,
+      `Maintenance Mode Required: ${recovery.maintenanceModeRequired ? 'Yes' : 'No'}`,
+      `Database Mutations Blocked: ${recovery.databaseMutationsBlocked ? 'Yes' : 'No'}`,
+      `Operation ID: ${text(recovery.operationId)}`,
+      `Current State: ${text(recovery.currentState)}`,
+      `Message: ${text(recovery.message)}`,
+      'Restore Execution: Unavailable',
+    ].join('\n');
+  }
+
+  function renderRestoreRetentionAssessment(result = {}) {
+    const panel = $id('restoreRetentionStatus');
+    if (!panel) return;
+    const retention = result.retention || {};
+    panel.textContent = [
+      'Safety Backup Retention Assessment - Read Only',
+      `Artifact: ${text(retention.artifactPath)}`,
+      `Test Only: ${retention.testOnly ? 'Yes' : 'No'}`,
+      `Terminal Operation: ${retention.terminal ? 'Yes' : 'No'}`,
+      `Dangerous State: ${retention.dangerous ? 'Yes' : 'No'}`,
+      `Cleanup Eligible: ${retention.cleanupEligible ? 'Yes' : 'No'}`,
+      `Retention Days: ${text(retention.retentionDays)}`,
+      `Reason: ${text(retention.reason)}`,
+      'Cleanup Action: Not performed from this screen.',
+    ].join('\n');
+  }
+
+  function renderRestoreFinalConfirmation(result = {}) {
+    const panel = $id('restoreFinalConfirmationStatus');
+    if (!panel) return;
+    const confirmation = result.confirmation || {};
+    const blockers = Array.isArray(result.blockers) ? result.blockers : [];
+    panel.textContent = [
+      'Final Restore Confirmation Evidence',
+      `Recorded: ${result.confirmationCreated ? 'Yes' : 'No'}`,
+      `Confirmation ID: ${text(confirmation.confirmationId)}`,
+      `Expires: ${text(confirmation.expiresAt)}`,
+      `Database Fingerprint: ${text(confirmation.databaseFingerprint)}`,
+      `Execution Available: ${result.restoreExecutionAvailable === true ? 'Yes' : 'No'}`,
+      `Message: ${text(result.message)}`,
+      ...(blockers.length ? ['Blockers:', ...blockers.map((item) => `- ${text(item)}`)] : []),
+    ].join('\n');
   }
 
   function renderRestoreEngineFoundationStatus(result = {}) {
@@ -2056,6 +2134,57 @@
     }
   }
 
+  async function handleRecordRestoreFinalConfirmation() {
+    if (restorePreparationBusy) return;
+    const phrase = $id('restoreFinalConfirmationPhrase')?.value || '';
+    const operationId = lastRestorePolicy?.recoveryState?.operationId || null;
+    restorePreparationBusy = true;
+    syncRestoreFinalConfirmationControls();
+    try {
+      const result = await A().restoreFinalConfirmation({
+        operationId,
+        typedPhrase: phrase,
+        preflightDigest: lastRestorePolicy?.recoveryState?.sourcePackageChecksum || null,
+        executionPolicyDigest:
+          lastRestorePolicy?.productionGovernance?.finalCertificationAssessment?.blockers?.join('|') ||
+          null,
+      });
+      renderRestoreFinalConfirmation(result || {});
+      const policy = await A().restoreExecutionPolicy().catch(() => null);
+      if (policy?.ok) renderRestoreExecutionPolicy(policy);
+      showMessage(
+        result?.message ||
+          'Restore final confirmation assessment completed. Production execution remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Unable to record Restore final confirmation evidence.', 'error');
+    } finally {
+      restorePreparationBusy = false;
+      syncRestoreFinalConfirmationControls();
+    }
+  }
+
+  async function handleRefreshRestoreStartupRecovery() {
+    try {
+      const result = await A().restoreStartupRecovery();
+      renderRestoreStartupRecovery(result || {});
+      showMessage(result?.message || 'Restore startup recovery status refreshed.', result?.ok ? 'success' : 'error');
+    } catch {
+      showMessage('Unable to refresh Restore startup recovery status.', 'error');
+    }
+  }
+
+  async function handleRefreshRestoreRetentionAssessment() {
+    try {
+      const result = await A().restoreRetentionAssessment();
+      renderRestoreRetentionAssessment(result || {});
+      showMessage(result?.message || 'Restore retention status refreshed.', result?.ok ? 'success' : 'error');
+    } catch {
+      showMessage('Unable to refresh Restore retention status.', 'error');
+    }
+  }
+
   async function handleRestoreEngineFoundationAssessment() {
     try {
       const result = await A().restoreEngineFoundationAssessment();
@@ -2281,6 +2410,21 @@
         $id('cancelRestorePreparationButton'),
         'click',
         handleCancelRestorePreparation
+      );
+      addListener(
+        $id('recordRestoreFinalConfirmationButton'),
+        'click',
+        handleRecordRestoreFinalConfirmation
+      );
+      addListener(
+        $id('refreshRestoreStartupRecoveryButton'),
+        'click',
+        handleRefreshRestoreStartupRecovery
+      );
+      addListener(
+        $id('refreshRestoreRetentionButton'),
+        'click',
+        handleRefreshRestoreRetentionAssessment
       );
       addListener(
         $id('restoreEngineFoundationAssessmentButton'),

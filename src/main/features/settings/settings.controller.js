@@ -246,6 +246,35 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/restore-startup-recovery', async () => {
+    try {
+      return await settingsService.getRestoreStartupRecoveryAssessment();
+    } catch (error) {
+      return safeError(error, 'Restore startup recovery assessment error:');
+    }
+  });
+
+  ipcMain.handle('/settings/backups/restore-retention-assessment', async (_event, payload = {}) => {
+    try {
+      return await settingsService.getRestoreRetentionAssessment(payload.artifactPath || null);
+    } catch (error) {
+      return safeError(error, 'Restore retention assessment error:');
+    }
+  });
+
+  ipcMain.handle('/settings/backups/restore-final-confirmation', async (_event, payload = {}) => {
+    try {
+      return await settingsService.createRestoreFinalConfirmation({
+        operationId: payload.operationId || null,
+        typedPhrase: payload.typedPhrase || '',
+        preflightDigest: payload.preflightDigest || null,
+        executionPolicyDigest: payload.executionPolicyDigest || null,
+      });
+    } catch (error) {
+      return safeError(error, 'Restore final confirmation error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/prepare-restore-safety-backup', async (event) => {
     try {
       const result = await dialog.showOpenDialog(windowFromEvent(event), {

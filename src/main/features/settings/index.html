@@ -97,6 +97,32 @@
                 </div>
               </div>
               <div id="restoreExecutionPolicy" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore execution policy will appear here. Execution remains unavailable.</div>
+              <div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p class="font-semibold">Final Restore Confirmation Boundary</p>
+                    <p>Typed confirmation records durable evidence only. Production execution remains unavailable.</p>
+                  </div>
+                  <button id="recordRestoreFinalConfirmationButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Record final confirmation evidence after all governance prerequisites pass.">Record Confirmation</button>
+                </div>
+                <label class="mt-3 block text-sm font-medium" for="restoreFinalConfirmationPhrase">Typed confirmation phrase</label>
+                <input id="restoreFinalConfirmationPhrase" class="mt-1 w-full rounded-md border border-red-200 px-3 py-2 text-sm" placeholder="RESTORE DATABASE" autocomplete="off" />
+              </div>
+              <div id="restoreFinalConfirmationStatus" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Final confirmation has not been recorded. Production Restore execution remains unavailable.</div>
+              <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p class="font-semibold">Startup Recovery and Retention</p>
+                    <p>Read-only recovery lockout and safety-backup retention assessment.</p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button id="refreshRestoreStartupRecoveryButton" type="button" class="epos-btn epos-btn-outline">Refresh Startup Recovery</button>
+                    <button id="refreshRestoreRetentionButton" type="button" class="epos-btn epos-btn-outline">Assess Retention</button>
+                  </div>
+                </div>
+              </div>
+              <div id="restoreStartupRecoveryStatus" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Startup recovery status has not been loaded.</div>
+              <div id="restoreRetentionStatus" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Retention status has not been loaded.</div>
               <div class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>

@@ -224,6 +224,12 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/restore-recovery-state'),
     restoreExecutionPolicy: () =>
       ipcRenderer.invoke('/settings/backups/restore-execution-policy'),
+    restoreStartupRecovery: () =>
+      ipcRenderer.invoke('/settings/backups/restore-startup-recovery'),
+    restoreRetentionAssessment: (payload) =>
+      ipcRenderer.invoke('/settings/backups/restore-retention-assessment', payload),
+    restoreFinalConfirmation: (payload) =>
+      ipcRenderer.invoke('/settings/backups/restore-final-confirmation', payload),
     prepareRestoreSafetyBackup: () =>
       ipcRenderer.invoke('/settings/backups/prepare-restore-safety-backup'),
     cancelRestorePreparation: (payload) =>

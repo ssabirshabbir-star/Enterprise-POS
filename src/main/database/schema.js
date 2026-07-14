@@ -1250,6 +1250,14 @@ async function initializeDatabase() {
         safety_backup_path TEXT,
         safety_backup_checksum VARCHAR(128),
         safety_backup_log_id BIGINT REFERENCES backup_logs(id) ON DELETE SET NULL,
+        final_confirmation_id UUID UNIQUE,
+        final_confirmation_hash VARCHAR(128),
+        final_confirmation_issued_at TIMESTAMPTZ,
+        final_confirmation_expires_at TIMESTAMPTZ,
+        final_confirmation_consumed_at TIMESTAMPTZ,
+        final_confirmation_database_fingerprint VARCHAR(128),
+        final_confirmation_policy_digest VARCHAR(128),
+        final_confirmation_preflight_digest VARCHAR(128),
         failure_category VARCHAR(80),
         sanitized_failure_summary TEXT,
         requires_restart BOOLEAN NOT NULL DEFAULT FALSE,
@@ -1559,6 +1567,33 @@ async function initializeDatabase() {
     );
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_restore_operations_owner_state ON restore_operations (owner_user_id, state, updated_at DESC);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_id UUID UNIQUE;'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_hash VARCHAR(128);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_issued_at TIMESTAMPTZ;'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_expires_at TIMESTAMPTZ;'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_consumed_at TIMESTAMPTZ;'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_database_fingerprint VARCHAR(128);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_policy_digest VARCHAR(128);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_preflight_digest VARCHAR(128);'
+    );
+    await client.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_restore_operations_final_confirmation_id ON restore_operations (final_confirmation_id) WHERE final_confirmation_id IS NOT NULL;'
     );
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_restore_operations_one_unresolved

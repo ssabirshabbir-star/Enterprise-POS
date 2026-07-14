@@ -25,6 +25,7 @@ function createRestoreExecutionPolicy({
   authorization = null,
   databaseHealth = null,
   operationLock = null,
+  productionGovernance = null,
 } = {}) {
   const state = recoveryStateModel.normalizeRecoveryState(recoveryState);
   const blockers = [];
@@ -123,6 +124,38 @@ function createRestoreExecutionPolicy({
     ),
     blocker('rollback.required', 'Rollback and manual recovery procedures are not certified.')
   );
+  if (productionGovernance?.databaseIdentity?.ambiguous) {
+    blockers.push(
+      blocker(
+        'database_identity.ambiguous',
+        'Production database identity is ambiguous and cannot be used for Restore confirmation.'
+      )
+    );
+  }
+  if (productionGovernance?.databaseIdentity?.disposableCertificationDatabase) {
+    blockers.push(
+      blocker(
+        'database_identity.disposable',
+        'The configured database resolves to a disposable certification database and cannot be used for production Restore.'
+      )
+    );
+  }
+  if (productionGovernance?.finalConfirmationRequired) {
+    blockers.push(
+      blocker(
+        'final_confirmation.required',
+        'Durable final confirmation is required before production Restore can be considered.'
+      )
+    );
+  }
+  if (productionGovernance?.startupRecovery?.maintenanceModeRequired) {
+    blockers.push(
+      blocker(
+        'startup_recovery.maintenance_required',
+        'Startup recovery state requires maintenance lockout before normal operation.'
+      )
+    );
+  }
   if (state.currentState !== recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED) {
     blockers.push(
       blocker(
@@ -170,6 +203,10 @@ function createRestoreExecutionPolicy({
     authorizationStatus: authorization?.authorizationStatus || 'not_assessed',
     operationLockStatus: operationLock?.locked ? 'locked' : 'available_for_assessment_only',
     operationLock: operationLock || { locked: false },
+    productionGovernance: productionGovernance || null,
+    databaseIdentity: productionGovernance?.databaseIdentity || null,
+    startupRecovery: productionGovernance?.startupRecovery || null,
+    finalCertificationAssessment: productionGovernance?.finalCertificationAssessment || null,
     noRestoreExecuted: true,
     readOnly: true,
     message:
