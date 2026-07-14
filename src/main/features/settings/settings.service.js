@@ -448,6 +448,45 @@ async function getRestoreExecutionPolicy() {
   };
 }
 
+async function prepareRestoreSafetyBackup(sourcePackagePath, options = {}) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const result = await settingsRepository.prepareRestoreSafetyBackup({
+    sourcePackagePath,
+    ownerUserId: access.profile.id,
+    recoveryRoot: options.recoveryRoot || null,
+  });
+  return {
+    ...result,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    message:
+      result.message ||
+      'Restore safety preparation completed. Restore execution remains unavailable.',
+  };
+}
+
+async function cancelRestorePreparation(operationId = null) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const result = await settingsRepository.cancelRestorePreparation({
+    operationId,
+    ownerUserId: access.profile.id,
+  });
+  return {
+    ...result,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    restoreExecutionAvailable: false,
+    message:
+      result.message ||
+      'Restore safety preparation cancellation completed. Restore execution remains unavailable.',
+  };
+}
+
 function governanceItem(name, status, evidence) {
   return { name, status, evidence };
 }
@@ -2799,6 +2838,7 @@ module.exports = {
   assessBackupPreflight,
   assessRestoreEligibility,
   assessRestoreAuthorization,
+  cancelRestorePreparation,
   createBackup,
   generateRestoreDryRunCertificationReport,
   getSettings,
@@ -2812,6 +2852,7 @@ module.exports = {
   assessRestoreTransactionFoundation,
   listRestoreDryRunReports,
   listBackups,
+  prepareRestoreSafetyBackup,
   saveSettings,
   verifyRestorePackage,
 };

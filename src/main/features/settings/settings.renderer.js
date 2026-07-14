@@ -5,6 +5,8 @@
   const listeners = [];
   let reportSearchTimer = null;
   let backupSearchTimer = null;
+  let restorePreparationBusy = false;
+  let lastRestorePolicy = null;
   const dryRunReportState = {
     search: '',
     status: 'all',
@@ -743,12 +745,14 @@
     const panel = $id('restoreExecutionPolicy');
     if (!panel) return;
     const policy = result.policy || result;
+    lastRestorePolicy = policy;
     const recovery = policy.recoveryState || {};
     const blockers = Array.isArray(policy.blockers) ? policy.blockers : [];
     const warnings = Array.isArray(policy.warnings) ? policy.warnings : [];
     const requiredActions = Array.isArray(policy.requiredActions)
       ? policy.requiredActions
       : [];
+    const safety = policy.safetyBackupReference || recovery.safetyBackupReference || {};
     const lines = [
       'Restore Execution Policy - Read Only - No Restore Executed',
       `Execution Eligible: ${policy.executionEligible === true ? 'Yes' : 'No'}`,
@@ -760,6 +764,7 @@
       `Database Health: ${text(policy.databaseHealth)}`,
       `Rollback Capability: ${text(policy.rollbackCapability)}`,
       `Safety Backup Required: ${policy.safetyBackupRequired ? 'Yes' : 'No'}`,
+      `Safety Backup Verified: ${policy.safetyBackupVerified ? 'Yes' : 'No'}`,
       `Restart Required: ${policy.restartRequired ? 'Yes' : 'No'}`,
       '',
       'Recovery State:',
@@ -769,6 +774,16 @@
       `- Active Operation: ${recovery.activeOperation ? 'Yes' : 'No'}`,
       `- Rollback Required: ${recovery.rollbackRequired ? 'Yes' : 'No'}`,
     ];
+    if (safety && Object.keys(safety).length) {
+      lines.push(
+        '',
+        'Safety Backup Reference:',
+        `- Backup ID: ${text(safety.safetyBackupId)}`,
+        `- Backup Log ID: ${text(safety.backupLogId)}`,
+        `- Checksum: ${text(safety.checksum)}`,
+        `- Path: ${text(safety.filePath)}`
+      );
+    }
     if (blockers.length) {
       lines.push(
         '',
@@ -787,6 +802,27 @@
       lines.push('', 'Warnings:', ...warnings.map((item) => `- ${text(item.message)}`));
     }
     panel.textContent = lines.join('\n');
+    syncRestorePreparationControls(policy);
+  }
+
+  function syncRestorePreparationControls(policy = lastRestorePolicy || {}) {
+    const prepare = $id('prepareRestoreSafetyBackupButton');
+    const cancel = $id('cancelRestorePreparationButton');
+    const recovery = policy.recoveryState || {};
+    const active = recovery.activeOperation === true;
+    const canCancel =
+      active &&
+      ['PREFLIGHT_READY', 'SAFETY_BACKUP_VERIFIED', 'FAILED_RECOVERABLE'].includes(
+        recovery.currentState
+      );
+    if (prepare) {
+      prepare.disabled = restorePreparationBusy || active;
+      prepare.setAttribute('aria-disabled', prepare.disabled ? 'true' : 'false');
+    }
+    if (cancel) {
+      cancel.disabled = restorePreparationBusy || !canCancel;
+      cancel.setAttribute('aria-disabled', cancel.disabled ? 'true' : 'false');
+    }
   }
 
   function renderRestoreEngineFoundationStatus(result = {}) {
@@ -1963,6 +1999,63 @@
     }
   }
 
+  async function handlePrepareRestoreSafetyBackup() {
+    if (restorePreparationBusy) return;
+    restorePreparationBusy = true;
+    syncRestorePreparationControls();
+    try {
+      const result = await A().prepareRestoreSafetyBackup();
+      renderRestoreResult({
+        ok: result?.ok === true,
+        restoreExecuted: false,
+        rolledBack: false,
+        message:
+          result?.message ||
+          'Restore safety preparation completed. Restore execution remains unavailable.',
+      });
+      if (result?.recoveryState) renderRestoreExecutionPolicy({ policy: { recoveryState: result.recoveryState } });
+      const policy = await A().restoreExecutionPolicy().catch(() => null);
+      if (policy?.ok) renderRestoreExecutionPolicy(policy);
+      if (result?.ok) {
+        showMessage(
+          'Pre-Restore safety backup verified. Restore execution remains unavailable.',
+          'success'
+        );
+        handleRefreshBackups(1).catch(() => {});
+        return;
+      }
+      showMessage(result?.message || 'Restore safety preparation did not complete.', 'error');
+    } catch {
+      showMessage('Restore safety preparation failed. Restore execution remains unavailable.', 'error');
+    } finally {
+      restorePreparationBusy = false;
+      syncRestorePreparationControls();
+    }
+  }
+
+  async function handleCancelRestorePreparation() {
+    if (restorePreparationBusy) return;
+    const operationId = lastRestorePolicy?.recoveryState?.operationId || null;
+    restorePreparationBusy = true;
+    syncRestorePreparationControls();
+    try {
+      const result = await A().cancelRestorePreparation(operationId);
+      if (result?.recoveryState) renderRestoreExecutionPolicy({ policy: { recoveryState: result.recoveryState } });
+      const policy = await A().restoreExecutionPolicy().catch(() => null);
+      if (policy?.ok) renderRestoreExecutionPolicy(policy);
+      showMessage(
+        result?.message ||
+          'Restore safety preparation cancellation completed. Restore execution remains unavailable.',
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage('Unable to cancel Restore safety preparation.', 'error');
+    } finally {
+      restorePreparationBusy = false;
+      syncRestorePreparationControls();
+    }
+  }
+
   async function handleRestoreEngineFoundationAssessment() {
     try {
       const result = await A().restoreEngineFoundationAssessment();
@@ -2178,6 +2271,16 @@
         $id('refreshRestoreExecutionPolicyButton'),
         'click',
         handleRefreshRestoreExecutionPolicy
+      );
+      addListener(
+        $id('prepareRestoreSafetyBackupButton'),
+        'click',
+        handlePrepareRestoreSafetyBackup
+      );
+      addListener(
+        $id('cancelRestorePreparationButton'),
+        'click',
+        handleCancelRestorePreparation
       );
       addListener(
         $id('restoreEngineFoundationAssessmentButton'),

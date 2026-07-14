@@ -74,6 +74,14 @@
     return api().settings.restoreExecutionPolicy();
   }
 
+  async function prepareRestoreSafetyBackup() {
+    return api().settings.prepareRestoreSafetyBackup();
+  }
+
+  async function cancelRestorePreparation(operationId) {
+    return api().settings.cancelRestorePreparation({ operationId: operationId || null });
+  }
+
   async function restoreEngineFoundationAssessment() {
     return api().settings.restoreEngineFoundationAssessment();
   }
@@ -87,6 +95,7 @@
     assessRestoreEligibility,
     assessRestoreAuthorization,
     appInfo,
+    cancelRestorePreparation,
     createBackup,
     dryRunCertificationReport,
     getDryRunCertificationReport,
@@ -94,6 +103,7 @@
     inspectRestorePackage,
     listDryRunCertificationReports,
     listBackups,
+    prepareRestoreSafetyBackup,
     restoreExecutionPolicy,
     restoreEngineFoundationAssessment,
     restoreGovernanceAssessment,

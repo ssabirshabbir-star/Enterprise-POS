@@ -1236,6 +1236,47 @@ async function initializeDatabase() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS restore_operations (
+        id BIGSERIAL PRIMARY KEY,
+        operation_id UUID NOT NULL UNIQUE,
+        owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        source_backup_id UUID,
+        source_package_fingerprint VARCHAR(128),
+        source_package_checksum VARCHAR(128),
+        source_manifest_version VARCHAR(40),
+        state VARCHAR(60) NOT NULL,
+        previous_state VARCHAR(60),
+        safety_backup_id UUID,
+        safety_backup_path TEXT,
+        safety_backup_checksum VARCHAR(128),
+        safety_backup_log_id BIGINT REFERENCES backup_logs(id) ON DELETE SET NULL,
+        failure_category VARCHAR(80),
+        sanitized_failure_summary TEXT,
+        requires_restart BOOLEAN NOT NULL DEFAULT FALSE,
+        requires_rollback BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        terminal_at TIMESTAMPTZ,
+        CHECK (state IN (
+          'IDLE',
+          'PREFLIGHT_READY',
+          'SAFETY_BACKUP_IN_PROGRESS',
+          'SAFETY_BACKUP_VERIFIED',
+          'RESTORE_IN_PROGRESS',
+          'RESTORE_APPLIED',
+          'POST_RESTORE_VERIFYING',
+          'COMPLETED',
+          'CANCELLED',
+          'FAILED_RECOVERABLE',
+          'FAILED_ROLLBACK_REQUIRED',
+          'ROLLBACK_IN_PROGRESS',
+          'ROLLED_BACK',
+          'MANUAL_RECOVERY_REQUIRED'
+        ))
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS device_registrations (
         id BIGSERIAL PRIMARY KEY,
         machine_id VARCHAR(128) UNIQUE NOT NULL,
@@ -1513,6 +1554,28 @@ async function initializeDatabase() {
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_backup_logs_created_at ON backup_logs (created_at DESC);'
     );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_restore_operations_operation_id ON restore_operations (operation_id);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_restore_operations_owner_state ON restore_operations (owner_user_id, state, updated_at DESC);'
+    );
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_restore_operations_one_unresolved
+      ON restore_operations ((true))
+      WHERE terminal_at IS NULL
+        AND state IN (
+          'PREFLIGHT_READY',
+          'SAFETY_BACKUP_IN_PROGRESS',
+          'SAFETY_BACKUP_VERIFIED',
+          'RESTORE_IN_PROGRESS',
+          'RESTORE_APPLIED',
+          'POST_RESTORE_VERIFYING',
+          'FAILED_RECOVERABLE',
+          'FAILED_ROLLBACK_REQUIRED',
+          'ROLLBACK_IN_PROGRESS'
+        );
+    `);
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_device_registrations_machine_id ON device_registrations (machine_id);'
     );

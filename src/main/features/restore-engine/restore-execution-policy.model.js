@@ -48,7 +48,28 @@ function createRestoreExecutionPolicy({
     blockers.push(
       blocker('operation_lock.active', 'A Restore operation lock is active.', {
         operationId: operationLock.operationId || null,
+        ownerUserId: operationLock.ownerUserId || null,
+        currentState: operationLock.currentState || null,
       })
+    );
+  }
+
+  if (state.currentState === recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED) {
+    warnings.push(
+      warning(
+        'safety_backup.verified',
+        'A pre-Restore safety backup has been verified, but Restore execution remains uncertified.',
+        {
+          operationId: state.operationId,
+          safetyBackupReference: state.safetyBackupReference || null,
+        }
+      )
+    );
+    requiredActions.push(
+      action(
+        'certify_execution_boundary',
+        'Complete Restore execution, rollback, runtime recovery, and restart certification before enabling execution.'
+      )
     );
   }
 
@@ -97,15 +118,19 @@ function createRestoreExecutionPolicy({
       'Restore execution activation is not certified in this phase.'
     ),
     blocker(
-      'safety_backup.required',
-      'A verified pre-Restore safety backup is mandatory before any future execution.'
-    ),
-    blocker(
       'runtime_recovery.required',
       'Runtime recovery, session invalidation, and restart behavior are not certified.'
     ),
     blocker('rollback.required', 'Rollback and manual recovery procedures are not certified.')
   );
+  if (state.currentState !== recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED) {
+    blockers.push(
+      blocker(
+        'safety_backup.required',
+        'A verified pre-Restore safety backup is mandatory before any future execution.'
+      )
+    );
+  }
 
   warnings.push(
     warning(
@@ -128,12 +153,23 @@ function createRestoreExecutionPolicy({
     requiredActions,
     recoveryState: state,
     safetyBackupRequired: true,
+    safetyBackupVerified:
+      state.currentState === recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+    safetyBackupReference: state.safetyBackupReference || null,
+    preparationEligible:
+      !state.unresolvedRecoveryState &&
+      (!operationLock || operationLock.locked !== true) &&
+      packageVerification?.verificationStatus === 'passed' &&
+      packageEligibility?.eligibilityStatus === 'eligible_for_authorization' &&
+      authorization?.authorizationStatus === 'authorization_assessment_passed' &&
+      databaseHealth?.status === 'healthy',
     restartRequired: true,
     rollbackCapability: 'not_certified',
     packageCompatibility: packageEligibility?.eligibilityStatus || 'not_assessed',
     databaseHealth: databaseHealth?.status || 'not_verified',
     authorizationStatus: authorization?.authorizationStatus || 'not_assessed',
     operationLockStatus: operationLock?.locked ? 'locked' : 'available_for_assessment_only',
+    operationLock: operationLock || { locked: false },
     noRestoreExecuted: true,
     readOnly: true,
     message:

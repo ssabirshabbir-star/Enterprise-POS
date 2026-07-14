@@ -325,6 +325,25 @@ const BACKUP_COVERAGE_POLICY = {
 };
 const BACKUP_TABLES = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name);
 const RESTORE_RECOVERY_ACTIVITY = 'backup.restore.recovery_state';
+const RESTORE_OPERATION_ACTIVITY = 'backup.restore.operation';
+const RESTORE_SAFETY_BACKUP_ACTIVITY = 'backup.restore.safety_backup';
+const RESTORE_OPERATION_UNRESOLVED_STATES = Object.freeze([
+  'PREFLIGHT_READY',
+  'SAFETY_BACKUP_IN_PROGRESS',
+  'SAFETY_BACKUP_VERIFIED',
+  'RESTORE_IN_PROGRESS',
+  'RESTORE_APPLIED',
+  'POST_RESTORE_VERIFYING',
+  'FAILED_RECOVERABLE',
+  'FAILED_ROLLBACK_REQUIRED',
+  'ROLLBACK_IN_PROGRESS',
+]);
+const RESTORE_OPERATION_TERMINAL_STATES = Object.freeze([
+  'COMPLETED',
+  'CANCELLED',
+  'ROLLED_BACK',
+  'MANUAL_RECOVERY_REQUIRED',
+]);
 
 // ─── R2-B: Restore Execution Constants ─────────────────────────────────────
 // These are used only by executeRestoreBackup below.
@@ -359,8 +378,67 @@ function hashValue(value) {
   return crypto.createHash(INTEGRITY_ALGORITHM).update(stableStringify(value)).digest('hex');
 }
 
+async function hashFile(filePath) {
+  const buffer = await fs.readFile(filePath);
+  return crypto.createHash(INTEGRITY_ALGORITHM).update(buffer).digest('hex');
+}
+
 function createBackupId() {
   return crypto.randomUUID();
+}
+
+function sanitizePathSegment(value) {
+  return String(value || '')
+    .replace(/[^a-z0-9_-]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
+function safeTimestamp(date = new Date()) {
+  return date.toISOString().replace(/[:.]/g, '-');
+}
+
+async function ensureInsideDirectory(rootDirectory, targetPath) {
+  const root = path.resolve(rootDirectory);
+  const target = path.resolve(targetPath);
+  const relative = path.relative(root, target);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Recovery backup path escaped the approved storage directory.');
+  }
+  return target;
+}
+
+async function resolveRecoveryBackupDirectory({ recoveryRoot = null } = {}) {
+  const configuredRoot =
+    recoveryRoot ||
+    process.env.ENTERPRISE_POS_RESTORE_RECOVERY_DIR ||
+    path.join(os.homedir(), 'AppData', 'Roaming', 'Enterprise POS');
+  const recoveryDirectory = path.resolve(
+    configuredRoot,
+    'backups',
+    'recovery'
+  );
+  await fs.mkdir(recoveryDirectory, { recursive: true });
+  const stat = await fs.lstat(recoveryDirectory);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error('Approved recovery backup directory is not a normal directory.');
+  }
+  return recoveryDirectory;
+}
+
+async function createSafetyBackupPath({ operationId, recoveryRoot = null, now = new Date() } = {}) {
+  const recoveryDirectory = await resolveRecoveryBackupDirectory({ recoveryRoot });
+  const shortOperationId = sanitizePathSegment(operationId).slice(0, 12) || 'restore-op';
+  const baseName = `restore-safety-backup-${shortOperationId}-${safeTimestamp(now)}.json`;
+  const targetPath = await ensureInsideDirectory(recoveryDirectory, path.join(recoveryDirectory, baseName));
+  try {
+    await fs.access(targetPath);
+    throw new Error('Generated safety backup path already exists.');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  return targetPath;
 }
 
 async function databaseVersion() {
@@ -737,7 +815,100 @@ function recoveryStateFromActivity(row) {
   });
 }
 
+function operationRowToRecoveryState(row, transitionEvidence = []) {
+  if (!row) return restoreRecoveryStateModel.createIdleRecoveryState();
+  return restoreRecoveryStateModel.normalizeRecoveryState({
+    operationId: row.operation_id,
+    ownerUserId: row.owner_user_id,
+    sourceBackupId: row.source_backup_id,
+    sourcePackageFingerprint: row.source_package_fingerprint,
+    sourcePackageChecksum: row.source_package_checksum,
+    sourceManifestVersion: row.source_manifest_version,
+    currentState: row.state,
+    previousState: row.previous_state,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    safetyBackupReference:
+      row.safety_backup_id || row.safety_backup_path || row.safety_backup_checksum
+        ? {
+            safetyBackupId: row.safety_backup_id,
+            filePath: row.safety_backup_path,
+            checksum: row.safety_backup_checksum,
+            backupLogId: row.safety_backup_log_id,
+          }
+        : null,
+    failureCategory: row.failure_category,
+    sanitizedFailureSummary: row.sanitized_failure_summary,
+    replayStatus: row.terminal_at ? 'terminal' : 'not_replayed',
+    rollbackRequired: row.requires_rollback === true,
+    restartRequired: row.requires_restart === true,
+    completionMarker: row.terminal_at ? `${row.state}:${row.terminal_at}` : null,
+    transitionEvidence,
+  });
+}
+
+async function latestRestoreOperation(client = null) {
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT *
+      FROM restore_operations
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1
+    `
+  );
+  return result.rows[0] || null;
+}
+
+async function activeRestoreOperation(client = null) {
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT *
+      FROM restore_operations
+      WHERE terminal_at IS NULL
+        AND state = ANY($1::text[])
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1
+    `,
+    [RESTORE_OPERATION_UNRESOLVED_STATES]
+  );
+  return result.rows[0] || null;
+}
+
+async function restoreOperationEvidence(operationId, client = null) {
+  if (!operationId) return [];
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT id, action, status, message, metadata, created_at
+      FROM activity_logs
+      WHERE action IN ($1, $2, $3)
+        AND metadata->>'operationId' = $4
+      ORDER BY created_at ASC, id ASC
+    `,
+    [
+      RESTORE_RECOVERY_ACTIVITY,
+      RESTORE_OPERATION_ACTIVITY,
+      RESTORE_SAFETY_BACKUP_ACTIVITY,
+      String(operationId),
+    ]
+  );
+  return result.rows.map((row) => ({
+    activityLogId: row.id,
+    action: row.action,
+    status: row.status,
+    message: row.message,
+    createdAt: row.created_at,
+  }));
+}
+
 async function getRestoreRecoveryState() {
+  const operation = (await activeRestoreOperation()) || (await latestRestoreOperation());
+  if (operation) {
+    const evidence = await restoreOperationEvidence(operation.operation_id);
+    return operationRowToRecoveryState(operation, evidence);
+  }
   const result = await getPool().query(
     `
       SELECT id, action, status, message, metadata, created_at
@@ -749,6 +920,469 @@ async function getRestoreRecoveryState() {
     [RESTORE_RECOVERY_ACTIVITY]
   );
   return recoveryStateFromActivity(result.rows[0]);
+}
+
+function isTerminalRestoreState(state) {
+  return RESTORE_OPERATION_TERMINAL_STATES.includes(state);
+}
+
+async function recordRestoreOperationActivity({
+  client,
+  userId = null,
+  operationId,
+  action = RESTORE_OPERATION_ACTIVITY,
+  status = 'recorded',
+  message,
+  metadata = {},
+}) {
+  await client.query(
+    `
+      INSERT INTO activity_logs (user_id, action, status, message, metadata)
+      VALUES ($1, $2, $3, $4, $5::jsonb)
+    `,
+    [
+      userId,
+      action,
+      status,
+      message || 'Restore operation lifecycle event recorded.',
+      JSON.stringify({ ...metadata, operationId }),
+    ]
+  );
+}
+
+async function acquireRestoreOperationLock({
+  ownerUserId,
+  sourceBackupId = null,
+  sourcePackageFingerprint = null,
+  sourcePackageChecksum = null,
+  sourceManifestVersion = null,
+} = {}) {
+  if (!ownerUserId) {
+    return {
+      ok: false,
+      lockAcquired: false,
+      message: 'Restore preparation requires an authenticated owner.',
+    };
+  }
+
+  return withTransaction(async (client) => {
+    const existing = await activeRestoreOperation(client);
+    if (existing) {
+      return {
+        ok: false,
+        lockAcquired: false,
+        recoveryState: operationRowToRecoveryState(
+          existing,
+          await restoreOperationEvidence(existing.operation_id, client)
+        ),
+        message: 'An unresolved Restore preparation operation already exists.',
+      };
+    }
+
+    const operationId = restoreRecoveryStateModel.createOperationId();
+    const insert = await client.query(
+      `
+        INSERT INTO restore_operations (
+          operation_id,
+          owner_user_id,
+          source_backup_id,
+          source_package_fingerprint,
+          source_package_checksum,
+          source_manifest_version,
+          state,
+          previous_state
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, 'PREFLIGHT_READY', 'IDLE')
+        RETURNING *
+      `,
+      [
+        operationId,
+        ownerUserId,
+        sourceBackupId,
+        sourcePackageFingerprint,
+        sourcePackageChecksum,
+        sourceManifestVersion,
+      ]
+    );
+    const row = insert.rows[0];
+    await recordRestoreOperationActivity({
+      client,
+      userId: ownerUserId,
+      operationId,
+      status: 'locked',
+      message: 'Exclusive Restore preparation lock acquired.',
+      metadata: {
+        state: row.state,
+        sourceBackupId,
+        sourcePackageFingerprint,
+        sourceManifestVersion,
+        noRestoreExecuted: true,
+      },
+    });
+    return {
+      ok: true,
+      lockAcquired: true,
+      operationId,
+      recoveryState: operationRowToRecoveryState(row, await restoreOperationEvidence(operationId, client)),
+      message: 'Exclusive Restore preparation lock acquired.',
+    };
+  }).catch(async (error) => {
+    if (error && error.code === '23505') {
+      const existing = await activeRestoreOperation().catch(() => null);
+      return {
+        ok: false,
+        lockAcquired: false,
+        recoveryState: existing ? operationRowToRecoveryState(existing) : null,
+        message: 'A concurrent Restore preparation request acquired the lock first.',
+      };
+    }
+    throw error;
+  });
+}
+
+async function transitionRestoreOperation({
+  operationId,
+  requestedByUserId,
+  nextState,
+  safetyBackupReference = null,
+  failureCategory = null,
+  failureSummary = null,
+  replayStatus = 'not_replayed',
+} = {}) {
+  return withTransaction(async (client) => {
+    const result = await client.query(
+      `
+        SELECT *
+        FROM restore_operations
+        WHERE operation_id = $1
+        FOR UPDATE
+      `,
+      [operationId]
+    );
+    const currentRow = result.rows[0];
+    if (!currentRow) {
+      return {
+        ok: false,
+        transitionRecorded: false,
+        message: 'Restore preparation operation was not found.',
+      };
+    }
+    const validation = restoreRecoveryStateModel.validateTransition({
+      currentState: currentRow.state,
+      nextState,
+      ownerUserId: currentRow.owner_user_id,
+      requestedByUserId,
+    });
+    if (!validation.transitionAllowed) {
+      return {
+        ok: false,
+        transitionRecorded: false,
+        validation,
+        recoveryState: operationRowToRecoveryState(currentRow),
+        message: 'Restore recovery transition rejected.',
+      };
+    }
+    const sanitizedFailureSummary = restoreRecoveryStateModel.sanitizeFailureSummary(failureSummary);
+    const terminal = isTerminalRestoreState(nextState);
+    const safety = safetyBackupReference || {};
+    const updated = await client.query(
+      `
+        UPDATE restore_operations
+        SET
+          previous_state = state,
+          state = $2,
+          safety_backup_id = COALESCE($3, safety_backup_id),
+          safety_backup_path = COALESCE($4, safety_backup_path),
+          safety_backup_checksum = COALESCE($5, safety_backup_checksum),
+          safety_backup_log_id = COALESCE($6, safety_backup_log_id),
+          failure_category = $7,
+          sanitized_failure_summary = $8,
+          requires_restart = requires_restart OR $9,
+          requires_rollback = requires_rollback OR $10,
+          updated_at = NOW(),
+          terminal_at = CASE WHEN $11 THEN NOW() ELSE terminal_at END
+        WHERE operation_id = $1
+        RETURNING *
+      `,
+      [
+        operationId,
+        nextState,
+        safety.safetyBackupId || null,
+        safety.filePath || null,
+        safety.checksum || null,
+        safety.backupLogId || null,
+        failureCategory || null,
+        sanitizedFailureSummary || null,
+        nextState === 'RESTORE_APPLIED' || nextState === 'POST_RESTORE_VERIFYING',
+        nextState === 'FAILED_ROLLBACK_REQUIRED' || nextState === 'ROLLBACK_IN_PROGRESS',
+        terminal,
+      ]
+    );
+    await recordRestoreOperationActivity({
+      client,
+      userId: requestedByUserId || currentRow.owner_user_id,
+      operationId,
+      action: RESTORE_RECOVERY_ACTIVITY,
+      status: terminal ? 'terminal' : 'recorded',
+      message: `Restore recovery state transitioned from ${currentRow.state} to ${nextState}.`,
+      metadata: {
+        previousState: currentRow.state,
+        currentState: nextState,
+        safetyBackupReference,
+        failureCategory,
+        sanitizedFailureSummary,
+        replayStatus,
+        noRestoreExecuted: true,
+        restoreExecutionAvailable: false,
+      },
+    });
+    const row = updated.rows[0];
+    return {
+      ok: true,
+      transitionRecorded: true,
+      validation,
+      recoveryState: operationRowToRecoveryState(
+        row,
+        await restoreOperationEvidence(operationId, client)
+      ),
+      message: 'Restore recovery transition recorded.',
+    };
+  });
+}
+
+async function assessDatabaseHealthForRestorePreparation() {
+  try {
+    const result = await getPool().query('SELECT 1 AS ok');
+    return {
+      status: result.rows[0]?.ok === 1 ? 'healthy' : 'unhealthy',
+      checkedAt: new Date().toISOString(),
+      message: 'Database health check completed for Restore safety preparation.',
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      checkedAt: new Date().toISOString(),
+      message: 'Database health check failed for Restore safety preparation.',
+      sanitizedFailureSummary: restoreRecoveryStateModel.sanitizeFailureSummary(error.message),
+    };
+  }
+}
+
+async function markRestorePreparationFailure({
+  operationId,
+  ownerUserId,
+  failureCategory,
+  failureSummary,
+} = {}) {
+  if (!operationId) return null;
+  return transitionRestoreOperation({
+    operationId,
+    requestedByUserId: ownerUserId,
+    nextState: restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.FAILED_RECOVERABLE,
+    failureCategory,
+    failureSummary,
+    replayStatus: 'blocked',
+  }).catch(() => null);
+}
+
+async function prepareRestoreSafetyBackup({
+  sourcePackagePath,
+  ownerUserId,
+  recoveryRoot = null,
+} = {}) {
+  const selectedPath = String(sourcePackagePath || '').trim();
+  if (!selectedPath) {
+    return {
+      ok: false,
+      preparationStarted: false,
+      message: 'A verified backup package must be selected before safety preparation.',
+    };
+  }
+
+  const verification = await verifyRestorePackage(selectedPath);
+  if (verification.verificationStatus !== 'passed') {
+    return {
+      ok: false,
+      preparationStarted: false,
+      packageVerification: verification,
+      message: 'Safety preparation blocked because package verification did not pass.',
+    };
+  }
+
+  const eligibility = await assessRestoreEligibility(selectedPath);
+  if (eligibility.eligibilityStatus !== 'eligible_for_authorization') {
+    return {
+      ok: false,
+      preparationStarted: false,
+      packageVerification: verification,
+      packageEligibility: eligibility,
+      message: 'Safety preparation blocked because package eligibility did not pass.',
+    };
+  }
+
+  const databaseHealth = await assessDatabaseHealthForRestorePreparation();
+  if (databaseHealth.status !== 'healthy') {
+    return {
+      ok: false,
+      preparationStarted: false,
+      packageVerification: verification,
+      packageEligibility: eligibility,
+      databaseHealth,
+      message: 'Safety preparation blocked because database health did not pass.',
+    };
+  }
+
+  const summary = verification.summary || {};
+  const sourcePackageChecksum = await hashFile(selectedPath);
+  const lock = await acquireRestoreOperationLock({
+    ownerUserId,
+    sourceBackupId: summary.backupId || null,
+    sourcePackageFingerprint: sourcePackageChecksum,
+    sourcePackageChecksum,
+    sourceManifestVersion: summary.manifestVersion || null,
+  });
+  if (!lock.ok) {
+    return {
+      ok: false,
+      preparationStarted: false,
+      packageVerification: verification,
+      packageEligibility: eligibility,
+      databaseHealth,
+      ...lock,
+    };
+  }
+
+  const operationId = lock.operationId;
+  let targetPath = null;
+  try {
+    const inProgress = await transitionRestoreOperation({
+      operationId,
+      requestedByUserId: ownerUserId,
+      nextState: restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_IN_PROGRESS,
+    });
+    if (!inProgress.ok) return inProgress;
+
+    targetPath = await createSafetyBackupPath({ operationId, recoveryRoot });
+    const safetyBackup = await exportBackup(targetPath, ownerUserId);
+    const safetyBackupChecksum = await hashFile(targetPath);
+    const safetyBackupVerification = await verifyRestorePackage(targetPath);
+    if (safetyBackupVerification.verificationStatus !== 'passed') {
+      await markRestorePreparationFailure({
+        operationId,
+        ownerUserId,
+        failureCategory: 'safety_backup_verification_failed',
+        failureSummary: safetyBackupVerification.message,
+      });
+      return {
+        ok: false,
+        preparationStarted: true,
+        operationId,
+        safetyBackup: {
+          filePath: targetPath,
+          checksum: safetyBackupChecksum,
+          verificationStatus: safetyBackupVerification.verificationStatus,
+        },
+        message:
+          'Safety backup was created but failed verification. Restore execution remains unavailable.',
+      };
+    }
+
+    await withTransaction(async (client) => {
+      await recordRestoreOperationActivity({
+        client,
+        userId: ownerUserId,
+        operationId,
+        action: RESTORE_SAFETY_BACKUP_ACTIVITY,
+        status: 'verified',
+        message: 'Pre-Restore safety backup created and verified.',
+        metadata: {
+          safetyBackupId: safetyBackup.backupId,
+          safetyBackupLogId: safetyBackup.logId,
+          safetyBackupFileName: safetyBackup.fileName,
+          safetyBackupChecksum,
+          verificationStatus: safetyBackupVerification.verificationStatus,
+          noRestoreExecuted: true,
+        },
+      });
+    });
+
+    const transition = await transitionRestoreOperation({
+      operationId,
+      requestedByUserId: ownerUserId,
+      nextState: restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+      safetyBackupReference: {
+        safetyBackupId: safetyBackup.backupId,
+        filePath: targetPath,
+        checksum: safetyBackupChecksum,
+        backupLogId: safetyBackup.logId,
+      },
+    });
+
+    return {
+      ok: true,
+      preparationStarted: true,
+      safetyBackupVerified: true,
+      noRestoreExecuted: true,
+      restoreExecutionAvailable: false,
+      operationId,
+      recoveryState: transition.recoveryState,
+      packageVerification: verification,
+      packageEligibility: eligibility,
+      databaseHealth,
+      safetyBackup: {
+        safetyBackupId: safetyBackup.backupId,
+        fileName: safetyBackup.fileName,
+        filePath: targetPath,
+        checksum: safetyBackupChecksum,
+        backupLogId: safetyBackup.logId,
+        verificationStatus: safetyBackupVerification.verificationStatus,
+      },
+      message:
+        'Pre-Restore safety backup is verified. Restore execution remains unavailable in this phase.',
+    };
+  } catch (error) {
+    await markRestorePreparationFailure({
+      operationId,
+      ownerUserId,
+      failureCategory: 'safety_backup_preparation_failed',
+      failureSummary: error.message,
+    });
+    return {
+      ok: false,
+      preparationStarted: true,
+      operationId,
+      safetyBackupPath: targetPath,
+      message:
+        'Pre-Restore safety backup preparation failed. Restore execution remains unavailable.',
+      failureSummary: restoreRecoveryStateModel.sanitizeFailureSummary(error.message),
+    };
+  }
+}
+
+async function cancelRestorePreparation({ operationId, ownerUserId } = {}) {
+  const selectedOperationId = operationId || (await activeRestoreOperation())?.operation_id;
+  if (!selectedOperationId) {
+    return {
+      ok: false,
+      cancelled: false,
+      message: 'No active Restore preparation operation is available to cancel.',
+    };
+  }
+  const transition = await transitionRestoreOperation({
+    operationId: selectedOperationId,
+    requestedByUserId: ownerUserId,
+    nextState: restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.CANCELLED,
+    replayStatus: 'cancelled',
+  });
+  return {
+    ...transition,
+    cancelled: transition.ok === true,
+    noRestoreExecuted: true,
+    restoreExecutionAvailable: false,
+    message: transition.ok
+      ? 'Restore safety preparation was cancelled. No Restore was executed.'
+      : transition.message,
+  };
 }
 
 async function recordRestoreRecoveryTransition({
@@ -834,11 +1468,17 @@ async function recordRestoreRecoveryTransition({
 
 async function getRestoreExecutionPolicy() {
   const recoveryState = await getRestoreRecoveryState();
+  const activeOperation = await activeRestoreOperation();
+  const safety = recoveryState.safetyBackupReference || null;
   return restoreExecutionPolicyModel.createRestoreExecutionPolicy({
     recoveryState,
     operationLock: {
-      locked: recoveryState.activeOperation === true,
-      operationId: recoveryState.operationId,
+      locked: Boolean(activeOperation),
+      operationId: activeOperation?.operation_id || recoveryState.operationId,
+      ownerUserId: activeOperation?.owner_user_id || recoveryState.ownerUserId,
+      currentState: activeOperation?.state || recoveryState.currentState,
+      safetyBackupVerified: recoveryState.currentState === 'SAFETY_BACKUP_VERIFIED',
+      safetyBackupReference: safety,
     },
   });
 }
@@ -1892,6 +2532,8 @@ async function executeRestoreBackup(filePath, acknowledgementText, userId) {
 module.exports = {
   assessRestoreEligibility,
   assessBackupPreflight,
+  acquireRestoreOperationLock,
+  cancelRestorePreparation,
   exportBackup,
   getSettings,
   getRestoreExecutionPolicy,
@@ -1900,8 +2542,10 @@ module.exports = {
   getRestoreDryRunReport,
   getRestoreReadinessDashboardEvidence,
   listRestoreDryRunReports,
+  prepareRestoreSafetyBackup,
   recordRestoreRecoveryTransition,
   listBackupLogs,
   saveSettings,
+  transitionRestoreOperation,
   verifyRestorePackage,
 };

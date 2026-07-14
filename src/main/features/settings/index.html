@@ -89,7 +89,11 @@
                     <p class="font-semibold">Restore Recovery Policy</p>
                     <p>Read Only Recovery-State and Execution-Policy Assessment — No Restore Executed.</p>
                   </div>
-                  <button id="refreshRestoreExecutionPolicyButton" type="button" class="epos-btn epos-btn-outline" title="Refresh read-only Restore recovery-state and execution-policy evidence.">Refresh Policy</button>
+                  <div class="flex flex-wrap gap-2">
+                    <button id="prepareRestoreSafetyBackupButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Create an application-controlled safety backup before any future Restore execution certification.">Prepare Safety Backup</button>
+                    <button id="cancelRestorePreparationButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Cancel an active Restore safety preparation before Restore execution exists.">Cancel Preparation</button>
+                    <button id="refreshRestoreExecutionPolicyButton" type="button" class="epos-btn epos-btn-outline" title="Refresh read-only Restore recovery-state and execution-policy evidence.">Refresh Policy</button>
+                  </div>
                 </div>
               </div>
               <div id="restoreExecutionPolicy" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore execution policy will appear here. Execution remains unavailable.</div>

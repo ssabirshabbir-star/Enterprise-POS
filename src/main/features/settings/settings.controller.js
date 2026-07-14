@@ -246,6 +246,38 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/prepare-restore-safety-backup', async (event) => {
+    try {
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Prepare Restore Safety Backup',
+        properties: ['openFile'],
+        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return {
+          ok: false,
+          preparationStarted: false,
+          noRestoreExecuted: true,
+          restoreExecutionAvailable: false,
+          message: 'Restore safety preparation cancelled. No safety backup was created.',
+        };
+      }
+      return await settingsService.prepareRestoreSafetyBackup(result.filePaths[0], {
+        recoveryRoot: app.getPath('userData'),
+      });
+    } catch (error) {
+      return safeError(error, 'Restore safety backup preparation error:');
+    }
+  });
+
+  ipcMain.handle('/settings/backups/cancel-restore-preparation', async (_event, payload = {}) => {
+    try {
+      return await settingsService.cancelRestorePreparation(payload.operationId || null);
+    } catch (error) {
+      return safeError(error, 'Restore preparation cancellation error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore-engine-foundation-assessment', async () => {
     try {
       return await settingsService.assessControlledRestoreEngineFoundation();
