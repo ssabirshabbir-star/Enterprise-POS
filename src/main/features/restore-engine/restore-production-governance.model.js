@@ -16,6 +16,11 @@ const DANGEROUS_STARTUP_STATES = Object.freeze([
   recoveryModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED,
 ]);
 
+const MUTATION_BLOCKING_STATES = Object.freeze([
+  recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_IN_PROGRESS,
+  ...DANGEROUS_STARTUP_STATES,
+]);
+
 function freeze(value) {
   if (!value || typeof value !== 'object') return value;
   Object.values(value).forEach((item) => freeze(item));
@@ -157,17 +162,27 @@ function createConfirmationRecord({
 function assessStartupRecovery(recoveryState = {}) {
   const state = recoveryModel.normalizeRecoveryState(recoveryState);
   const dangerous = DANGEROUS_STARTUP_STATES.includes(state.currentState);
+  const blocksMutations = MUTATION_BLOCKING_STATES.includes(state.currentState);
   const preparationPending =
     state.currentState === recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED;
   return freeze({
     startupAllowed: !dangerous,
+    maintenanceActive: blocksMutations,
     maintenanceModeRequired: dangerous,
     recoveryScreenRequired: dangerous || preparationPending,
-    databaseMutationsBlocked: dangerous,
+    blocksMutations,
+    allowsRecoveryReads: true,
+    databaseMutationsBlocked: blocksMutations,
     currentState: state.currentState,
     operationId: state.operationId,
+    reasonCode: blocksMutations ? 'RESTORE_MAINTENANCE_MODE_ACTIVE' : null,
+    requiresRestart: state.restartRequired,
+    requiresManualRecovery:
+      state.currentState === recoveryModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED,
     message: dangerous
       ? 'Restore recovery state requires maintenance lockout before normal POS startup.'
+      : blocksMutations
+        ? 'Restore safety backup is in progress; database mutations are temporarily blocked.'
       : preparationPending
         ? 'Restore safety preparation is pending; normal startup may continue with Restore execution unavailable.'
         : 'No dangerous Restore recovery state blocks startup.',
@@ -262,6 +277,7 @@ function createFinalCertificationAssessment({
 
 module.exports = {
   DANGEROUS_STARTUP_STATES,
+  MUTATION_BLOCKING_STATES,
   FINAL_CONFIRMATION_PHRASE,
   FINAL_CONFIRMATION_TTL_MS,
   createConfirmationRecord,

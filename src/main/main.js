@@ -27,6 +27,7 @@ const { registerLuckyDrawV2Routes } = require('./features/luckydraw_v2');
 const { initializeSessionStore } = require('./security/session-store');
 const { logError } = require('./utils/safe-logger');
 const settingsRepository = require('./features/settings/settings.repository');
+const { createGuardedIpcMain } = require('./features/restore-engine/restore-maintenance-guard');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -122,26 +123,30 @@ app.whenReady().then(async () => {
     };
   }
 
-  registerAuthRoutes(ipcMain);
-  registerProductRoutes(ipcMain);
-  registerInventoryRoutes(ipcMain);
-  registerPurchaseRoutes(ipcMain);
-  registerPurchaseOrderRoutes(ipcMain);
-  registerBillingRoutes(ipcMain);
-  registerSalesHistoryRoutes(ipcMain);
-  registerPrintingRoutes(ipcMain);
-  registerBarcodeRoutes(ipcMain);
-  registerReportsRoutes(ipcMain);
-  registerDashboardRoutes(ipcMain);
-  registerCustomerRoutes(ipcMain);
-  registerSupplierRoutes(ipcMain);
-  registerReturnRoutes(ipcMain);
-  registerSettingsRoutes(ipcMain);
-  registerSyncRoutes(ipcMain);
-  registerExpenseRoutes(ipcMain);
-  registerAccessControlRoutes(ipcMain);
-  registerDeploymentRoutes(ipcMain, app);
-  registerLuckyDrawV2Routes(ipcMain);
+  const guardedIpcMain = createGuardedIpcMain(ipcMain, {
+    getMaintenanceStatus: () => settingsRepository.getRestoreStartupRecoveryAssessment(),
+  });
+
+  registerAuthRoutes(guardedIpcMain);
+  registerProductRoutes(guardedIpcMain);
+  registerInventoryRoutes(guardedIpcMain);
+  registerPurchaseRoutes(guardedIpcMain);
+  registerPurchaseOrderRoutes(guardedIpcMain);
+  registerBillingRoutes(guardedIpcMain);
+  registerSalesHistoryRoutes(guardedIpcMain);
+  registerPrintingRoutes(guardedIpcMain);
+  registerBarcodeRoutes(guardedIpcMain);
+  registerReportsRoutes(guardedIpcMain);
+  registerDashboardRoutes(guardedIpcMain);
+  registerCustomerRoutes(guardedIpcMain);
+  registerSupplierRoutes(guardedIpcMain);
+  registerReturnRoutes(guardedIpcMain);
+  registerSettingsRoutes(guardedIpcMain);
+  registerSyncRoutes(guardedIpcMain);
+  registerExpenseRoutes(guardedIpcMain);
+  registerAccessControlRoutes(guardedIpcMain);
+  registerDeploymentRoutes(guardedIpcMain, app);
+  registerLuckyDrawV2Routes(guardedIpcMain);
 
   // Open URLs in the system default browser (e.g. WhatsApp web links)
   ipcMain.handle('/shell/open-external', async (_event, url) => {
