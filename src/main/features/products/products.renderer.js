@@ -90,16 +90,19 @@
   const CATALOG_CONFIG = Object.freeze({
     categories: {
       label: 'Category',
+      allLabel: 'All Categories',
       formSelect: 'productCategory',
       filterSelect: 'productCategoryFilter',
     },
     brands: {
       label: 'Brand',
+      allLabel: 'All Brands',
       formSelect: 'productBrand',
       filterSelect: 'productBrandFilter',
     },
     units: {
       label: 'Unit',
+      allLabel: 'All Units',
       formSelect: 'productUnit',
       filterSelect: 'productUnitFilter',
       usesShortName: true,
@@ -118,10 +121,10 @@
     const tab = stockStatus ? 'all' : _currentTab;
 
     return {
-      search: $id('search')?.value?.trim() || '',
-      category: $id('categoryFilter')?.value || '',
-      brand: $id('brandFilter')?.value || '',
-      unit: $id('unitFilter')?.value || '',
+      search: $id(UI.ids.search)?.value?.trim() || '',
+      category: $id(UI.ids.categoryFilter)?.value || '',
+      brand: $id(UI.ids.brandFilter)?.value || '',
+      unit: $id(UI.ids.unitFilter)?.value || '',
       stockStatus,
       tab,
     };
@@ -286,7 +289,7 @@
     if (filterSelect) {
       const saved = filterSelect.value;
       filterSelect.innerHTML =
-        '<option value="">All</option>' +
+        `<option value="">${config.allLabel}</option>` +
         _catalogCache[type]
           .map((item) => `<option value="${item.id}">${esc(item.name)}</option>`)
           .join('');
@@ -727,7 +730,7 @@
     LOG('attachEvents() — runs once per session');
 
     // ── Search with debounce ─────────────────────────────────────────────────
-    $id('search')?.addEventListener('input', () => {
+    $id(UI.ids.search)?.addEventListener('input', () => {
       clearTimeout(_searchTimer);
       _searchTimer = setTimeout(() => refreshProducts(getCurrentFilters()), 300);
     });
@@ -738,7 +741,7 @@
     );
 
     // ── Reset filters ─────────────────────────────────────────────────────────
-    $id('resetFiltersButton')?.addEventListener('click', () => {
+    $id(UI.ids.resetFiltersButton)?.addEventListener('click', () => {
       UI.resetIds.forEach((id) => {
         const el = $id(id);
         if (el) el.value = '';

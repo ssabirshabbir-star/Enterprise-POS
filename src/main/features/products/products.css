@@ -190,7 +190,7 @@
 
   .epos-products-filterbar {
     display: grid;
-    grid-template-columns: minmax(320px, 1fr) minmax(420px, 520px) auto;
+    grid-template-columns: minmax(320px, 1fr) minmax(420px, 519px) auto;
     gap: 6px;
     align-items: center;
     border: 1px solid #edf0fb;

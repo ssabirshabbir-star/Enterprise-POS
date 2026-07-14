@@ -192,6 +192,37 @@ test('Product renderer preserves form state while catalog dialog is used', () =>
   assert.doesNotMatch(saveCatalogBlock, /\$id\('form'\)\?\.reset\(\)/);
 });
 
+test('Product renderer keeps contextual labels for category, brand, and unit filters', () => {
+  const renderer = read(productsRendererPath);
+  const html = read(path.join(root, 'src', 'main', 'features', 'products', 'index.html'));
+  const css = read(path.join(root, 'src', 'main', 'features', 'products', 'products.css'));
+
+  assert.match(html, /id="productCategoryFilter"><option value="">All Categories<\/option>/);
+  assert.match(html, /id="productBrandFilter"><option value="">All Brands<\/option>/);
+  assert.match(html, /id="productUnitFilter"><option value="">All Units<\/option>/);
+
+  assert.match(renderer, /allLabel: 'All Categories'/);
+  assert.match(renderer, /allLabel: 'All Brands'/);
+  assert.match(renderer, /allLabel: 'All Units'/);
+  assert.match(renderer, /<option value="">\$\{config\.allLabel\}<\/option>/);
+  assert.doesNotMatch(renderer, /'<option value="">All<\/option>'/);
+  assert.match(renderer, /search: \$id\(UI\.ids\.search\)/);
+  assert.match(renderer, /category: \$id\(UI\.ids\.categoryFilter\)/);
+  assert.match(renderer, /brand: \$id\(UI\.ids\.brandFilter\)/);
+  assert.match(renderer, /unit: \$id\(UI\.ids\.unitFilter\)/);
+  assert.match(renderer, /\$id\(UI\.ids\.resetFiltersButton\)\?\.addEventListener\('click'/);
+  assert.doesNotMatch(renderer, /\$id\('categoryFilter'\)/);
+  assert.doesNotMatch(renderer, /\$id\('brandFilter'\)/);
+  assert.doesNotMatch(renderer, /\$id\('unitFilter'\)/);
+  assert.doesNotMatch(renderer, /\$id\('resetFiltersButton'\)/);
+
+  assert.match(
+    css,
+    /grid-template-columns:\s*minmax\(320px,\s*1fr\)\s*minmax\(420px,\s*519px\)\s*auto;/
+  );
+  assert.match(css, /grid-template-columns:\s*repeat\(3,\s*minmax\(110px,\s*1fr\)\)\s*132px;/);
+});
+
 test('Add and Edit product paths use the same Product Form', () => {
   const renderer = read(productsRendererPath);
 
