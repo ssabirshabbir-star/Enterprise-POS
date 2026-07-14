@@ -87,3 +87,77 @@ test('User Management compact summary layout and table shell contract remain int
   assert.match(renderer, /data-user-action="password"/);
   assert.match(renderer, /data-user-action="status"/);
 });
+
+test('User Management filter row gives search the flexible track and preserves filters', () => {
+  const css = read(cssPath);
+  const html = read(htmlPath);
+
+  const searchIndex = html.indexOf('id="userSearch"');
+  const roleIndex = html.indexOf('id="userRoleFilter"');
+  const statusIndex = html.indexOf('id="userStatusFilter"');
+  const outletIndex = html.indexOf('All Outlets');
+  const departmentIndex = html.indexOf('All Departments');
+  assert(searchIndex > -1);
+  assert(searchIndex < roleIndex);
+  assert(roleIndex < statusIndex);
+  assert(statusIndex < outletIndex);
+  assert(outletIndex < departmentIndex);
+
+  assert.match(
+    css,
+    /\.epos-users-filters\s*{[\s\S]*?grid-template-columns:\s*minmax\(340px, 1fr\) repeat\(4, minmax\(118px, 142px\)\)/
+  );
+  assert.match(html, /<span>Search User<\/span>/);
+  assert.match(html, /<span>Role<\/span>/);
+  assert.match(html, /<span>Status<\/span>/);
+  assert.match(html, /<span>Outlet<\/span>/);
+  assert.match(html, /<span>Department<\/span>/);
+});
+
+test('User Management action toolbar has expanded Roles Import Export sizing contract', () => {
+  const css = read(cssPath);
+  const html = read(htmlPath);
+
+  assert.match(html, /data-user-admin-tab="roles"[^>]*>Roles<\/button>/);
+  assert.match(html, /data-page-tool="users" data-tool-action="import"[^>]*>Import<\/button>/);
+  assert.match(html, /data-page-tool="users" data-tool-action="excel"[^>]*>Export<\/button>/);
+  assert.match(
+    css,
+    /\.epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],\s*\.epos-users-actions \.epos-users-action\[data-page-tool="users"\]\s*{[\s\S]*?min-width:\s*102px;/
+  );
+});
+
+test('User Management table uses one colgroup model and keeps actions inside the table', () => {
+  const html = read(htmlPath);
+  const css = read(cssPath);
+  const renderer = read(rendererPath);
+
+  assert.match(html, /<colgroup>[\s\S]*epos-users-col-actions[\s\S]*<\/colgroup>/);
+  assert.match(css, /\.epos-users-table\s*{[\s\S]*?table-layout:\s*fixed;/);
+  assert.match(
+    css,
+    /\.epos-users-table-wrap\s*{[\s\S]*?overflow-y:\s*auto;[\s\S]*?overflow-x:\s*hidden;/
+  );
+  assert.match(css, /\.epos-users-col-actions\s*{\s*width:\s*17%;\s*}/);
+  assert.match(css, /\.epos-users-row-actions\s*{[\s\S]*?justify-content:\s*flex-end;/);
+  assert.match(css, /\.epos-users-icon-action\s*{[\s\S]*?white-space:\s*nowrap;/);
+  assert.doesNotMatch(css, /width:\s*25px;/);
+
+  assert.match(renderer, /colspan="10"/);
+  assert.match(renderer, /data-user-action="edit"/);
+  assert.match(renderer, /data-user-action="password"/);
+  assert.match(renderer, /data-user-action="status"/);
+});
+
+test('User Management removes only the low-value Outlet table column', () => {
+  const html = read(htmlPath);
+  const renderer = read(rendererPath);
+
+  const headerBlock = html.match(/<thead>[\s\S]*?<\/thead>/)?.[0] || '';
+  assert.doesNotMatch(headerBlock, /<th>Outlet<\/th>/);
+  assert.match(headerBlock, /<th>Department<\/th>/);
+  assert.match(html, /All Outlets/);
+  assert.match(html, /All Departments/);
+  assert.doesNotMatch(renderer, /<td><span class="epos-users-subtext">Main<\/span><\/td>/);
+  assert.match(renderer, /<td><span class="epos-users-subtext">General<\/span><\/td>/);
+});

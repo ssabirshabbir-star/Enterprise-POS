@@ -326,7 +326,7 @@
   function renderEmpty(message) {
     const body = $id('userTableBody');
     if (!body) return;
-    body.innerHTML = `<tr><td colspan="11" class="text-center py-6 text-slate-500">${esc(
+    body.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-500">${esc(
       message
     )}</td></tr>`;
   }
@@ -373,7 +373,6 @@
               </div>
             </td>
             <td><span class="epos-users-role-pill">${esc(user.role || '-')}</span></td>
-            <td><span class="epos-users-subtext">Main</span></td>
             <td><span class="epos-users-subtext">General</span></td>
             <td>
               <strong>${esc(user.phone || '-')}</strong>

@@ -105,7 +105,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 8px;
     border-radius: 18px;
     padding: 8px 10px;
   }
@@ -155,7 +155,7 @@
     flex-wrap: nowrap;
     min-width: 0;
     justify-content: flex-start;
-    gap: 8px;
+    gap: 7px;
   }
 
   .epos-users-action,
@@ -164,11 +164,20 @@
     border: 0;
     border-radius: 9px;
     color: #ffffff;
-    padding: 0 14px;
+    padding: 0 13px;
     font-size: 12px;
     font-weight: 900;
     cursor: pointer;
     box-shadow: 0 12px 22px rgb(49 56 120 / 0.14);
+  }
+
+  .epos-users-actions .epos-users-action {
+    min-width: 92px;
+  }
+
+  .epos-users-actions .epos-users-action[data-user-admin-tab="roles"],
+  .epos-users-actions .epos-users-action[data-page-tool="users"] {
+    min-width: 102px;
   }
 
   .epos-users-action.violet,
@@ -210,7 +219,7 @@
   }
 
   .epos-users-tabs button {
-    min-width: 106px;
+    min-width: 102px;
     min-height: 36px;
     border: 0;
     border-right: 0;
@@ -238,7 +247,7 @@
   }
 
   .epos-users-tabs-secondary button {
-    min-width: 148px;
+    min-width: 146px;
   }
 
   .epos-users-tabs button.epos-users-secondary-tab {
@@ -327,8 +336,8 @@
 
   .epos-users-filters {
     display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: minmax(340px, 1fr) repeat(4, minmax(118px, 142px));
+    gap: 6px;
     padding: 8px 12px;
   }
 
@@ -371,10 +380,22 @@
   .epos-users-table {
     width: 100%;
     min-width: 0;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
   }
+
+  .epos-users-col-select { width: 3%; }
+  .epos-users-col-index { width: 3%; }
+  .epos-users-col-user { width: 18%; }
+  .epos-users-col-role { width: 10%; }
+  .epos-users-col-department { width: 8%; }
+  .epos-users-col-contact { width: 16%; }
+  .epos-users-col-status { width: 7%; }
+  .epos-users-col-date,
+  .epos-users-col-created { width: 9%; }
+  .epos-users-col-actions { width: 17%; }
 
   .epos-users-table thead {
     position: sticky;
@@ -388,7 +409,7 @@
     border: 0 !important;
     background: transparent !important;
     color: var(--app-table-header-text) !important;
-    padding: var(--app-table-header-padding) !important;
+    padding: 0 8px !important;
     text-align: left;
     font-size: 11px !important;
     font-weight: 950 !important;
@@ -401,58 +422,19 @@
     border-bottom: 1px solid #edf0fb;
     background: #ffffff;
     color: #11184d;
-    padding: 6px 10px !important;
+    padding: 6px 8px !important;
     vertical-align: middle;
+    overflow-wrap: anywhere;
   }
 
   .epos-users-table th:nth-child(1),
   .epos-users-table td:nth-child(1) {
-    width: 34px;
     text-align: center;
   }
 
-  .epos-users-table th:nth-child(2),
-  .epos-users-table td:nth-child(2) {
-    width: 38px;
-  }
-
-  .epos-users-table th:nth-child(3),
-  .epos-users-table td:nth-child(3) {
-    width: 18%;
-  }
-
-  .epos-users-table th:nth-child(4),
-  .epos-users-table td:nth-child(4) {
-    width: 12%;
-  }
-
-  .epos-users-table th:nth-child(5),
-  .epos-users-table td:nth-child(5),
-  .epos-users-table th:nth-child(6),
-  .epos-users-table td:nth-child(6) {
-    width: 10%;
-  }
-
-  .epos-users-table th:nth-child(7),
-  .epos-users-table td:nth-child(7) {
-    width: 16%;
-  }
-
-  .epos-users-table th:nth-child(8),
-  .epos-users-table td:nth-child(8) {
-    width: 9%;
-  }
-
-  .epos-users-table th:nth-child(9),
-  .epos-users-table td:nth-child(9),
   .epos-users-table th:nth-child(10),
   .epos-users-table td:nth-child(10) {
-    width: 10%;
-  }
-
-  .epos-users-table th:nth-child(11),
-  .epos-users-table td:nth-child(11) {
-    width: 82px;
+    text-align: right;
   }
 
   .epos-users-user-cell {
@@ -494,9 +476,11 @@
     display: inline-flex;
     align-items: center;
     border-radius: 7px;
-    padding: 6px 9px;
+    padding: 5px 8px;
     font-size: 11px;
     font-weight: 950;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .epos-users-role-pill {
@@ -521,20 +505,26 @@
 
   .epos-users-row-actions {
     display: flex;
-    gap: 6px;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
   }
 
   .epos-users-icon-action {
-    display: inline-grid;
-    width: 25px;
-    height: 25px;
-    place-items: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 25px;
     border: 0;
     border-radius: 7px;
     background: #eef2ff;
     color: #2563eb;
+    padding: 0 6px;
     font-size: 11px;
     font-weight: 950;
+    line-height: 1;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -810,7 +800,7 @@
     }
 
     .epos-users-filters {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(280px, 1fr) repeat(2, minmax(120px, 1fr));
     }
   }
 }
