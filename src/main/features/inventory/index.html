@@ -5,25 +5,25 @@
   <input id="outOfStockOnly" type="checkbox" class="hidden" />
 
   <section class="epos-inventory-stats" aria-label="Inventory summary">
-    <article class="purple">
-      <div><span>Total Products</span><strong id="inventoryStatProducts">0</strong></div>
-      <i>▱</i>
-    </article>
     <article class="blue">
-      <div><span>Total Stock Value</span><strong id="inventoryStatValue">PKR 0.00</strong></div>
-      <i>$</i>
+      <div class="epos-inventory-stat-icon">#</div>
+      <div><span>Total Products</span><strong id="inventoryStatProducts">0</strong><small>Tracked items</small></div>
     </article>
     <article class="green">
-      <div><span>Low Stock Items</span><strong id="inventoryStatLow">0</strong></div>
-      <i>▥</i>
+      <div class="epos-inventory-stat-icon">OK</div>
+      <div><span>In Stock Items</span><strong id="inventoryStatInStock">0</strong><small>Available now</small></div>
     </article>
-    <article class="orange">
-      <div><span>Out of Stock Items</span><strong id="inventoryStatOut">0</strong></div>
-      <i>□</i>
+    <article class="amber">
+      <div class="epos-inventory-stat-icon">!</div>
+      <div><span>Low Stock Items</span><strong id="inventoryStatLow">0</strong><small>Needs reorder</small></div>
     </article>
     <article class="pink">
-      <div><span>Active Variants</span><strong id="inventoryStatVariants">0</strong></div>
-      <i>▰</i>
+      <div class="epos-inventory-stat-icon">0</div>
+      <div><span>Out of Stock</span><strong id="inventoryStatOut">0</strong><small>Unavailable now</small></div>
+    </article>
+    <article class="purple">
+      <div class="epos-inventory-stat-icon">$</div>
+      <div><span>Total Stock Value</span><strong id="inventoryStatValue">PKR 0.00</strong><small>Purchase value</small></div>
     </article>
   </section>
 
@@ -85,10 +85,10 @@
         <colgroup>
           <col style="width: 36px" />
           <col style="width: 54px" />
-          <col />
+          <col style="width: 180px" />
           <col style="width: 88px" />
-          <col style="width: 76px" />
           <col style="width: 92px" />
+          <col style="width: 112px" />
           <col style="width: 86px" />
           <col style="width: 86px" />
           <col style="width: 72px" />

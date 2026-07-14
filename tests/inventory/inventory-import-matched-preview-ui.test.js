@@ -89,9 +89,7 @@ class FakeElement {
         .forEach((item) => this.classList.add(item));
     }
     if (name.startsWith('data-')) {
-      const key = name
-        .slice(5)
-        .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      const key = name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       this.dataset[key] = String(value);
     }
   }
@@ -134,6 +132,10 @@ class FakeElement {
 
   focus() {
     this.ownerDocument.activeElement = this;
+  }
+
+  select() {
+    this.selected = true;
   }
 
   reset() {
@@ -191,6 +193,12 @@ class FakeDocument {
     if (!this.listeners.has(type)) this.listeners.set(type, []);
     this.listeners.get(type).push(listener);
   }
+
+  async dispatchEvent(event) {
+    for (const listener of this.listeners.get(event.type) || []) {
+      await listener(event);
+    }
+  }
 }
 
 function createDom() {
@@ -203,7 +211,7 @@ function createDom() {
     'inventoryStatValue',
     'inventoryStatLow',
     'inventoryStatOut',
-    'inventoryStatVariants',
+    'inventoryStatInStock',
     'inventorySearch',
     'inventoryCategoryFilter',
     'inventoryBrandFilter',
@@ -259,7 +267,10 @@ function createDom() {
   const lowTab = document.createRegisteredElement('inventoryTabLow', 'button');
   lowTab.dataset.inventoryTab = 'low';
 
-  const closeAdjustment = document.createRegisteredElement('closeInventoryAdjustmentButton', 'button');
+  const closeAdjustment = document.createRegisteredElement(
+    'closeInventoryAdjustmentButton',
+    'button'
+  );
   closeAdjustment.dataset.closeInventoryModal = '';
 
   const importButton = document.getElementById('inventoryImportPreviewButton');
@@ -389,7 +400,11 @@ async function loadRenderer(apiOverrides = {}) {
     InventoryApi: createApi(apiOverrides),
     BarcodeDesignerLauncher: { open: () => ({ ok: false, message: 'Unavailable' }) },
     confirm: () => false,
-    location: { reload: () => { throw new Error('reload should not be called'); } },
+    location: {
+      reload: () => {
+        throw new Error('reload should not be called');
+      },
+    },
   };
   const context = {
     window,
@@ -420,9 +435,73 @@ test('matched preview UI contract keeps import preview visible with certified ex
   assert.doesNotMatch(html, /Finalize Import|Commit Import|Import Now/);
 });
 
+test('inventory summary cards follow approved order and keep stock value last', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const css = fs.readFileSync(
+    path.join(repoRoot, 'src/main/features/inventory/inventory.css'),
+    'utf8'
+  );
+  const statsBlock =
+    html.match(/<section class="epos-inventory-stats"[\s\S]*?<\/section>/)?.[0] || '';
+
+  const labels = Array.from(statsBlock.matchAll(/<span>([^<]+)<\/span>/g)).map((match) => match[1]);
+  assert.deepEqual(labels, [
+    'Total Products',
+    'In Stock Items',
+    'Low Stock Items',
+    'Out of Stock',
+    'Total Stock Value',
+  ]);
+  assert.match(statsBlock, /id="inventoryStatInStock"/);
+  assert.doesNotMatch(statsBlock, /inventoryStatVariants|Active Variants/);
+  assert.match(css, /\.epos-inventory-stat-icon/);
+  assert.match(css, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /gap:\s*6px/);
+});
+
+test('inventory table column contract gives long headers enough measured width', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const css = fs.readFileSync(
+    path.join(repoRoot, 'src/main/features/inventory/inventory.css'),
+    'utf8'
+  );
+
+  assert.match(html, /<col style="width: 180px" \/>/);
+  assert.match(html, /<col style="width: 92px" \/>/);
+  assert.match(html, /<col style="width: 112px" \/>/);
+  assert.match(css, /\.epos-inventory-table th:nth-child\(3\),\s*[\s\S]*?width:\s*180px;/);
+  assert.match(css, /\.epos-inventory-table th:nth-child\(5\),\s*[\s\S]*?width:\s*92px;/);
+  assert.match(css, /\.epos-inventory-table th:nth-child\(6\),\s*[\s\S]*?width:\s*112px;/);
+  assert.doesNotMatch(css, /\.epos-inventory-table th\s*{[\s\S]*?text-overflow:\s*ellipsis/);
+});
+
+test('inventory Ctrl+K shortcut focuses and selects the search field once', async () => {
+  const { document } = await loadRenderer();
+  const search = document.getElementById('inventorySearch');
+  let prevented = false;
+
+  await document.dispatchEvent({
+    type: 'keydown',
+    key: 'k',
+    ctrlKey: true,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    preventDefault() {
+      prevented = true;
+    },
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(document.activeElement, search);
+  assert.equal(search.selected, true);
+});
+
 test('toolbar Import CSV launcher exists once, starts CSV selection, and is reusable after success', async () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
-  const launcherMarkup = html.match(/<button\b[^>]*id="inventoryImportPreviewButton"[^>]*>Import CSV<\/button>/)?.[0] || '';
+  const launcherMarkup =
+    html.match(/<button\b[^>]*id="inventoryImportPreviewButton"[^>]*>Import CSV<\/button>/)?.[0] ||
+    '';
   assert.equal((html.match(/id="inventoryImportPreviewButton"/g) || []).length, 1);
   assert.match(launcherMarkup, /type="button"/);
   assert.match(launcherMarkup, />Import CSV<\/button>/);
@@ -433,7 +512,10 @@ test('toolbar Import CSV launcher exists once, starts CSV selection, and is reus
   const { document } = await loadRenderer({
     requestImportPreview: async () => {
       previewCalls += 1;
-      return { ok: true, previewSession: { sessionId: `inventory-import-preview-source-${previewCalls}` } };
+      return {
+        ok: true,
+        previewSession: { sessionId: `inventory-import-preview-source-${previewCalls}` },
+      };
     },
     executeCertifiedImport: async () => {
       executeCalls += 1;
@@ -571,11 +653,11 @@ test('toolbar Export CSV duplicate clicks are guarded and cancel is non-error', 
   await flushAsyncHandlers();
 
   assert.equal(exportButton.disabled, false);
-  assert.equal(document.getElementById('inventoryMessage').textContent, 'Inventory CSV export cancelled.');
-  assert.doesNotMatch(
-    document.getElementById('inventoryMessage').style.cssText,
-    /#fef2f2|#b91c1c/
+  assert.equal(
+    document.getElementById('inventoryMessage').textContent,
+    'Inventory CSV export cancelled.'
   );
+  assert.doesNotMatch(document.getElementById('inventoryMessage').style.cssText, /#fef2f2|#b91c1c/);
 });
 
 test('matched preview workflow selects CSV then analyzes only backend session id', async () => {
@@ -624,12 +706,19 @@ test('matched preview workflow selects CSV then analyzes only backend session id
     },
     createImportCommitPlan: async (...args) => {
       calls.push(['commitPlan', args]);
-      return { ok: true, sessionId: 'inventory-import-commit-plan-123e4567-e89b-42d3-a456-426614174000' };
+      return {
+        ok: true,
+        sessionId: 'inventory-import-commit-plan-123e4567-e89b-42d3-a456-426614174000',
+      };
     },
     createImportExecutionPreflight: async (...args) => {
       calls.push(['preflight', args]);
       const executionPreflight = commitReadyPreflight();
-      return { ok: true, sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174001', executionPreflight };
+      return {
+        ok: true,
+        sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174001',
+        executionPreflight,
+      };
     },
   });
 
@@ -641,11 +730,23 @@ test('matched preview workflow selects CSV then analyzes only backend session id
     ['commitPlan', ['inventory-import-matched-preview-123e4567-e89b-12d3-a456-426614174000']],
     ['preflight', ['inventory-import-commit-plan-123e4567-e89b-42d3-a456-426614174000']],
   ]);
-  assert.equal(document.getElementById('inventoryImportPreviewModal').classList.contains('hidden'), false);
-  assert.match(document.getElementById('inventoryImportPreviewStatus').textContent, /commit-ready/i);
-  assert.equal(document.getElementById('importPreviewFileName').textContent, '<img src=x onerror=alert(1)>.csv');
+  assert.equal(
+    document.getElementById('inventoryImportPreviewModal').classList.contains('hidden'),
+    false
+  );
+  assert.match(
+    document.getElementById('inventoryImportPreviewStatus').textContent,
+    /commit-ready/i
+  );
+  assert.equal(
+    document.getElementById('importPreviewFileName').textContent,
+    '<img src=x onerror=alert(1)>.csv'
+  );
   assert.match(document.getElementById('importPreviewRows').textContent, /<b>Tea<\/b>/);
-  assert.match(document.getElementById('importPreviewRows').textContent, /SKU 000123 \/ Barcode 0999/);
+  assert.match(
+    document.getElementById('importPreviewRows').textContent,
+    /SKU 000123 \/ Barcode 0999/
+  );
   assert.match(document.getElementById('importPreviewRows').textContent, /INFO_MATCHED_BY_SKU/);
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
 });
@@ -664,7 +765,10 @@ test('cancelled CSV selection does not analyze or return an error state', async 
 
   assert.equal(analyzeCalls, 0);
   assert.match(document.getElementById('inventoryImportPreviewStatus').textContent, /cancelled/i);
-  assert.equal(document.getElementById('inventoryImportPreviewStatus').classList.contains('error'), false);
+  assert.equal(
+    document.getElementById('inventoryImportPreviewStatus').classList.contains('error'),
+    false
+  );
 });
 
 test('loading guard prevents duplicate preview requests', async () => {
@@ -698,15 +802,23 @@ test('malformed or expired backend sessions fail closed in the modal', async () 
     /could not be created/i
   );
   assert.equal(
-    missingSession.document.getElementById('inventoryImportPreviewStatus').classList.contains('error'),
+    missingSession.document
+      .getElementById('inventoryImportPreviewStatus')
+      .classList.contains('error'),
     true
   );
 
   const expired = await loadRenderer({
-    analyzeImportPreview: async () => ({ ok: false, code: 'INVENTORY_IMPORT_PREVIEW_SESSION_EXPIRED' }),
+    analyzeImportPreview: async () => ({
+      ok: false,
+      code: 'INVENTORY_IMPORT_PREVIEW_SESSION_EXPIRED',
+    }),
   });
   await expired.document.getElementById('inventoryImportPreviewButton').click();
-  assert.match(expired.document.getElementById('inventoryImportPreviewStatus').textContent, /expired/i);
+  assert.match(
+    expired.document.getElementById('inventoryImportPreviewStatus').textContent,
+    /expired/i
+  );
 });
 
 test('closing preview does not reset inventory filters or reload the inventory list', async () => {
@@ -726,7 +838,10 @@ test('closing preview does not reset inventory filters or reload the inventory l
   assert.equal(document.getElementById('inventorySearch').value, 'tea');
   assert.equal(document.getElementById('inventoryCategoryFilter').value, 'cat-1');
   assert.equal(loadCalls, 1);
-  assert.equal(document.getElementById('inventoryImportPreviewModal').classList.contains('hidden'), true);
+  assert.equal(
+    document.getElementById('inventoryImportPreviewModal').classList.contains('hidden'),
+    true
+  );
 });
 
 test('Phase 5K keeps Import disabled until a commit-ready execution preflight exists', async () => {
@@ -742,7 +857,11 @@ test('Phase 5K keeps Import disabled until a commit-ready execution preflight ex
         },
         rows: [{ currentlyEligible: false }],
       });
-      return { ok: true, sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174001', executionPreflight };
+      return {
+        ok: true,
+        sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174001',
+        executionPreflight,
+      };
     },
   });
 
@@ -750,7 +869,10 @@ test('Phase 5K keeps Import disabled until a commit-ready execution preflight ex
   await document.getElementById('inventoryImportPreviewButton').click();
 
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, true);
-  assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /not currently eligible/i);
+  assert.match(
+    document.getElementById('inventoryImportExecutionStatus').textContent,
+    /not currently eligible/i
+  );
 });
 
 test('Phase 5K accepts production execution preflight summary shape and enables Import', async () => {
@@ -764,7 +886,10 @@ test('Phase 5K accepts production execution preflight summary shape and enables 
   assert.match(summaryText, /Products to create1/);
   assert.match(summaryText, /Opening stock1/);
   assert.match(summaryText, /No stock action0/);
-  assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /ready for final confirmation/i);
+  assert.match(
+    document.getElementById('inventoryImportExecutionStatus').textContent,
+    /ready for final confirmation/i
+  );
 });
 
 test('Phase 5K fails closed when commit-ready preflight is missing certified execution evidence', async () => {
@@ -784,8 +909,14 @@ test('Phase 5K fails closed when commit-ready preflight is missing certified exe
     },
   });
   await missingContract.document.getElementById('inventoryImportPreviewButton').click();
-  assert.equal(missingContract.document.getElementById('executeInventoryImportButton').disabled, true);
-  assert.match(missingContract.document.getElementById('inventoryImportExecutionStatus').textContent, /not currently eligible/i);
+  assert.equal(
+    missingContract.document.getElementById('executeInventoryImportButton').disabled,
+    true
+  );
+  assert.match(
+    missingContract.document.getElementById('inventoryImportExecutionStatus').textContent,
+    /not currently eligible/i
+  );
 
   const missingSummary = await loadRenderer({
     createImportExecutionPreflight: async () => {
@@ -803,11 +934,16 @@ test('Phase 5K fails closed when commit-ready preflight is missing certified exe
     },
   });
   await missingSummary.document.getElementById('inventoryImportPreviewButton').click();
-  assert.equal(missingSummary.document.getElementById('executeInventoryImportButton').disabled, true);
+  assert.equal(
+    missingSummary.document.getElementById('executeInventoryImportButton').disabled,
+    true
+  );
 
   const malformedSummary = await loadRenderer({
     createImportExecutionPreflight: async () => {
-      const executionPreflight = commitReadyPreflight({ summary: { totalRows: '1', blockedRows: 0 } });
+      const executionPreflight = commitReadyPreflight({
+        summary: { totalRows: '1', blockedRows: 0 },
+      });
       return {
         ok: true,
         sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174003',
@@ -820,7 +956,10 @@ test('Phase 5K fails closed when commit-ready preflight is missing certified exe
     },
   });
   await malformedSummary.document.getElementById('inventoryImportPreviewButton').click();
-  assert.equal(malformedSummary.document.getElementById('executeInventoryImportButton').disabled, true);
+  assert.equal(
+    malformedSummary.document.getElementById('executeInventoryImportButton').disabled,
+    true
+  );
 });
 
 test('Phase 5K confirmation cancel sends no execution request and confirmed execution sends strict digest payload once', async () => {
@@ -845,8 +984,14 @@ test('Phase 5K confirmation cancel sends no execution request and confirmed exec
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
 
   await document.getElementById('executeInventoryImportButton').click();
-  assert.equal(document.getElementById('inventoryImportExecutionConfirmModal').classList.contains('hidden'), false);
-  assert.match(document.getElementById('inventoryImportExecutionConfirmSummary').textContent, /Products to create1/);
+  assert.equal(
+    document.getElementById('inventoryImportExecutionConfirmModal').classList.contains('hidden'),
+    false
+  );
+  assert.match(
+    document.getElementById('inventoryImportExecutionConfirmSummary').textContent,
+    /Products to create1/
+  );
   await document.getElementById('cancelImportExecutionButton').click();
   assert.equal(executeCalls.length, 0);
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
@@ -861,7 +1006,11 @@ test('Phase 5K confirmation cancel sends no execution request and confirmed exec
       expectedContractDigest: DIGEST_B,
     },
   ]);
-  assert.deepEqual(Object.keys(executeCalls[0]).sort(), ['expectedContractDigest', 'expectedPreflightDigest', 'sessionId']);
+  assert.deepEqual(Object.keys(executeCalls[0]).sort(), [
+    'expectedContractDigest',
+    'expectedPreflightDigest',
+    'sessionId',
+  ]);
   resolveExecution({
     ok: true,
     executionResult: {
@@ -898,7 +1047,8 @@ test('Phase 5K lifecycle warning remains committed success with one refresh and 
       executeCalls.push(payload);
       return {
         ok: true,
-        lifecycleWarning: 'Execution committed, but preflight session cleanup could not be confirmed.',
+        lifecycleWarning:
+          'Execution committed, but preflight session cleanup could not be confirmed.',
         executionResult: {
           databaseWrite: true,
           transactionCommitted: true,
@@ -925,7 +1075,10 @@ test('Phase 5K lifecycle warning remains committed success with one refresh and 
   assert.equal(loadCalls, 2);
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, true);
   assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /committed/i);
-  assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /do not retry/i);
+  assert.match(
+    document.getElementById('inventoryImportExecutionStatus').textContent,
+    /do not retry/i
+  );
 });
 
 test('Phase 5K replay and stale preflight failures clear authority without retry', async () => {
@@ -933,7 +1086,11 @@ test('Phase 5K replay and stale preflight failures clear authority without retry
   const replay = await loadRenderer({
     executeCertifiedImport: async (payload) => {
       replayCalls.push(payload);
-      return { ok: false, code: 'INVENTORY_IMPORT_EXECUTION_REPLAY_CONFLICT', message: 'already committed' };
+      return {
+        ok: false,
+        code: 'INVENTORY_IMPORT_EXECUTION_REPLAY_CONFLICT',
+        message: 'already committed',
+      };
     },
   });
   await replay.document.getElementById('inventoryImportPreviewButton').click();
@@ -941,13 +1098,20 @@ test('Phase 5K replay and stale preflight failures clear authority without retry
   await replay.document.getElementById('confirmImportExecutionButton').click();
   assert.equal(replayCalls.length, 1);
   assert.equal(replay.document.getElementById('executeInventoryImportButton').disabled, true);
-  assert.match(replay.document.getElementById('inventoryImportExecutionStatus').textContent, /already been committed/i);
+  assert.match(
+    replay.document.getElementById('inventoryImportExecutionStatus').textContent,
+    /already been committed/i
+  );
 
   const staleCalls = [];
   const stale = await loadRenderer({
     executeCertifiedImport: async (payload) => {
       staleCalls.push(payload);
-      return { ok: false, code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_NOT_READY', message: 'digest mismatch' };
+      return {
+        ok: false,
+        code: 'INVENTORY_IMPORT_EXECUTION_PREFLIGHT_NOT_READY',
+        message: 'digest mismatch',
+      };
     },
   });
   await stale.document.getElementById('inventoryImportPreviewButton').click();
@@ -955,7 +1119,10 @@ test('Phase 5K replay and stale preflight failures clear authority without retry
   await stale.document.getElementById('confirmImportExecutionButton').click();
   assert.equal(staleCalls.length, 1);
   assert.equal(stale.document.getElementById('executeInventoryImportButton').disabled, true);
-  assert.match(stale.document.getElementById('inventoryImportExecutionStatus').textContent, /no longer valid/i);
+  assert.match(
+    stale.document.getElementById('inventoryImportExecutionStatus').textContent,
+    /no longer valid/i
+  );
 });
 
 test('Phase 5K uncommitted transaction failure does not refresh or automatically retry', async () => {
@@ -968,7 +1135,11 @@ test('Phase 5K uncommitted transaction failure does not refresh or automatically
     },
     executeCertifiedImport: async (payload) => {
       executeCalls.push(payload);
-      return { ok: false, code: 'INVENTORY_IMPORT_EXECUTION_FAILED', message: 'Inventory import execution failed safely.' };
+      return {
+        ok: false,
+        code: 'INVENTORY_IMPORT_EXECUTION_FAILED',
+        message: 'Inventory import execution failed safely.',
+      };
     },
   });
 
@@ -979,7 +1150,10 @@ test('Phase 5K uncommitted transaction failure does not refresh or automatically
   assert.equal(executeCalls.length, 1);
   assert.equal(loadCalls, 1);
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
-  assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /failed safely/i);
+  assert.match(
+    document.getElementById('inventoryImportExecutionStatus').textContent,
+    /failed safely/i
+  );
 });
 
 test('renderer source preserves backend authority boundary for certified execution', () => {
@@ -990,5 +1164,8 @@ test('renderer source preserves backend authority boundary for certified executi
   assert.doesNotMatch(source, /ownerId|userId|permissions|warehouseId|productIds/);
   assert.doesNotMatch(source, /commitImport|finalizeImport|executeImport/);
   assert.match(source, /executeCertifiedImport\(request\)/);
-  assert.doesNotMatch(source, /productAction:\s*|stockAction:\s*|openingQuantity:\s*|quantity:\s*|actorId:\s*|ownerId:\s*|role:\s*|permissions:\s*/);
+  assert.doesNotMatch(
+    source,
+    /productAction:\s*|stockAction:\s*|openingQuantity:\s*|quantity:\s*|actorId:\s*|ownerId:\s*|role:\s*|permissions:\s*/
+  );
 });

@@ -103,10 +103,11 @@
         Number(x.currentStock || 0) <= Number(x.minStockLevel || 0)
     ).length;
     const out = items.filter((x) => Number(x.currentStock || 0) <= 0).length;
+    const inStock = items.filter((x) => Number(x.currentStock || 0) > 0).length;
+    set('inventoryStatInStock', inStock);
     set('inventoryStatValue', money(value));
     set('inventoryStatLow', low);
     set('inventoryStatOut', out);
-    set('inventoryStatVariants', items.length); // no variant model — same as total
   }
 
   // ── Filter ────────────────────────────────────────────────────────────────
@@ -162,6 +163,18 @@
       stockStatus: $id('inventoryStockStatusFilter')?.value || '',
       inventoryTab: _currentTab,
     };
+  }
+
+  function focusInventorySearchShortcut(event) {
+    if (!event || String(event.key || '').toLowerCase() !== 'k') return false;
+    if (!event.ctrlKey && !event.metaKey) return false;
+    if (event.altKey || event.shiftKey) return false;
+    const search = $id('inventorySearch');
+    if (!search) return false;
+    event.preventDefault();
+    search.focus();
+    if (typeof search.select === 'function') search.select();
+    return true;
   }
 
   function populateDropdown(selectId, items, labelKey, valKey) {
@@ -344,7 +357,11 @@
     ) {
       return 'bad';
     }
-    if (code === 'DUPLICATE_INPUT' || code === 'INACTIVE_PRODUCT_MATCH' || code === 'INACTIVE_CATALOG_REFERENCE') {
+    if (
+      code === 'DUPLICATE_INPUT' ||
+      code === 'INACTIVE_PRODUCT_MATCH' ||
+      code === 'INACTIVE_CATALOG_REFERENCE'
+    ) {
       return 'warn';
     }
     return 'neutral';
@@ -356,7 +373,9 @@
 
   function rowProductText(row) {
     const normalized = rowNormalized(row);
-    return normalized.productName || row?.matchedProduct?.productName || row?.matchedProduct?.name || '-';
+    return (
+      normalized.productName || row?.matchedProduct?.productName || row?.matchedProduct?.name || '-'
+    );
   }
 
   function rowIdentifierText(row) {
@@ -393,10 +412,19 @@
     clearNode(container);
     const summary = documentModel?.matchingSummary || {};
     const cards = [
-      ['Total rows', importPreviewSummaryValue(summary, ['totalRows', 'rowCount'], documentModel?.rowCount || 0)],
+      [
+        'Total rows',
+        importPreviewSummaryValue(summary, ['totalRows', 'rowCount'], documentModel?.rowCount || 0),
+      ],
       ['Eligible', importPreviewSummaryValue(summary, ['matchingEligibleRows', 'eligibleRows'], 0)],
-      ['Existing matches', importPreviewSummaryValue(summary, ['existingProductCandidates', 'existingProductRows'], 0)],
-      ['Potential new products', importPreviewSummaryValue(summary, ['potentialNewProducts', 'newProductCandidates'], 0)],
+      [
+        'Existing matches',
+        importPreviewSummaryValue(summary, ['existingProductCandidates', 'existingProductRows'], 0),
+      ],
+      [
+        'Potential new products',
+        importPreviewSummaryValue(summary, ['potentialNewProducts', 'newProductCandidates'], 0),
+      ],
       ['Needs review', importPreviewSummaryValue(summary, ['warningCount', 'warningRows'], 0)],
       ['Blocked', importPreviewSummaryValue(summary, ['errorCount', 'blockedRows'], 0)],
     ];
@@ -423,11 +451,19 @@
     }
     rows.forEach((row) => {
       const tr = document.createElement('tr');
-      tr.appendChild(createTextEl('td', 'epos-inventory-import-row-number', row?.sourceRowNumber || '-'));
+      tr.appendChild(
+        createTextEl('td', 'epos-inventory-import-row-number', row?.sourceRowNumber || '-')
+      );
       tr.appendChild(createTextEl('td', '', rowProductText(row)));
       tr.appendChild(createTextEl('td', '', rowIdentifierText(row)));
       const statusCell = document.createElement('td');
-      statusCell.appendChild(createTextEl('span', `epos-inventory-import-status-badge ${importStatusTone(row)}`, importStatusText(row)));
+      statusCell.appendChild(
+        createTextEl(
+          'span',
+          `epos-inventory-import-status-badge ${importStatusTone(row)}`,
+          importStatusText(row)
+        )
+      );
       tr.appendChild(statusCell);
       const findingCell = document.createElement('td');
       const findings = []
@@ -473,7 +509,9 @@
   }
 
   function summaryValue(summary, key, fallbackKeys = []) {
-    const sourceKey = [key, ...fallbackKeys].find((candidate) => summary?.[candidate] !== undefined);
+    const sourceKey = [key, ...fallbackKeys].find(
+      (candidate) => summary?.[candidate] !== undefined
+    );
     const value = Number(summary?.[sourceKey] || 0);
     return Number.isFinite(value) && value >= 0 ? value : 0;
   }
@@ -516,13 +554,13 @@
   function hasCommitReadyExecutionPreflight() {
     return Boolean(
       _executionPreflightSessionId &&
-        _executionPreflightDigest &&
-        _executionPreflightDocument?.commitReady === true &&
-        executionPreflightRows(_executionPreflightDocument).length > 0 &&
-        _executionPreflightGeneration === _importWorkflowGeneration &&
-        !_importPreviewLoading &&
-        !_importExecutionInFlight &&
-        !_importExecutionCommitted
+      _executionPreflightDigest &&
+      _executionPreflightDocument?.commitReady === true &&
+      executionPreflightRows(_executionPreflightDocument).length > 0 &&
+      _executionPreflightGeneration === _importWorkflowGeneration &&
+      !_importPreviewLoading &&
+      !_importExecutionInFlight &&
+      !_importExecutionCommitted
     );
   }
 
@@ -597,7 +635,8 @@
     const contractDigest = preflight?.executionContractDigest || result.executionContractDigest;
     const rows = executionPreflightRows(preflight);
     if (typeof sessionId !== 'string' || !sessionId.trim()) return null;
-    if (typeof preflightDigest !== 'string' || !/^[0-9a-f]{64}$/i.test(preflightDigest)) return null;
+    if (typeof preflightDigest !== 'string' || !/^[0-9a-f]{64}$/i.test(preflightDigest))
+      return null;
     if (typeof contractDigest !== 'string' || !/^[0-9a-f]{64}$/i.test(contractDigest)) return null;
     if (!preflight || preflight.commitReady !== true || !rows.length) return null;
     if (!hasValidExecutionSummary(preflight.summary, rows.length)) return null;
@@ -626,20 +665,26 @@
       return 'You do not currently have permission to execute this import.';
     }
     if (/FAILED|CONFLICT|UNSUPPORTED/i.test(code)) {
-      return result?.message || 'Inventory import execution failed safely. Review the import and try again only if the preflight is still valid.';
+      return (
+        result?.message ||
+        'Inventory import execution failed safely. Review the import and try again only if the preflight is still valid.'
+      );
     }
-    return result?.message || 'Inventory import execution failed safely. Please review the import before trying again.';
+    return (
+      result?.message ||
+      'Inventory import execution failed safely. Please review the import before trying again.'
+    );
   }
 
   function executionSucceeded(result) {
     const executionResult = result?.executionResult || result?.result || result;
     return Boolean(
       result?.ok === true &&
-        executionResult?.transactionCommitted === true &&
-        executionResult?.executionComplete === true &&
-        executionResult?.databaseWrite === true &&
-        executionResult?.batchId != null &&
-        executionResult?.summary
+      executionResult?.transactionCommitted === true &&
+      executionResult?.executionComplete === true &&
+      executionResult?.databaseWrite === true &&
+      executionResult?.batchId != null &&
+      executionResult?.summary
     );
   }
 
@@ -679,7 +724,12 @@
 
   function setImportPreviewLoading(isLoading, text) {
     _importPreviewLoading = Boolean(isLoading);
-    ['inventoryImportPreviewButton', 'restartImportPreviewButton', 'closeImportPreviewButton', 'closeImportPreviewFooterButton'].forEach((id) => {
+    [
+      'inventoryImportPreviewButton',
+      'restartImportPreviewButton',
+      'closeImportPreviewButton',
+      'closeImportPreviewFooterButton',
+    ].forEach((id) => {
       const button = $id(id);
       if (button) button.disabled = _importPreviewLoading;
     });
@@ -725,12 +775,18 @@
   function renderMatchedPreview(documentModel, session) {
     _matchedPreviewDocument = documentModel;
     _matchedPreviewSessionId = session.sessionId;
-    setText('importPreviewFileName', documentModel.sourceBasename || documentModel.sourceFilename || '-');
+    setText(
+      'importPreviewFileName',
+      documentModel.sourceBasename || documentModel.sourceFilename || '-'
+    );
     setText('importPreviewRowCount', documentModel.rowCount ?? documentModel.sourceRowCount ?? 0);
     setText('importPreviewExpiresAt', formatImportDate(session.expiresAt));
     renderImportPreviewSummary(documentModel);
     renderImportPreviewRows(documentModel);
-    setImportPreviewStatus('Matched preview loaded. Preparing certified execution preflight...', false);
+    setImportPreviewStatus(
+      'Matched preview loaded. Preparing certified execution preflight...',
+      false
+    );
   }
 
   async function prepareExecutionPreflightForCurrentMatch(generation) {
@@ -740,7 +796,13 @@
     if (generation !== _importWorkflowGeneration) return;
     const normalizedPlan = normalizeCommitPlanResponse(commitPlan);
     if (!normalizedPlan) {
-      invalidateExecutionAuthority(previewErrorMessage(commitPlan, 'Unable to create an import commit plan. Select the CSV again.'), true);
+      invalidateExecutionAuthority(
+        previewErrorMessage(
+          commitPlan,
+          'Unable to create an import commit plan. Select the CSV again.'
+        ),
+        true
+      );
       return;
     }
     _commitPlanSessionId = normalizedPlan.sessionId;
@@ -749,7 +811,13 @@
     if (generation !== _importWorkflowGeneration) return;
     const normalizedPreflight = normalizeExecutionPreflightResponse(preflight);
     if (!normalizedPreflight) {
-      invalidateExecutionAuthority(previewErrorMessage(preflight, 'This import is not currently eligible for execution. Rebuild the preview after resolving blocked rows.'), true);
+      invalidateExecutionAuthority(
+        previewErrorMessage(
+          preflight,
+          'This import is not currently eligible for execution. Rebuild the preview after resolving blocked rows.'
+        ),
+        true
+      );
       return;
     }
     _executionPreflightSessionId = normalizedPreflight.sessionId;
@@ -759,14 +827,21 @@
     _executionPreflightGeneration = generation;
     _importExecutionCommitted = false;
     renderExecutionSummary(_executionPreflightDocument);
-    setImportPreviewStatus('Certified execution preflight is commit-ready. Review the summary and choose Import to continue.', false);
-    setImportExecutionStatus('Import is ready for final confirmation. No changes occur until you confirm.', false);
+    setImportPreviewStatus(
+      'Certified execution preflight is commit-ready. Review the summary and choose Import to continue.',
+      false
+    );
+    setImportExecutionStatus(
+      'Import is ready for final confirmation. No changes occur until you confirm.',
+      false
+    );
     updateImportExecutionButton();
   }
 
   function previewErrorMessage(result, fallback) {
     const code = result?.code || result?.error?.code || '';
-    if (/EXPIRED|STALE|NOT_FOUND/i.test(code)) return 'Preview expired or unavailable. Select the CSV again.';
+    if (/EXPIRED|STALE|NOT_FOUND/i.test(code))
+      return 'Preview expired or unavailable. Select the CSV again.';
     return result?.message || fallback;
   }
 
@@ -783,7 +858,10 @@
         return;
       }
       if (!preview?.ok) {
-        setImportPreviewStatus(previewErrorMessage(preview, 'Unable to create an import preview.'), true);
+        setImportPreviewStatus(
+          previewErrorMessage(preview, 'Unable to create an import preview.'),
+          true
+        );
         return;
       }
       const previewSessionId = getPreviewSessionId(preview);
@@ -796,7 +874,10 @@
       const matched = await api().analyzeImportPreview(previewSessionId);
       const normalized = normalizeMatchedPreviewResponse(matched);
       if (!normalized) {
-        setImportPreviewStatus(previewErrorMessage(matched, 'Unable to analyze the import preview.'), true);
+        setImportPreviewStatus(
+          previewErrorMessage(matched, 'Unable to analyze the import preview.'),
+          true
+        );
         return;
       }
       renderMatchedPreview(normalized.documentModel, normalized.session);
@@ -817,7 +898,10 @@
 
   function openImportExecutionConfirmation() {
     if (!hasCommitReadyExecutionPreflight()) {
-      setImportExecutionStatus('Import is not ready. Rebuild the certified preflight before importing.', true);
+      setImportExecutionStatus(
+        'Import is not ready. Rebuild the certified preflight before importing.',
+        true
+      );
       updateImportExecutionButton();
       return;
     }
@@ -839,16 +923,25 @@
 
   async function executeConfirmedImport() {
     if (_importExecutionInFlight) return;
-    if (_executionConfirmGeneration !== _importWorkflowGeneration || !hasCommitReadyExecutionPreflight()) {
+    if (
+      _executionConfirmGeneration !== _importWorkflowGeneration ||
+      !hasCommitReadyExecutionPreflight()
+    ) {
       closeImportExecutionConfirmation();
-      setImportExecutionStatus('This import confirmation is stale. Rebuild the certified preflight before importing.', true);
+      setImportExecutionStatus(
+        'This import confirmation is stale. Rebuild the certified preflight before importing.',
+        true
+      );
       updateImportExecutionButton();
       return;
     }
     const request = buildCertifiedExecutionRequest();
     if (!request) {
       closeImportExecutionConfirmation();
-      setImportExecutionStatus('Import is not ready. Rebuild the certified preflight before importing.', true);
+      setImportExecutionStatus(
+        'Import is not ready. Rebuild the certified preflight before importing.',
+        true
+      );
       updateImportExecutionButton();
       return;
     }
@@ -870,7 +963,11 @@
         return;
       }
       const code = result?.code || result?.error?.code || '';
-      if (/REPLAY_CONFLICT|SESSION|EXPIRED|OWNER|DIGEST|CONTRACT|PREFLIGHT|STALE|ACCESS_DENIED|AUTHENTICATION|PERMISSION/i.test(code)) {
+      if (
+        /REPLAY_CONFLICT|SESSION|EXPIRED|OWNER|DIGEST|CONTRACT|PREFLIGHT|STALE|ACCESS_DENIED|AUTHENTICATION|PERMISSION/i.test(
+          code
+        )
+      ) {
         invalidateExecutionAuthority(executionErrorMessage(result), true);
         return;
       }
@@ -882,7 +979,10 @@
       LOG('execute import error:', err);
       _importExecutionInFlight = false;
       closeImportExecutionConfirmation();
-      setImportExecutionStatus('Inventory import execution failed safely. Please try again only after verifying the preflight is still valid.', true);
+      setImportExecutionStatus(
+        'Inventory import execution failed safely. Please try again only after verifying the preflight is still valid.',
+        true
+      );
       updateImportExecutionButton();
     } finally {
       if (confirmButton) confirmButton.disabled = false;
@@ -1077,9 +1177,7 @@
     $id('executeInventoryImportButton')?.addEventListener('click', () =>
       openImportExecutionConfirmation()
     );
-    $id('confirmImportExecutionButton')?.addEventListener('click', () =>
-      executeConfirmedImport()
-    );
+    $id('confirmImportExecutionButton')?.addEventListener('click', () => executeConfirmedImport());
     document
       .querySelectorAll('[data-cancel-import-execution]')
       .forEach((el) => el.addEventListener('click', () => closeImportExecutionConfirmation()));
@@ -1087,6 +1185,7 @@
       .querySelectorAll('[data-close-import-preview]')
       .forEach((el) => el.addEventListener('click', () => closeImportPreviewModal()));
     document.addEventListener('keydown', (event) => {
+      if (focusInventorySearchShortcut(event)) return;
       if (
         event.key === 'Enter' &&
         _executionConfirmGeneration === _importWorkflowGeneration &&
