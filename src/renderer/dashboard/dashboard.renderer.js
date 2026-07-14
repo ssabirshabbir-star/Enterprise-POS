@@ -60,34 +60,12 @@
     $setText('dashboardTodaySales', $money(stats.todaySales));
     $setText('dashboardProfitTotal', $money(stats.totalProfit));
     $setText('dashboardOrderCount', Number(stats.todayOrders || 0).toLocaleString());
-    $setText('dashboardCustomerCount', Number(stats.customerCount || 0).toLocaleString());
     $setText('dashboardLowStockCount', Number(stats.lowStockCount || 0).toLocaleString());
-    $setText('dashboardPurchaseTotal', $money(stats.duePurchases ?? stats.todayPurchases ?? 0));
-    $setText('dashboardProductCount', Number(stats.productCount || 0).toLocaleString());
     $setText('dashboardStockValue', $money(stats.stockValue));
-    $setText('dashboardSupplierCount', Number(stats.supplierCount || 0).toLocaleString());
-    $setText('dashboardExpenseTotal', $money(stats.todayExpenses));
-    $setText('dashboardTodayPurchases', $money(stats.todayPurchases));
     $setText('dashboardReceivableTotal', $money(stats.customerDueTotal));
     $setText('dashboardOutOfStockCount', Number(stats.outOfStockCount || 0).toLocaleString());
-    $setText('dashboardOpenReturns', Number(stats.openReturns || 0).toLocaleString());
-    $setText(
-      'dashboardPendingPurchaseOrders',
-      Number(stats.pendingPurchaseOrders || 0).toLocaleString()
-    );
-    $setText(
-      'dashboardLuckyDrawCount',
-      `${Number(stats.activeLuckyDrawCampaigns || 0).toLocaleString()} / ${Number(stats.luckyDrawCoupons || 0).toLocaleString()}`
-    );
-    $setText('dashboardMiniSales', $money(stats.todaySales));
-    $setText('dashboardMiniProfit', $money(stats.totalProfit));
-    $setText('dashboardMiniOrders', Number(stats.todayOrders || 0).toLocaleString());
-    $setText('dashboardMiniCustomers', Number(stats.customersWithDue || 0).toLocaleString());
     $setText('dashboardReportDate', new Date().toLocaleDateString());
 
-    const avgOrder =
-      stats.todayOrders > 0 ? Number(stats.todaySales || 0) / Number(stats.todayOrders) : 0;
-    $setText('dashboardAverageOrder', $money(avgOrder));
     $setText(
       'dashboardGreeting',
       `Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}, ${currentProfile?.fullName || currentProfile?.username || 'Admin'}`
@@ -131,25 +109,6 @@
             )
             .join('')
         : '<p class="epos-dashboard-empty">No sales data.</p>';
-    }
-
-    const comparison = document.getElementById('dashboardComparisonChart');
-    if (comparison) {
-      const values = [
-        Number(stats.todaySales || 0),
-        Number(stats.weekSales || 0),
-        Number(stats.monthlySales || 0),
-        Number(stats.todayPurchases || 0),
-        Number(stats.todayExpenses || 0),
-      ];
-      const labels = ['Today', 'Week', 'Month', 'Purch', 'Exp'];
-      const max = Math.max(...values, 1);
-      comparison.innerHTML = values
-        .map(
-          (value, index) =>
-            `<span class="epos-dashboard-bar" title="${labels[index]}: ${$money(value)}" style="height:${Math.max(8, Math.round((value / max) * 100))}%"></span>`
-        )
-        .join('');
     }
 
     const topEl = document.getElementById('dashboardTopProducts');

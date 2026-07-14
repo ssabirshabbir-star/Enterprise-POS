@@ -21,7 +21,7 @@
     <article class="green">
       <p>Today's Profit</p>
       <strong id="dashboardProfitTotal">Rs. 0.00</strong>
-      <small>Sales less purchases foundation</small>
+      <small>Gross margin less expenses</small>
       <span>PROF</span>
     </article>
     <article class="orange">
@@ -31,15 +31,15 @@
       <span>ORD</span>
     </article>
     <article class="violet">
-      <p>Total Customers</p>
-      <strong id="dashboardCustomerCount">0</strong>
-      <small id="dashboardCustomerDueLabel">Customer master</small>
+      <p>Receivables Due</p>
+      <strong id="dashboardReceivableTotal">Rs. 0.00</strong>
+      <small>Customer balances</small>
       <span>CUST</span>
     </article>
     <article class="pink">
       <p>Low Stock Items</p>
       <strong id="dashboardLowStockCount">0</strong>
-      <small>Needs attention</small>
+      <small>Out: <span id="dashboardOutOfStockCount">0</span> · Stock: <span id="dashboardStockValue">Rs. 0.00</span></small>
       <span>LOW</span>
     </article>
   </section>
@@ -72,23 +72,7 @@
     </article>
   </section>
 
-  <section class="epos-dashboard-mini-kpis">
-    <article><span>Cart</span><p>Today's Sales</p><strong id="dashboardMiniSales">Rs. 0.00</strong><small>Live database</small></article>
-    <article><span>Bars</span><p>Today's Profit</p><strong id="dashboardMiniProfit">Rs. 0.00</strong><small>Estimated</small></article>
-    <article><span>List</span><p>Today's Orders</p><strong id="dashboardMiniOrders">0</strong><small>Recent invoices</small></article>
-    <article><span>User</span><p>Customer Dues</p><strong id="dashboardMiniCustomers">0</strong><small>Customers with dues</small></article>
-    <article><span>Coin</span><p>Avg. Order Value</p><strong id="dashboardAverageOrder">Rs. 0.00</strong><small>Today</small></article>
-  </section>
-
   <section class="epos-dashboard-grid-bottom">
-    <article class="epos-dashboard-card">
-      <div class="epos-dashboard-card-head">
-        <h3>Sales Comparison</h3>
-        <button type="button" disabled title="Monthly range selector is planned for Phase 2.">This Month</button>
-      </div>
-      <div id="dashboardComparisonChart" class="epos-dashboard-bars"></div>
-    </article>
-
     <article class="epos-dashboard-card">
       <div class="epos-dashboard-card-head">
         <h3>Recent Transactions</h3>
@@ -108,20 +92,6 @@
         <div id="dashboardCategorySales" class="epos-dashboard-legend"></div>
       </div>
     </article>
-  </section>
-
-  <section class="epos-dashboard-bottom-kpis">
-    <article class="blue"><span>STK</span><p>Total Stock Value</p><strong id="dashboardStockValue">Rs. 0.00</strong></article>
-    <article class="blue"><span>PRD</span><p>Total Products</p><strong id="dashboardProductCount">0</strong></article>
-    <article class="cyan"><span>SUP</span><p>Total Suppliers</p><strong id="dashboardSupplierCount">0</strong></article>
-    <article class="orange"><span>EXP</span><p>Today's Expenses</p><strong id="dashboardExpenseTotal">Rs. 0.00</strong></article>
-    <article class="orange"><span>PUR</span><p>Today's Purchases</p><strong id="dashboardTodayPurchases">Rs. 0.00</strong></article>
-    <article class="pink"><span>DUE</span><p>Due Purchases</p><strong id="dashboardPurchaseTotal">Rs. 0.00</strong></article>
-    <article class="green"><span>REC</span><p>Due Receivables</p><strong id="dashboardReceivableTotal">Rs. 0.00</strong></article>
-    <article class="pink"><span>OUT</span><p>Out of Stock</p><strong id="dashboardOutOfStockCount">0</strong></article>
-    <article class="cyan"><span>RET</span><p>Open Returns</p><strong id="dashboardOpenReturns">0</strong></article>
-    <article class="orange"><span>PO</span><p>Pending POs</p><strong id="dashboardPendingPurchaseOrders">0</strong></article>
-    <article class="green"><span>LD</span><p>Lucky Draw</p><strong id="dashboardLuckyDrawCount">0</strong></article>
   </section>
 
   <section class="epos-dashboard-hidden-feeds">
