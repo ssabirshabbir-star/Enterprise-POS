@@ -441,16 +441,16 @@ async function createSafetyBackupPath({ operationId, recoveryRoot = null, now = 
   return targetPath;
 }
 
-async function databaseVersion() {
-  const result = await getPool().query('SELECT version() AS version');
+async function databaseVersion(db = getPool()) {
+  const result = await db.query('SELECT version() AS version');
   return result.rows[0]?.version || 'unknown';
 }
 
-async function collectBackupData() {
+async function collectBackupData(db = getPool()) {
   const data = {};
   const tableEvidence = [];
   for (const table of BACKUP_COVERAGE_POLICY.tables) {
-    const result = await getPool().query(
+    const result = await db.query(
       `SELECT * FROM ${quoteIdentifier(table.name)} ORDER BY 1 ASC`
     );
     data[table.name] = result.rows;
@@ -496,7 +496,7 @@ function createManifest({ backupId, correlationId, createdAt, dataHash, tableEvi
   };
 }
 
-async function createMetadata({ backupId, correlationId, createdAt, userId }) {
+async function createMetadata({ backupId, correlationId, createdAt, userId, db = getPool() }) {
   return {
     backupUuid: backupId,
     createdAt,
@@ -506,7 +506,7 @@ async function createMetadata({ backupId, correlationId, createdAt, userId }) {
     applicationVersion: packageJson.version,
     schemaVersion: SCHEMA_VERSION,
     workflowVersion: BACKUP_WORKFLOW_VERSION,
-    databaseVersion: await databaseVersion(),
+    databaseVersion: await databaseVersion(db),
     edition: 'Desktop POS',
     machine: os.hostname(),
     terminal: null,
@@ -626,13 +626,14 @@ async function saveSettings(payload, userId) {
   return getSettings();
 }
 
-async function exportBackup(filePath, userId) {
+async function exportBackup(filePath, userId, options = {}) {
+  const db = options.pool || getPool();
   const backupId = createBackupId();
   const correlationId = createBackupId();
   const createdAt = new Date().toISOString();
-  const { data, tableEvidence } = await collectBackupData();
+  const { data, tableEvidence } = await collectBackupData(db);
   const dataHash = hashValue(data);
-  const metadata = await createMetadata({ backupId, correlationId, createdAt, userId });
+  const metadata = await createMetadata({ backupId, correlationId, createdAt, userId, db });
   const manifest = createManifest({ backupId, correlationId, createdAt, dataHash, tableEvidence });
 
   const backup = {
@@ -662,6 +663,7 @@ async function exportBackup(filePath, userId) {
     status: 'SUCCESS',
     message: `Certified backup created. ${BACKUP_TABLES.length} tables captured. Restore remains blocked.`,
     userId,
+    db,
   });
   return {
     backupId,
@@ -785,8 +787,16 @@ async function assessBackupPreflight(filePath) {
   };
 }
 
-async function createBackupLog({ fileName, filePath, action, status, message, userId }) {
-  const result = await getPool().query(
+async function createBackupLog({
+  fileName,
+  filePath,
+  action,
+  status,
+  message,
+  userId,
+  db = getPool(),
+}) {
+  const result = await db.query(
     `
       INSERT INTO backup_logs (file_name, file_path, action, status, message, created_by)
       VALUES ($1, $2, $3, $4, $5, $6)
