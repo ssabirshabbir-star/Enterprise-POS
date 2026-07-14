@@ -1,5 +1,15 @@
 const { getPool, withTransaction } = require('../../database/connection');
 
+const APPROVABLE_STATUSES = ['DRAFT', 'PENDING', 'PENDING_APPROVAL'];
+const CANCELLABLE_STATUSES = [
+  'DRAFT',
+  'PENDING',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'SENT_TO_SUPPLIER',
+  'SUPPLIER_CONFIRMED',
+];
+
 function number(value) {
   return Number(value || 0);
 }
@@ -463,6 +473,73 @@ async function updateStatus(id, status, userId, notes = '') {
   return mapOrder(result.rows[0]);
 }
 
+async function approveStatus(id, userId, notes = '', client = getPool()) {
+  await ensureWorkflowColumns(client);
+  const currentResult = await client.query(
+    'SELECT * FROM purchase_orders WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+    [id]
+  );
+  const current = currentResult.rows[0];
+  if (!current) return { ok: false, code: 'PO_NOT_FOUND' };
+  if (!APPROVABLE_STATUSES.includes(current.status)) {
+    return {
+      ok: false,
+      code: current.status === 'APPROVED' ? 'PO_ALREADY_APPROVED' : 'PO_APPROVAL_NOT_ALLOWED',
+      previousStatus: current.status,
+    };
+  }
+  const result = await client.query(
+    `
+      UPDATE purchase_orders
+      SET status = 'APPROVED',
+          approved_by = $2,
+          approved_at = NOW(),
+          approval_notes = $3,
+          updated_at = NOW()
+      WHERE id = $1
+        AND deleted_at IS NULL
+        AND status = ANY($4::varchar[])
+      RETURNING *
+    `,
+    [id, userId || null, notes || null, APPROVABLE_STATUSES]
+  );
+  if (!result.rows[0]) return { ok: false, code: 'PO_APPROVAL_NOT_ALLOWED' };
+  return { ok: true, order: mapOrder(result.rows[0]), previousStatus: current.status };
+}
+
+async function cancelStatusSafely(id, userId, notes = '', client = getPool()) {
+  await ensureWorkflowColumns(client);
+  const currentResult = await client.query(
+    'SELECT * FROM purchase_orders WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+    [id]
+  );
+  const current = currentResult.rows[0];
+  if (!current) return { ok: false, code: 'PO_NOT_FOUND' };
+  if (!CANCELLABLE_STATUSES.includes(current.status)) {
+    return {
+      ok: false,
+      code:
+        current.status === 'CANCELLED' ? 'PO_ALREADY_CANCELLED' : 'PO_CANCELLATION_NOT_ALLOWED',
+      previousStatus: current.status,
+    };
+  }
+  const result = await client.query(
+    `
+      UPDATE purchase_orders
+      SET status = 'CANCELLED',
+          rejection_reason = $3,
+          updated_at = NOW()
+      WHERE id = $1
+        AND deleted_at IS NULL
+        AND status = ANY($2::varchar[])
+      RETURNING *
+    `,
+    [id, CANCELLABLE_STATUSES, notes || null]
+  );
+  if (!result.rows[0]) return { ok: false, code: 'PO_CANCELLATION_NOT_ALLOWED' };
+  return { ok: true, order: mapOrder(result.rows[0]), previousStatus: current.status };
+}
+
 async function cancelStatus(id) {
   await ensureWorkflowColumns();
   const result = await getPool().query(
@@ -713,6 +790,10 @@ module.exports = {
   listReceipts,
   listRequisitions,
   listWarehouses,
+  approveStatus,
+  cancelStatusSafely,
+  APPROVABLE_STATUSES,
+  CANCELLABLE_STATUSES,
   markSentToSupplier,
   receiveOrder,
   cancelStatus,

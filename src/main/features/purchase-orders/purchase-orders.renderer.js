@@ -9,12 +9,24 @@
   let pageData = null;
   let selectedOrderId = null;
   let selectedOrder = null;
-  let permissions = { canCreate: false, canApprove: false, canReceive: false };
+  let permissions = { canCreate: false, canApprove: false, canCancel: false, canReceive: false };
   let messageTimer = null;
   let lastLoadError = '';
   let eventController = null;
   let orderRefreshSeq = 0;
   let orderDetailRefreshSeq = 0;
+  let approveInFlight = false;
+  let cancelInFlight = false;
+
+  const APPROVABLE_STATUSES = new Set(['DRAFT', 'PENDING', 'PENDING_APPROVAL']);
+  const CANCELLABLE_STATUSES = new Set([
+    'DRAFT',
+    'PENDING',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'SENT_TO_SUPPLIER',
+    'SUPPLIER_CONFIRMED',
+  ]);
 
   const A = () => window.PurchaseOrdersApi;
 
@@ -46,6 +58,18 @@
     if (!value) return '-';
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? String(value).slice(0, 10) : d.toLocaleDateString();
+  }
+
+  function orderStatus(order) {
+    return String(order?.status || '').toUpperCase();
+  }
+
+  function canApproveOrder(order) {
+    return Boolean(order?.id && permissions.canApprove && APPROVABLE_STATUSES.has(orderStatus(order)));
+  }
+
+  function canCancelOrder(order) {
+    return Boolean(order?.id && permissions.canCancel && CANCELLABLE_STATUSES.has(orderStatus(order)));
   }
 
   function today() {
@@ -269,6 +293,7 @@
       permissions = {
         canCreate: res.permissions?.canCreate ?? false,
         canApprove: res.permissions?.canApprove ?? false,
+        canCancel: res.permissions?.canCancel ?? false,
         canReceive: res.permissions?.canReceive ?? false,
       };
       renderOrders();
@@ -441,41 +466,67 @@
   }
 
   function refreshActionButtons() {
-    const canAct = !!(selectedOrderId && selectedOrder && permissions.canApprove);
     const approveBtn = $id('poRequestApprovalButton');
     const cancelBtn = $id('poCancelCurrentButton');
-    if (approveBtn) approveBtn.disabled = !canAct;
-    if (cancelBtn) cancelBtn.disabled = !canAct;
+    if (approveBtn) {
+      approveBtn.disabled = approveInFlight || cancelInFlight || !canApproveOrder(selectedOrder);
+      approveBtn.textContent = approveInFlight ? 'Approving...' : 'Approve PO';
+      approveBtn.title = canApproveOrder(selectedOrder)
+        ? 'Approve selected Purchase Order'
+        : 'Select a draft or pending Purchase Order to approve.';
+    }
+    if (cancelBtn) {
+      cancelBtn.disabled = approveInFlight || cancelInFlight || !canCancelOrder(selectedOrder);
+      cancelBtn.textContent = cancelInFlight ? 'Cancelling...' : 'Cancel PO';
+      cancelBtn.title = canCancelOrder(selectedOrder)
+        ? 'Cancel selected Purchase Order'
+        : 'Only pre-receipt Purchase Orders can be cancelled.';
+    }
   }
 
   async function approveSelectedOrder() {
+    if (approveInFlight || cancelInFlight) return;
     if (!selectedOrderId || !selectedOrder) {
       return showMessage('Select a Purchase Order to approve.', 'error');
     }
     if (!permissions.canApprove) {
       return showMessage('You do not have permission to approve Purchase Orders.', 'error');
     }
-    const res = await A().approve(selectedOrderId);
-    showMessage(
-      res?.message ||
-        (res?.ok ? 'Purchase order approved.' : 'Purchase order could not be approved.'),
-      res?.ok ? 'success' : 'error'
-    );
-    if (res?.ok) {
-      await refreshPurchaseOrderLiveState({
-        includePageData: true,
-        showLoading: false,
-        refreshDetail: true,
-      });
+    if (!APPROVABLE_STATUSES.has(orderStatus(selectedOrder))) {
+      return showMessage('Only draft or pending Purchase Orders can be approved.', 'error');
+    }
+    approveInFlight = true;
+    refreshActionButtons();
+    try {
+      const res = await A().approve(selectedOrderId);
+      showMessage(
+        res?.message ||
+          (res?.ok ? 'Purchase order approved.' : 'Purchase order could not be approved.'),
+        res?.ok ? 'success' : 'error'
+      );
+      if (res?.ok) {
+        await refreshPurchaseOrderLiveState({
+          includePageData: true,
+          showLoading: false,
+          refreshDetail: true,
+        });
+      }
+    } finally {
+      approveInFlight = false;
+      refreshActionButtons();
     }
   }
 
   async function cancelSelectedOrder() {
+    if (approveInFlight || cancelInFlight) return;
     if (!selectedOrderId || !selectedOrder) {
       return showMessage('Select a Purchase Order to cancel.', 'error');
     }
-    if (!permissions.canApprove) {
+    if (!permissions.canCancel) {
       return showMessage('You do not have permission to cancel Purchase Orders.', 'error');
+    }
+    if (!CANCELLABLE_STATUSES.has(orderStatus(selectedOrder))) {
+      return showMessage('Only pre-receipt Purchase Orders can be cancelled.', 'error');
     }
     if (
       !window.confirm(
@@ -484,18 +535,25 @@
     ) {
       return;
     }
-    const res = await A().cancel(selectedOrderId);
-    showMessage(
-      res?.message ||
-        (res?.ok ? 'Purchase order cancelled.' : 'Purchase order could not be cancelled.'),
-      res?.ok ? 'success' : 'error'
-    );
-    if (res?.ok) {
-      await refreshPurchaseOrderLiveState({
-        includePageData: true,
-        showLoading: false,
-        refreshDetail: true,
-      });
+    cancelInFlight = true;
+    refreshActionButtons();
+    try {
+      const res = await A().cancel(selectedOrderId);
+      showMessage(
+        res?.message ||
+          (res?.ok ? 'Purchase order cancelled.' : 'Purchase order could not be cancelled.'),
+        res?.ok ? 'success' : 'error'
+      );
+      if (res?.ok) {
+        await refreshPurchaseOrderLiveState({
+          includePageData: true,
+          showLoading: false,
+          refreshDetail: true,
+        });
+      }
+    } finally {
+      cancelInFlight = false;
+      refreshActionButtons();
     }
   }
 

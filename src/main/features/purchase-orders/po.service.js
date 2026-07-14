@@ -1,12 +1,46 @@
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const poRepository = require('./po.repository');
-const { logWarn } = require('../../utils/safe-logger');
+const { withTransaction } = require('../../database/connection');
 
 const READ_ROLES = new Set(['Admin', 'Manager', 'Warehouse']);
 const CREATE_ROLES = new Set(['Admin', 'Manager']);
 const APPROVE_ROLES = new Set(['Admin', 'Manager']);
 const RECEIVE_ROLES = new Set(['Admin', 'Manager', 'Warehouse']);
+const PERMISSION_BY_MODE = {
+  approve: 'purchaseOrders.approve',
+  cancel: 'purchaseOrders.cancel',
+  read: 'purchaseOrders.view',
+  receive: 'purchaseOrders.receive',
+  write: 'purchaseOrders.create',
+};
+
+function hasPermission(profile, permissionKey, fallbackRoles) {
+  if (!profile) return false;
+  if (profile.role === 'Admin') return true;
+  if (Array.isArray(profile.permissions)) return profile.permissions.includes(permissionKey);
+  return fallbackRoles.has(profile.role);
+}
+
+function canApprovePurchaseOrders(profile) {
+  return hasPermission(profile, PERMISSION_BY_MODE.approve, APPROVE_ROLES);
+}
+
+function canCancelPurchaseOrders(profile) {
+  return hasPermission(profile, PERMISSION_BY_MODE.cancel, APPROVE_ROLES);
+}
+
+function canCreatePurchaseOrders(profile) {
+  return hasPermission(profile, PERMISSION_BY_MODE.write, CREATE_ROLES);
+}
+
+function canReadPurchaseOrders(profile) {
+  return hasPermission(profile, PERMISSION_BY_MODE.read, READ_ROLES);
+}
+
+function canReceivePurchaseOrders(profile) {
+  return hasPermission(profile, PERMISSION_BY_MODE.receive, RECEIVE_ROLES);
+}
 
 async function requirePoAccess(mode = 'read') {
   const profileResult = await authService.getProfile();
@@ -15,13 +49,21 @@ async function requirePoAccess(mode = 'read') {
   const roles =
     mode === 'receive'
       ? RECEIVE_ROLES
+      : mode === 'cancel'
+        ? APPROVE_ROLES
       : mode === 'approve'
         ? APPROVE_ROLES
         : mode === 'write'
           ? CREATE_ROLES
           : READ_ROLES;
-  if (!roles.has(role))
-    return { ok: false, message: 'You do not have permission for this procurement action.' };
+  const permissionKey = PERMISSION_BY_MODE[mode] || PERMISSION_BY_MODE.read;
+  if (!hasPermission(profileResult.profile, permissionKey, roles)) {
+    return {
+      ok: false,
+      code: 'PURCHASE_ORDER_PERMISSION_DENIED',
+      message: 'You do not have permission for this procurement action.',
+    };
+  }
   return { ok: true, profile: profileResult.profile };
 }
 
@@ -128,8 +170,9 @@ async function listRequisitions(filters = {}) {
     ok: true,
     requisitions: await poRepository.listRequisitions(filters),
     permissions: {
-      canCreate: CREATE_ROLES.has(access.profile.role),
-      canApprove: APPROVE_ROLES.has(access.profile.role),
+      canCreate: canCreatePurchaseOrders(access.profile),
+      canApprove: canApprovePurchaseOrders(access.profile),
+      canCancel: canCancelPurchaseOrders(access.profile),
     },
   };
 }
@@ -189,9 +232,10 @@ async function listOrders(filters = {}) {
     ok: true,
     orders: await poRepository.listOrders(filters),
     permissions: {
-      canCreate: CREATE_ROLES.has(access.profile.role),
-      canApprove: APPROVE_ROLES.has(access.profile.role),
-      canReceive: RECEIVE_ROLES.has(access.profile.role),
+      canCreate: canCreatePurchaseOrders(access.profile),
+      canApprove: canApprovePurchaseOrders(access.profile),
+      canCancel: canCancelPurchaseOrders(access.profile),
+      canReceive: canReceivePurchaseOrders(access.profile),
     },
   };
 }
@@ -291,22 +335,45 @@ async function approveOrder(id, notes = '') {
   if (!access.ok) return access;
   const orderId = Number(id);
   if (!Number.isInteger(orderId) || orderId <= 0)
-    return { ok: false, message: 'Invalid purchase order.' };
-  const current = await poRepository.getOrder(orderId);
-  if (!current) return { ok: false, message: 'Purchase order not found.' };
-  if (!['DRAFT', 'PENDING', 'PENDING_APPROVAL'].includes(current.status))
-    return { ok: false, message: 'Only draft or pending approval POs can be approved.' };
-  const order = await poRepository.updateStatus(orderId, 'APPROVED', access.profile.id, notes);
-  await activityRepository.createActivityLog({
-    userId: access.profile.id,
-    action: 'purchase_order.approve',
-    status: 'success',
-    message: 'Purchase order approved',
-    metadata: { purchaseOrderId: orderId },
+    return { ok: false, code: 'INVALID_PURCHASE_ORDER_ID', message: 'Invalid purchase order.' };
+  const result = await withTransaction(async (client) => {
+    const transition = await poRepository.approveStatus(
+      orderId,
+      access.profile.id,
+      String(notes || '').trim(),
+      client
+    );
+    if (!transition.ok) return transition;
+    await activityRepository.createActivityLog({
+      client,
+      userId: access.profile.id,
+      action: 'purchase_order.approve',
+      status: 'success',
+      message: 'Purchase order approved',
+      metadata: {
+        purchaseOrderId: orderId,
+        poNumber: transition.order.poNumber,
+        previousStatus: transition.previousStatus,
+        newStatus: 'APPROVED',
+        notes: String(notes || '').trim(),
+      },
+    });
+    return transition;
   });
+  if (!result.ok) {
+    if (result.code === 'PO_NOT_FOUND')
+      return { ok: false, code: result.code, message: 'Purchase order not found.' };
+    if (result.code === 'PO_ALREADY_APPROVED')
+      return { ok: false, code: result.code, message: 'Purchase order is already approved.' };
+    return {
+      ok: false,
+      code: result.code || 'PO_APPROVAL_NOT_ALLOWED',
+      message: 'Only draft or pending approval POs can be approved.',
+    };
+  }
   return {
     ok: true,
-    order,
+    order: result.order,
     message: 'Purchase order approved. It can now be sent to the supplier.',
   };
 }
@@ -351,38 +418,48 @@ async function confirmSupplier(id, payload = {}) {
 }
 
 async function cancelOrder(id, notes = '') {
-  const access = await requirePoAccess('approve');
+  const access = await requirePoAccess('cancel');
   if (!access.ok) return access;
   const orderId = Number(id);
   if (!Number.isInteger(orderId) || orderId <= 0)
-    return { ok: false, message: 'Invalid purchase order.' };
-  const current = await poRepository.getOrder(orderId);
-  if (!current) return { ok: false, message: 'Purchase order not found.' };
-  if (['FULLY_RECEIVED', 'INVOICED', 'CLOSED', 'CANCELLED'].includes(current.status))
-    return { ok: false, message: 'This PO cannot be cancelled.' };
-  const order = await poRepository.cancelStatus(orderId);
-  if (!order)
-    return {
-      ok: false,
-      message:
-        'Purchase order could not be cancelled. It may already be received, invoiced, closed, or cancelled.',
-    };
-  try {
+    return { ok: false, code: 'INVALID_PURCHASE_ORDER_ID', message: 'Invalid purchase order.' };
+  const result = await withTransaction(async (client) => {
+    const transition = await poRepository.cancelStatusSafely(
+      orderId,
+      access.profile.id,
+      String(notes || '').trim(),
+      client
+    );
+    if (!transition.ok) return transition;
     await activityRepository.createActivityLog({
+      client,
       userId: access.profile.id,
       action: 'purchase_order.cancel',
       status: 'success',
       message: 'Purchase order cancelled',
       metadata: {
         purchaseOrderId: orderId,
+        poNumber: transition.order.poNumber,
         notes: String(notes || '').trim(),
-        previousStatus: current.status,
+        previousStatus: transition.previousStatus,
+        newStatus: 'CANCELLED',
       },
     });
-  } catch (error) {
-    logWarn('PO cancel audit log failed:', error);
+    return transition;
+  });
+  if (!result.ok) {
+    if (result.code === 'PO_NOT_FOUND')
+      return { ok: false, code: result.code, message: 'Purchase order not found.' };
+    if (result.code === 'PO_ALREADY_CANCELLED')
+      return { ok: false, code: result.code, message: 'Purchase order is already cancelled.' };
+    return {
+      ok: false,
+      code: result.code || 'PO_CANCELLATION_NOT_ALLOWED',
+      message:
+        'Purchase order could not be cancelled. It may already be received, invoiced, closed, or cancelled.',
+    };
   }
-  return { ok: true, order, message: 'Purchase order cancelled.' };
+  return { ok: true, order: result.order, message: 'Purchase order cancelled.' };
 }
 
 async function receiveOrder(payload = {}) {
