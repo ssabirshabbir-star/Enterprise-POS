@@ -739,6 +739,56 @@
     panel.textContent = lines.join('\n');
   }
 
+  function renderRestoreExecutionPolicy(result = {}) {
+    const panel = $id('restoreExecutionPolicy');
+    if (!panel) return;
+    const policy = result.policy || result;
+    const recovery = policy.recoveryState || {};
+    const blockers = Array.isArray(policy.blockers) ? policy.blockers : [];
+    const warnings = Array.isArray(policy.warnings) ? policy.warnings : [];
+    const requiredActions = Array.isArray(policy.requiredActions)
+      ? policy.requiredActions
+      : [];
+    const lines = [
+      'Restore Execution Policy - Read Only - No Restore Executed',
+      `Execution Eligible: ${policy.executionEligible === true ? 'Yes' : 'No'}`,
+      `Execution Certified: ${policy.executionCertified === true ? 'Yes' : 'No'}`,
+      `Package Valid: ${policy.packageValid === true ? 'Yes' : 'No'}`,
+      `Package Compatible: ${policy.packageCompatible === true ? 'Yes' : 'No'}`,
+      `Operator Authorized: ${policy.operatorAuthorized === true ? 'Yes' : 'No'}`,
+      `Operation Lock: ${text(policy.operationLockStatus)}`,
+      `Database Health: ${text(policy.databaseHealth)}`,
+      `Rollback Capability: ${text(policy.rollbackCapability)}`,
+      `Safety Backup Required: ${policy.safetyBackupRequired ? 'Yes' : 'No'}`,
+      `Restart Required: ${policy.restartRequired ? 'Yes' : 'No'}`,
+      '',
+      'Recovery State:',
+      `- Operation ID: ${text(recovery.operationId)}`,
+      `- Current State: ${text(recovery.currentState)}`,
+      `- Previous State: ${text(recovery.previousState)}`,
+      `- Active Operation: ${recovery.activeOperation ? 'Yes' : 'No'}`,
+      `- Rollback Required: ${recovery.rollbackRequired ? 'Yes' : 'No'}`,
+    ];
+    if (blockers.length) {
+      lines.push(
+        '',
+        'Execution Blockers:',
+        ...blockers.map((item) => `- ${text(item.code)}: ${text(item.message)}`)
+      );
+    }
+    if (requiredActions.length) {
+      lines.push(
+        '',
+        'Required Actions:',
+        ...requiredActions.map((item) => `- ${text(item.code)}: ${text(item.message)}`)
+      );
+    }
+    if (warnings.length) {
+      lines.push('', 'Warnings:', ...warnings.map((item) => `- ${text(item.message)}`));
+    }
+    panel.textContent = lines.join('\n');
+  }
+
   function renderRestoreEngineFoundationStatus(result = {}) {
     const panel = $id('restoreEngineFoundationStatus');
     if (!panel) return;
@@ -1896,6 +1946,23 @@
     }
   }
 
+  async function handleRefreshRestoreExecutionPolicy() {
+    try {
+      const result = await A().restoreExecutionPolicy();
+      if (result?.ok) {
+        renderRestoreExecutionPolicy(result);
+        showMessage(
+          'Restore execution policy refreshed. Execution remains unavailable.',
+          'success'
+        );
+        return;
+      }
+      showMessage(result?.message || 'Unable to refresh Restore execution policy.', 'error');
+    } catch {
+      showMessage('Unable to refresh Restore execution policy.', 'error');
+    }
+  }
+
   async function handleRestoreEngineFoundationAssessment() {
     try {
       const result = await A().restoreEngineFoundationAssessment();
@@ -2034,6 +2101,12 @@
         })
         .catch(() => {});
       A()
+        .restoreExecutionPolicy()
+        .then((policy) => {
+          if (policy?.ok) renderRestoreExecutionPolicy(policy);
+        })
+        .catch(() => {});
+      A()
         .listDryRunCertificationReports(collectDryRunReportFilters())
         .then((reports) => {
           if (reports?.ok) renderDryRunReportHistory(reports);
@@ -2102,6 +2175,11 @@
         handleRefreshRestoreGovernanceAssessment
       );
       addListener(
+        $id('refreshRestoreExecutionPolicyButton'),
+        'click',
+        handleRefreshRestoreExecutionPolicy
+      );
+      addListener(
         $id('restoreEngineFoundationAssessmentButton'),
         'click',
         handleRestoreEngineFoundationAssessment
@@ -2156,6 +2234,9 @@
     }
     if (diff.restoreGovernanceAssessment) {
       renderRestoreGovernanceAssessment(diff.restoreGovernanceAssessment);
+    }
+    if (diff.restoreExecutionPolicy) {
+      renderRestoreExecutionPolicy(diff.restoreExecutionPolicy);
     }
     if (diff.restoreEngineFoundationStatus) {
       renderRestoreEngineFoundationStatus(diff.restoreEngineFoundationStatus);

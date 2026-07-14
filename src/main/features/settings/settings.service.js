@@ -420,6 +420,34 @@ async function getRestoreReadinessDashboard() {
   };
 }
 
+async function getRestoreRecoveryState() {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const recoveryState = await settingsRepository.getRestoreRecoveryState();
+  return {
+    ok: true,
+    recoveryState,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    message: 'Restore recovery state loaded. Restore execution remains unavailable.',
+  };
+}
+
+async function getRestoreExecutionPolicy() {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) return access;
+  const policy = await settingsRepository.getRestoreExecutionPolicy();
+  return {
+    ok: true,
+    policy,
+    noRestoreExecuted: true,
+    restoreUnavailable: true,
+    restoreEligible: false,
+    message: policy.message,
+  };
+}
+
 function governanceItem(name, status, evidence) {
   return { name, status, evidence };
 }
@@ -2776,6 +2804,8 @@ module.exports = {
   getSettings,
   inspectRestorePackage,
   getRestoreDryRunReport,
+  getRestoreExecutionPolicy,
+  getRestoreRecoveryState,
   getRestoreReadinessDashboard,
   getRestoreGovernanceAssessment,
   assessControlledRestoreEngineFoundation,

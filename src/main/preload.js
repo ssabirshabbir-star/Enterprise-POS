@@ -220,6 +220,10 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/restore-readiness-dashboard'),
     restoreGovernanceAssessment: () =>
       ipcRenderer.invoke('/settings/backups/restore-governance-assessment'),
+    restoreRecoveryState: () =>
+      ipcRenderer.invoke('/settings/backups/restore-recovery-state'),
+    restoreExecutionPolicy: () =>
+      ipcRenderer.invoke('/settings/backups/restore-execution-policy'),
     restoreEngineFoundationAssessment: () =>
       ipcRenderer.invoke('/settings/backups/restore-engine-foundation-assessment'),
     restoreTransactionFoundationAssessment: () =>

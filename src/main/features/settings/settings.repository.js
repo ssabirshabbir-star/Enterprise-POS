@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
 const { getPool, withTransaction } = require('../../database/connection');
+const restoreExecutionPolicyModel = require('../restore-engine/restore-execution-policy.model');
+const restoreRecoveryStateModel = require('../restore-engine/restore-recovery-state.model');
 const packageJson = require('../../../../package.json');
 
 const SETTING_KEYS = ['store', 'tax', 'system'];
@@ -322,6 +324,7 @@ const BACKUP_COVERAGE_POLICY = {
   ],
 };
 const BACKUP_TABLES = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name);
+const RESTORE_RECOVERY_ACTIVITY = 'backup.restore.recovery_state';
 
 // ─── R2-B: Restore Execution Constants ─────────────────────────────────────
 // These are used only by executeRestoreBackup below.
@@ -714,6 +717,130 @@ async function createBackupLog({ fileName, filePath, action, status, message, us
     [fileName, filePath || null, action, status, message || null, userId || null]
   );
   return result.rows[0];
+}
+
+function recoveryStateFromActivity(row) {
+  if (!row) return restoreRecoveryStateModel.createIdleRecoveryState();
+  const metadata = row.metadata || {};
+  return restoreRecoveryStateModel.normalizeRecoveryState({
+    ...(metadata.recoveryState || metadata),
+    updatedAt: row.created_at || metadata.updatedAt,
+    transitionEvidence: [
+      {
+        activityLogId: row.id,
+        action: row.action,
+        status: row.status,
+        message: row.message,
+        createdAt: row.created_at,
+      },
+    ],
+  });
+}
+
+async function getRestoreRecoveryState() {
+  const result = await getPool().query(
+    `
+      SELECT id, action, status, message, metadata, created_at
+      FROM activity_logs
+      WHERE action = $1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `,
+    [RESTORE_RECOVERY_ACTIVITY]
+  );
+  return recoveryStateFromActivity(result.rows[0]);
+}
+
+async function recordRestoreRecoveryTransition({
+  operationId,
+  ownerUserId = null,
+  requestedByUserId = null,
+  nextState,
+  sourceBackupId = null,
+  sourcePackageFingerprint = null,
+  sourcePackageChecksum = null,
+  sourceManifestVersion = null,
+  safetyBackupReference = null,
+  failureCategory = null,
+  failureSummary = null,
+  replayStatus = null,
+  completionMarker = null,
+} = {}) {
+  const current = await getRestoreRecoveryState();
+  const requestedOperationId =
+    operationId || current.operationId || restoreRecoveryStateModel.createOperationId();
+  const validation = restoreRecoveryStateModel.validateTransition({
+    currentState: current.currentState,
+    nextState,
+    ownerUserId: current.ownerUserId,
+    requestedByUserId,
+  });
+  if (!validation.transitionAllowed) {
+    return {
+      ok: false,
+      transitionRecorded: false,
+      validation,
+      recoveryState: current,
+      message: 'Restore recovery transition rejected.',
+    };
+  }
+
+  const now = new Date().toISOString();
+  const recoveryState = restoreRecoveryStateModel.normalizeRecoveryState({
+    operationId: requestedOperationId,
+    ownerUserId: current.ownerUserId || ownerUserId || requestedByUserId || null,
+    sourceBackupId: sourceBackupId || current.sourceBackupId || null,
+    sourcePackageFingerprint:
+      sourcePackageFingerprint || current.sourcePackageFingerprint || null,
+    sourcePackageChecksum: sourcePackageChecksum || current.sourcePackageChecksum || null,
+    sourceManifestVersion: sourceManifestVersion || current.sourceManifestVersion || null,
+    currentState: nextState,
+    previousState: current.currentState,
+    createdAt: current.createdAt || now,
+    updatedAt: now,
+    safetyBackupReference: safetyBackupReference || current.safetyBackupReference || null,
+    failureCategory: failureCategory || null,
+    sanitizedFailureSummary: restoreRecoveryStateModel.sanitizeFailureSummary(failureSummary),
+    replayStatus: replayStatus || 'not_replayed',
+    rollbackRequired: nextState === 'FAILED_ROLLBACK_REQUIRED' || current.rollbackRequired,
+    restartRequired:
+      nextState === 'RESTORE_APPLIED' || nextState === 'POST_RESTORE_VERIFYING' || current.restartRequired,
+    completionMarker: completionMarker || null,
+  });
+
+  const log = await getPool().query(
+    `
+      INSERT INTO activity_logs (user_id, action, status, message, metadata)
+      VALUES ($1, $2, $3, $4, $5::jsonb)
+      RETURNING id, action, status, message, metadata, created_at
+    `,
+    [
+      requestedByUserId || recoveryState.ownerUserId || null,
+      RESTORE_RECOVERY_ACTIVITY,
+      'recorded',
+      `Restore recovery state transitioned from ${current.currentState} to ${nextState}.`,
+      JSON.stringify({ recoveryState, validation }),
+    ]
+  );
+
+  return {
+    ok: true,
+    transitionRecorded: true,
+    validation,
+    recoveryState: recoveryStateFromActivity(log.rows[0]),
+    message: 'Restore recovery transition recorded.',
+  };
+}
+
+async function getRestoreExecutionPolicy() {
+  const recoveryState = await getRestoreRecoveryState();
+  return restoreExecutionPolicyModel.createRestoreExecutionPolicy({
+    recoveryState,
+    operationLock: {
+      locked: recoveryState.activeOperation === true,
+      operationId: recoveryState.operationId,
+    },
+  });
 }
 
 function backupLogFilters(filters = {}) {
@@ -1767,10 +1894,13 @@ module.exports = {
   assessBackupPreflight,
   exportBackup,
   getSettings,
+  getRestoreExecutionPolicy,
+  getRestoreRecoveryState,
   inspectRestorePackage,
   getRestoreDryRunReport,
   getRestoreReadinessDashboardEvidence,
   listRestoreDryRunReports,
+  recordRestoreRecoveryTransition,
   listBackupLogs,
   saveSettings,
   verifyRestorePackage,

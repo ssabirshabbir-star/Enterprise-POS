@@ -66,6 +66,14 @@
     return api().settings.restoreGovernanceAssessment();
   }
 
+  async function restoreRecoveryState() {
+    return api().settings.restoreRecoveryState();
+  }
+
+  async function restoreExecutionPolicy() {
+    return api().settings.restoreExecutionPolicy();
+  }
+
   async function restoreEngineFoundationAssessment() {
     return api().settings.restoreEngineFoundationAssessment();
   }
@@ -86,8 +94,10 @@
     inspectRestorePackage,
     listDryRunCertificationReports,
     listBackups,
+    restoreExecutionPolicy,
     restoreEngineFoundationAssessment,
     restoreGovernanceAssessment,
+    restoreRecoveryState,
     restoreReadinessDashboard,
     restoreTransactionFoundationAssessment,
     unavailable,

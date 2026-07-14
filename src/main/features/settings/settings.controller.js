@@ -230,6 +230,22 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/restore-recovery-state', async () => {
+    try {
+      return await settingsService.getRestoreRecoveryState();
+    } catch (error) {
+      return safeError(error, 'Restore recovery state error:');
+    }
+  });
+
+  ipcMain.handle('/settings/backups/restore-execution-policy', async () => {
+    try {
+      return await settingsService.getRestoreExecutionPolicy();
+    } catch (error) {
+      return safeError(error, 'Restore execution policy error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore-engine-foundation-assessment', async () => {
     try {
       return await settingsService.assessControlledRestoreEngineFoundation();
