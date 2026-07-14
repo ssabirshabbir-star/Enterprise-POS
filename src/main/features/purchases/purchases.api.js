@@ -12,8 +12,8 @@
     return result;
   }
 
-  async function list() {
-    return normalizeResult(await api().list(), 'Could not load purchases.');
+  async function list(filters) {
+    return normalizeResult(await api().list(filters || {}), 'Could not load purchases.');
   }
 
   async function suppliers() {

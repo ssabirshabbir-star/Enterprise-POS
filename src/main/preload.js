@@ -95,7 +95,7 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/suppliers/payment', { supplierId, payload }),
   },
   purchases: {
-    list: () => ipcRenderer.invoke('/purchases/list'),
+    list: (filters) => ipcRenderer.invoke('/purchases/list', filters || {}),
     suppliers: () => ipcRenderer.invoke('/purchases/suppliers/list'),
     products: () => ipcRenderer.invoke('/purchases/products/list'),
     createSupplier: (payload) => ipcRenderer.invoke('/suppliers/create', payload),
@@ -220,12 +220,9 @@ contextBridge.exposeInMainWorld('posApi', {
       ipcRenderer.invoke('/settings/backups/restore-readiness-dashboard'),
     restoreGovernanceAssessment: () =>
       ipcRenderer.invoke('/settings/backups/restore-governance-assessment'),
-    restoreRecoveryState: () =>
-      ipcRenderer.invoke('/settings/backups/restore-recovery-state'),
-    restoreExecutionPolicy: () =>
-      ipcRenderer.invoke('/settings/backups/restore-execution-policy'),
-    restoreStartupRecovery: () =>
-      ipcRenderer.invoke('/settings/backups/restore-startup-recovery'),
+    restoreRecoveryState: () => ipcRenderer.invoke('/settings/backups/restore-recovery-state'),
+    restoreExecutionPolicy: () => ipcRenderer.invoke('/settings/backups/restore-execution-policy'),
+    restoreStartupRecovery: () => ipcRenderer.invoke('/settings/backups/restore-startup-recovery'),
     restoreRetentionAssessment: (payload) =>
       ipcRenderer.invoke('/settings/backups/restore-retention-assessment', payload),
     restoreFinalConfirmation: (payload) =>

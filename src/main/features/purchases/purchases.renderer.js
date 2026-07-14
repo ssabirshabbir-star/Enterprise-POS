@@ -11,6 +11,10 @@
   let lastLoadError = '';
   let purchaseRefreshSeq = 0;
   let purchaseDetailRefreshSeq = 0;
+  let purchaseSummary = null;
+  let purchasePagination = { page: 1, pageSize: 10, total: 0, totalPages: 1 };
+  let activeDatePreset = '';
+  let searchTimer = null;
 
   const A = () => window.PurchasesApi;
 
@@ -88,72 +92,109 @@
     return {
       search: String($id('purchaseKeywordSearch')?.value || '')
         .trim()
-        .toLowerCase(),
+        .slice(0, 140),
       supplierId: $id('purchaseSupplierFilter')?.value || '',
-      method: $id('purchaseMethodFilter')?.value || '',
-      payment: $id('purchasePaymentFilter')?.value || '',
-      status:
+      paymentMethod: $id('purchaseMethodFilter')?.value || '',
+      paymentStatus: $id('purchasePaymentFilter')?.value || '',
+      purchaseTab:
         document.querySelector('[data-purchase-status-tab].active')?.dataset.purchaseStatusTab ||
         '',
-      from: $id('purchaseFilterFrom')?.value || '',
-      to: $id('purchaseFilterTo')?.value || '',
+      dateFrom: $id('purchaseFilterFrom')?.value || '',
+      dateTo: $id('purchaseFilterTo')?.value || '',
+      datePreset: activeDatePreset,
+      page: purchasePagination.page,
+      pageSize: Number($id('purchaseRowsPerPage')?.value || purchasePagination.pageSize || 10),
     };
-  }
-
-  function filteredPurchases() {
-    const f = getFilters();
-    return purchases.filter((p) => {
-      const searchHaystack =
-        `${p.invoiceNumber || ''} ${p.supplierName || ''} ${p.productNames || ''} ${p.productSearchText || ''} ${p.grandTotal || ''}`.toLowerCase();
-      const paymentStatus = purchasePaymentStatus(p);
-      const rowStatus = purchaseStatus(p);
-      const rowDate = isoDate(p.purchaseDate);
-      if (f.search && !searchHaystack.includes(f.search)) return false;
-      if (f.supplierId && String(p.supplierId || '') !== f.supplierId) return false;
-      if (f.method && purchasePaymentMethod(p) !== f.method) return false;
-      if (f.payment && paymentStatus !== f.payment) return false;
-      if (f.status && rowStatus !== f.status) return false;
-      if (f.from && (!rowDate || rowDate < f.from)) return false;
-      if (f.to && (!rowDate || rowDate > f.to)) return false;
-      return true;
-    });
   }
 
   function hasActiveFilters() {
     const f = getFilters();
-    return Boolean(f.search || f.supplierId || f.method || f.payment || f.status || f.from || f.to);
+    return Boolean(
+      f.search ||
+      f.supplierId ||
+      f.paymentMethod ||
+      f.paymentStatus ||
+      f.purchaseTab ||
+      f.dateFrom ||
+      f.dateTo ||
+      f.datePreset
+    );
   }
 
-  function renderStats(rows) {
-    const count = rows.length;
-    const spend = rows.reduce((sum, p) => sum + numeric(p.grandTotal), 0);
-    const paid = rows.reduce((sum, p) => sum + numeric(p.paidAmount), 0);
-    const due = rows.reduce((sum, p) => sum + numeric(p.dueAmount), 0);
-    const pending = rows.filter((p) => numeric(p.dueAmount) > 0);
+  function renderStats(summary = null) {
+    const count = Number(summary?.count ?? purchases.length);
+    const spend =
+      summary && Number.isFinite(Number(summary.spend))
+        ? Number(summary.spend)
+        : purchases.reduce((sum, p) => sum + numeric(p.grandTotal), 0);
+    const paid =
+      summary && Number.isFinite(Number(summary.paid))
+        ? Number(summary.paid)
+        : purchases.reduce((sum, p) => sum + numeric(p.paidAmount), 0);
+    const due =
+      summary && Number.isFinite(Number(summary.due))
+        ? Number(summary.due)
+        : purchases.reduce((sum, p) => sum + numeric(p.dueAmount), 0);
+    const pendingCount =
+      summary && Number.isFinite(Number(summary.pendingCount))
+        ? Number(summary.pendingCount)
+        : purchases.filter((p) => numeric(p.dueAmount) > 0).length;
+    const paidCount =
+      summary && Number.isFinite(Number(summary.paidCount))
+        ? Number(summary.paidCount)
+        : purchases.filter((p) => numeric(p.dueAmount) <= 0).length;
     const set = (id, value) => {
       const el = $id(id);
       if (el) el.textContent = value;
     };
     set('purchaseStatCount', count);
     set('purchaseStatSpend', money(spend));
-    set('purchaseStatPending', pending.length);
+    set('purchaseStatPending', pendingCount);
     set('purchaseStatPendingAmount', money(due));
-    set('purchaseStatPaid', rows.filter((p) => numeric(p.dueAmount) <= 0).length);
+    set('purchaseStatPaid', paidCount);
     set('purchaseStatPaidAmount', money(paid));
     set('purchaseStatOverdue', '-');
     set('purchaseStatOverdueAmount', 'Planned');
-    set('purchasePageInfo', count ? `1-${count} of ${count}` : '0-0 of 0');
+  }
+
+  function renderPagination() {
+    const page = Number(purchasePagination.page || 1);
+    const pageSize = Number(purchasePagination.pageSize || 10);
+    const total = Number(purchasePagination.total || 0);
+    const start = total ? (page - 1) * pageSize + 1 : 0;
+    const end = total ? Math.min(total, start + purchases.length - 1) : 0;
+    const pageInfo = $id('purchasePageInfo');
+    if (pageInfo) pageInfo.textContent = `${start}-${end} of ${total}`;
+    const currentPage = $id('purchaseCurrentPage');
+    if (currentPage) currentPage.textContent = String(page);
+    const rows = $id('purchaseRowsPerPage');
+    if (rows) {
+      rows.disabled = false;
+      rows.value = String(pageSize);
+      rows.title = 'Rows per page';
+    }
+    const prev = $id('purchasePrevPage');
+    const next = $id('purchaseNextPage');
+    if (prev) {
+      prev.disabled = page <= 1;
+      prev.title = page <= 1 ? 'Already on the first page' : 'Previous page';
+    }
+    if (next) {
+      next.disabled = page >= Number(purchasePagination.totalPages || 1);
+      next.title = next.disabled ? 'Already on the last page' : 'Next page';
+    }
   }
 
   function renderPurchases() {
     const tbody = $id('purchaseList');
     if (!tbody) return;
-    const rows = filteredPurchases();
-    renderStats(rows);
+    const rows = purchases;
+    renderStats(purchaseSummary);
+    renderPagination();
     if (!rows.length) {
       const message = lastLoadError
         ? lastLoadError
-        : purchases.length
+        : Number(purchasePagination.total || 0) === 0 && hasActiveFilters()
           ? 'No purchases match the selected filters. Use Reset to show all purchases.'
           : 'No purchase records found. Use Add Purchase to create the first purchase.';
       tbody.innerHTML = `<tr><td colspan="11" style="padding:24px;text-align:center;color:#71717a">${esc(message)}</td></tr>`;
@@ -279,16 +320,19 @@
 
   async function loadPurchases(options = {}) {
     const opts = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    if (opts.resetPage) purchasePagination.page = 1;
     const seq = ++purchaseRefreshSeq;
     const tbody = $id('purchaseList');
     if (tbody && opts.showLoading !== false)
       tbody.innerHTML =
         '<tr><td colspan="11" style="padding:24px;text-align:center;color:#71717a">Loading purchases...</td></tr>';
     try {
-      const res = await A().list();
+      const res = await A().list(getFilters());
       if (seq !== purchaseRefreshSeq) return res;
       if (!res?.ok) {
         purchases = [];
+        purchaseSummary = null;
+        purchasePagination = { ...purchasePagination, total: 0, totalPages: 1 };
         lastLoadError = res?.message || 'Could not load purchases.';
         renderUI({ purchases: [] });
         showMessage(lastLoadError, 'error');
@@ -296,6 +340,13 @@
       }
       lastLoadError = '';
       purchases = res.purchases || [];
+      purchaseSummary = res.summary || null;
+      purchasePagination = {
+        page: Number(res.pagination?.page || 1),
+        pageSize: Number(res.pagination?.pageSize || getFilters().pageSize || 10),
+        total: Number(res.pagination?.total || 0),
+        totalPages: Number(res.pagination?.totalPages || 1),
+      };
       renderUI({ purchases });
       await reconcileSelectedPurchase({
         refreshDetail: opts.refreshDetail ?? true,
@@ -305,6 +356,8 @@
     } catch {
       if (seq !== purchaseRefreshSeq) return { ok: false, stale: true };
       purchases = [];
+      purchaseSummary = null;
+      purchasePagination = { ...purchasePagination, total: 0, totalPages: 1 };
       lastLoadError = 'Could not load purchases.';
       renderUI({ purchases: [] });
       showMessage(lastLoadError, 'error');
@@ -603,7 +656,7 @@
     modal.setAttribute('aria-hidden', 'false');
   }
 
-  function clearFilters() {
+  function clearFilters(options = {}) {
     ['purchaseKeywordSearch', 'purchaseFilterFrom', 'purchaseFilterTo'].forEach((id) => {
       const el = $id(id);
       if (el) el.value = '';
@@ -612,11 +665,20 @@
       const el = $id(id);
       if (el) el.value = '';
     });
+    activeDatePreset = '';
     document
       .querySelectorAll('[data-purchase-status-tab]')
       .forEach((btn) => btn.classList.toggle('active', btn.dataset.purchaseStatusTab === ''));
-    renderPurchases();
-    if (purchases.length && hasActiveFilters() === false) showMessage('All purchases are visible.');
+    document
+      .querySelectorAll('[data-purchase-range]')
+      .forEach((btn) => btn.classList.remove('active'));
+    purchasePagination.page = 1;
+    purchasePagination.pageSize = Number($id('purchaseRowsPerPage')?.value || 10);
+    if (options.skipLoad) return;
+    loadPurchases({ resetPage: true, showLoading: true }).then(() => {
+      if (purchases.length && hasActiveFilters() === false)
+        showMessage('All purchases are visible.');
+    });
   }
 
   function clearDraft() {
@@ -627,6 +689,29 @@
 
   function placeholder(action) {
     showMessage(A().placeholder(action).message, 'error');
+  }
+
+  function activateDatePreset(preset) {
+    activeDatePreset = preset || '';
+    if (activeDatePreset && activeDatePreset !== 'custom') {
+      const from = $id('purchaseFilterFrom');
+      const to = $id('purchaseFilterTo');
+      if (from) from.value = '';
+      if (to) to.value = '';
+    }
+    document.querySelectorAll('[data-purchase-range]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.purchaseRange === activeDatePreset);
+    });
+  }
+
+  function refreshForFilterChange(options = {}) {
+    purchasePagination.page = 1;
+    loadPurchases({ resetPage: true, showLoading: options.showLoading === true });
+  }
+
+  function refreshForSearchChange() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => refreshForFilterChange(), 250);
   }
 
   function renderUI(state = {}) {
@@ -654,6 +739,8 @@
     $id('purchaseMessage')?.classList.add('hidden');
     closeForm();
     closeDetailModal();
+    clearTimeout(searchTimer);
+    searchTimer = null;
   }
 
   function bindEvents() {
@@ -672,21 +759,25 @@
     ['purchaseDiscount', 'purchaseTax', 'purchasePaid'].forEach((id) =>
       $id(id)?.addEventListener('input', renderDraftItems)
     );
+    $id('purchaseKeywordSearch')?.addEventListener('input', refreshForSearchChange);
+    ['purchaseFilterFrom', 'purchaseFilterTo'].forEach((id) =>
+      $id(id)?.addEventListener('input', () => {
+        activateDatePreset('custom');
+        refreshForFilterChange();
+      })
+    );
     [
-      'purchaseKeywordSearch',
       'purchaseSupplierFilter',
       'purchaseMethodFilter',
       'purchasePaymentFilter',
       'purchaseFilterFrom',
       'purchaseFilterTo',
-    ].forEach((id) => $id(id)?.addEventListener('input', renderPurchases));
-    [
-      'purchaseSupplierFilter',
-      'purchaseMethodFilter',
-      'purchasePaymentFilter',
-      'purchaseFilterFrom',
-      'purchaseFilterTo',
-    ].forEach((id) => $id(id)?.addEventListener('change', renderPurchases));
+    ].forEach((id) =>
+      $id(id)?.addEventListener('change', () => {
+        if (id === 'purchaseFilterFrom' || id === 'purchaseFilterTo') activateDatePreset('custom');
+        refreshForFilterChange();
+      })
+    );
     $id('purchaseClearFiltersButton')?.addEventListener('click', clearFilters);
     document.querySelectorAll('[data-purchase-status-tab]').forEach((btn) =>
       btn.addEventListener('click', () => {
@@ -694,7 +785,13 @@
           .querySelectorAll('[data-purchase-status-tab]')
           .forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        renderPurchases();
+        refreshForFilterChange();
+      })
+    );
+    document.querySelectorAll('[data-purchase-range]:not([disabled])').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        activateDatePreset(btn.dataset.purchaseRange || '');
+        refreshForFilterChange({ showLoading: true });
       })
     );
     $id('purchaseList')?.addEventListener('click', (event) => {
@@ -708,9 +805,20 @@
         renderDraftItems();
       }
     });
-    ['purchasePrevPage', 'purchaseNextPage'].forEach((id) =>
-      $id(id)?.addEventListener('click', () => placeholder('pagination'))
-    );
+    $id('purchaseRowsPerPage')?.addEventListener('change', () => {
+      purchasePagination.pageSize = Number($id('purchaseRowsPerPage')?.value || 10);
+      refreshForFilterChange({ showLoading: true });
+    });
+    $id('purchasePrevPage')?.addEventListener('click', () => {
+      if (purchasePagination.page <= 1) return;
+      purchasePagination.page -= 1;
+      loadPurchases({ showLoading: true });
+    });
+    $id('purchaseNextPage')?.addEventListener('click', () => {
+      if (purchasePagination.page >= purchasePagination.totalPages) return;
+      purchasePagination.page += 1;
+      loadPurchases({ showLoading: true });
+    });
   }
 
   async function initPurchasesModule() {
@@ -720,7 +828,7 @@
       bindEvents();
     }
     setTodayIfEmpty('purchaseDate');
-    clearFilters();
+    clearFilters({ skipLoad: true });
     await loadLookups();
     await loadPurchases();
   }

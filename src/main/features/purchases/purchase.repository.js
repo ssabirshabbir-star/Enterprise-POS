@@ -21,6 +21,25 @@ function mapPurchase(row) {
   };
 }
 
+function paymentStatusSql(alias = 'purchases') {
+  return `CASE
+    WHEN ${alias}.due_amount <= 0 THEN 'PAID'
+    WHEN ${alias}.paid_amount > 0 THEN 'PARTIAL'
+    ELSE 'UNPAID'
+  END`;
+}
+
+function paymentMethodSql(alias = 'purchases') {
+  return `CASE WHEN ${alias}.due_amount > 0 THEN 'Credit' ELSE 'Cash' END`;
+}
+
+function purchaseTabSql(alias = 'purchases') {
+  return `CASE
+    WHEN ${alias}.status = 'RECEIVED' THEN ${paymentStatusSql(alias)}
+    ELSE ${alias}.status
+  END`;
+}
+
 function mapProduct(row) {
   return (
     row && {
@@ -81,34 +100,130 @@ async function getProductPolicies(productIds = []) {
   );
 }
 
-async function listPurchases() {
+function buildPurchaseListFilter(filters = {}) {
+  const params = [];
+  let where = 'WHERE purchases.deleted_at IS NULL';
+
+  if (filters.search) {
+    params.push(`%${String(filters.search).toLowerCase()}%`);
+    const placeholder = `$${params.length}`;
+    where += ` AND (
+      LOWER(purchases.invoice_number) LIKE ${placeholder}
+      OR LOWER(COALESCE(suppliers.name, '')) LIKE ${placeholder}
+      OR purchases.grand_total::text LIKE ${placeholder}
+      OR EXISTS (
+        SELECT 1
+        FROM purchase_items search_items
+        INNER JOIN products search_products ON search_products.id = search_items.product_id
+        WHERE search_items.purchase_id = purchases.id
+          AND (
+            LOWER(search_products.name) LIKE ${placeholder}
+            OR LOWER(COALESCE(search_products.sku, '')) LIKE ${placeholder}
+            OR LOWER(COALESCE(search_products.barcode, '')) LIKE ${placeholder}
+          )
+      )
+    )`;
+  }
+
+  if (filters.supplierId) {
+    params.push(filters.supplierId);
+    where += ` AND purchases.supplier_id = $${params.length}`;
+  }
+
+  if (filters.dateFrom) {
+    params.push(filters.dateFrom);
+    where += ` AND purchases.purchase_date >= $${params.length}::date`;
+  }
+
+  if (filters.dateTo) {
+    params.push(filters.dateTo);
+    where += ` AND purchases.purchase_date <= $${params.length}::date`;
+  }
+
+  if (filters.paymentMethod) {
+    params.push(filters.paymentMethod);
+    where += ` AND ${paymentMethodSql()} = $${params.length}`;
+  }
+
+  if (filters.paymentStatus) {
+    params.push(filters.paymentStatus);
+    where += ` AND ${paymentStatusSql()} = $${params.length}`;
+  }
+
+  if (filters.purchaseTab) {
+    params.push(filters.purchaseTab);
+    where += ` AND ${purchaseTabSql()} = $${params.length}`;
+  }
+
+  return { where, params };
+}
+
+async function listPurchases(filters = {}) {
+  const page = Math.max(1, Number(filters.page) || 1);
+  const pageSize = Math.max(1, Math.min(50, Number(filters.pageSize) || 10));
+  const offset = (page - 1) * pageSize;
+  const filterSql = buildPurchaseListFilter(filters);
+  const listParams = [...filterSql.params, pageSize, offset];
+  const limitPlaceholder = `$${listParams.length - 1}`;
+  const offsetPlaceholder = `$${listParams.length}`;
+
   const result = await getPool().query(
     `
       SELECT
         purchases.*,
+        suppliers.name AS supplier_name,
         STRING_AGG(DISTINCT products.name, ', ' ORDER BY products.name) AS product_names,
         STRING_AGG(
           DISTINCT CONCAT_WS(' ', products.name, products.sku, products.barcode, 'code', products.id),
           ' '
         ) AS product_search_text
       FROM purchases
+      LEFT JOIN suppliers ON suppliers.id = purchases.supplier_id
       LEFT JOIN purchase_items ON purchase_items.purchase_id = purchases.id
       LEFT JOIN products ON products.id = purchase_items.product_id
-      WHERE purchases.deleted_at IS NULL
-      GROUP BY purchases.id
+      ${filterSql.where}
+      GROUP BY purchases.id, suppliers.name
       ORDER BY purchases.created_at DESC
-      LIMIT 100
+      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}
+    `,
+    listParams
+  );
+
+  const countResult = await getPool().query(
     `
+      SELECT
+        COUNT(*)::int AS total,
+        COALESCE(SUM(purchases.grand_total), 0)::numeric AS total_spend,
+        COALESCE(SUM(purchases.paid_amount), 0)::numeric AS paid_amount,
+        COALESCE(SUM(purchases.due_amount), 0)::numeric AS due_amount,
+        COUNT(*) FILTER (WHERE purchases.due_amount > 0)::int AS pending_count,
+        COUNT(*) FILTER (WHERE purchases.due_amount <= 0)::int AS paid_count
+      FROM purchases
+      LEFT JOIN suppliers ON suppliers.id = purchases.supplier_id
+      ${filterSql.where}
+    `,
+    filterSql.params
   );
-  const supplierNames = await suppliersRepository.getSupplierNamesByIds(
-    result.rows.map((row) => row.supplier_id)
-  );
-  return result.rows.map((row) =>
-    mapPurchase({
-      ...row,
-      supplier_name: supplierNames.get(Number(row.supplier_id)),
-    })
-  );
+
+  const summary = countResult.rows[0] || {};
+  const total = Number(summary.total || 0);
+  return {
+    purchases: result.rows.map(mapPurchase),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+    summary: {
+      count: total,
+      spend: Number(summary.total_spend || 0),
+      paid: Number(summary.paid_amount || 0),
+      due: Number(summary.due_amount || 0),
+      pendingCount: Number(summary.pending_count || 0),
+      paidCount: Number(summary.paid_count || 0),
+    },
+  };
 }
 
 async function createPurchase(payload, userId) {

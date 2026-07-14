@@ -45,3 +45,31 @@ test('Purchases footer preserves pagination controls only', () => {
   assert.match(css, /\.epos-purchases-footer\s*{[\s\S]*?display:\s*flex;/);
   assert.doesNotMatch(css, /epos-purchases-footer article|epos-purchases-footer strong/);
 });
+
+test('Purchases exposes only certified filter controls', () => {
+  const html = read(htmlPath);
+  const renderer = read(rendererPath);
+
+  assert.match(html, /id="purchaseFilterFrom" type="date"/);
+  assert.match(html, /id="purchaseFilterTo" type="date"/);
+  assert.match(html, /id="purchaseSupplierFilter"/);
+  assert.match(
+    html,
+    /id="purchaseMethodFilter"[\s\S]*<option value="Cash">Cash<\/option>[\s\S]*<option value="Credit">Credit<\/option>/
+  );
+  assert.doesNotMatch(html, /Bank Transfer|Cheque/);
+  assert.match(
+    html,
+    /id="purchasePaymentFilter"[\s\S]*<option value="PAID">Paid<\/option>[\s\S]*<option value="PARTIAL">Partial<\/option>[\s\S]*<option value="UNPAID">Unpaid<\/option>/
+  );
+  assert.match(html, /data-purchase-range="today"(?![^>]*disabled)/);
+  assert.match(html, /data-purchase-range="last-month"(?![^>]*disabled)/);
+  assert.match(html, /data-purchase-range="year"[^>]*disabled/);
+  assert.match(html, /data-purchase-payment-shortcut="OVERDUE"[^>]*disabled/);
+  assert.match(html, /id="purchaseDueTodayButton"[^>]*disabled/);
+  assert.doesNotMatch(html, /id="purchaseRowsPerPage"[^>]*disabled/);
+
+  assert.match(renderer, /A\(\)\.list\(getFilters\(\)\)/);
+  assert.doesNotMatch(renderer, /function filteredPurchases/);
+  assert.match(renderer, /purchasePagination/);
+});

@@ -7,9 +7,9 @@ function safeError(error, label) {
 }
 
 function registerPurchaseRoutes(ipcMain) {
-  ipcMain.handle('/purchases/list', async () => {
+  ipcMain.handle('/purchases/list', async (_event, filters = {}) => {
     try {
-      return await purchaseService.listPurchases();
+      return await purchaseService.listPurchases(filters || {});
     } catch (error) {
       return safeError(error, 'Purchase list error:');
     }

@@ -30,18 +30,167 @@ function money(value) {
   return Number(number.toFixed(2));
 }
 
+const PAYMENT_METHODS = new Set(['Cash', 'Credit']);
+const PAYMENT_STATUSES = new Set(['PAID', 'PARTIAL', 'UNPAID']);
+const PURCHASE_TABS = new Set(['', 'DRAFT', 'PENDING', 'PARTIAL', 'PAID', 'CANCELLED', 'RETURN']);
+const DATE_PRESETS = new Set([
+  '',
+  'today',
+  'yesterday',
+  '7',
+  '30',
+  'month',
+  'last-month',
+  'custom',
+]);
+const PAGE_SIZES = new Set([10, 25, 50]);
+
+function localDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, amount) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + amount);
+  return copy;
+}
+
+function strictDate(value) {
+  const text = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const [year, month, day] = text.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return text;
+}
+
+function presetRange(datePreset, today = new Date()) {
+  const businessToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (datePreset === 'today') {
+    const value = localDateString(businessToday);
+    return { dateFrom: value, dateTo: value };
+  }
+  if (datePreset === 'yesterday') {
+    const value = localDateString(addDays(businessToday, -1));
+    return { dateFrom: value, dateTo: value };
+  }
+  if (datePreset === '7' || datePreset === '30') {
+    const days = Number(datePreset);
+    return {
+      dateFrom: localDateString(addDays(businessToday, -(days - 1))),
+      dateTo: localDateString(businessToday),
+    };
+  }
+  if (datePreset === 'month') {
+    return {
+      dateFrom: localDateString(new Date(businessToday.getFullYear(), businessToday.getMonth(), 1)),
+      dateTo: localDateString(businessToday),
+    };
+  }
+  if (datePreset === 'last-month') {
+    return {
+      dateFrom: localDateString(
+        new Date(businessToday.getFullYear(), businessToday.getMonth() - 1, 1)
+      ),
+      dateTo: localDateString(new Date(businessToday.getFullYear(), businessToday.getMonth(), 0)),
+    };
+  }
+  return { dateFrom: null, dateTo: null };
+}
+
+function parsePositiveInt(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function normalizePurchaseListFilters(filters = {}) {
+  const datePresetInput = String(filters.datePreset || '').trim();
+  if (datePresetInput === 'year') {
+    return {
+      ok: false,
+      message:
+        'This Financial Year filter is unavailable because no authoritative financial-year configuration exists.',
+      code: 'PURCHASE_FINANCIAL_YEAR_UNSUPPORTED',
+    };
+  }
+  const datePreset = DATE_PRESETS.has(datePresetInput) ? datePresetInput : '';
+  let dateFrom = strictDate(filters.dateFrom);
+  let dateTo = strictDate(filters.dateTo);
+  if ((filters.dateFrom && !dateFrom) || (filters.dateTo && !dateTo)) {
+    return {
+      ok: false,
+      message: 'Purchase date filters must use YYYY-MM-DD dates.',
+      code: 'PURCHASE_INVALID_DATE_FILTER',
+    };
+  }
+  if (datePreset && datePreset !== 'custom') {
+    ({ dateFrom, dateTo } = presetRange(datePreset));
+  }
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    return {
+      ok: false,
+      message: 'Purchase Date From cannot be later than Date To.',
+      code: 'PURCHASE_INVALID_DATE_RANGE',
+    };
+  }
+
+  const supplierId = filters.supplierId ? Number(filters.supplierId) : null;
+  if (filters.supplierId && (!Number.isInteger(supplierId) || supplierId <= 0)) {
+    return { ok: false, message: 'Invalid supplier filter.', code: 'PURCHASE_INVALID_SUPPLIER' };
+  }
+
+  const paymentMethod = String(filters.paymentMethod || filters.method || '').trim();
+  const paymentStatus = String(filters.paymentStatus || filters.payment || '')
+    .trim()
+    .toUpperCase();
+  const purchaseTab = String(filters.purchaseTab || filters.status || '')
+    .trim()
+    .toUpperCase();
+  const pageSizeInput = parsePositiveInt(filters.pageSize, 10);
+  const pageSize = PAGE_SIZES.has(pageSizeInput) ? pageSizeInput : 10;
+
+  return {
+    ok: true,
+    filters: {
+      search: String(filters.search || '')
+        .trim()
+        .slice(0, 140),
+      dateFrom,
+      dateTo,
+      datePreset,
+      supplierId,
+      paymentMethod: PAYMENT_METHODS.has(paymentMethod) ? paymentMethod : '',
+      paymentStatus: PAYMENT_STATUSES.has(paymentStatus) ? paymentStatus : '',
+      purchaseTab: PURCHASE_TABS.has(purchaseTab) ? purchaseTab : '',
+      page: parsePositiveInt(filters.page, 1),
+      pageSize,
+    },
+  };
+}
+
 async function listProducts() {
   const access = await requirePurchaseAccess('read');
   if (!access.ok) return access;
   return { ok: true, products: await purchaseRepository.listProducts() };
 }
 
-async function listPurchases() {
+async function listPurchases(filters = {}) {
   const access = await requirePurchaseAccess('read');
   if (!access.ok) return access;
+  const normalized = normalizePurchaseListFilters(filters);
+  if (!normalized.ok) return normalized;
+  const result = await purchaseRepository.listPurchases(normalized.filters);
   return {
     ok: true,
-    purchases: await purchaseRepository.listPurchases(),
+    purchases: result.purchases,
+    filters: normalized.filters,
+    pagination: result.pagination,
+    summary: result.summary,
     permissions: {
       canCreate: canCreatePurchases(access.profile),
       canDelete: canDeletePurchases(access.profile),
@@ -196,4 +345,5 @@ module.exports = {
   getPurchaseDetails,
   listProducts,
   listPurchases,
+  normalizePurchaseListFilters,
 };

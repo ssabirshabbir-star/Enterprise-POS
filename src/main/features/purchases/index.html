@@ -236,10 +236,10 @@
       <span>to</span>
       <input id="purchaseFilterTo" type="date" aria-label="To date" />
       <select id="purchaseSupplierFilter" aria-label="Supplier"><option value="">All Suppliers</option></select>
-      <select id="purchaseMethodFilter" aria-label="Payment Method"><option value="">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option><option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option></select>
+      <select id="purchaseMethodFilter" aria-label="Payment Method"><option value="">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option></select>
       <select id="purchasePaymentFilter" aria-label="Payment status"><option value="">All Payment Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial</option><option value="UNPAID">Unpaid</option></select>
-      <button type="button" data-purchase-payment-shortcut="OVERDUE" class="epos-purchases-overdue" disabled title="Overdue shortcut is planned for a future purchase phase.">&#9888; Overdue</button>
-      <button type="button" data-purchase-due-today id="purchaseDueTodayButton" class="epos-purchases-due-today" disabled title="Due Today shortcut is planned for a future purchase phase.">&#128197; Due Today</button>
+      <button type="button" data-purchase-payment-shortcut="OVERDUE" class="epos-purchases-overdue" disabled title="Overdue requires a certified purchase due-date field before activation.">&#9888; Overdue</button>
+      <button type="button" data-purchase-due-today id="purchaseDueTodayButton" class="epos-purchases-due-today" disabled title="Due Today requires a certified purchase due-date field before activation.">&#128197; Due Today</button>
       <button type="button" id="purchaseClearFiltersButton" class="epos-purchases-ghost">&#8635; Clear</button>
     </div>
 
@@ -248,13 +248,13 @@
         <span>&#128269;</span>
         <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
       </label>
-      <button type="button" data-purchase-range="today" disabled title="Quick date ranges are planned for a future purchase phase.">Today</button>
-      <button type="button" data-purchase-range="yesterday" disabled title="Quick date ranges are planned for a future purchase phase.">Yesterday</button>
-      <button type="button" data-purchase-range="7" disabled title="Quick date ranges are planned for a future purchase phase.">Last 7 Days</button>
-      <button type="button" data-purchase-range="30" disabled title="Quick date ranges are planned for a future purchase phase.">Last 30 Days</button>
-      <button type="button" data-purchase-range="month" class="green" disabled title="Quick date ranges are planned for a future purchase phase.">This Month</button>
-      <button type="button" data-purchase-range="last-month" disabled title="Quick date ranges are planned for a future purchase phase.">Last Month</button>
-      <button type="button" data-purchase-range="year" disabled title="Quick date ranges are planned for a future purchase phase.">This Financial Year</button>
+      <button type="button" data-purchase-range="today">Today</button>
+      <button type="button" data-purchase-range="yesterday">Yesterday</button>
+      <button type="button" data-purchase-range="7">Last 7 Days</button>
+      <button type="button" data-purchase-range="30">Last 30 Days</button>
+      <button type="button" data-purchase-range="month" class="green">This Month</button>
+      <button type="button" data-purchase-range="last-month">Last Month</button>
+      <button type="button" data-purchase-range="year" disabled title="This Financial Year requires an authoritative financial-year configuration before activation.">This Financial Year</button>
     </div>
   </section>
 
@@ -294,7 +294,7 @@
 
   <section class="epos-purchases-footer">
     <div class="epos-purchases-pagination">
-      <label>Rows per page:<select id="purchaseRowsPerPage" disabled title="Purchase pagination is planned for a future phase."><option>10</option><option>25</option><option>50</option></select></label>
+      <label>Rows per page:<select id="purchaseRowsPerPage" title="Rows per page"><option>10</option><option>25</option><option>50</option></select></label>
       <span id="purchasePageInfo">0-0 of 0</span>
       <button type="button" id="purchasePrevPage" disabled title="Purchase pagination is planned for a future phase.">&#8249;</button>
       <strong id="purchaseCurrentPage">1</strong>
