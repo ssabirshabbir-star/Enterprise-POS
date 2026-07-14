@@ -8,7 +8,7 @@
   .epos-inventory-page {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 6px;
     height: calc(100vh - 74px);
     min-height: 0;
     overflow: hidden;
@@ -394,6 +394,10 @@
   .epos-inventory-table :is(th, td):nth-child(8),
   .epos-inventory-table :is(th, td):nth-child(9) {
     text-align: right !important;
+  }
+
+  .epos-inventory-table th:nth-child(n + 4):nth-child(-n + 9) {
+    text-align: center !important;
   }
 
   .epos-inventory-table th:nth-child(1),
@@ -858,7 +862,7 @@
 
   @media (max-width: 1400px) {
     .epos-inventory-page {
-      gap: 9px;
+      gap: 6px;
       height: calc(100vh - 70px);
     }
 

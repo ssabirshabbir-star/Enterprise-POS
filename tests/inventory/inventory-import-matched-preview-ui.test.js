@@ -475,6 +475,20 @@ test('inventory table column contract gives long headers enough measured width',
   assert.doesNotMatch(css, /\.epos-inventory-table th\s*{[\s\S]*?text-overflow:\s*ellipsis/);
 });
 
+test('inventory summary spacing and requested header alignment stay scoped', () => {
+  const css = fs.readFileSync(
+    path.join(repoRoot, 'src/main/features/inventory/inventory.css'),
+    'utf8'
+  );
+
+  assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?gap:\s*6px;/);
+  assert.match(
+    css,
+    /\.epos-inventory-table th:nth-child\(n \+ 4\):nth-child\(-n \+ 9\)\s*{[\s\S]*?text-align:\s*center !important;/
+  );
+  assert.doesNotMatch(css, /\.epos-inventory-table td:nth-child\(n \+ 4\):nth-child\(-n \+ 9\)/);
+});
+
 test('inventory Ctrl+K shortcut focuses and selects the search field once', async () => {
   const { document } = await loadRenderer();
   const search = document.getElementById('inventorySearch');
