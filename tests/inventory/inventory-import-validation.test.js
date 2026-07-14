@@ -18,7 +18,10 @@ const {
 const root = path.join(__dirname, '..', '..');
 
 function line(values = {}) {
-  return TEMPLATE_HEADERS.map((header) => values[header] ?? '').join(',');
+  return TEMPLATE_HEADERS.map((header) => {
+    const text = String(values[header] ?? '');
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }).join(',');
 }
 
 function validateLines(lines) {
@@ -42,6 +45,44 @@ test('Inventory import validation preserves SKU and Barcode leading zeros as tex
   assert.equal(result.rows[0].normalized.sku, '000123');
   assert.equal(result.rows[0].normalized.barcode, '0000009876');
   assert.equal(typeof result.rows[0].normalized.sku, 'string');
+});
+
+test('Inventory import validation accepts exporter-owned Excel barcode formula marker narrowly', () => {
+  const maxLengthBarcode = '1'.repeat(120);
+  const result = validateLines([
+    line({
+      'Product Name': 'Exported Barcode',
+      SKU: 'EXCEL-TEXT-1',
+      Barcode: '="0000009876"',
+      'Cost Price': '10',
+      'Selling Price': '12',
+    }),
+    line({
+      'Product Name': 'Maximum Barcode',
+      SKU: 'EXCEL-TEXT-2',
+      Barcode: `="${maxLengthBarcode}"`,
+      'Cost Price': '10',
+      'Selling Price': '12',
+    }),
+  ]);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.rows[0].normalized.barcode, '0000009876');
+  assert.equal(result.rows[1].normalized.barcode, maxLengthBarcode);
+});
+
+test('Inventory import validation rejects malformed Excel barcode formula markers', () => {
+  const result = validateLines([
+    line({ SKU: 'BAD-WRAP-1', Barcode: '="=FORMULA"' }),
+    line({ SKU: 'BAD-WRAP-2', Barcode: '="123"' }),
+    line({ SKU: 'BAD-WRAP-3', Barcode: '="abc def"' }),
+  ]);
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.errors.filter((error) => error.code === IMPORT_ERROR_CODES.INVALID_BARCODE).length,
+    3
+  );
 });
 
 test('Inventory import validation rejects scientific notation identifiers and invalid identifier characters', () => {

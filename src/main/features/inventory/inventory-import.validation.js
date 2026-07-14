@@ -19,6 +19,7 @@ const SCIENTIFIC_NOTATION = /^[+-]?(?:\d+\.?\d*|\.\d+)e[+-]?\d+$/i;
 const PLAIN_NUMBER = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
 const SKU_PATTERN = /^[A-Za-z0-9._-]{2,80}$/;
 const BARCODE_PATTERN = /^[A-Za-z0-9._-]{4,120}$/;
+const EXPORTED_BARCODE_FORMULA_PATTERN = /^="([A-Za-z0-9._-]{4,120})"$/;
 const DECIMAL_CONTRACTS = Object.freeze({
   money: { maxIntegerDigits: 12, maxDecimals: 2 },
   quantity: { maxIntegerDigits: 11, maxDecimals: 3 },
@@ -141,8 +142,31 @@ function validateTextLength(value, field, errors, sourceRowNumber) {
   return text;
 }
 
+function unwrapExportedBarcodeText(text) {
+  const formulaMatch = EXPORTED_BARCODE_FORMULA_PATTERN.exec(text);
+  if (formulaMatch) return formulaMatch[1];
+  return text;
+}
+
+function validateIdentifierText(value, field, errors, sourceRowNumber) {
+  const definition = FIELD_DEFINITIONS[field];
+  const rawText = normalizeText(value);
+  const text = field === 'barcode' ? unwrapExportedBarcodeText(rawText) : rawText;
+  if (hasControlCharacters(text)) {
+    errors.push(
+      importError(IMPORT_ERROR_CODES.BINARY_CONTENT, { sourceRowNumber, column: definition.header })
+    );
+  }
+  if (definition.maxLength && text.length > definition.maxLength) {
+    errors.push(
+      importError(IMPORT_ERROR_CODES.TEXT_TOO_LONG, { sourceRowNumber, column: definition.header })
+    );
+  }
+  return text;
+}
+
 function normalizeIdentifier(value, field, pattern, errors, sourceRowNumber) {
-  const text = validateTextLength(value, field, errors, sourceRowNumber);
+  const text = validateIdentifierText(value, field, errors, sourceRowNumber);
   if (!text) return '';
   if (SCIENTIFIC_NOTATION.test(text)) {
     errors.push(

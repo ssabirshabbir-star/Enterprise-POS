@@ -1,7 +1,7 @@
 const CSV_COLUMNS = Object.freeze([
   { header: 'Product Name', key: 'name', type: 'text' },
   { header: 'SKU', key: 'sku', type: 'text' },
-  { header: 'Barcode', key: 'barcode', type: 'text' },
+  { header: 'Barcode', key: 'barcode', type: 'barcode' },
   { header: 'Category', key: 'categoryName', type: 'text' },
   { header: 'Brand', key: 'brandName', type: 'text' },
   { header: 'Unit', key: 'unitName', type: 'text' },
@@ -17,6 +17,8 @@ const CSV_COLUMNS = Object.freeze([
 ]);
 
 const DANGEROUS_FORMULA_PREFIX = /^[\s]*[=+\-@]/;
+const BARCODE_PATTERN = /^[A-Za-z0-9._-]{4,120}$/;
+const EXCEL_TEXT_PREFIX = "'";
 
 function formatDate(value) {
   if (value === null || value === undefined || value === '') return '';
@@ -45,6 +47,11 @@ function formatStatus(value) {
 
 function formatCellValue(value, column) {
   if (value === null || value === undefined) return '';
+  if (column.type === 'barcode') {
+    const text = String(value);
+    if (text === '') return '';
+    return BARCODE_PATTERN.test(text) ? `="${text}"` : `${EXCEL_TEXT_PREFIX}${text}`;
+  }
   if (column.type === 'date') return formatDate(value);
   if (column.type === 'number') return formatNumber(value);
   if (column.type === 'booleanStatus') return value === false ? 'Inactive' : 'Active';

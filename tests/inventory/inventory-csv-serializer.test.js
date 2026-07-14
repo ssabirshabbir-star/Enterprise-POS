@@ -5,9 +5,42 @@ const {
   CSV_COLUMNS,
   serializeInventoryRowsToCsv,
 } = require('../../src/main/features/inventory/inventory-csv.serializer');
+const {
+  parseInventoryImportCsv,
+} = require('../../src/main/features/inventory/inventory-import-csv.parser');
+const {
+  TEMPLATE_HEADERS,
+} = require('../../src/main/features/inventory/inventory-import-template.contract');
+const { IMPORT_ERROR_CODES } = require('../../src/main/features/inventory/inventory-import.errors');
+const {
+  validateInventoryImportRows,
+} = require('../../src/main/features/inventory/inventory-import.validation');
 
 function bodyLines(csv) {
   return csv.replace(/^\uFEFF/, '').trimEnd().split('\r\n');
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function importLine(values = {}) {
+  return TEMPLATE_HEADERS.map((header) => csvCell(values[header] ?? '')).join(',');
+}
+
+function validateImportBarcode(barcode) {
+  const parsed = parseInventoryImportCsv(
+    `${TEMPLATE_HEADERS.join(',')}\r\n${importLine({
+      'Product Name': 'Round Trip Product',
+      SKU: 'ROUND-TRIP-1',
+      Barcode: barcode,
+      'Cost Price': '10',
+      'Selling Price': '12',
+    })}\r\n`
+  );
+  assert.equal(parsed.ok, true);
+  return validateInventoryImportRows(parsed.sourceRows);
 }
 
 test('Inventory CSV serializer emits a stable BOM-prefixed header', () => {
@@ -43,7 +76,7 @@ test('Inventory CSV serializer formats ordinary inventory values deterministical
 
   assert.equal(
     bodyLines(csv)[1],
-    'Bubble Gum,BG-01,12345,Personal Care,Local,Piece,B-100,2026-07-13,10.5,9,12,25,5,In Stock,Active'
+    'Bubble Gum,BG-01,"=""12345""",Personal Care,Local,Piece,B-100,2026-07-13,10.5,9,12,25,5,In Stock,Active'
   );
 });
 
@@ -98,8 +131,47 @@ test('Inventory CSV serializer protects textual formula-like values', () => {
 
   assert.equal(
     bodyLines(csv)[1],
-    "'=CMD,'+SUM(A1:A2),'-10-text,'@Risk,\"'  =after-space\",Piece,'-BATCH,,,,,,,In Stock,Active"
+    '\'=CMD,\'+SUM(A1:A2),"=""-10-text""",\'@Risk,"\'  =after-space",Piece,\'-BATCH,,,,,,,In Stock,Active'
   );
+});
+
+test('Inventory CSV serializer emits barcodes as Excel-safe text', () => {
+  const csv = serializeInventoryRowsToCsv([
+    { name: 'Long Barcode', sku: 'LONG-1', barcode: '8801234567890' },
+    { name: 'Leading Zero Barcode', sku: 'ZERO-1', barcode: '0012345678901' },
+    { name: 'Very Long Barcode', sku: 'LONG-2', barcode: '12345678901234567890' },
+    { name: 'Empty Barcode', sku: 'EMPTY-1', barcode: '' },
+  ]);
+  const lines = bodyLines(csv);
+
+  assert.match(lines[1], /Long Barcode,LONG-1,"=""8801234567890""",/);
+  assert.match(lines[2], /Leading Zero Barcode,ZERO-1,"=""0012345678901""",/);
+  assert.match(lines[3], /Very Long Barcode,LONG-2,"=""12345678901234567890""",/);
+  assert.match(lines[4], /Empty Barcode,EMPTY-1,,/);
+  assert.doesNotMatch(lines[3], /LONG-2,12345678901234567890,/);
+});
+
+test('Inventory CSV serializer keeps barcode formula-like content inert', () => {
+  const csv = serializeInventoryRowsToCsv([{ name: 'Unsafe Barcode', sku: 'UNSAFE-1', barcode: '=CMD' }]);
+  assert.match(bodyLines(csv)[1], /Unsafe Barcode,UNSAFE-1,'=CMD,/);
+
+  const result = validateImportBarcode("'=CMD");
+  assert(
+    result.errors.some((error) => error.code === IMPORT_ERROR_CODES.INVALID_BARCODE),
+    'malformed or formula-like barcode wrappers must not be trusted'
+  );
+});
+
+test('Inventory CSV exported barcode text marker round-trips through import validation', () => {
+  const exported = serializeInventoryRowsToCsv([
+    { name: 'Round Trip Barcode', sku: 'ROUND-1', barcode: '0012345678901' },
+  ]);
+  const exportedBarcodeCell = bodyLines(exported)[1].split(',')[2];
+  assert.equal(exportedBarcodeCell, '"=""0012345678901"""');
+
+  const result = validateImportBarcode('="0012345678901"');
+  assert.equal(result.ok, true);
+  assert.equal(result.rows[0].normalized.barcode, '0012345678901');
 });
 
 test('Inventory CSV serializer keeps legitimate negative numeric values numeric', () => {
