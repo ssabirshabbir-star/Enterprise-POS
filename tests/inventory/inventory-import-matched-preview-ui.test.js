@@ -484,6 +484,13 @@ test('inventory summary spacing and requested header alignment stay scoped', () 
   assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?gap:\s*6px;/);
   assert.match(
     css,
+    /#dashboard main:has\(#inventoryModule:not\(\.hidden\)\)\s*{[\s\S]*?padding:\s*8px !important;/
+  );
+  assert.match(css, /#inventoryModule\s*{[\s\S]*?height:\s*100%;/);
+  assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?height:\s*100%;/);
+  assert.doesNotMatch(css, /height:\s*calc\(100vh - 7[04]px\)/);
+  assert.match(
+    css,
     /\.epos-inventory-table th:nth-child\(n \+ 4\):nth-child\(-n \+ 9\)\s*{[\s\S]*?text-align:\s*center !important;/
   );
   assert.doesNotMatch(css, /\.epos-inventory-table td:nth-child\(n \+ 4\):nth-child\(-n \+ 9\)/);
