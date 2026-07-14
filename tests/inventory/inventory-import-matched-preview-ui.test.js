@@ -459,6 +459,21 @@ test('inventory summary cards follow approved order and keep stock value last', 
   assert.match(css, /gap:\s*6px/);
 });
 
+test('inventory tabs omit the stale stock value filter while retaining stock value summary', () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const renderer = fs.readFileSync(rendererPath, 'utf8');
+  const tabsBlock = html.match(/<nav class="epos-inventory-tabs"[\s\S]*?<\/nav>/)?.[0] || '';
+
+  const tabLabels = Array.from(
+    tabsBlock.matchAll(/data-inventory-tab="[^"]+"[^>]*>([^<]+)<\/button>/g)
+  ).map((match) => match[1]);
+
+  assert.deepEqual(tabLabels, ['All Items', 'Low Stock', 'Out of Stock', 'Recently Added']);
+  assert.doesNotMatch(tabsBlock, /data-inventory-tab="value"|>Stock Value<\/button>/);
+  assert.match(html, /<span>Total Stock Value<\/span>/);
+  assert.doesNotMatch(renderer, /_currentTab\s*===\s*['"]value['"]/);
+});
+
 test('inventory table column contract gives long headers enough measured width', () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const css = fs.readFileSync(

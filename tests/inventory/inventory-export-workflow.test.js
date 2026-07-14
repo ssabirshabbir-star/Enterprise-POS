@@ -74,12 +74,15 @@ test('Inventory toolbar exposes enabled CSV export and import launchers exactly 
   const html = read(htmlPath);
   assert.equal((html.match(/id="inventoryExportCsvButton"/g) || []).length, 1);
   assert.equal((html.match(/id="inventoryImportPreviewButton"/g) || []).length, 1);
-  assert.match(html, /id="inventoryImportPreviewButton"[^>]*data-tool-action="import-preview"[^>]*>Import CSV<\/button>/);
-  assert.match(html, /id="inventoryExportCsvButton"[^>]*data-tool-action="export-csv"[^>]*>Export CSV<\/button>/);
-  assert.doesNotMatch(
+  assert.match(
     html,
-    /data-tool-action="export-csv"[^>]*(disabled|aria-disabled="true")/
+    /id="inventoryImportPreviewButton"[^>]*data-tool-action="import-preview"[^>]*>Import CSV<\/button>/
   );
+  assert.match(
+    html,
+    /id="inventoryExportCsvButton"[^>]*data-tool-action="export-csv"[^>]*>Export CSV<\/button>/
+  );
+  assert.doesNotMatch(html, /data-tool-action="export-csv"[^>]*(disabled|aria-disabled="true")/);
   assert.doesNotMatch(
     html,
     /id="inventoryImportPreviewButton"[^>]*(disabled|aria-disabled="true")/
@@ -96,7 +99,10 @@ test('Inventory renderer and preload expose only the narrow CSV export path', ()
   assert.match(renderer, /api\(\)\.exportCsv\(currentExportFilters\(\)\)/);
   assert.doesNotMatch(renderer, /require\(['"]fs|showSaveDialog|serializeInventoryRowsToCsv/);
   assert.match(api, /window\.posApi\.inventory\.exportCsv\(filters\)/);
-  assert.match(preload, /exportCsv:\s*\(filters\) => ipcRenderer\.invoke\('\/inventory\/export\/csv', \{ filters \}\)/);
+  assert.match(
+    preload,
+    /exportCsv:\s*\(filters\) => ipcRenderer\.invoke\('\/inventory\/export\/csv', \{ filters \}\)/
+  );
   assert.doesNotMatch(preload, /inventory:[\s\S]*showSaveDialog/);
 });
 
@@ -121,7 +127,9 @@ test('Inventory repository provides a pagination-independent export query', () =
   assert.match(repository, /stockStatus/);
   assert.match(repository, /limit: 300/);
   assert.doesNotMatch(
-    repository.match(/async function listInventoryForExport[\s\S]*?return result\.rows\.map\(mapInventory\);/)?.[0] || '',
+    repository.match(
+      /async function listInventoryForExport[\s\S]*?return result\.rows\.map\(mapInventory\);/
+    )?.[0] || '',
     /LIMIT 300/
   );
 });
@@ -167,6 +175,34 @@ test('Inventory service exports all matching rows, writes CSV, and records succe
   assert.equal(calls.activity[0].status, 'success');
   assert.equal(calls.activity[0].metadata.fileName, 'export.csv');
   assert.equal(calls.activity[0].metadata.rowCount, 2);
+
+  await fsp.rm(tmpDir, { recursive: true, force: true });
+});
+
+test('Inventory export treats stale stock value tab state as the all-items view', async () => {
+  const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'inventory-export-stale-tab-'));
+  const filePath = path.join(tmpDir, 'export.csv');
+  const { service, calls } = loadInventoryService({
+    rows: [{ name: 'A', sku: 'A-1', currentStock: 2, minStockLevel: 1, status: 'IN_STOCK' }],
+  });
+
+  const result = await service.exportInventoryCsv({
+    filePath,
+    filters: {
+      inventoryTab: 'value',
+      stockStatus: '',
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls.filters[0], {
+    search: '',
+    categoryId: null,
+    brandId: null,
+    supplierId: null,
+    stockStatus: '',
+    inventoryTab: 'all',
+  });
 
   await fsp.rm(tmpDir, { recursive: true, force: true });
 });

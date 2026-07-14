@@ -11,8 +11,10 @@ async function requireInventoryAccess(mode) {
   const profileResult = await authService.getProfile();
   if (!profileResult.ok) return { ok: false, message: 'Authentication required.' };
   const profile = profileResult.profile;
-  const allowed = mode === 'write' ? canAdjustInventory(profile.role) : canReadInventory(profile.role);
-  if (!allowed) return { ok: false, message: 'You do not have permission for this inventory action.' };
+  const allowed =
+    mode === 'write' ? canAdjustInventory(profile.role) : canReadInventory(profile.role);
+  if (!allowed)
+    return { ok: false, message: 'You do not have permission for this inventory action.' };
   return { ok: true, profile };
 }
 
@@ -41,22 +43,21 @@ function parseNullableId(value) {
 function normalizeExportFilters(filters = {}) {
   const stockStatusInput = String(filters.stockStatus || '').trim();
   const inventoryTab = String(filters.inventoryTab || '').trim();
-  const stockStatus =
-    ['in', 'low', 'out'].includes(stockStatusInput)
-      ? stockStatusInput
-      : ['low', 'out'].includes(inventoryTab)
-        ? inventoryTab
-        : '';
+  const stockStatus = ['in', 'low', 'out'].includes(stockStatusInput)
+    ? stockStatusInput
+    : ['low', 'out'].includes(inventoryTab)
+      ? inventoryTab
+      : '';
 
   return {
-    search: String(filters.search || '').trim().slice(0, 120),
+    search: String(filters.search || '')
+      .trim()
+      .slice(0, 120),
     categoryId: parseNullableId(filters.categoryId),
     brandId: parseNullableId(filters.brandId),
     supplierId: parseNullableId(filters.supplierId),
     stockStatus,
-    inventoryTab: ['all', 'low', 'out', 'value', 'recent'].includes(inventoryTab)
-      ? inventoryTab
-      : 'all',
+    inventoryTab: ['all', 'low', 'out', 'recent'].includes(inventoryTab) ? inventoryTab : 'all',
   };
 }
 
@@ -95,7 +96,7 @@ async function listInventory(filters = {}) {
   const items = await inventoryRepository.listInventory({
     search: String(filters.search || '').trim(),
     lowStockOnly: Boolean(filters.lowStockOnly),
-    outOfStockOnly: Boolean(filters.outOfStockOnly)
+    outOfStockOnly: Boolean(filters.outOfStockOnly),
   });
   return { ok: true, items, permissions: { canAdjust: canAdjustInventory(access.profile.role) } };
 }
@@ -165,18 +166,31 @@ async function adjustStock(payload = {}) {
   const access = await requireInventoryAccess('write');
   if (!access.ok) return access;
   const productId = parseProductId(payload.productId);
-  const movementType = String(payload.movementType || '').trim().toUpperCase();
+  const movementType = String(payload.movementType || '')
+    .trim()
+    .toUpperCase();
   const quantity = Number(payload.quantity);
   const reason = String(payload.reason || '').trim();
 
   if (!productId) return { ok: false, message: 'Product is required.' };
-  if (!['IN', 'OUT', 'CORRECTION'].includes(movementType)) return { ok: false, message: 'Adjustment type is invalid.' };
-  if (!Number.isFinite(quantity) || quantity < 0 || (movementType !== 'CORRECTION' && quantity <= 0)) {
+  if (!['IN', 'OUT', 'CORRECTION'].includes(movementType))
+    return { ok: false, message: 'Adjustment type is invalid.' };
+  if (
+    !Number.isFinite(quantity) ||
+    quantity < 0 ||
+    (movementType !== 'CORRECTION' && quantity <= 0)
+  ) {
     return { ok: false, message: 'Quantity must be greater than zero.' };
   }
   if (reason.length < 3) return { ok: false, message: 'Reason is required.' };
 
-  const result = await inventoryRepository.adjustStock({ productId, movementType, quantity, reason, userId: access.profile.id });
+  const result = await inventoryRepository.adjustStock({
+    productId,
+    movementType,
+    quantity,
+    reason,
+    userId: access.profile.id,
+  });
   if (!result.ok) return result;
 
   await activityRepository.createActivityLog({
@@ -184,7 +198,13 @@ async function adjustStock(payload = {}) {
     action: 'inventory.adjust',
     status: 'success',
     message: 'Stock adjusted',
-    metadata: { productId, movementType, quantity, previousStock: result.previousStock, newStock: result.newStock }
+    metadata: {
+      productId,
+      movementType,
+      quantity,
+      previousStock: result.previousStock,
+      newStock: result.newStock,
+    },
   });
 
   return { ok: true, message: 'Stock adjusted successfully.', ...result };
@@ -202,7 +222,7 @@ async function updateProductImage(payload = {}) {
 
   const updated = await inventoryRepository.updateProductImage({
     productId,
-    productImage: imageResult.image
+    productImage: imageResult.image,
   });
 
   if (!updated) return { ok: false, message: 'Product was not found.' };
@@ -212,10 +232,13 @@ async function updateProductImage(payload = {}) {
     action: 'inventory.product_image.update',
     status: 'success',
     message: 'Product image updated',
-    metadata: { productId, hasImage: Boolean(imageResult.image) }
+    metadata: { productId, hasImage: Boolean(imageResult.image) },
   });
 
-  return { ok: true, message: imageResult.image ? 'Product image updated.' : 'Product image removed.' };
+  return {
+    ok: true,
+    message: imageResult.image ? 'Product image updated.' : 'Product image removed.',
+  };
 }
 
 module.exports = {
@@ -223,5 +246,5 @@ module.exports = {
   exportInventoryCsv,
   listInventory,
   listMovements,
-  updateProductImage
+  updateProductImage,
 };
