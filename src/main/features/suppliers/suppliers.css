@@ -11,16 +11,16 @@
     --supplier-orange: #ff7a00;
     --supplier-teal: #089c95;
     --supplier-red: #ef233c;
-    display: grid;
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
-    gap: 5px;
+    gap: 4px;
     overflow: hidden;
     background: #f8fbff;
     color: #0f1f3d;
     max-height: 100%;
-    padding: 2px 0 8px 12px;
+    padding: 1px 0 4px 12px;
   }
 
   #suppliersModule:has(.epos-suppliers-page) {
@@ -38,6 +38,7 @@
   .epos-suppliers-filters,
   .epos-suppliers-message,
   .epos-suppliers-bottom-actions {
+    flex: 0 0 auto;
     padding-right: 12px;
   }
 
@@ -110,17 +111,17 @@
   .epos-suppliers-stats {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
   }
 
   .epos-suppliers-stats article {
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: 62px;
+    min-height: 60px;
     border-radius: 8px;
     color: #ffffff;
-    padding: 8px 10px;
+    padding: 7px 10px;
     overflow: hidden;
     position: relative;
     box-shadow: 0 12px 24px rgb(15 31 61 / 0.14);
@@ -198,11 +199,11 @@
 
   .epos-suppliers-filters {
     grid-template-columns: minmax(300px, 1.6fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(138px, 0.7fr) minmax(138px, 0.7fr) 88px;
-    gap: 10px;
+    gap: 8px;
     border: 1px solid #e6edf7;
     border-top: 0;
     border-radius: 8px;
-    padding: 10px;
+    padding: 6px 8px;
   }
 
   .epos-suppliers-filters button {
@@ -216,7 +217,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    height: 100%;
+    flex: 1 1 auto;
+    height: auto;
     min-height: 0;
     width: 100%;
     max-width: 100%;
@@ -247,18 +249,18 @@
     flex: 1 1 auto;
     width: 100% !important;
     max-width: none !important;
-    height: calc(100% - 42px);
-    max-height: calc(100% - 42px);
+    height: 100%;
+    max-height: none;
     min-height: 0;
     margin: 0;
-    padding: 0 0 56px !important;
+    padding: 0 !important;
     border: 1px solid #e6edf7;
     border-radius: 8px;
     background: #ffffff;
     box-shadow: none;
     overflow-x: auto;
     overflow-y: auto;
-    scroll-padding-bottom: 56px;
+    scroll-padding-bottom: 8px;
     scrollbar-width: thin;
     scrollbar-color: #64748b #edf2f7;
     -ms-overflow-style: none;
@@ -896,9 +898,9 @@
   }
 
   @media (max-width: 1366px) {
-    .epos-suppliers-page { gap: 5px; padding: 6px 0 6px 10px; }
-    .epos-suppliers-stats { gap: 10px; }
-    .epos-suppliers-stats article { min-height: 60px; padding: 8px 9px; }
+    .epos-suppliers-page { gap: 4px; padding: 1px 0 4px 10px; }
+    .epos-suppliers-stats { gap: 8px; }
+    .epos-suppliers-stats article { min-height: 60px; padding: 7px 9px; }
     .epos-suppliers-stats article > span { width: 40px; height: 40px; font-size: 16px; }
     .epos-suppliers-stats strong { font-size: 14px; }
     .epos-suppliers-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -908,6 +910,7 @@
     .epos-suppliers-message,
     .epos-suppliers-bottom-actions { padding-right: 10px; }
     .epos-suppliers-filters { grid-template-columns: minmax(240px, 1.35fr) repeat(4, minmax(112px, 0.7fr)) 72px; }
+    .epos-suppliers-filters { padding: 6px 8px; }
     .epos-suppliers-bottom-actions { gap: 8px; }
     .epos-suppliers-bottom-actions button { min-height: 34px; height: 34px; padding-inline: 8px; font-size: 11px; }
   }
