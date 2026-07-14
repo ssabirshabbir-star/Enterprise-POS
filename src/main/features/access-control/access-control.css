@@ -171,13 +171,9 @@
     box-shadow: 0 12px 22px rgb(49 56 120 / 0.14);
   }
 
-  .epos-users-actions .epos-users-action {
-    min-width: 92px;
-  }
-
   .epos-users-actions .epos-users-action[data-user-admin-tab="roles"],
   .epos-users-actions .epos-users-action[data-page-tool="users"] {
-    min-width: 102px;
+    padding-inline: 17px;
   }
 
   .epos-users-action.violet,
@@ -336,7 +332,7 @@
 
   .epos-users-filters {
     display: grid;
-    grid-template-columns: minmax(340px, 1fr) repeat(4, minmax(118px, 142px));
+    grid-template-columns: minmax(300px, 420px) repeat(4, minmax(108px, 1fr));
     gap: 6px;
     padding: 8px 12px;
   }

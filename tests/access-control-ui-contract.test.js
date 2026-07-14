@@ -105,7 +105,7 @@ test('User Management filter row gives search the flexible track and preserves f
 
   assert.match(
     css,
-    /\.epos-users-filters\s*{[\s\S]*?grid-template-columns:\s*minmax\(340px, 1fr\) repeat\(4, minmax\(118px, 142px\)\)/
+    /\.epos-users-filters\s*{[\s\S]*?grid-template-columns:\s*minmax\(300px, 420px\) repeat\(4, minmax\(108px, 1fr\)\)/
   );
   assert.match(html, /<span>Search User<\/span>/);
   assert.match(html, /<span>Role<\/span>/);
@@ -114,7 +114,7 @@ test('User Management filter row gives search the flexible track and preserves f
   assert.match(html, /<span>Department<\/span>/);
 });
 
-test('User Management action toolbar has expanded Roles Import Export sizing contract', () => {
+test('User Management action toolbar widens key buttons without forcing page overflow', () => {
   const css = read(cssPath);
   const html = read(htmlPath);
 
@@ -123,7 +123,12 @@ test('User Management action toolbar has expanded Roles Import Export sizing con
   assert.match(html, /data-page-tool="users" data-tool-action="excel"[^>]*>Export<\/button>/);
   assert.match(
     css,
-    /\.epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],\s*\.epos-users-actions \.epos-users-action\[data-page-tool="users"\]\s*{[\s\S]*?min-width:\s*102px;/
+    /\.epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],\s*\.epos-users-actions \.epos-users-action\[data-page-tool="users"\]\s*{[\s\S]*?padding-inline:\s*17px;/
+  );
+  assert.doesNotMatch(css, /epos-users-actions \.epos-users-action\s*{[\s\S]*?min-width:\s*92px;/);
+  assert.doesNotMatch(
+    css,
+    /epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],[^{]*\{[^}]*min-width:\s*102px;/
   );
 });
 
