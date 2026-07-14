@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enterprise POS Product Form Prototype</title>
+    <link rel="stylesheet" href="./product-form-prototype.css" />
+  </head>
+  <body>
+    <main class="prototype-shell" aria-label="Add new product prototype">
+      <section class="product-window">
+        <header class="product-hero">
+          <div class="hero-mark" aria-hidden="true">
+            <span class="bag-shape"></span>
+            <span class="plus-badge">+</span>
+          </div>
+          <div class="hero-copy">
+            <h1>Add New Product</h1>
+            <p>Fill in the product details to add a new item to your inventory</p>
+          </div>
+          <div class="hero-controls" aria-label="Prototype window controls">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </header>
+
+        <section class="form-surface">
+          <nav class="section-tabs" aria-label="Product form sections">
+            <button class="tab-item active" type="button">
+              <span class="tab-symbol cube-symbol"></span>
+              Product Information
+            </button>
+            <button class="tab-item" type="button">
+              <span class="tab-symbol tag-symbol"></span>
+              Pricing &amp; Stock
+            </button>
+            <button class="tab-item" type="button">
+              <span class="tab-symbol shield-symbol"></span>
+              Tax &amp; Warranty
+            </button>
+            <button class="tab-item" type="button">
+              <span class="tab-symbol image-symbol"></span>
+              Images &amp; More
+            </button>
+          </nav>
+
+          <form class="product-form" aria-label="Static product form prototype">
+            <section class="form-section product-info">
+              <div class="field">
+                <label for="prototypeProductName">Product Name <b>*</b></label>
+                <div class="input-wrap violet">
+                  <span class="input-badge box-badge"></span>
+                  <input id="prototypeProductName" placeholder="Enter product name" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="prototypeSku">SKU / Code <b>*</b></label>
+                <div class="input-wrap blue">
+                  <span class="input-badge card-badge"></span>
+                  <input id="prototypeSku" placeholder="Enter SKU or product code" />
+                  <button class="inline-tool" type="button" aria-label="Generate code"></button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="prototypeBarcode">Barcode</label>
+                <div class="input-wrap pink">
+                  <span class="input-badge barcode-badge"></span>
+                  <input id="prototypeBarcode" placeholder="Scan or enter barcode" />
+                  <button class="inline-tool scan-tool" type="button" aria-label="Scan barcode"></button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="prototypeCategory">Category <b>*</b></label>
+                <div class="input-wrap green">
+                  <span class="input-badge grid-badge"></span>
+                  <select id="prototypeCategory">
+                    <option>Select category</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="prototypeSubCategory">Sub Category</label>
+                <div class="input-wrap mint">
+                  <span class="input-badge stack-badge"></span>
+                  <select id="prototypeSubCategory">
+                    <option>Select sub category</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="prototypeBrand">Brand</label>
+                <div class="input-wrap violet">
+                  <span class="input-badge diamond-badge"></span>
+                  <select id="prototypeBrand">
+                    <option>Select brand</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="prototypeUnit">Unit <b>*</b></label>
+                <div class="input-wrap amber">
+                  <span class="input-badge measure-badge"></span>
+                  <select id="prototypeUnit">
+                    <option>Select unit</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field span-2">
+                <label for="prototypeTags">Tags</label>
+                <div class="input-wrap rose">
+                  <span class="input-badge tag-small-badge"></span>
+                  <input id="prototypeTags" placeholder="Enter tags, e.g. new, sale, popular" />
+                </div>
+              </div>
+
+              <div class="field span-2">
+                <label for="prototypeDescription">Description</label>
+                <div class="editor-shell">
+                  <div class="editor-toolbar" aria-hidden="true">
+                    <span>B</span>
+                    <span>I</span>
+                    <span>U</span>
+                    <span class="lines"></span>
+                    <span class="bullets"></span>
+                    <span class="align"></span>
+                    <span class="link"></span>
+                    <span class="quote"></span>
+                  </div>
+                  <textarea id="prototypeDescription" placeholder="Write product description here..."></textarea>
+                </div>
+              </div>
+
+              <aside class="image-card">
+                <label>Product Image</label>
+                <div class="upload-placeholder">
+                  <span class="upload-glyph"></span>
+                  <strong>Click to upload image</strong>
+                  <small>or drag and drop</small>
+                  <em>PNG, JPG, JPEG (Max. 5MB)</em>
+                  <button type="button">Upload</button>
+                </div>
+              </aside>
+            </section>
+
+            <section class="lower-grid">
+              <article class="info-card pricing-card">
+                <header>
+                  <span class="card-dot money-dot"></span>
+                  <h2>Pricing Information</h2>
+                </header>
+                <div class="mini-grid">
+                  <label>Cost Price <b>*</b><input value="0.00" /></label>
+                  <label>Sale Price <b>*</b><input value="0.00" /></label>
+                  <label>Profit<input value="0.00" /></label>
+                  <label>Discount (%)<input value="0.00" /></label>
+                  <label>MRP<input value="0.00" /></label>
+                </div>
+              </article>
+
+              <article class="info-card stock-card">
+                <header>
+                  <span class="card-dot stock-dot"></span>
+                  <h2>Stock Information</h2>
+                </header>
+                <div class="mini-stack">
+                  <label>Opening Stock <b>*</b><input value="0" /></label>
+                  <label>Minimum Stock Level<input value="0" /></label>
+                  <label>Reorder Location<select><option>Select location</option></select></label>
+                </div>
+              </article>
+
+              <article class="info-card additional-card">
+                <header>
+                  <span class="card-dot info-dot"></span>
+                  <h2>Additional Information</h2>
+                </header>
+                <div class="mini-stack">
+                  <label>Weight (kg)<input value="0.00" /></label>
+                  <label>Dimensions (L x W x H)</label>
+                  <div class="dimension-row">
+                    <input placeholder="Length" />
+                    <input placeholder="Width" />
+                    <input placeholder="Height" />
+                  </div>
+                  <label>Warranty<select><option>Select warranty</option></select></label>
+                </div>
+              </article>
+
+              <article class="info-card status-card">
+                <header>
+                  <span class="card-dot status-dot"></span>
+                  <h2>Status &amp; Options</h2>
+                </header>
+                <div class="switch-list">
+                  <label>
+                    <span>Status</span>
+                    <strong><i class="switch on"></i> Active</strong>
+                  </label>
+                  <label>
+                    <span>Featured Product</span>
+                    <strong><i class="switch"></i> No</strong>
+                  </label>
+                  <label>
+                    <span>Allow Backorder</span>
+                    <strong><i class="switch"></i> No</strong>
+                  </label>
+                </div>
+              </article>
+            </section>
+          </form>
+        </section>
+
+        <footer class="prototype-actions">
+          <button class="ghost danger" type="button">Clear Form</button>
+          <div>
+            <button class="ghost warning" type="button">Save as Draft</button>
+            <button class="primary blue" type="button">Save &amp; Add Another</button>
+            <button class="primary green" type="button">Save Product</button>
+          </div>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>
