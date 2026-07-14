@@ -472,9 +472,17 @@
     el.classList.toggle('error', Boolean(isError));
   }
 
-  function summaryValue(summary, key) {
-    const value = Number(summary?.[key] || 0);
+  function summaryValue(summary, key, fallbackKeys = []) {
+    const sourceKey = [key, ...fallbackKeys].find((candidate) => summary?.[candidate] !== undefined);
+    const value = Number(summary?.[sourceKey] || 0);
     return Number.isFinite(value) && value >= 0 ? value : 0;
+  }
+
+  function executionNoStockRows(summary) {
+    if (summary?.noStockRows !== undefined) return summaryValue(summary, 'noStockRows');
+    const eligibleRows = summaryValue(summary, 'currentlyEligibleRows', ['eligibleRows']);
+    const openingStockRows = summaryValue(summary, 'openingStockRows');
+    return Math.max(0, eligibleRows - openingStockRows);
   }
 
   function hasValidExecutionSummary(summary, rowCount) {
@@ -485,7 +493,7 @@
       'createProductRows',
       'existingProductRows',
       'openingStockRows',
-      'noStockRows',
+      'currentlyEligibleRows',
     ];
     return (
       requiredKeys.every((key) => {
@@ -560,11 +568,11 @@
     clearNode(container);
     const summary = preflight?.summary || {};
     const cards = [
-      ['Ready rows', summaryValue(summary, 'eligibleRows')],
+      ['Ready rows', summaryValue(summary, 'currentlyEligibleRows', ['eligibleRows'])],
       ['Products to create', summaryValue(summary, 'createProductRows')],
       ['Existing products', summaryValue(summary, 'existingProductRows')],
       ['Opening stock', summaryValue(summary, 'openingStockRows')],
-      ['No stock action', summaryValue(summary, 'noStockRows')],
+      ['No stock action', executionNoStockRows(summary)],
       ['Blocked', summaryValue(summary, 'blockedRows')],
     ];
     cards.forEach(([label, value]) => {
@@ -645,7 +653,7 @@
       ['Products to create', summaryValue(summary, 'createProductRows')],
       ['Existing products retained', summaryValue(summary, 'existingProductRows')],
       ['Opening stock rows', summaryValue(summary, 'openingStockRows')],
-      ['Rows without stock action', summaryValue(summary, 'noStockRows')],
+      ['Rows without stock action', executionNoStockRows(summary)],
       ['Blocked rows', summaryValue(summary, 'blockedRows')],
     ].forEach(([label, value]) => {
       const row = document.createElement('p');

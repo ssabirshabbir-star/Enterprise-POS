@@ -279,12 +279,16 @@ function createDom() {
 function commitReadyPreflight(overrides = {}) {
   const summary = {
     totalRows: 1,
-    eligibleRows: 1,
+    currentlyEligibleRows: 1,
+    skippedRows: 0,
     createProductRows: 1,
     existingProductRows: 0,
     openingStockRows: 1,
-    noStockRows: 0,
     blockedRows: 0,
+    productBlockedRows: 0,
+    stockBlockedRows: 0,
+    permissionBlockedRows: 0,
+    staleRows: 0,
     ...overrides.summary,
   };
   return {
@@ -730,7 +734,12 @@ test('Phase 5K keeps Import disabled until a commit-ready execution preflight ex
     createImportExecutionPreflight: async () => {
       const executionPreflight = commitReadyPreflight({
         commitReady: false,
-        summary: { blockedRows: 1, eligibleRows: 0, createProductRows: 0, openingStockRows: 0 },
+        summary: {
+          currentlyEligibleRows: 0,
+          blockedRows: 1,
+          createProductRows: 0,
+          openingStockRows: 0,
+        },
         rows: [{ currentlyEligible: false }],
       });
       return { ok: true, sessionId: 'inventory-import-execution-preflight-123e4567-e89b-42d3-a456-426614174001', executionPreflight };
@@ -742,6 +751,20 @@ test('Phase 5K keeps Import disabled until a commit-ready execution preflight ex
 
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, true);
   assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /not currently eligible/i);
+});
+
+test('Phase 5K accepts production execution preflight summary shape and enables Import', async () => {
+  const { document } = await loadRenderer();
+
+  await document.getElementById('inventoryImportPreviewButton').click();
+
+  assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
+  const summaryText = document.getElementById('importExecutionSummary').textContent;
+  assert.match(summaryText, /Ready rows1/);
+  assert.match(summaryText, /Products to create1/);
+  assert.match(summaryText, /Opening stock1/);
+  assert.match(summaryText, /No stock action0/);
+  assert.match(document.getElementById('inventoryImportExecutionStatus').textContent, /ready for final confirmation/i);
 });
 
 test('Phase 5K fails closed when commit-ready preflight is missing certified execution evidence', async () => {
