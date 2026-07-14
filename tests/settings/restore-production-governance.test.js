@@ -171,3 +171,28 @@ test('settings UI exposes confirmation evidence and recovery assessment but no p
   assert.doesNotMatch(api, /restoreBackup/);
   assert.doesNotMatch(renderer, /A\(\)\.restoreBackup|handleExecuteRestore|location\.reload/);
 });
+
+test('repository final confirmation refuses repeated evidence for one operation', () => {
+  const repository = read('src/main/features/settings/settings.repository.js');
+  const confirmationBody = repository.slice(
+    repository.indexOf('async function createRestoreFinalConfirmation'),
+    repository.indexOf('async function getRestoreStartupRecoveryAssessment')
+  );
+
+  assert.match(confirmationBody, /row\.final_confirmation_id \|\| row\.final_confirmation_hash/);
+  assert.match(confirmationBody, /final_confirmation_already_recorded/);
+  assert.match(confirmationBody, /confirmationCreated:\s*false/);
+});
+
+test('retention assessment requires artifact to match a restore operation journal entry', () => {
+  const repository = read('src/main/features/settings/settings.repository.js');
+  const retentionBody = repository.slice(
+    repository.indexOf('async function getRestoreRetentionAssessment'),
+    repository.indexOf('function backupLogFilters')
+  );
+
+  assert.match(repository, /async function restoreOperationForSafetyArtifact/);
+  assert.match(retentionBody, /linkedOperationFound:\s*false/);
+  assert.match(retentionBody, /cleanupEligible:\s*false/);
+  assert.match(retentionBody, /not linked to a Restore operation journal entry/);
+});

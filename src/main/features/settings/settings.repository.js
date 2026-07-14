@@ -1566,6 +1566,15 @@ async function createRestoreFinalConfirmation({
         message: 'Restore final confirmation cannot be created for terminal or consumed operations.',
       };
     }
+    if (row.final_confirmation_id || row.final_confirmation_hash) {
+      return {
+        ok: false,
+        confirmationCreated: false,
+        blockers: ['final_confirmation_already_recorded'],
+        message:
+          'Restore final confirmation has already been recorded for this operation.',
+      };
+    }
     const confirmation = restoreProductionGovernanceModel.createConfirmationRecord({
       operationId,
       ownerUserId,
@@ -1665,14 +1674,65 @@ async function getRestoreStartupRecoveryAssessment() {
   };
 }
 
+async function restoreOperationForSafetyArtifact(artifactPath) {
+  const selectedPath = String(artifactPath || '').trim();
+  if (!selectedPath) return null;
+  const result = await getPool().query(
+    `
+      SELECT *
+      FROM restore_operations
+      WHERE safety_backup_path = $1
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1
+    `,
+    [selectedPath]
+  );
+  return result.rows[0] || null;
+}
+
 async function getRestoreRetentionAssessment({ artifactPath = null } = {}) {
-  const recoveryState = await getRestoreRecoveryState();
+  const selectedArtifactPath = String(artifactPath || '').trim();
+  const operation = selectedArtifactPath
+    ? await restoreOperationForSafetyArtifact(selectedArtifactPath)
+    : null;
+
+  if (selectedArtifactPath && !operation) {
+    return {
+      ok: true,
+      linkedOperationFound: false,
+      recoveryState: restoreRecoveryStateModel.createIdleRecoveryState(),
+      retention: {
+        artifactPath: selectedArtifactPath,
+        testOnly: restoreProductionGovernanceModel.classifyRetention({
+          recoveryState: restoreRecoveryStateModel.createIdleRecoveryState(),
+          artifactPath: selectedArtifactPath,
+        }).testOnly,
+        terminal: false,
+        dangerous: true,
+        cleanupEligible: false,
+        dryRunRequired: true,
+        deleteOnlyInsideApprovedRecoveryRoot: true,
+        reason:
+          'Safety backup artifact is not linked to a Restore operation journal entry. Cleanup requires manual review.',
+      },
+      noRestoreExecuted: true,
+      restoreExecutionAvailable: false,
+    };
+  }
+
+  const recoveryState = operation
+    ? operationRowToRecoveryState(
+        operation,
+        await restoreOperationEvidence(operation.operation_id)
+      )
+    : await getRestoreRecoveryState();
   return {
     ok: true,
+    linkedOperationFound: Boolean(operation),
     recoveryState,
     retention: restoreProductionGovernanceModel.classifyRetention({
       recoveryState,
-      artifactPath: artifactPath || recoveryState.safetyBackupReference?.filePath || '',
+      artifactPath: selectedArtifactPath || recoveryState.safetyBackupReference?.filePath || '',
     }),
     noRestoreExecuted: true,
     restoreExecutionAvailable: false,

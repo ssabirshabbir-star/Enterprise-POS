@@ -108,9 +108,30 @@ test('main process uses guarded IPC registration and production restore executio
   assert.match(main, /registerSettingsRoutes\(guardedIpcMain\)/);
   assert.match(guardSource, /\/pos\/sales\/complete/);
   assert.match(guardSource, /\/inventory\/import\/execution\/certified/);
+  assert.match(guardSource, /\/barcodes\/preview\/request/);
+  assert.match(guardSource, /\/barcodes\/preview\/print/);
+  assert.match(guardSource, /\/updates\/check/);
+  assert.match(guardSource, /\/license\/status/);
+  assert.match(guardSource, /\/license\/refresh/);
   assert.match(guardSource, /\/settings\/save/);
 
   assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
   assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
   assert.doesNotMatch(renderer, /A\(\)\.restoreBackup|handleExecuteRestore|location\.reload/);
+});
+
+test('write-like deployment and barcode routes are guarded during recovery mode', async () => {
+  for (const channel of [
+    '/barcodes/preview/request',
+    '/barcodes/preview/print',
+    '/updates/check',
+    '/license/status',
+    '/license/refresh',
+  ]) {
+    const decision = await guard.assertMutationAllowed(channel, () =>
+      statusFor(recovery.RESTORE_RECOVERY_STATES.FAILED_ROLLBACK_REQUIRED)
+    );
+    assert.equal(decision.allowed, false, `${channel} should be blocked`);
+    assert.equal(decision.response.code, guard.MAINTENANCE_ERROR_CODE);
+  }
 });
