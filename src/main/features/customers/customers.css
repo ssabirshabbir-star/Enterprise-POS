@@ -399,10 +399,12 @@
 
   .epos-customers-table {
     width: 100%;
-    min-width: 100%;
+    max-width: 100%;
+    min-width: 0;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
+    table-layout: fixed;
   }
 
   .epos-customers-table thead {
@@ -446,8 +448,33 @@
 
   .epos-customers-table th:first-child,
   .epos-customers-table td:first-child {
-    width: 34px;
+    width: 4%;
     text-align: center;
+  }
+
+  .epos-customers-table th:nth-child(2),
+  .epos-customers-table td:nth-child(2) { width: 4%; }
+  .epos-customers-table th:nth-child(3),
+  .epos-customers-table td:nth-child(3) { width: 15%; }
+  .epos-customers-table th:nth-child(4),
+  .epos-customers-table td:nth-child(4) { width: 10%; }
+  .epos-customers-table th:nth-child(5),
+  .epos-customers-table td:nth-child(5) { width: 10%; }
+  .epos-customers-table th:nth-child(6),
+  .epos-customers-table td:nth-child(6) { width: 6%; }
+  .epos-customers-table th:nth-child(7),
+  .epos-customers-table td:nth-child(7) { width: 5%; }
+  .epos-customers-table th:nth-child(8),
+  .epos-customers-table td:nth-child(8) { width: 10%; }
+  .epos-customers-table th:nth-child(9),
+  .epos-customers-table td:nth-child(9) { width: 10%; }
+  .epos-customers-table th:nth-child(10),
+  .epos-customers-table td:nth-child(10) { width: 7%; }
+  .epos-customers-table th:nth-child(11),
+  .epos-customers-table td:nth-child(11) {
+    width: 19%;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .epos-customers-table input[type="checkbox"] {

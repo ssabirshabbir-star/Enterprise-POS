@@ -149,7 +149,7 @@
     font-size: 12px !important;
   }
 
-  #dashboard main {
+  #dashboard #appMain {
     flex: 1;
     min-height: 0;
     overflow: auto;
@@ -218,8 +218,8 @@
     scrollbar-gutter: auto;
   }
 
-  #dashboard main:has(#suppliersModule:not(.hidden)) {
-    padding-block: 0 !important;
+  #dashboard #appMain:has(#suppliersModule:not(.hidden)) {
+    padding-block: 4px !important;
     overflow: hidden;
     scrollbar-gutter: auto;
   }

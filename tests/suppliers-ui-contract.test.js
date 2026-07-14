@@ -74,10 +74,14 @@ test('Suppliers compact layout transfers vertical space to the table viewport', 
   assert.match(css, /\.epos-suppliers-filters\s*{[\s\S]*?padding:\s*6px 8px;/);
 });
 
-test('Suppliers route removes shared outer vertical padding at the owning shell', () => {
+test('Suppliers route keeps small shell insets without returning shared blank bands', () => {
   assert.match(
     compactCss,
-    /#dashboard main:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding-block:\s*0 !important;[\s\S]*?overflow:\s*hidden;/
+    /#dashboard #appMain:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding-block:\s*4px !important;[\s\S]*?overflow:\s*hidden;/
+  );
+  assert.doesNotMatch(
+    compactCss,
+    /#dashboard main:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding-block:\s*0 !important;/
   );
 
   assert.match(
@@ -99,4 +103,12 @@ test('Suppliers route removes shared outer vertical padding at the owning shell'
     css,
     /\.(?:epos-suppliers-page|epos-suppliers-stats|epos-suppliers-workspace|epos-suppliers-table-wrap|epos-suppliers-bottom-actions)\s*{[^}]*position:\s*(?:absolute|fixed)/s
   );
+});
+
+test('Suppliers table header is taller while body row spacing remains compact', () => {
+  assert.match(
+    css,
+    /\.epos-suppliers-table th\s*{[\s\S]*?height:\s*36px !important;[\s\S]*?padding:\s*4px 10px !important;/
+  );
+  assert.match(css, /\.epos-suppliers-table td\s*{[\s\S]*?padding:\s*8px 10px;/);
 });
