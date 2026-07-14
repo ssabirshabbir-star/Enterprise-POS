@@ -223,6 +223,29 @@ test('Product renderer keeps contextual labels for category, brand, and unit fil
   assert.match(css, /grid-template-columns:\s*repeat\(3,\s*minmax\(110px,\s*1fr\)\)\s*132px;/);
 });
 
+test('Products summary cards use compact Inventory-aligned value density', () => {
+  const css = read(path.join(root, 'src', 'main', 'features', 'products', 'products.css'));
+  const html = read(path.join(root, 'src', 'main', 'features', 'products', 'index.html'));
+  const statsBlock =
+    html.match(/<section class="epos-products-stats"[\s\S]*?<\/section>/)?.[0] || '';
+
+  const labels = Array.from(statsBlock.matchAll(/<span>([^<]+)<\/span>/g)).map((match) => match[1]);
+  assert.deepEqual(labels, [
+    'Total Products',
+    'Active Products',
+    'Low Stock Items',
+    'Out of Stock',
+    'Total Value',
+  ]);
+  assert.match(statsBlock, /id="productTotalValue"/);
+  assert.match(css, /\.epos-products-stats span\s*{[\s\S]*?display:\s*block;/);
+  assert.match(css, /\.epos-products-stats strong\s*{[\s\S]*?line-height:\s*1;/);
+  assert.match(
+    css,
+    /@media \(max-width:\s*1400px\)\s*{[\s\S]*?\.epos-products-stats strong\s*{[\s\S]*?font-size:\s*16px;/
+  );
+});
+
 test('Add and Edit product paths use the same Product Form', () => {
   const renderer = read(productsRendererPath);
 

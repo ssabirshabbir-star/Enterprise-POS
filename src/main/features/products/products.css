@@ -167,6 +167,7 @@
   .epos-products-stats .purple .epos-products-stat-icon { background: linear-gradient(135deg, #9b5cff, #6d28d9); }
 
   .epos-products-stats span {
+    display: block;
     color: #10184e;
     font-size: 10px;
     font-weight: 850;
@@ -177,6 +178,7 @@
     margin-top: 2px;
     color: #070b34;
     font-size: 17px;
+    line-height: 1;
     font-weight: 950;
   }
 
@@ -603,6 +605,12 @@
     .epos-products-top-actions {
       justify-content: flex-start;
       flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 1400px) {
+    .epos-products-stats strong {
+      font-size: 16px;
     }
   }
 }
