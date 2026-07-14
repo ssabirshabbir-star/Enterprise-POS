@@ -218,6 +218,12 @@
     scrollbar-gutter: auto;
   }
 
+  #dashboard main:has(#suppliersModule:not(.hidden)) {
+    padding-block: 0 !important;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
   #productModule > div,
   #inventoryModule > div,
   #purchaseModule > div {
@@ -1352,7 +1358,6 @@
   }
 
   #customersModule,
-  #suppliersModule,
   #expensesModule,
   #usersModule,
   #returnsModule,

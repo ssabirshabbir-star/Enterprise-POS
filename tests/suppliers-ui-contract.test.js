@@ -9,6 +9,7 @@ const css = fs.readFileSync(
   path.join(repoRoot, 'src/main/features/suppliers/suppliers.css'),
   'utf8'
 );
+const compactCss = fs.readFileSync(path.join(repoRoot, 'src/renderer/styles/compact.css'), 'utf8');
 
 test('Suppliers keeps the certified summary, tabs, filters, and bottom actions', () => {
   const statIds = [
@@ -71,4 +72,31 @@ test('Suppliers compact layout transfers vertical space to the table viewport', 
   assert.doesNotMatch(css, /\.epos-suppliers-table-wrap\s*{[\s\S]*?height:\s*calc\(100% - 42px\)/);
   assert.doesNotMatch(css, /\.epos-suppliers-table-wrap\s*{[\s\S]*?padding:\s*0 0 56px/);
   assert.match(css, /\.epos-suppliers-filters\s*{[\s\S]*?padding:\s*6px 8px;/);
+});
+
+test('Suppliers route removes shared outer vertical padding at the owning shell', () => {
+  assert.match(
+    compactCss,
+    /#dashboard main:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding-block:\s*0 !important;[\s\S]*?overflow:\s*hidden;/
+  );
+
+  assert.match(
+    compactCss,
+    /#customersModule,\s*#expensesModule,\s*#usersModule,\s*#returnsModule,\s*#syncModule\s*{\s*padding-bottom:\s*8px;\s*}/
+  );
+  assert.doesNotMatch(
+    compactCss,
+    /#suppliersModule,\s*#expensesModule,[\s\S]{0,80}padding-bottom:\s*8px/
+  );
+
+  assert.doesNotMatch(css, /margin-top:\s*-/);
+  assert.doesNotMatch(css, /margin-bottom:\s*-/);
+  assert.doesNotMatch(
+    css,
+    /\.(?:epos-suppliers-page|epos-suppliers-stats|epos-suppliers-workspace|epos-suppliers-table-wrap|epos-suppliers-bottom-actions)\s*{[^}]*transform:/s
+  );
+  assert.doesNotMatch(
+    css,
+    /\.(?:epos-suppliers-page|epos-suppliers-stats|epos-suppliers-workspace|epos-suppliers-table-wrap|epos-suppliers-bottom-actions)\s*{[^}]*position:\s*(?:absolute|fixed)/s
+  );
 });
