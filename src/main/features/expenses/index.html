@@ -1,4 +1,4 @@
-﻿<div class="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+<div class="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
           <div class="rounded-lg border border-zinc-200 bg-white p-4">
             <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Expenses</p>
             <h2 class="mt-1 text-xl font-semibold text-zinc-950">Expense Entry</h2>
@@ -11,7 +11,7 @@
                 <select id="expensePaymentMethod" class="rounded-md border border-zinc-300 px-3 py-2 text-sm"><option>Cash</option><option>Card</option><option>Bank</option><option>Wallet</option></select>
                 <input id="expenseDate" type="date" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" required />
               </div>
-              <input id="expenseReceiptPath" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Receipt upload unavailable in this installer" disabled aria-disabled="true" title="Receipt attachment upload is unavailable in this installer." />
+              <input id="expenseReceiptPath" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Receipt upload unavailable in this installer" disabled aria-disabled="true" hidden aria-hidden="true" title="Receipt attachment upload is unavailable in this installer." />
               <input id="expenseNotes" class="rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="Notes" />
               <div class="flex gap-2">
                 <button id="saveExpenseButton" type="submit" class="epos-btn epos-btn-primary">Save Expense</button>
