@@ -44,6 +44,8 @@
   #dashboard .epos-suppliers-main {
     padding: 0 !important;
     margin: 0 !important;
+    overflow: hidden;
+    scrollbar-gutter: auto;
   }
 
   .epos-suppliers-filters input,
@@ -285,7 +287,7 @@
   .epos-suppliers-table {
     width: 100% !important;
     max-width: none !important;
-    min-width: 1080px;
+    min-width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
@@ -336,12 +338,18 @@
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) { width: 8%; }
   .epos-suppliers-table th:nth-child(9),
-  .epos-suppliers-table td:nth-child(9) { width: 6%; }
+  .epos-suppliers-table td:nth-child(9) {
+    width: 7%;
+    padding-inline: 6px !important;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
   .epos-suppliers-table th:nth-child(10),
   .epos-suppliers-table td:nth-child(10) {
-    width: 178px;
-    min-width: 178px;
-    padding-inline: 6px !important;
+    width: 170px;
+    min-width: 170px;
+    padding-inline: 2px !important;
   }
 
   .epos-suppliers-table td {
