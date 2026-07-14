@@ -90,7 +90,11 @@ async function auditPermissionBlock(access, roleId, reason, metadata = {}) {
 async function listUsers(filters = {}) {
   const access = await requirePermission('users.view');
   if (!access.ok) return access;
-  return { ok: true, users: await accessRepository.listUsers(filters) };
+  const [users, summary] = await Promise.all([
+    accessRepository.listUsers(filters),
+    accessRepository.userSummary(),
+  ]);
+  return { ok: true, users, summary };
 }
 
 async function listSecurityActivity() {

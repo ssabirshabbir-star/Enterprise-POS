@@ -13,6 +13,13 @@
   let activityRecords = [];
   let activityPolicy = null;
   let sessionRecords = [];
+  let userSummary = {
+    totalUsers: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    onlineUsers: 0,
+    lockedUsers: 0,
+  };
 
   const A = () => window.AccessControlApi;
 
@@ -303,18 +310,17 @@
   }
 
   function renderStats() {
-    const total = users.length;
-    const active = users.filter((user) => user.isActive).length;
-    const inactive = total - active;
+    const total = Number(userSummary.totalUsers || 0);
+    const active = Number(userSummary.activeUsers || 0);
+    const inactive = Number(userSummary.inactiveUsers || 0);
     setText('userTotalCount', total);
     setText('userActiveCount', active);
     setText('userInactiveCount', inactive);
     setText('userRoleCount', roles.length);
-    setText('userPillAll', total);
-    setText('userPillActive', active);
-    setText('userPillInactive', inactive);
-    setText('userPillOnline', '0');
-    setText('userResultSummary', `Showing ${total} user${total === 1 ? '' : 's'}`);
+    setText('userOnlineCount', Number(userSummary.onlineUsers || 0));
+    setText('userLockedCount', Number(userSummary.lockedUsers || 0));
+    const visible = users.length;
+    setText('userResultSummary', `Showing ${visible} user${visible === 1 ? '' : 's'}`);
   }
 
   function renderEmpty(message) {
@@ -393,11 +399,19 @@
     const result = await A().listUsers(selectedFilters());
     if (!result?.ok) {
       users = [];
+      userSummary = {
+        totalUsers: 0,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        onlineUsers: 0,
+        lockedUsers: 0,
+      };
       renderEmpty(result?.message || 'Unable to load users.');
       showMessage(result?.message || 'Unable to load users.', 'error');
       return;
     }
     users = Array.isArray(result.users) ? result.users : [];
+    userSummary = result.summary || userSummary;
     renderUsers();
   }
 
@@ -853,10 +867,6 @@
       selectAll.disabled = true;
       selectAll.title = 'Bulk actions are Phase 2';
     }
-    document.querySelectorAll('.epos-users-status-pills button[disabled]').forEach((button) => {
-      button.title = 'Unavailable';
-      button.setAttribute('aria-disabled', 'true');
-    });
   }
 
   function bindEvents() {
@@ -898,12 +908,6 @@
     });
     $id('userRoleFilter')?.addEventListener('change', loadUsers);
     $id('userStatusFilter')?.addEventListener('change', loadUsers);
-    document.querySelectorAll('[data-user-status-shortcut]').forEach((button) => {
-      button.addEventListener('click', () => {
-        $id('userStatusFilter').value = button.dataset.userStatusShortcut || '';
-        loadUsers();
-      });
-    });
     document.querySelectorAll('.userAdminTab:not(:disabled)').forEach((button) => {
       button.addEventListener('click', () => switchTab(button.dataset.userAdminTab || 'users'));
     });

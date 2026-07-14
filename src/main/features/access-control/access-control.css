@@ -24,14 +24,14 @@
     grid-template-rows: auto auto auto minmax(0, 1fr);
     height: 100%;
     min-height: 0;
-    gap: 10px;
+    gap: 6px;
     color: #08113f;
   }
 
   .epos-users-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .epos-users-stats article,
@@ -46,12 +46,12 @@
 
   .epos-users-stats article {
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 8px;
     align-items: center;
-    min-height: 78px;
-    border-radius: 16px;
-    padding: 12px;
+    min-height: 58px;
+    border-radius: 14px;
+    padding: 8px 10px;
   }
 
   .epos-users-stat-icon,
@@ -64,9 +64,9 @@
   }
 
   .epos-users-stat-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
     font-size: 13px;
   }
 
@@ -74,28 +74,30 @@
   .epos-users-stats .green .epos-users-stat-icon { background: linear-gradient(135deg, #4ade80, #16a34a); }
   .epos-users-stats .pink .epos-users-stat-icon { background: linear-gradient(135deg, #fb7185, #ec4899); }
   .epos-users-stats .orange .epos-users-stat-icon { background: linear-gradient(135deg, #fbbf24, #f97316); }
+  .epos-users-stats .purple .epos-users-stat-icon { background: linear-gradient(135deg, #9b5cff, #6d28d9); }
+  .epos-users-stats .amber .epos-users-stat-icon { background: linear-gradient(135deg, #ffd23f, #f59e0b); }
 
   .epos-users-stats p {
     margin: 0;
     color: #11184d;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 850;
   }
 
   .epos-users-stats strong {
     display: block;
-    margin-top: 3px;
+    margin-top: 2px;
     color: #060a2d;
-    font-size: 22px;
+    font-size: 17px;
     font-weight: 950;
     line-height: 1;
   }
 
   .epos-users-stats small {
     display: block;
-    margin-top: 5px;
+    margin-top: 1px;
     color: #64709d;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 750;
   }
 
@@ -327,7 +329,7 @@
     display: grid;
     grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 8px 12px;
   }
 
   .epos-users-filters label,
@@ -357,30 +359,6 @@
     border-color: #3868ff;
     box-shadow: 0 0 0 3px rgb(56 104 255 / 0.12);
   }
-
-  .epos-users-status-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 0 12px 12px;
-  }
-
-  .epos-users-status-pills button {
-    min-height: 36px;
-    border: 1px solid #e3e8f6;
-    border-radius: 8px;
-    background: #eef6ff;
-    color: #1d4ed8;
-    padding: 0 14px;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  .epos-users-status-pills button:nth-child(2) { background: #dcfce7; color: #15803d; }
-  .epos-users-status-pills button:nth-child(3) { background: #ffe4e6; color: #e11d48; }
-  .epos-users-status-pills button:nth-child(4) { background: #eff6ff; color: #2563eb; }
-  .epos-users-status-pills button:nth-child(5) { background: #ffedd5; color: #c2410c; }
-  .epos-users-status-pills span { margin-left: 8px; }
 
   .epos-users-table-wrap {
     flex: 1 1 auto;
@@ -815,7 +793,7 @@
 
   @media (max-width: 1280px) {
     .epos-users-stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .epos-users-layout {

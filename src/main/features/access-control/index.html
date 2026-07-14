@@ -1,5 +1,5 @@
 <div class="epos-users-page">
-  <section class="epos-users-stats">
+  <section class="epos-users-stats" aria-label="User management summary">
     <article class="blue">
       <span class="epos-users-stat-icon">U</span>
       <div>
@@ -30,6 +30,22 @@
         <p>User Roles</p>
         <strong id="userRoleCount">0</strong>
         <small>Permission groups</small>
+      </div>
+    </article>
+    <article class="purple">
+      <span class="epos-users-stat-icon">O</span>
+      <div>
+        <p>Online Now</p>
+        <strong id="userOnlineCount">0</strong>
+        <small>Active sessions</small>
+      </div>
+    </article>
+    <article class="amber">
+      <span class="epos-users-stat-icon">L</span>
+      <div>
+        <p>Locked Users</p>
+        <strong id="userLockedCount">0</strong>
+        <small>Security lockouts</small>
       </div>
     </article>
   </section>
@@ -86,14 +102,6 @@
             <option>All Departments</option>
           </select>
         </label>
-      </div>
-
-      <div class="epos-users-status-pills">
-        <button type="button" data-user-status-shortcut="">All Users <span id="userPillAll">0</span></button>
-        <button type="button" data-user-status-shortcut="active">Active <span id="userPillActive">0</span></button>
-        <button type="button" data-user-status-shortcut="inactive">Inactive <span id="userPillInactive">0</span></button>
-        <button type="button" disabled>Online Now <span id="userPillOnline">0</span></button>
-        <button type="button" disabled>Locked <span>0</span></button>
       </div>
 
       <div class="epos-users-table-wrap">

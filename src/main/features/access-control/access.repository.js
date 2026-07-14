@@ -66,6 +66,35 @@ async function listUsers(filters = {}) {
   return result.rows.map(mapUser);
 }
 
+async function userSummary() {
+  const result = await getPool().query(
+    `
+      SELECT
+        COUNT(*)::int AS total_users,
+        COUNT(*) FILTER (WHERE users.is_active = TRUE)::int AS active_users,
+        COUNT(*) FILTER (WHERE users.is_active = FALSE)::int AS inactive_users,
+        COUNT(*) FILTER (WHERE users.locked_until IS NOT NULL AND users.locked_until > NOW())::int AS locked_users,
+        (
+          SELECT COUNT(DISTINCT refresh_tokens.user_id)::int
+          FROM refresh_tokens
+          INNER JOIN users session_users ON session_users.id = refresh_tokens.user_id
+          WHERE refresh_tokens.revoked_at IS NULL
+            AND refresh_tokens.expires_at >= NOW()
+            AND session_users.is_active = TRUE
+        ) AS online_users
+      FROM users
+    `
+  );
+  const row = result.rows[0] || {};
+  return {
+    totalUsers: Number(row.total_users || 0),
+    activeUsers: Number(row.active_users || 0),
+    inactiveUsers: Number(row.inactive_users || 0),
+    onlineUsers: Number(row.online_users || 0),
+    lockedUsers: Number(row.locked_users || 0),
+  };
+}
+
 async function activeAdminCount(excludingUserId = null) {
   const result = await getPool().query(
     `
@@ -285,6 +314,7 @@ module.exports = {
   listRoles,
   listSecurityActivity,
   listUsers,
+  userSummary,
   permissionIdsByKeys,
   permissionIdsByRole,
   permissionsByRole,
