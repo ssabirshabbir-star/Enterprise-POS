@@ -74,10 +74,6 @@
     return api().settings.restoreTransactionFoundationAssessment();
   }
 
-  async function restoreBackup(acknowledgementText) {
-    return api().settings.restoreBackup({ acknowledgementText });
-  }
-
   window.SettingsApi = {
     assessBackupPreflight,
     assessRestoreEligibility,
@@ -90,7 +86,6 @@
     inspectRestorePackage,
     listDryRunCertificationReports,
     listBackups,
-    restoreBackup,
     restoreEngineFoundationAssessment,
     restoreGovernanceAssessment,
     restoreReadinessDashboard,

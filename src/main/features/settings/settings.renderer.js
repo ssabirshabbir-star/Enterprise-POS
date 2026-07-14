@@ -1956,44 +1956,6 @@
     panel.textContent = lines.join('\n');
   }
 
-  // ── R2-F: Governed restore execution handler ──────────────────────────────
-  async function handleExecuteRestore() {
-    const btn = $id('restoreBackupButton');
-    // Gate: require non-empty acknowledgement text before proceeding.
-    const acknowledgementText = $id('restoreAuthorizationAcknowledgement')?.value || '';
-    if (!acknowledgementText.trim()) {
-      showMessage(
-        'Restore requires an acknowledgement. Enter the required acknowledgement text first.',
-        'error'
-      );
-      return;
-    }
-    if (btn) {
-      btn.disabled = true;
-      btn.setAttribute('aria-disabled', 'true');
-      btn.textContent = 'Executing Restore...';
-    }
-    try {
-      const result = await A().restoreBackup(acknowledgementText);
-      renderRestoreResult(result || {});
-      showMessage(
-        result?.message || (result?.ok ? 'Restore completed.' : 'Restore did not complete.'),
-        result?.ok ? 'success' : 'error'
-      );
-    } catch {
-      renderRestoreResult({});
-      showMessage('Restore execution failed unexpectedly. Review audit logs.', 'error');
-    } finally {
-      // Re-disable after every execution — button must only be re-enabled
-      // by the next governance dashboard refresh.
-      if (btn) {
-        btn.disabled = true;
-        btn.setAttribute('aria-disabled', 'true');
-        btn.textContent = 'Execute Restore';
-      }
-    }
-  }
-  // ── End R2-F ───────────────────────────────────────────────────────────────
 
   function scheduleDryRunReportSearch() {
     clearTimeout(reportSearchTimer);
@@ -2119,7 +2081,6 @@
         handleAssessRestoreAuthorization
       );
       addListener($id('dryRunCertificationReportButton'), 'click', handleDryRunCertificationReport);
-      addListener($id('restoreBackupButton'), 'click', handleExecuteRestore);
       [
         'inspectRestorePackageButton',
         'verifyRestorePackageButton',

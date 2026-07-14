@@ -245,29 +245,6 @@ function registerSettingsRoutes(ipcMain) {
       return safeError(error, 'Restore transaction foundation assessment error:');
     }
   });
-
-  ipcMain.handle('/settings/backups/restore', async (event, payload = {}) => {
-    try {
-      const acknowledgementText = payload.acknowledgementText || '';
-      const result = await dialog.showOpenDialog(windowFromEvent(event), {
-        title: 'Select Certified Backup to Restore',
-        properties: ['openFile'],
-        filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
-      });
-      if (result.canceled || !result.filePaths[0]) {
-        return {
-          ok: false,
-          restoreExecuted: false,
-          abortedBeforeTransaction: true,
-          reason: 'no_file_selected',
-          message: 'Restore cancelled. No data was changed.',
-        };
-      }
-      return await settingsService.restoreBackup(result.filePaths[0], acknowledgementText);
-    } catch (error) {
-      return safeError(error, 'Restore execution error:');
-    }
-  });
 }
 
 module.exports = { registerSettingsRoutes };
