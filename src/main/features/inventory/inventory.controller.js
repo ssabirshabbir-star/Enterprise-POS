@@ -4,6 +4,7 @@ const inventoryImportMatchingWorkflowService = require('./inventory-import-match
 const inventoryImportCommitPlanWorkflowService = require('./inventory-import-commit-plan-workflow.service');
 const inventoryImportExecutionPreflightWorkflowService = require('./inventory-import-execution-preflight-workflow.service');
 const inventoryImportExecutionWorkflowService = require('./inventory-import-execution-workflow.service');
+const path = require('path');
 const { BrowserWindow, dialog } = require('electron');
 const { logError } = require('../../utils/safe-logger');
 
@@ -15,6 +16,36 @@ function normalizePreviewSessionPayload(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
   const sessionId = String(payload.sessionId || '').trim();
   return sessionId ? { sessionId } : null;
+}
+
+function pad(value) {
+  return String(value).padStart(2, '0');
+}
+
+function timestampForFileName(date = new Date()) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(
+    date.getHours()
+  )}${pad(date.getMinutes())}`;
+}
+
+function safeFileName(value) {
+  return String(value || 'inventory-export')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 100);
+}
+
+function ensureCsvExtension(filePath) {
+  return path.extname(filePath).toLowerCase() === '.csv' ? filePath : `${filePath}.csv`;
+}
+
+function normalizeExportPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const filters = payload.filters || {};
+  if (!filters || typeof filters !== 'object' || Array.isArray(filters)) return null;
+  return { filters };
 }
 
 function isPlainObject(value) {
@@ -71,6 +102,42 @@ function registerInventoryRoutes(ipcMain) {
       return await inventoryService.adjustStock(payload || {});
     } catch (error) {
       return safeError(error, 'Inventory adjustment error:');
+    }
+  });
+
+  ipcMain.handle('/inventory/export/csv', async (event, payload) => {
+    try {
+      const request = normalizeExportPayload(payload);
+      if (!request) return { ok: false, canceled: false, rowCount: 0, message: 'Invalid export request.' };
+
+      const defaultName = `${safeFileName(`inventory-export-${timestampForFileName()}`)}.csv`;
+      const saveResult = await dialog.showSaveDialog(windowFromEvent(event), {
+        title: 'Export Inventory CSV',
+        defaultPath: defaultName,
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+      });
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return {
+          ok: false,
+          canceled: true,
+          rowCount: 0,
+          message: 'Inventory CSV export cancelled.',
+        };
+      }
+
+      return await inventoryService.exportInventoryCsv({
+        filePath: ensureCsvExtension(saveResult.filePath),
+        filters: request.filters,
+      });
+    } catch (error) {
+      logError('Inventory CSV export error:', error);
+      return {
+        ok: false,
+        canceled: false,
+        rowCount: 0,
+        message: 'Inventory CSV export failed. Please try again.',
+      };
     }
   });
 

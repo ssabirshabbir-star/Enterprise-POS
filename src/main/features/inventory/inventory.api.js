@@ -35,6 +35,10 @@
     );
   }
 
+  async function exportCsv(filters = {}) {
+    return normalizeResult(await window.posApi.inventory.exportCsv(filters), 'CSV export failed.');
+  }
+
   async function requestImportPreview() {
     return normalizeResult(
       await window.posApi.inventory.requestImportPreview(),
@@ -118,6 +122,7 @@
     createImportCommitPlan,
     createImportExecutionPreflight,
     executeCertifiedImport,
+    exportCsv,
     getImportExecutionPreflightSession,
     getImportCommitPlanSession,
     getMatchedImportPreviewSession,

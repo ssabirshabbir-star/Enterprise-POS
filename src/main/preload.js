@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('posApi', {
     list: (filters) => ipcRenderer.invoke('/inventory/list', filters),
     movements: (filters) => ipcRenderer.invoke('/inventory/movements', filters),
     adjust: (payload) => ipcRenderer.invoke('/inventory/adjust', payload),
+    exportCsv: (filters) => ipcRenderer.invoke('/inventory/export/csv', { filters }),
     requestImportPreview: () => ipcRenderer.invoke('/inventory/import/preview/request'),
     getImportPreviewSession: (sessionId) =>
       ipcRenderer.invoke('/inventory/import/preview/session', { sessionId }),

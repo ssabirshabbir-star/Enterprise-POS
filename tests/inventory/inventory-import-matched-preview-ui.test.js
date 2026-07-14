@@ -266,10 +266,9 @@ function createDom() {
   importButton.dataset.pageTool = 'inventory';
   importButton.dataset.toolAction = 'import-preview';
 
-  const exportButton = document.createRegisteredElement('inventoryExportButton', 'button');
+  const exportButton = document.createRegisteredElement('inventoryExportCsvButton', 'button');
   exportButton.dataset.pageTool = 'inventory';
-  exportButton.dataset.toolAction = 'excel';
-  exportButton.disabled = true;
+  exportButton.dataset.toolAction = 'export-csv';
 
   document.getElementById('closeImportPreviewButton').dataset.closeImportPreview = '';
   document.getElementById('cancelImportExecutionTopButton').dataset.cancelImportExecution = '';
@@ -310,6 +309,7 @@ function createApi(overrides = {}) {
   return {
     loadInventory: async () => ({ ok: true, items: [] }),
     adjustStock: async () => ({ ok: true }),
+    exportCsv: async () => ({ ok: true, canceled: false, rowCount: 0 }),
     placeholder: () => ({ ok: false, message: 'placeholder' }),
     requestImportPreview: async () => ({
       ok: true,
@@ -400,6 +400,10 @@ async function loadRenderer(apiOverrides = {}) {
   return { document, window };
 }
 
+function flushAsyncHandlers() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 test('matched preview UI contract keeps import preview visible with certified execution controls disabled by default', () => {
   const html = fs.readFileSync(htmlPath, 'utf8');
   assert.match(html, /id="inventoryImportPreviewButton"/);
@@ -464,6 +468,110 @@ test('toolbar Import CSV launcher exists once, starts CSV selection, and is reus
   await launcher.click();
   assert.equal(previewCalls, 2);
   assert.equal(document.getElementById('executeInventoryImportButton').disabled, false);
+});
+
+test('toolbar Export CSV coexists with Import CSV and preserves filter state', async () => {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  assert.equal((html.match(/id="inventoryExportCsvButton"/g) || []).length, 1);
+  assert.equal((html.match(/id="inventoryImportPreviewButton"/g) || []).length, 1);
+  assert.match(html, /id="inventoryExportCsvButton"[^>]*>Export CSV<\/button>/);
+  assert.match(html, /id="inventoryImportPreviewButton"[^>]*>Import CSV<\/button>/);
+
+  const exportCalls = [];
+  let previewCalls = 0;
+  const { document } = await loadRenderer({
+    loadInventory: async () => ({
+      ok: true,
+      items: [
+        {
+          productId: 1,
+          name: 'Tea',
+          sku: 'TEA',
+          barcode: '100',
+          categoryId: 2,
+          categoryName: 'Drinks',
+          brandId: 3,
+          brandName: 'Local',
+          supplierId: 4,
+          supplierName: 'Supplier',
+          currentStock: 5,
+          minStockLevel: 1,
+        },
+      ],
+    }),
+    exportCsv: async (filters) => {
+      exportCalls.push({ ...filters });
+      return { ok: true, canceled: false, rowCount: 1 };
+    },
+    requestImportPreview: async () => {
+      previewCalls += 1;
+      return { ok: false, canceled: true, status: 'canceled' };
+    },
+  });
+
+  document.getElementById('inventorySearch').value = ' tea ';
+  document.getElementById('inventoryCategoryFilter').value = '2';
+  document.getElementById('inventoryBrandFilter').value = '3';
+  document.getElementById('inventorySupplierFilter').value = '4';
+  document.getElementById('inventoryStockStatusFilter').value = 'low';
+  await document.getElementById('inventoryTabLow').click();
+
+  const exportButton = document.getElementById('inventoryExportCsvButton');
+  const importButton = document.getElementById('inventoryImportPreviewButton');
+  assert.equal(exportButton.disabled, false);
+  assert.equal(importButton.disabled, false);
+
+  await exportButton.click();
+  await flushAsyncHandlers();
+  assert.deepEqual(exportCalls, [
+    {
+      search: 'tea',
+      categoryId: '2',
+      brandId: '3',
+      supplierId: '4',
+      stockStatus: 'low',
+      inventoryTab: 'low',
+    },
+  ]);
+  assert.equal(exportButton.disabled, false);
+  assert.equal(importButton.disabled, false);
+  assert.equal(document.getElementById('inventorySearch').value, ' tea ');
+  assert.equal(document.getElementById('inventoryCategoryFilter').value, '2');
+
+  await importButton.click();
+  assert.equal(previewCalls, 1);
+  assert.equal(exportButton.disabled, false);
+});
+
+test('toolbar Export CSV duplicate clicks are guarded and cancel is non-error', async () => {
+  let resolveExport;
+  const exportCalls = [];
+  const pendingExport = new Promise((resolve) => {
+    resolveExport = resolve;
+  });
+  const { document } = await loadRenderer({
+    exportCsv: async (filters) => {
+      exportCalls.push(filters);
+      return pendingExport;
+    },
+  });
+
+  const exportButton = document.getElementById('inventoryExportCsvButton');
+  const firstClick = exportButton.click();
+  await exportButton.click();
+  assert.equal(exportCalls.length, 1);
+  assert.equal(exportButton.disabled, true);
+
+  resolveExport({ ok: false, canceled: true, message: 'Inventory CSV export cancelled.' });
+  await firstClick;
+  await flushAsyncHandlers();
+
+  assert.equal(exportButton.disabled, false);
+  assert.equal(document.getElementById('inventoryMessage').textContent, 'Inventory CSV export cancelled.');
+  assert.doesNotMatch(
+    document.getElementById('inventoryMessage').style.cssText,
+    /#fef2f2|#b91c1c/
+  );
 });
 
 test('matched preview workflow selects CSV then analyzes only backend session id', async () => {

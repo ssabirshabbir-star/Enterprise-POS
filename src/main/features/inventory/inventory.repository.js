@@ -8,6 +8,7 @@ function mapInventory(row) {
     sku: row.sku,
     barcode: row.barcode,
     productImage: row.product_image,
+    isActive: row.is_active !== false,
     categoryId: row.category_id,
     categoryName: row.category_name,
     brandId: row.brand_id,
@@ -56,7 +57,17 @@ function mapMovement(row) {
   };
 }
 
-async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly = false }) {
+function buildInventoryQuery({
+  search = '',
+  lowStockOnly = false,
+  outOfStockOnly = false,
+  stockStatus = '',
+  categoryId = null,
+  brandId = null,
+  supplierId = null,
+  inventoryTab = 'all',
+  limit = null,
+} = {}) {
   const params = [];
   let where = 'WHERE products.deleted_at IS NULL';
 
@@ -66,26 +77,56 @@ async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly
       LOWER(products.name) LIKE $${params.length}
       OR LOWER(products.sku) LIKE $${params.length}
       OR LOWER(products.barcode) LIKE $${params.length}
+      OR LOWER(COALESCE(categories.name, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(brands.name, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(units.name, '')) LIKE $${params.length}
+      OR LOWER(COALESCE(latest_purchase.supplier_name, '')) LIKE $${params.length}
       OR LOWER(COALESCE(latest_purchase.batch_number, '')) LIKE $${params.length}
       OR products.id::text LIKE $${params.length}
     )`;
   }
 
-  if (outOfStockOnly) {
-    where += ' AND products.current_stock <= 0';
-  } else if (lowStockOnly) {
-    where +=
-      ' AND products.current_stock > 0 AND products.current_stock <= products.min_stock_level';
+  if (categoryId) {
+    params.push(categoryId);
+    where += ` AND products.category_id = $${params.length}`;
   }
 
-  const result = await getPool().query(
-    `
+  if (brandId) {
+    params.push(brandId);
+    where += ` AND products.brand_id = $${params.length}`;
+  }
+
+  if (supplierId) {
+    params.push(supplierId);
+    where += ` AND latest_purchase.supplier_id = $${params.length}`;
+  }
+
+  const effectiveStockStatus = stockStatus || (outOfStockOnly ? 'out' : lowStockOnly ? 'low' : '');
+  if (effectiveStockStatus === 'out') {
+    where += ' AND products.current_stock <= 0';
+  } else if (effectiveStockStatus === 'low') {
+    where +=
+      ' AND products.current_stock > 0 AND products.current_stock <= products.min_stock_level';
+  } else if (effectiveStockStatus === 'in') {
+    where += ' AND products.current_stock > products.min_stock_level';
+  }
+
+  const orderBy =
+    inventoryTab === 'recent'
+      ? 'ORDER BY products.created_at DESC, products.name ASC'
+      : 'ORDER BY products.name ASC';
+  const limitClause = Number.isInteger(limit) && limit > 0 ? `LIMIT $${params.length + 1}` : '';
+  if (limitClause) params.push(limit);
+
+  return {
+    sql: `
       SELECT
         products.id AS product_id,
         products.name,
         products.sku,
         products.barcode,
         products.product_image,
+        products.is_active,
         products.category_id,
         products.brand_id,
         products.unit_id,
@@ -145,11 +186,35 @@ async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly
         latest_purchase.supplier_name,
         default_inventory.warehouse_id,
         default_inventory.warehouse_name
-      ORDER BY products.name ASC
-      LIMIT 300
+      ${orderBy}
+      ${limitClause}
     `,
-    params
-  );
+    params,
+  };
+}
+
+async function listInventory({ search = '', lowStockOnly = false, outOfStockOnly = false }) {
+  const query = buildInventoryQuery({
+    search,
+    lowStockOnly,
+    outOfStockOnly,
+    limit: 300,
+  });
+  const result = await getPool().query(query.sql, query.params);
+
+  return result.rows.map(mapInventory);
+}
+
+async function listInventoryForExport(filters = {}) {
+  const query = buildInventoryQuery({
+    search: filters.search || '',
+    categoryId: filters.categoryId || null,
+    brandId: filters.brandId || null,
+    supplierId: filters.supplierId || null,
+    stockStatus: filters.stockStatus || '',
+    inventoryTab: filters.inventoryTab || 'all',
+  });
+  const result = await getPool().query(query.sql, query.params);
 
   return result.rows.map(mapInventory);
 }
@@ -277,6 +342,7 @@ async function updateProductImage({ productId, productImage }) {
 module.exports = {
   adjustStock,
   listInventory,
+  listInventoryForExport,
   listMovements,
   updateProductImage,
 };

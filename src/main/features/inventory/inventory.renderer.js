@@ -15,6 +15,7 @@
   let _searchTimer = null;
   let _currentTab = 'all';
   let _page = 1;
+  let _exportInFlight = false;
   let _importPreviewLoading = false;
   let _importPreviewOpen = false;
   let _previewSessionId = null;
@@ -152,6 +153,17 @@
     return list;
   }
 
+  function currentExportFilters() {
+    return {
+      search: ($id('inventorySearch')?.value || '').trim(),
+      categoryId: $id('inventoryCategoryFilter')?.value || '',
+      brandId: $id('inventoryBrandFilter')?.value || '',
+      supplierId: $id('inventorySupplierFilter')?.value || '',
+      stockStatus: $id('inventoryStockStatusFilter')?.value || '',
+      inventoryTab: _currentTab,
+    };
+  }
+
   function populateDropdown(selectId, items, labelKey, valKey) {
     const sel = $id(selectId);
     if (!sel) return;
@@ -256,6 +268,36 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleString();
+  }
+
+  async function exportInventoryCsv(button) {
+    if (_exportInFlight) return;
+    _exportInFlight = true;
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = 'Exporting...';
+    try {
+      const result = await api().exportCsv(currentExportFilters());
+      if (result?.canceled) {
+        showMsg(result.message || 'CSV export cancelled.');
+        return;
+      }
+      if (!result?.ok) {
+        showMsg(result?.message || 'CSV export failed.', true);
+        return;
+      }
+      const rowCount = Number(result.rowCount || 0);
+      showMsg(`Exported ${rowCount} inventory item${rowCount === 1 ? '' : 's'} to CSV.`);
+    } catch (error) {
+      LOG('exportInventoryCsv error:', error);
+      showMsg('CSV export failed. Please try again.', true);
+    } finally {
+      _exportInFlight = false;
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.textContent = originalText;
+    }
   }
 
   function importStatusText(row) {
@@ -1086,6 +1128,10 @@
     document.querySelectorAll('[data-page-tool="inventory"]').forEach((btn) =>
       btn.addEventListener('click', () => {
         if (btn.dataset.toolAction === 'import-preview') return;
+        if (btn.dataset.toolAction === 'export-csv') {
+          exportInventoryCsv(btn);
+          return;
+        }
         const action = btn.dataset.toolAction === 'import' ? 'import' : 'export';
         showMsg(api().placeholder(action).message, true);
       })
