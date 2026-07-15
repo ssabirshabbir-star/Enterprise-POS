@@ -1,6 +1,6 @@
 @layer components {
-  main:has(> #purchaseModule:not(.hidden)) {
-    padding: 6px !important;
+  #dashboard #appMain:has(#purchaseModule:not(.hidden)) {
+    padding: 5px 12px 12px !important;
   }
 
   #purchaseModule:has(.epos-purchases-page) {

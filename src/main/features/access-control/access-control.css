@@ -1,11 +1,11 @@
 @layer components {
-  #dashboard main:has(#usersModule:not(.hidden)) {
+  #dashboard #appMain:has(#usersModule:not(.hidden)) {
     overflow: hidden;
     background:
       radial-gradient(circle at 14% 0%, rgb(124 58 237 / 0.12), transparent 30%),
       radial-gradient(circle at 90% 8%, rgb(37 99 235 / 0.1), transparent 28%),
       #f6f8ff;
-    padding: 10px !important;
+    padding: 5px 10px 10px !important;
   }
 
   #usersModule {
