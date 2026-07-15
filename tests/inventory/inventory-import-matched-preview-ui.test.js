@@ -512,8 +512,7 @@ test('inventory summary spacing and requested header alignment stay scoped', () 
     css,
     /#dashboard #appMain:has\(#inventoryModule:not\(\.hidden\)\)\s*{[\s\S]*?padding:\s*5px 8px 8px !important;/
   );
-  assert.match(css, /\.epos-inventory-toolbar\s*{[\s\S]*?padding:\s*10px 14px 8px;/);
-  assert.match(css, /\.epos-inventory-field\s*{[\s\S]*?flex:\s*0 0 132px;/);
+  assert.match(css, /\.epos-inventory-toolbar\s*{[\s\S]*?padding:\s*6px 14px 0;/);
   assert.match(css, /#inventoryModule\s*{[\s\S]*?height:\s*100%;/);
   assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?height:\s*100%;/);
   assert.doesNotMatch(css, /epos-inventory-tabs|epos-inventory-filter-row/);
@@ -523,6 +522,28 @@ test('inventory summary spacing and requested header alignment stay scoped', () 
     /\.epos-inventory-table th:nth-child\(n \+ 4\):nth-child\(-n \+ 9\)\s*{[\s\S]*?text-align:\s*center !important;/
   );
   assert.doesNotMatch(css, /\.epos-inventory-table td:nth-child\(n \+ 4\):nth-child\(-n \+ 9\)/);
+});
+
+test('inventory search toolbar uses measured equal filter tracks', () => {
+  const css = fs.readFileSync(
+    path.join(repoRoot, 'src/main/features/inventory/inventory.css'),
+    'utf8'
+  );
+
+  assert.match(
+    css,
+    /\.epos-inventory-toolbar\s*{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(360px,\s*1\.7fr\) repeat\(4,\s*minmax\(136px,\s*1fr\)\) 88px;/
+  );
+  assert.match(
+    css,
+    /\.epos-inventory-filter-btn,\s*[\s\S]*?\.epos-inventory-reset-btn\s*{[\s\S]*?width:\s*88px;/
+  );
+  assert.match(css, /\.epos-inventory-action-row\s*{[\s\S]*?padding:\s*4px 14px;/);
+  assert.doesNotMatch(css, /\.epos-inventory-field\s*{[\s\S]*?flex:\s*0 0 132px;/);
+  assert.doesNotMatch(
+    css,
+    /\.epos-inventory-field:has\(#inventoryStockStatusFilter\)\s*{[\s\S]*?flex-basis:\s*146px;/
+  );
 });
 
 test('inventory Ctrl+K shortcut focuses and selects the search field once', async () => {

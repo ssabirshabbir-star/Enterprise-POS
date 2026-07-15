@@ -166,17 +166,17 @@
   }
 
   .epos-inventory-toolbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(360px, 1.7fr) repeat(4, minmax(136px, 1fr)) 88px;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px 8px;
+    padding: 6px 14px 0;
     border-bottom: 1px solid #e7edf7;
   }
 
   .epos-inventory-field {
     display: flex;
     align-items: center;
-    flex: 0 0 132px;
     height: 38px;
     min-width: 0;
     border: 1px solid #d9e2f0;
@@ -186,7 +186,7 @@
   }
 
   .epos-inventory-field:has(#inventoryStockStatusFilter) {
-    flex-basis: 146px;
+    flex-basis: auto;
   }
 
   .epos-inventory-field input,
@@ -204,7 +204,7 @@
 
   .epos-inventory-filter-btn,
   .epos-inventory-reset-btn {
-    flex: 0 0 76px;
+    width: 88px;
     height: 38px;
     border: 1px solid #d9e2f0;
     border-radius: 10px;
@@ -215,7 +215,7 @@
 
   .epos-inventory-action-row {
     display: block;
-    padding: 6px 14px 8px;
+    padding: 4px 14px;
   }
 
   .epos-inventory-action-buttons {
@@ -850,32 +850,31 @@
     }
 
     .epos-inventory-search {
-      flex-basis: 280px;
       min-width: 220px;
     }
 
     .epos-inventory-toolbar {
-      flex-wrap: wrap;
+      grid-template-columns: minmax(360px, 1.7fr) repeat(4, minmax(136px, 1fr)) 88px;
       gap: 8px;
-      padding: 10px 12px 8px;
+      padding: 6px 12px 0;
     }
 
     .epos-inventory-field {
-      flex: 1 1 118px;
+      width: 100%;
     }
 
     .epos-inventory-field:has(#inventoryStockStatusFilter) {
-      flex-basis: 136px;
+      flex-basis: auto;
     }
 
     .epos-inventory-filter-btn,
     .epos-inventory-reset-btn {
-      flex: 0 0 76px;
+      width: 88px;
       height: 38px;
     }
 
     .epos-inventory-action-row {
-      padding: 2px 14px 8px;
+      padding: 4px 14px;
     }
 
     .epos-inventory-action-buttons {
