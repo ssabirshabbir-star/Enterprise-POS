@@ -67,3 +67,20 @@ test('Customers table owns full width inside its wrapper without stale max width
   );
   assert.doesNotMatch(css, /\.epos-customers-card\s*{[^}]*scrollbar-gutter:\s*stable/s);
 });
+
+test('Customers stat cards use Products and Inventory compact card-height geometry', () => {
+  assert.match(
+    css,
+    /\.epos-customers-stats\s*{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\);/
+  );
+  assert.match(
+    css,
+    /\.epos-customers-stats article\s*{[\s\S]*?grid-template-columns:\s*38px minmax\(0, 1fr\);[\s\S]*?min-height:\s*58px;[\s\S]*?padding:\s*8px 10px;/
+  );
+  assert.match(
+    css,
+    /\.epos-customers-stats article > span\s*{[\s\S]*?width:\s*36px;[\s\S]*?height:\s*36px;/
+  );
+  assert.match(css, /\.epos-customers-stats strong\s*{[\s\S]*?margin-top:\s*2px;/);
+  assert.match(css, /\.epos-customers-stats small\s*{[\s\S]*?margin-top:\s*1px;/);
+});

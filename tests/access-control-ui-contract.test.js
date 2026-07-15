@@ -161,6 +161,54 @@ test('User Management table uses one colgroup model and keeps actions inside the
   assert.match(renderer, /data-user-action="status"/);
 });
 
+test('Add User modal uses the approved two-column editor contract without losing field hooks', () => {
+  const html = read(htmlPath);
+  const css = read(cssPath);
+
+  const modalBlock =
+    html.match(/<div id="userEditorModal"[\s\S]*?<div id="userPasswordModal"/)?.[0] || '';
+  for (const id of [
+    'userId',
+    'userFullName',
+    'userUsername',
+    'userEmail',
+    'userPhone',
+    'userRole',
+    'userPassword',
+    'userActive',
+    'saveUserButton',
+    'resetUserButton',
+    'closeUserEditorButton',
+  ]) {
+    assert.match(modalBlock, new RegExp(`id="${id}"`));
+  }
+
+  assert.match(modalBlock, /<label class="epos-users-form-label">[\s\S]*?<span>Full Name<\/span>/);
+  assert.match(modalBlock, /<label class="epos-users-form-label">[\s\S]*?<span>Username<\/span>/);
+  assert.match(modalBlock, /<label class="epos-users-form-label">[\s\S]*?<span>Email<\/span>/);
+  assert.match(modalBlock, /<label class="epos-users-form-label">[\s\S]*?<span>Phone<\/span>/);
+  assert.match(modalBlock, /<label class="epos-users-form-label">[\s\S]*?<span>Role<\/span>/);
+  assert.match(modalBlock, /<label class="epos-users-form-label">[\s\S]*?<span>Password<\/span>/);
+  assert.match(modalBlock, /class="epos-users-check epos-users-form-full"[\s\S]*?Active account/);
+
+  assert.match(
+    css,
+    /#userEditorModal \.epos-users-modal-card\s*{[\s\S]*?width:\s*min\(620px, 100%\);/
+  );
+  assert.match(
+    css,
+    /#userForm\s*{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);[\s\S]*?gap:\s*10px;/
+  );
+  assert.match(
+    css,
+    /\.epos-users-form-full,\s*#userForm \.epos-users-form-actions\s*{[\s\S]*?grid-column:\s*1 \/ -1;/
+  );
+  assert.match(
+    css,
+    /#userForm \.epos-users-wide-action\s*{[\s\S]*?min-height:\s*38px;[\s\S]*?margin-top:\s*0;/
+  );
+});
+
 test('User Management removes only the low-value Outlet table column', () => {
   const html = read(htmlPath);
   const renderer = read(rendererPath);

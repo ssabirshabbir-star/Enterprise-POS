@@ -238,18 +238,36 @@
   <div id="userEditorModal" class="epos-users-modal hidden" role="dialog" aria-modal="true" aria-labelledby="userEditorTitle">
     <div class="epos-users-modal-card">
       <div class="epos-users-modal-head">
-        <h3 id="userEditorTitle">User Editor</h3>
-        <button id="closeUserEditorButton" type="button" aria-label="Close user editor">x</button>
+        <h3 id="userEditorTitle">Add User</h3>
+        <button id="closeUserEditorButton" type="button" aria-label="Close user editor">×</button>
       </div>
       <form id="userForm" class="epos-users-form">
         <input id="userId" type="hidden" />
-        <input id="userFullName" class="epos-users-input" placeholder="Full name" required />
-        <input id="userUsername" class="epos-users-input" placeholder="Username" required />
-        <input id="userEmail" type="email" class="epos-users-input" placeholder="Email" required />
-        <input id="userPhone" class="epos-users-input" placeholder="Phone" />
-        <select id="userRole" class="epos-users-input" required></select>
-        <input id="userPassword" type="password" class="epos-users-input" placeholder="Password for new user" minlength="8" autocomplete="new-password" />
-        <label class="epos-users-check"><input id="userActive" type="checkbox" checked /> Active account</label>
+        <label class="epos-users-form-label">
+          <span>Full Name</span>
+          <input id="userFullName" class="epos-users-input" placeholder="Full name" required />
+        </label>
+        <label class="epos-users-form-label">
+          <span>Username</span>
+          <input id="userUsername" class="epos-users-input" placeholder="Username" required />
+        </label>
+        <label class="epos-users-form-label">
+          <span>Email</span>
+          <input id="userEmail" type="email" class="epos-users-input" placeholder="Email" required />
+        </label>
+        <label class="epos-users-form-label">
+          <span>Phone</span>
+          <input id="userPhone" class="epos-users-input" placeholder="Phone" />
+        </label>
+        <label class="epos-users-form-label">
+          <span>Role</span>
+          <select id="userRole" class="epos-users-input" required></select>
+        </label>
+        <label class="epos-users-form-label">
+          <span>Password</span>
+          <input id="userPassword" type="password" class="epos-users-input" placeholder="Password for new user" minlength="8" autocomplete="new-password" />
+        </label>
+        <label class="epos-users-check epos-users-form-full"><input id="userActive" type="checkbox" checked /> Active account</label>
         <div class="epos-users-form-actions">
           <button id="saveUserButton" type="submit" class="epos-users-wide-action green">Save User</button>
           <button id="resetUserButton" type="button" class="epos-users-wide-action neutral">Reset</button>

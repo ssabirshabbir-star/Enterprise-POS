@@ -628,6 +628,36 @@
     margin-top: 10px;
   }
 
+  #userForm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .epos-users-form-label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .epos-users-form-label span {
+    color: #344054;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  #userForm .epos-users-input {
+    box-sizing: border-box;
+    min-height: 36px;
+    border-radius: 9px;
+    padding: 0 8px;
+  }
+
+  .epos-users-form-full,
+  #userForm .epos-users-form-actions {
+    grid-column: 1 / -1;
+  }
+
   .epos-users-roles-layout .epos-users-form {
     flex: 0 0 auto;
   }
@@ -645,10 +675,27 @@
     font-weight: 850;
   }
 
+  #userForm .epos-users-check {
+    min-height: 36px;
+    border-radius: 9px;
+    padding: 0 11px;
+    color: #344054;
+  }
+
   .epos-users-form-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
+  }
+
+  #userForm .epos-users-form-actions {
+    gap: 10px;
+  }
+
+  #userForm .epos-users-wide-action {
+    min-height: 38px;
+    margin-top: 0;
+    border-radius: 10px;
   }
 
   .epos-users-message {
@@ -752,6 +799,13 @@
     background: #ffffff;
     padding: 14px;
     box-shadow: 0 28px 70px rgb(15 23 42 / 0.24);
+  }
+
+  #userEditorModal .epos-users-modal-card {
+    width: min(620px, 100%);
+    max-height: min(720px, 92vh);
+    overflow: auto;
+    padding: 16px;
   }
 
   .epos-users-modal-head {
