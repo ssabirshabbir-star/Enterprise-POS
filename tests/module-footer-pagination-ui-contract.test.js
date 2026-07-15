@@ -76,10 +76,10 @@ test('Customers and Products status footers stay compact while preserving labels
   const productsFooter = blockFor(productsCss, '.epos-products-footer');
 
   assert.match(customersFooter, /align-items:\s*center;/);
-  assert.match(customersFooter, /padding:\s*7px 12px;/);
+  assert.match(customersFooter, /padding:\s*4px 12px;/);
   assert.match(customersFooter, /font-size:\s*11px;/);
   assert.match(customersFooter, /font-weight:\s*850;/);
-  assert.doesNotMatch(customersFooter, /padding:\s*10px 14px;/);
+  assert.doesNotMatch(customersFooter, /padding:\s*(?:10px 14px|7px 12px);/);
 
   assert.match(productsFooter, /align-items:\s*center;/);
   assert.match(productsFooter, /padding:\s*4px 10px;/);
