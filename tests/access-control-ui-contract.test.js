@@ -117,15 +117,17 @@ test('User Management filter row gives search the flexible track and preserves f
 test('User Management action toolbar widens key buttons without forcing page overflow', () => {
   const css = read(cssPath);
   const html = read(htmlPath);
+  const baseButtonRule =
+    css.match(/\.epos-users-action,\s*\.epos-users-wide-action\s*{[^}]*}/)?.[0] || '';
 
   assert.match(html, /data-user-admin-tab="roles"[^>]*>Roles<\/button>/);
   assert.match(html, /data-page-tool="users" data-tool-action="import"[^>]*>Import<\/button>/);
   assert.match(html, /data-page-tool="users" data-tool-action="excel"[^>]*>Export<\/button>/);
   assert.match(
     css,
-    /\.epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],\s*\.epos-users-actions \.epos-users-action\[data-page-tool="users"\]\s*{[\s\S]*?padding-inline:\s*17px;/
+    /\.epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],\s*\.epos-users-actions \.epos-users-action\[data-page-tool="users"\]\s*{[\s\S]*?min-width:\s*92px;[\s\S]*?padding-inline:\s*17px;/
   );
-  assert.doesNotMatch(css, /epos-users-actions \.epos-users-action\s*{[\s\S]*?min-width:\s*92px;/);
+  assert.doesNotMatch(baseButtonRule, /min-width:\s*92px;/);
   assert.doesNotMatch(
     css,
     /epos-users-actions \.epos-users-action\[data-user-admin-tab="roles"\],[^{]*\{[^}]*min-width:\s*102px;/
@@ -145,6 +147,11 @@ test('User Management table uses one colgroup model and keeps actions inside the
   );
   assert.match(css, /\.epos-users-col-actions\s*{\s*width:\s*17%;\s*}/);
   assert.match(css, /\.epos-users-row-actions\s*{[\s\S]*?justify-content:\s*flex-end;/);
+  assert.match(css, /\.epos-users-table thead th:nth-child\(10\)\s*{\s*text-align:\s*center;\s*}/);
+  assert.match(
+    css,
+    /\.epos-users-table th:nth-child\(10\),\s*\.epos-users-table td:nth-child\(10\)\s*{[\s\S]*?text-align:\s*right;/
+  );
   assert.match(css, /\.epos-users-icon-action\s*{[\s\S]*?white-space:\s*nowrap;/);
   assert.doesNotMatch(css, /width:\s*25px;/);
 
