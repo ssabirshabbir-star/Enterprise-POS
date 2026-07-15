@@ -26,7 +26,7 @@ const shellRules = [
     name: 'Purchases',
     file: 'src/main/features/purchases/purchases.css',
     moduleId: 'purchaseModule',
-    padding: '5px 12px 12px',
+    padding: '5px 8px 12px',
   },
   {
     name: 'Customers',
@@ -38,7 +38,7 @@ const shellRules = [
     name: 'User Management',
     file: 'src/main/features/access-control/access-control.css',
     moduleId: 'usersModule',
-    padding: '5px 10px 10px',
+    padding: '5px 8px 10px',
   },
 ];
 
@@ -68,7 +68,7 @@ test('Suppliers remains the certified top-spacing reference', () => {
 
   assert.match(
     compactCss,
-    /#dashboard #appMain:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding-block:\s*4px !important;/
+    /#dashboard #appMain:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding:\s*4px 8px !important;/
   );
-  assert.match(suppliersCss, /\.epos-suppliers-page\s*{[\s\S]*?padding:\s*1px 0 4px 10px;/);
+  assert.match(suppliersCss, /\.epos-suppliers-page\s*{[\s\S]*?padding:\s*1px 0 4px;/);
 });

@@ -219,7 +219,7 @@
   }
 
   #dashboard #appMain:has(#suppliersModule:not(.hidden)) {
-    padding-block: 4px !important;
+    padding: 4px 8px !important;
     overflow: hidden;
     scrollbar-gutter: auto;
   }

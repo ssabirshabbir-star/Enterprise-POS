@@ -7,10 +7,11 @@
     overflow: auto;
   }
 
-  #dashboard main:has(#dashboardRoute:not(.hidden)) {
+  #dashboard #appMain:has(#dashboardRoute:not(.hidden)) {
     overflow: hidden;
     background: #f7faff;
     padding: 8px !important;
+    scrollbar-gutter: auto;
   }
 
   .epos-dashboard-page {

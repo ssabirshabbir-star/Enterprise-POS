@@ -20,7 +20,7 @@
     background: #f8fbff;
     color: #0f1f3d;
     max-height: 100%;
-    padding: 1px 0 4px 12px;
+    padding: 1px 0 4px;
   }
 
   #suppliersModule:has(.epos-suppliers-page) {
@@ -39,7 +39,7 @@
   .epos-suppliers-message,
   .epos-suppliers-bottom-actions {
     flex: 0 0 auto;
-    padding-right: 12px;
+    padding-right: 0;
   }
 
   #dashboard .epos-suppliers-main {
@@ -898,7 +898,7 @@
   }
 
   @media (max-width: 1366px) {
-    .epos-suppliers-page { gap: 4px; padding: 1px 0 4px 10px; }
+    .epos-suppliers-page { gap: 4px; padding: 1px 0 4px; }
     .epos-suppliers-stats { gap: 8px; }
     .epos-suppliers-stats article { min-height: 60px; padding: 7px 9px; }
     .epos-suppliers-stats article > span { width: 40px; height: 40px; font-size: 16px; }
@@ -908,7 +908,7 @@
     .epos-suppliers-tabs,
     .epos-suppliers-filters,
     .epos-suppliers-message,
-    .epos-suppliers-bottom-actions { padding-right: 10px; }
+    .epos-suppliers-bottom-actions { padding-right: 0; }
     .epos-suppliers-filters { grid-template-columns: minmax(240px, 1.35fr) repeat(4, minmax(112px, 0.7fr)) 72px; }
     .epos-suppliers-filters { padding: 6px 8px; }
     .epos-suppliers-bottom-actions { gap: 8px; }

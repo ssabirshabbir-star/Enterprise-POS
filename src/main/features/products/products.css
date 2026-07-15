@@ -6,6 +6,7 @@
       radial-gradient(circle at 92% 12%, rgb(59 130 246 / 0.12), transparent 26%),
       #f7f8ff;
     padding: 5px 8px 8px !important;
+    scrollbar-gutter: auto;
   }
 
   #productModule {

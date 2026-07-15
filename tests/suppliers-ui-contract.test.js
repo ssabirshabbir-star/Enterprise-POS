@@ -77,7 +77,7 @@ test('Suppliers compact layout transfers vertical space to the table viewport', 
 test('Suppliers route keeps small shell insets without returning shared blank bands', () => {
   assert.match(
     compactCss,
-    /#dashboard #appMain:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding-block:\s*4px !important;[\s\S]*?overflow:\s*hidden;/
+    /#dashboard #appMain:has\(#suppliersModule:not\(\.hidden\)\)\s*{[\s\S]*?padding:\s*4px 8px !important;[\s\S]*?overflow:\s*hidden;/
   );
   assert.doesNotMatch(
     compactCss,

@@ -1,6 +1,7 @@
 @layer components {
   #dashboard #appMain:has(#purchaseModule:not(.hidden)) {
-    padding: 5px 12px 12px !important;
+    padding: 5px 8px 12px !important;
+    scrollbar-gutter: auto;
   }
 
   #purchaseModule:has(.epos-purchases-page) {
