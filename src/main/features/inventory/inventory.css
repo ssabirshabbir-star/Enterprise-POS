@@ -257,10 +257,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: 44px;
+    min-height: 34px;
     margin: 0 18px;
     border-top: 1px solid #e7edf7;
-    padding: 6px 0;
+    padding: 2px 0;
     font-size: 12px;
     font-weight: 650;
     color: #64748b;
@@ -269,14 +269,14 @@
   .epos-inventory-page-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .epos-inventory-pagination button,
   .epos-inventory-pagination select {
     width: auto;
-    height: 32px;
-    padding: 0 10px;
+    height: 28px;
+    padding: 0 9px;
     box-shadow: none;
   }
 
@@ -894,8 +894,8 @@
 
     .epos-inventory-pagination {
       margin: 0 14px;
-      min-height: 40px;
-      padding: 5px 0;
+      min-height: 34px;
+      padding: 2px 0;
     }
 
     .epos-inventory-table td {

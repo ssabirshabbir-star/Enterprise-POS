@@ -575,10 +575,11 @@
 
   .epos-products-footer {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     border-top: 1px solid #edf0fb;
-    padding: 5px 10px;
+    padding: 4px 10px;
     color: #58658d;
     font-size: 10px;
     font-weight: 800;

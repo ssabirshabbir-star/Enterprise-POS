@@ -498,8 +498,8 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    min-height: 44px;
-    padding: 6px 14px;
+    min-height: 36px;
+    padding: 2px 14px;
   }
 
   .epos-purchases-pagination {
@@ -512,7 +512,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 9px;
+    gap: 8px;
     min-width: 0;
   }
 
@@ -524,13 +524,13 @@
 
   .epos-purchases-pagination select,
   .epos-purchases-pagination button {
-    min-height: 32px;
+    min-height: 28px;
   }
 
   .epos-purchases-pagination strong {
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     place-items: center;
     border-radius: 6px;
     background: linear-gradient(135deg, #7c3aed, #4f46e5);
@@ -1008,7 +1008,7 @@
     }
 
     .epos-purchases-footer {
-      padding: 6px 10px;
+      padding: 2px 10px;
     }
 
     .epos-purchases-modal-card {
