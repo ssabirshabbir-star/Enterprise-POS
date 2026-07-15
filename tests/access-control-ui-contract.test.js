@@ -76,7 +76,7 @@ test('User Management compact summary layout and table shell contract remain int
     /\.epos-users-stats\s*{[\s\S]*?grid-template-columns:\s*repeat\(6, minmax\(0, 1fr\)\)/
   );
   assert.match(css, /\.epos-users-stats article\s*{[\s\S]*?min-height:\s*58px;/);
-  assert.match(css, /\.epos-users-page\s*{[\s\S]*?gap:\s*6px;/);
+  assert.match(css, /\.epos-users-page\s*{[\s\S]*?gap:\s*5px;/);
   assert.doesNotMatch(css, /epos-users-status-pills/);
 
   assert.match(html, /class="epos-users-table-wrap"/);

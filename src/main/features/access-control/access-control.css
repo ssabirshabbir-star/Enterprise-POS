@@ -25,7 +25,7 @@
     grid-template-rows: auto auto auto minmax(0, 1fr);
     height: 100%;
     min-height: 0;
-    gap: 6px;
+    gap: 5px;
     color: #08113f;
   }
 

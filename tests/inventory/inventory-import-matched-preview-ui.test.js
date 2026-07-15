@@ -507,7 +507,7 @@ test('inventory summary spacing and requested header alignment stay scoped', () 
     'utf8'
   );
 
-  assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?gap:\s*6px;/);
+  assert.match(css, /\.epos-inventory-page\s*{[\s\S]*?gap:\s*5px;/);
   assert.match(
     css,
     /#dashboard #appMain:has\(#inventoryModule:not\(\.hidden\)\)\s*{[\s\S]*?padding:\s*5px 8px 8px !important;/

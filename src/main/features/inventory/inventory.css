@@ -16,7 +16,7 @@
   .epos-inventory-page {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -833,7 +833,7 @@
 
   @media (max-width: 1400px) {
     .epos-inventory-page {
-      gap: 6px;
+      gap: 5px;
     }
 
     .epos-inventory-stats {
