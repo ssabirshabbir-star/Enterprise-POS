@@ -415,11 +415,7 @@ async function resolveRecoveryBackupDirectory({ recoveryRoot = null } = {}) {
     recoveryRoot ||
     process.env.ENTERPRISE_POS_RESTORE_RECOVERY_DIR ||
     path.join(os.homedir(), 'AppData', 'Roaming', 'Enterprise POS');
-  const recoveryDirectory = path.resolve(
-    configuredRoot,
-    'backups',
-    'recovery'
-  );
+  const recoveryDirectory = path.resolve(configuredRoot, 'backups', 'recovery');
   await fs.mkdir(recoveryDirectory, { recursive: true });
   const stat = await fs.lstat(recoveryDirectory);
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
@@ -432,7 +428,10 @@ async function createSafetyBackupPath({ operationId, recoveryRoot = null, now = 
   const recoveryDirectory = await resolveRecoveryBackupDirectory({ recoveryRoot });
   const shortOperationId = sanitizePathSegment(operationId).slice(0, 12) || 'restore-op';
   const baseName = `restore-safety-backup-${shortOperationId}-${safeTimestamp(now)}.json`;
-  const targetPath = await ensureInsideDirectory(recoveryDirectory, path.join(recoveryDirectory, baseName));
+  const targetPath = await ensureInsideDirectory(
+    recoveryDirectory,
+    path.join(recoveryDirectory, baseName)
+  );
   try {
     await fs.access(targetPath);
     throw new Error('Generated safety backup path already exists.');
@@ -451,9 +450,7 @@ async function collectBackupData(db = getPool()) {
   const data = {};
   const tableEvidence = [];
   for (const table of BACKUP_COVERAGE_POLICY.tables) {
-    const result = await db.query(
-      `SELECT * FROM ${quoteIdentifier(table.name)} ORDER BY 1 ASC`
-    );
+    const result = await db.query(`SELECT * FROM ${quoteIdentifier(table.name)} ORDER BY 1 ASC`);
     data[table.name] = result.rows;
     tableEvidence.push({
       ...table,
@@ -461,6 +458,56 @@ async function collectBackupData(db = getPool()) {
     });
   }
   return { data, tableEvidence };
+}
+
+async function withReadOnlyRepeatableReadSnapshot(db, callback) {
+  const client = await db.connect();
+  let transactionStarted = false;
+  let transactionStartedAt = null;
+
+  try {
+    await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    transactionStarted = true;
+    transactionStartedAt = Date.now();
+    const result = await callback(client);
+    await client.query('COMMIT');
+    const transactionCompletedAt = Date.now();
+    return {
+      ...result,
+      snapshotTransaction: {
+        isolationLevel: 'repeatable read',
+        readOnly: true,
+        startedAt: new Date(transactionStartedAt).toISOString(),
+        completedAt: new Date(transactionCompletedAt).toISOString(),
+        durationMs: transactionCompletedAt - transactionStartedAt,
+      },
+    };
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        error.rollbackError = rollbackError;
+      }
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function captureBackupSnapshot({ db, backupId, correlationId, createdAt, userId }) {
+  return withReadOnlyRepeatableReadSnapshot(db, async (client) => {
+    const { data, tableEvidence } = await collectBackupData(client);
+    const metadata = await createMetadata({
+      backupId,
+      correlationId,
+      createdAt,
+      userId,
+      db: client,
+    });
+    return { data, tableEvidence, metadata };
+  });
 }
 
 function createManifest({ backupId, correlationId, createdAt, dataHash, tableEvidence }) {
@@ -632,9 +679,14 @@ async function exportBackup(filePath, userId, options = {}) {
   const backupId = createBackupId();
   const correlationId = createBackupId();
   const createdAt = new Date().toISOString();
-  const { data, tableEvidence } = await collectBackupData(db);
+  const { data, tableEvidence, metadata, snapshotTransaction } = await captureBackupSnapshot({
+    db,
+    backupId,
+    correlationId,
+    createdAt,
+    userId,
+  });
   const dataHash = hashValue(data);
-  const metadata = await createMetadata({ backupId, correlationId, createdAt, userId, db });
   const manifest = createManifest({ backupId, correlationId, createdAt, dataHash, tableEvidence });
 
   const backup = {
@@ -676,6 +728,7 @@ async function exportBackup(filePath, userId, options = {}) {
     integrityHash: dataHash,
     verificationStatus: verification.status,
     restoreEligible: false,
+    snapshotTransaction,
   };
 }
 
@@ -846,7 +899,7 @@ function operationRowToRecoveryState(row, transitionEvidence = []) {
             filePath: row.safety_backup_path,
             checksum: row.safety_backup_checksum,
             backupLogId: row.safety_backup_log_id,
-        }
+          }
         : null,
     finalConfirmationReference:
       row.final_confirmation_id || row.final_confirmation_hash
@@ -1047,7 +1100,10 @@ async function acquireRestoreOperationLock({
       ok: true,
       lockAcquired: true,
       operationId,
-      recoveryState: operationRowToRecoveryState(row, await restoreOperationEvidence(operationId, client)),
+      recoveryState: operationRowToRecoveryState(
+        row,
+        await restoreOperationEvidence(operationId, client)
+      ),
       message: 'Exclusive Restore preparation lock acquired.',
     };
   }).catch(async (error) => {
@@ -1106,7 +1162,8 @@ async function transitionRestoreOperation({
         message: 'Restore recovery transition rejected.',
       };
     }
-    const sanitizedFailureSummary = restoreRecoveryStateModel.sanitizeFailureSummary(failureSummary);
+    const sanitizedFailureSummary =
+      restoreRecoveryStateModel.sanitizeFailureSummary(failureSummary);
     const terminal = isTerminalRestoreState(nextState);
     const safety = safetyBackupReference || {};
     const updated = await client.query(
@@ -1448,8 +1505,7 @@ async function recordRestoreRecoveryTransition({
     operationId: requestedOperationId,
     ownerUserId: current.ownerUserId || ownerUserId || requestedByUserId || null,
     sourceBackupId: sourceBackupId || current.sourceBackupId || null,
-    sourcePackageFingerprint:
-      sourcePackageFingerprint || current.sourcePackageFingerprint || null,
+    sourcePackageFingerprint: sourcePackageFingerprint || current.sourcePackageFingerprint || null,
     sourcePackageChecksum: sourcePackageChecksum || current.sourcePackageChecksum || null,
     sourceManifestVersion: sourceManifestVersion || current.sourceManifestVersion || null,
     currentState: nextState,
@@ -1462,7 +1518,9 @@ async function recordRestoreRecoveryTransition({
     replayStatus: replayStatus || 'not_replayed',
     rollbackRequired: nextState === 'FAILED_ROLLBACK_REQUIRED' || current.rollbackRequired,
     restartRequired:
-      nextState === 'RESTORE_APPLIED' || nextState === 'POST_RESTORE_VERIFYING' || current.restartRequired,
+      nextState === 'RESTORE_APPLIED' ||
+      nextState === 'POST_RESTORE_VERIFYING' ||
+      current.restartRequired,
     completionMarker: completionMarker || null,
   });
 
@@ -1563,7 +1621,8 @@ async function createRestoreFinalConfirmation({
       return {
         ok: false,
         confirmationCreated: false,
-        message: 'Restore final confirmation cannot be created for terminal or consumed operations.',
+        message:
+          'Restore final confirmation cannot be created for terminal or consumed operations.',
       };
     }
     if (row.final_confirmation_id || row.final_confirmation_hash) {
@@ -1571,8 +1630,7 @@ async function createRestoreFinalConfirmation({
         ok: false,
         confirmationCreated: false,
         blockers: ['final_confirmation_already_recorded'],
-        message:
-          'Restore final confirmation has already been recorded for this operation.',
+        message: 'Restore final confirmation has already been recorded for this operation.',
       };
     }
     const confirmation = restoreProductionGovernanceModel.createConfirmationRecord({
@@ -1583,7 +1641,8 @@ async function createRestoreFinalConfirmation({
       safetyBackupChecksum: row.safety_backup_checksum,
       databaseIdentity,
       preflightDigest,
-      executionPolicyDigest: executionPolicyDigest || restoreProductionGovernanceModel.createPolicyDigest(policy),
+      executionPolicyDigest:
+        executionPolicyDigest || restoreProductionGovernanceModel.createPolicyDigest(policy),
       recoveryState: row.state,
       typedPhrase,
     });
@@ -1628,7 +1687,8 @@ async function createRestoreFinalConfirmation({
       operationId,
       action: RESTORE_OPERATION_ACTIVITY,
       status: 'confirmation_issued',
-      message: 'Durable Restore final confirmation was issued. Production execution remains unavailable.',
+      message:
+        'Durable Restore final confirmation was issued. Production execution remains unavailable.',
       metadata: {
         confirmationId: confirmation.confirmationId,
         confirmationHash: confirmation.confirmationHash,
@@ -1721,10 +1781,7 @@ async function getRestoreRetentionAssessment({ artifactPath = null } = {}) {
   }
 
   const recoveryState = operation
-    ? operationRowToRecoveryState(
-        operation,
-        await restoreOperationEvidence(operation.operation_id)
-      )
+    ? operationRowToRecoveryState(operation, await restoreOperationEvidence(operation.operation_id))
     : await getRestoreRecoveryState();
   return {
     ok: true,
