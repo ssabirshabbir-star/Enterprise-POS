@@ -67,8 +67,7 @@ test('Purchases exposes only certified filter controls', () => {
   const html = read(htmlPath);
   const renderer = read(rendererPath);
 
-  assert.match(html, /id="purchaseFilterFrom" type="date"/);
-  assert.match(html, /id="purchaseFilterTo" type="date"/);
+  assert.match(html, /class="epos-purchases-filter-row"/);
   assert.match(html, /id="purchaseSupplierFilter"/);
   assert.match(
     html,
@@ -79,14 +78,57 @@ test('Purchases exposes only certified filter controls', () => {
     html,
     /id="purchasePaymentFilter"[\s\S]*<option value="PAID">Paid<\/option>[\s\S]*<option value="PARTIAL">Partial<\/option>[\s\S]*<option value="UNPAID">Unpaid<\/option>/
   );
+  assert.match(html, /id="purchaseDateFilterMenu" class="epos-purchases-date-menu"/);
+  assert.match(html, /id="purchaseDateFilterSummary">Date &amp; Due Filters<\/summary>/);
+  assert.match(html, /id="purchaseFilterFrom" type="date"/);
+  assert.match(html, /id="purchaseFilterTo" type="date"/);
   assert.match(html, /data-purchase-range="today"(?![^>]*disabled)/);
   assert.match(html, /data-purchase-range="last-month"(?![^>]*disabled)/);
   assert.match(html, /data-purchase-range="year"[^>]*disabled/);
   assert.match(html, /data-purchase-payment-shortcut="OVERDUE"[^>]*disabled/);
   assert.match(html, /id="purchaseDueTodayButton"[^>]*disabled/);
+  assert.equal((html.match(/data-purchase-range="today"/g) || []).length, 1);
+  assert.doesNotMatch(html, /class="epos-purchases-search-row"/);
+  assert.match(html, /id="purchaseClearDateFiltersButton"/);
+  assert.match(html, /id="purchaseClearFiltersButton"[\s\S]*Reset All Filters/);
   assert.doesNotMatch(html, /id="purchaseRowsPerPage"[^>]*disabled/);
 
   assert.match(renderer, /A\(\)\.list\(getFilters\(\)\)/);
   assert.doesNotMatch(renderer, /function filteredPurchases/);
   assert.match(renderer, /purchasePagination/);
+  assert.match(renderer, /function clearDateFilters/);
+  assert.match(renderer, /function updateDateFilterSummary/);
+});
+
+test('Purchases consolidated filter row gives search the right-side workspace', () => {
+  const html = read(htmlPath);
+  const css = read(cssPath);
+  const filterRow =
+    html.match(/<div class="epos-purchases-filter-row">[\s\S]*?<\/div>\s*<\/section>/)?.[0] || '';
+
+  assert.match(
+    filterRow,
+    /purchaseSupplierFilter[\s\S]*purchaseMethodFilter[\s\S]*purchasePaymentFilter[\s\S]*purchaseDateFilterMenu[\s\S]*purchaseKeywordSearch/
+  );
+  assert.match(
+    css,
+    /\.epos-purchases-filter-row\s*{[\s\S]*?grid-template-columns:\s*118px 112px 142px 188px minmax\(340px, 1fr\);/
+  );
+  assert.match(css, /\.epos-purchases-date-panel\s*{[\s\S]*?position:\s*absolute;/);
+  assert.match(css, /\.epos-purchases-keyword\s*{[\s\S]*?justify-self:\s*stretch;/);
+  assert.doesNotMatch(css, /\.epos-purchases-search-row\s*{/);
+});
+
+test('Purchases date and due filter dropdown preserves disabled unique options', () => {
+  const html = read(htmlPath);
+  const dateMenu = html.match(/<details id="purchaseDateFilterMenu"[\s\S]*?<\/details>/)?.[0] || '';
+
+  for (const range of ['today', 'yesterday', '7', '30', 'month', 'last-month']) {
+    assert.match(dateMenu, new RegExp(`data-purchase-range="${range}"(?![^>]*disabled)`));
+  }
+  assert.match(dateMenu, /data-purchase-range="year"[^>]*disabled/);
+  assert.match(dateMenu, /data-purchase-payment-shortcut="OVERDUE"[^>]*disabled/);
+  assert.match(dateMenu, /id="purchaseDueTodayButton"[^>]*disabled/);
+  assert.match(dateMenu, /Overdue requires a certified purchase due-date field/);
+  assert.match(dateMenu, /Due Today requires a certified purchase due-date field/);
 });

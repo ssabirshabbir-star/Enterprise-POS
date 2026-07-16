@@ -232,29 +232,43 @@
     </nav>
 
     <div class="epos-purchases-filter-row">
-      <input id="purchaseFilterFrom" type="date" aria-label="From date" />
-      <span>to</span>
-      <input id="purchaseFilterTo" type="date" aria-label="To date" />
       <select id="purchaseSupplierFilter" aria-label="Supplier"><option value="">All Suppliers</option></select>
       <select id="purchaseMethodFilter" aria-label="Payment Method"><option value="">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option></select>
       <select id="purchasePaymentFilter" aria-label="Payment status"><option value="">All Payment Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial</option><option value="UNPAID">Unpaid</option></select>
-      <button type="button" data-purchase-payment-shortcut="OVERDUE" class="epos-purchases-overdue" disabled title="Overdue requires a certified purchase due-date field before activation.">&#9888; Overdue</button>
-      <button type="button" data-purchase-due-today id="purchaseDueTodayButton" class="epos-purchases-due-today" disabled title="Due Today requires a certified purchase due-date field before activation.">&#128197; Due Today</button>
-      <button type="button" id="purchaseClearFiltersButton" class="epos-purchases-ghost">&#8635; Clear</button>
-    </div>
-
-    <div class="epos-purchases-search-row">
+      <details id="purchaseDateFilterMenu" class="epos-purchases-date-menu">
+        <summary id="purchaseDateFilterSummary">Date &amp; Due Filters</summary>
+        <div class="epos-purchases-date-panel" role="group" aria-label="Date and due filters">
+          <div class="epos-purchases-date-custom">
+            <label>
+              <span>From Date</span>
+              <input id="purchaseFilterFrom" type="date" aria-label="From date" />
+            </label>
+            <label>
+              <span>To Date</span>
+              <input id="purchaseFilterTo" type="date" aria-label="To date" />
+            </label>
+          </div>
+          <div class="epos-purchases-date-options">
+            <button type="button" data-purchase-range="today">Today</button>
+            <button type="button" data-purchase-range="yesterday">Yesterday</button>
+            <button type="button" data-purchase-range="7">Last 7 Days</button>
+            <button type="button" data-purchase-range="30">Last 30 Days</button>
+            <button type="button" data-purchase-range="month" class="green">This Month</button>
+            <button type="button" data-purchase-range="last-month">Last Month</button>
+            <button type="button" data-purchase-range="year" disabled title="This Financial Year requires an authoritative financial-year configuration before activation.">This Financial Year</button>
+            <button type="button" data-purchase-payment-shortcut="OVERDUE" class="epos-purchases-overdue" disabled title="Overdue requires a certified purchase due-date field before activation.">&#9888; Overdue</button>
+            <button type="button" data-purchase-due-today id="purchaseDueTodayButton" class="epos-purchases-due-today" disabled title="Due Today requires a certified purchase due-date field before activation.">&#128197; Due Today</button>
+          </div>
+          <div class="epos-purchases-date-footer">
+            <button type="button" id="purchaseClearDateFiltersButton" class="epos-purchases-ghost">Clear Dates</button>
+            <button type="button" id="purchaseClearFiltersButton" class="epos-purchases-ghost">&#8635; Reset All Filters</button>
+          </div>
+        </div>
+      </details>
       <label class="epos-purchases-keyword">
         <span>&#128269;</span>
         <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
       </label>
-      <button type="button" data-purchase-range="today">Today</button>
-      <button type="button" data-purchase-range="yesterday">Yesterday</button>
-      <button type="button" data-purchase-range="7">Last 7 Days</button>
-      <button type="button" data-purchase-range="30">Last 30 Days</button>
-      <button type="button" data-purchase-range="month" class="green">This Month</button>
-      <button type="button" data-purchase-range="last-month">Last Month</button>
-      <button type="button" data-purchase-range="year" disabled title="This Financial Year requires an authoritative financial-year configuration before activation.">This Financial Year</button>
     </div>
   </section>
 

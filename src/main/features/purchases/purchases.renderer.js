@@ -88,6 +88,30 @@
     return status || purchasePaymentStatus(p);
   }
 
+  function datePresetLabel(preset) {
+    const labels = {
+      today: 'Today',
+      yesterday: 'Yesterday',
+      7: 'Last 7 Days',
+      30: 'Last 30 Days',
+      month: 'This Month',
+      'last-month': 'Last Month',
+    };
+    return labels[preset] || '';
+  }
+
+  function updateDateFilterSummary() {
+    const summary = $id('purchaseDateFilterSummary');
+    if (!summary) return;
+    const from = $id('purchaseFilterFrom')?.value || '';
+    const to = $id('purchaseFilterTo')?.value || '';
+    let label = datePresetLabel(activeDatePreset);
+    if (!label && (from || to)) {
+      label = from && to ? `${from} to ${to}` : from ? `From ${from}` : `To ${to}`;
+    }
+    summary.textContent = label || 'Date & Due Filters';
+  }
+
   function getFilters() {
     return {
       search: String($id('purchaseKeywordSearch')?.value || '')
@@ -672,6 +696,7 @@
     document
       .querySelectorAll('[data-purchase-range]')
       .forEach((btn) => btn.classList.remove('active'));
+    updateDateFilterSummary();
     purchasePagination.page = 1;
     purchasePagination.pageSize = Number($id('purchaseRowsPerPage')?.value || 10);
     if (options.skipLoad) return;
@@ -702,6 +727,17 @@
     document.querySelectorAll('[data-purchase-range]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.purchaseRange === activeDatePreset);
     });
+    updateDateFilterSummary();
+  }
+
+  function clearDateFilters(options = {}) {
+    ['purchaseFilterFrom', 'purchaseFilterTo'].forEach((id) => {
+      const el = $id(id);
+      if (el) el.value = '';
+    });
+    activateDatePreset('');
+    purchasePagination.page = 1;
+    if (!options.skipLoad) refreshForFilterChange({ showLoading: true });
   }
 
   function refreshForFilterChange(options = {}) {
@@ -778,6 +814,7 @@
         refreshForFilterChange();
       })
     );
+    $id('purchaseClearDateFiltersButton')?.addEventListener('click', clearDateFilters);
     $id('purchaseClearFiltersButton')?.addEventListener('click', clearFilters);
     document.querySelectorAll('[data-purchase-status-tab]').forEach((btn) =>
       btn.addEventListener('click', () => {

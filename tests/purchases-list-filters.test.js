@@ -53,6 +53,19 @@ function loadService({ role = 'Admin', repositoryResult = null } = {}) {
   }
 }
 
+function localDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, amount) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + amount);
+  return copy;
+}
+
 test('Purchases list normalizes supported filters before repository access', async () => {
   const { service, calls } = loadService();
   const result = await service.listPurchases({
@@ -108,6 +121,97 @@ test('Purchases financial-year preset remains blocked without authoritative conf
   assert.equal(calls.filters.length, 0);
 });
 
+test('Purchases Today preset is an operational purchase-date filter, not a due-date shortcut', async () => {
+  const { service, calls } = loadService();
+  const result = await service.listPurchases({ datePreset: 'today', pageSize: '10' });
+  const today = localDateString(new Date());
+
+  assert.equal(result.ok, true);
+  assert.equal(calls.filters[0].datePreset, 'today');
+  assert.equal(calls.filters[0].dateFrom, today);
+  assert.equal(calls.filters[0].dateTo, today);
+  assert.equal(calls.filters[0].paymentStatus, '');
+});
+
+test('Purchases date presets normalize to purchase-date ranges and clear custom dates', async () => {
+  const { service, calls } = loadService();
+
+  await service.listPurchases({ datePreset: 'yesterday', dateFrom: '2026-01-01' });
+  await service.listPurchases({ datePreset: '7' });
+  await service.listPurchases({ datePreset: '30' });
+  await service.listPurchases({ datePreset: 'month' });
+  await service.listPurchases({ datePreset: 'last-month' });
+
+  const today = new Date();
+  const businessToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  assert.deepEqual(
+    calls.filters.map((filters) => ({
+      preset: filters.datePreset,
+      from: filters.dateFrom,
+      to: filters.dateTo,
+    })),
+    [
+      {
+        preset: 'yesterday',
+        from: localDateString(addDays(businessToday, -1)),
+        to: localDateString(addDays(businessToday, -1)),
+      },
+      {
+        preset: '7',
+        from: localDateString(addDays(businessToday, -6)),
+        to: localDateString(businessToday),
+      },
+      {
+        preset: '30',
+        from: localDateString(addDays(businessToday, -29)),
+        to: localDateString(businessToday),
+      },
+      {
+        preset: 'month',
+        from: localDateString(new Date(businessToday.getFullYear(), businessToday.getMonth(), 1)),
+        to: localDateString(businessToday),
+      },
+      {
+        preset: 'last-month',
+        from: localDateString(
+          new Date(businessToday.getFullYear(), businessToday.getMonth() - 1, 1)
+        ),
+        to: localDateString(new Date(businessToday.getFullYear(), businessToday.getMonth(), 0)),
+      },
+    ]
+  );
+});
+
+test('Purchases custom date range composes with supplier, method, payment status, search, and tab filters', async () => {
+  const { service, calls } = loadService();
+
+  const result = await service.listPurchases({
+    search: 'Blue Ocean',
+    supplierId: '5',
+    paymentMethod: 'Credit',
+    paymentStatus: 'UNPAID',
+    purchaseTab: 'PENDING',
+    datePreset: 'custom',
+    dateFrom: '2026-07-01',
+    dateTo: '2026-07-31',
+    page: '2',
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls.filters[0], {
+    search: 'Blue Ocean',
+    dateFrom: '2026-07-01',
+    dateTo: '2026-07-31',
+    datePreset: 'custom',
+    supplierId: 5,
+    paymentMethod: 'Credit',
+    paymentStatus: 'UNPAID',
+    purchaseTab: 'PENDING',
+    page: 2,
+    pageSize: 10,
+  });
+});
+
 test('Purchases repository uses parameterized filters, pagination, and summary contract', () => {
   const repository = read(repositoryPath);
   assert.match(repository, /function buildPurchaseListFilter/);
@@ -115,6 +219,11 @@ test('Purchases repository uses parameterized filters, pagination, and summary c
   assert.match(repository, /COUNT\(\*\)::int AS total/);
   assert.match(repository, /COALESCE\(SUM\(purchases\.grand_total\), 0\)::numeric AS total_spend/);
   assert.match(repository, /LOWER\(purchases\.invoice_number\) LIKE \${placeholder}/);
+  assert.match(repository, /purchases\.purchase_date >= \$\$\{params\.length\}::date/);
+  assert.match(repository, /purchases\.purchase_date <= \$\$\{params\.length\}::date/);
+  assert.match(repository, /paymentStatusSql\(\)/);
+  assert.match(repository, /purchaseTabSql\(\)/);
+  assert.doesNotMatch(repository, /due_date|payment_terms|days_overdue|maturity_date/i);
   assert.doesNotMatch(repository, /WHERE purchases\.deleted_at IS NULL[\s\S]*\+ filters\.search/);
 });
 
