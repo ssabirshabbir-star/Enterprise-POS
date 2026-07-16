@@ -128,19 +128,39 @@ function fakeNativeImageFactory({ size = { width: 120, height: 80 }, failResize 
   };
 }
 
-function loadPrintingService({ settingsRow, storeSettingsRow, printCallback, nativeImage }) {
+function loadPrintingService({
+  settingsRow,
+  storeSettingsRow,
+  printCallback = () => {},
+  nativeImage,
+  readinessResult = {
+    imageCount: 0,
+    logoReady: true,
+    logoRenderedWidth: 0,
+    logoRenderedHeight: 0,
+    receiptWidth: 260,
+    receiptHeight: 400,
+  },
+}) {
   delete require.cache[servicePath];
   delete require.cache[repositoryPath];
 
   const originalLoad = Module._load;
   const windows = [];
+  const events = [];
 
   class FakeBrowserWindow {
     constructor(options) {
       this.options = options;
       this.closed = false;
       this.webContents = {
+        executeJavaScript: async (script) => {
+          events.push('ready');
+          this.readinessScript = script;
+          return readinessResult;
+        },
         print: (options, callback) => {
+          events.push('print');
           printCallback(options);
           callback(true);
         },
@@ -149,11 +169,17 @@ function loadPrintingService({ settingsRow, storeSettingsRow, printCallback, nat
     }
 
     async loadURL(url) {
+      events.push('loadURL');
       this.url = url;
     }
 
     close() {
+      events.push('close');
       this.closed = true;
+    }
+
+    isDestroyed() {
+      return this.closed;
     }
 
     static getAllWindows() {
@@ -180,6 +206,7 @@ function loadPrintingService({ settingsRow, storeSettingsRow, printCallback, nat
     return {
       service: require(servicePath),
       windows,
+      events,
     };
   } finally {
     Module._load = originalLoad;
@@ -204,7 +231,9 @@ test('Billing receipt print uses hidden/direct Electron printing even when setti
 
   const result = await service.printReceipt(receipt);
 
-  assert.deepEqual(result, { success: true, failureReason: undefined });
+  assert.equal(result.success, true);
+  assert.equal(result.failureReason, undefined);
+  assert.equal(result.readiness.logoReady, true);
   assert.equal(printOptions.silent, true);
   assert.equal(printOptions.deviceName, undefined);
   assert.equal(printOptions.printBackground, true);
@@ -399,8 +428,10 @@ test('Billing receipt renders existing business settings and omits unsupported b
 });
 
 test('Billing receipt renders a valid saved business logo in HTML without leaking paths into ESC/POS', () => {
+  const fake = fakeNativeImageFactory({ size: { width: 120, height: 80 } });
   const { service } = loadPrintingService({
     settingsRow: {},
+    nativeImage: fake.nativeImage,
     printCallback: () => {},
   });
   const logoPath = tempLogoPath('.png');
@@ -417,11 +448,96 @@ test('Billing receipt renders a valid saved business logo in HTML without leakin
     receiptFooterText: 'Thanks',
   });
 
-  assert.match(html, /<img class="brand-logo" src="file:\/\/\//);
+  assert.match(html, /<img class="brand-logo" src="data:image\/png;base64,/);
   assert.match(html, /object-fit:\s*contain/);
   assert.match(html, /Grocery POS Market/);
+  assert.doesNotMatch(html, /file:\/\//);
+  assert.doesNotMatch(html, new RegExp(logoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.doesNotMatch(escposText(escpos), /file:\/\//);
   assert.match(escposText(escpos), /Grocery POS Market/);
+});
+
+test('Billing physical HTML print embeds logo as data URL and waits for image readiness before printing', async () => {
+  const logoPath = tempLogoPath('.png');
+  const fake = fakeNativeImageFactory({ size: { width: 144, height: 96 } });
+  let printOptions;
+  const { service, windows, events } = loadPrintingService({
+    settingsRow: {
+      printer_name: 'Receipt Printer',
+      paper_width: '80mm',
+      silent_print: false,
+      auto_print: false,
+      receipt_copies: 1,
+      footer_text: 'Legacy footer should not render',
+    },
+    storeSettingsRow: {
+      storeName: 'Fresh Mart',
+      logoPath,
+      receiptFooterText: 'Thanks again',
+    },
+    nativeImage: fake.nativeImage,
+    readinessResult: {
+      imageCount: 1,
+      logoReady: true,
+      logoRenderedWidth: 104,
+      logoRenderedHeight: 58,
+      receiptWidth: 260,
+      receiptHeight: 430,
+    },
+    printCallback: (options) => {
+      printOptions = options;
+    },
+  });
+
+  const result = await service.printReceipt(receipt);
+  const html = decodeDataUrl(windows[0].url);
+
+  assert.equal(result.success, true);
+  assert.equal(result.readiness.logoReady, true);
+  assert.equal(result.readiness.logoRenderedWidth > 0, true);
+  assert.deepEqual(events, ['loadURL', 'ready', 'print', 'close']);
+  assert.match(windows[0].readinessScript, /document\.images/);
+  assert.match(windows[0].readinessScript, /\.decode\(\)/);
+  assert.match(windows[0].readinessScript, /getBoundingClientRect/);
+  assert.match(html, /<img class="brand-logo" src="data:image\/png;base64,/);
+  assert.doesNotMatch(html, /file:\/\//);
+  assert.doesNotMatch(html, new RegExp(logoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /Fresh Mart/);
+  assert.match(html, /Thanks again/);
+  assert.equal(printOptions.deviceName, 'Receipt Printer');
+});
+
+test('Billing physical HTML print falls back cleanly when logo image readiness times out', async () => {
+  const logoPath = tempLogoPath('.png');
+  const fake = fakeNativeImageFactory({ size: { width: 144, height: 96 } });
+  const { service, windows, events } = loadPrintingService({
+    settingsRow: {
+      printer_name: '',
+      paper_width: '80mm',
+      silent_print: false,
+      auto_print: false,
+      receipt_copies: 1,
+      footer_text: 'Thanks',
+    },
+    storeSettingsRow: {
+      storeName: 'Fresh Mart',
+      logoPath,
+      receiptFooterText: 'Footer text',
+    },
+    nativeImage: fake.nativeImage,
+    readinessResult: { timeout: true },
+    printCallback: () => {},
+  });
+
+  const result = await service.printReceipt(receipt);
+  const html = decodeDataUrl(windows[0].url);
+
+  assert.equal(result.success, true);
+  assert.equal(result.readiness.timeout, true);
+  assert.deepEqual(events, ['loadURL', 'ready', 'print', 'close']);
+  assert.match(html, /data:image\/png;base64,/);
+  assert.match(html, /Fresh Mart/);
+  assert.match(html, /Footer text/);
 });
 
 test('Billing ESC/POS receipt renders valid managed PNG logo as centered binary raster before business name', () => {
@@ -686,6 +802,35 @@ test('Completed Invoice reprint receipt shape uses the same thermal renderer con
   assert.match(html, /<span class="footer-line">Thanks<\/span>/);
 });
 
+test('Completed Invoice HTML reprint embeds the same saved business logo data URL', () => {
+  const logoPath = tempLogoPath('.jpg');
+  const fake = fakeNativeImageFactory({ size: { width: 180, height: 90 } });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+  const completedInvoiceReceipt = {
+    ...receipt,
+    invoiceNumber: 'INV-COMPLETE-HTML-LOGO',
+    status: 'COMPLETED',
+    payments: [{ paymentMethod: 'Cash', amount: 10, createdAt: receipt.createdAt }],
+  };
+
+  const html = service.buildReceiptHtml(completedInvoiceReceipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+    receiptFooterText: 'Thanks',
+  });
+
+  assert.match(html, /<img class="brand-logo" src="data:image\/jpeg;base64,/);
+  assert.doesNotMatch(html, /file:\/\//);
+  assert.doesNotMatch(html, new RegExp(logoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /INV-COMPLETE-HTML-LOGO/);
+  assert.match(html, /Grocery POS Market/);
+});
+
 test('Completed Invoice ESC/POS reprint uses the same business logo raster behavior', () => {
   const logoPath = tempLogoPath('.png');
   const fake = fakeNativeImageFactory({ size: { width: 160, height: 80 } });
@@ -737,6 +882,24 @@ test('Billing receipt heading fix preserves accepted 80mm geometry', () => {
     css,
     /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|align-items:\s*center|translate\(/
   );
+});
+
+test('Billing receipt print CSS keeps the business logo visible and bounded for 80mm paper', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const css = receiptCss(
+    service.buildReceiptHtml(receipt, { paperWidth: '80mm', receiptFooterText: 'Thanks' })
+  );
+
+  assert.match(css, /\.brand-logo\s*\{[^}]*display:\s*block;/);
+  assert.match(css, /\.brand-logo\s*\{[^}]*max-width:\s*28mm;/);
+  assert.match(css, /\.brand-logo\s*\{[^}]*max-height:\s*16mm;/);
+  assert.match(css, /\.brand-logo\s*\{[^}]*object-fit:\s*contain;/);
+  assert.doesNotMatch(css, /\.brand-logo\s*\{[^}]*display:\s*none/);
+  assert.doesNotMatch(css, /\.brand-logo\s*\{[^}]*visibility:\s*hidden/);
 });
 
 test('unknown Billing receipt paper width falls back to safe 80mm profile', () => {

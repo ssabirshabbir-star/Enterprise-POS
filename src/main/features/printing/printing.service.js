@@ -1,7 +1,6 @@
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
-const { pathToFileURL } = require('url');
 const { BrowserWindow, nativeImage } = require('electron');
 const printingRepository = require('./printing.repository');
 const LOGO_RECEIPT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
@@ -12,6 +11,8 @@ const LOGO_ESC_POS_MAX_BYTES = 2 * 1024 * 1024;
 const ESC_POS_LOGO_MAX_WIDTH_DOTS = 240;
 const ESC_POS_LOGO_MAX_HEIGHT_DOTS = 160;
 const ESC_POS_TINY_LOGO_MAX_UPSCALE = 2;
+const RECEIPT_PRINT_READY_TIMEOUT_MS = 2500;
+const RECEIPT_PRINT_CALLBACK_TIMEOUT_MS = 30000;
 
 const RECEIPT_PAPER_PROFILES = Object.freeze({
   '58mm': Object.freeze({
@@ -87,30 +88,6 @@ function buildReceiptFooterHtml(value) {
   return `<div class="rule"></div><div class="footer">${markup}</div>`;
 }
 
-function safeLogoSrc(logoPath) {
-  const normalizedPath = cleanText(logoPath);
-  if (!normalizedPath) return '';
-  try {
-    const ext = path.extname(normalizedPath).toLowerCase();
-    if (!LOGO_RECEIPT_EXTENSIONS.has(ext)) return '';
-    if (!fsSync.existsSync(normalizedPath)) return '';
-    const stat = fsSync.statSync(normalizedPath);
-    if (!stat.isFile() || stat.size <= 0 || stat.size > LOGO_RECEIPT_MAX_BYTES) return '';
-    const header = fsSync.readFileSync(normalizedPath, { encoding: null }).subarray(0, 8);
-    const isPng = ext === '.png' && header.toString('hex') === '89504e470d0a1a0a';
-    const isJpeg =
-      (ext === '.jpg' || ext === '.jpeg') &&
-      header.length >= 3 &&
-      header[0] === 0xff &&
-      header[1] === 0xd8 &&
-      header[2] === 0xff;
-    if (!isPng && !isJpeg) return '';
-    return pathToFileURL(normalizedPath).toString();
-  } catch (_error) {
-    return '';
-  }
-}
-
 function validateReceiptLogoPath(logoPath) {
   const normalizedPath = cleanText(logoPath);
   if (!normalizedPath) return { ok: false, reason: 'empty' };
@@ -139,6 +116,34 @@ function validateReceiptLogoPath(logoPath) {
     return { ok: true, path: normalizedPath, ext, size: stat.size };
   } catch (_error) {
     return { ok: false, reason: 'unreadable' };
+  }
+}
+
+function logoMimeType(ext) {
+  return ext === '.png' ? 'image/png' : 'image/jpeg';
+}
+
+function safeLogoDataUrl(logoPath) {
+  const logo = validateReceiptLogoPath(logoPath);
+  if (!logo.ok || logo.size > LOGO_RECEIPT_MAX_BYTES) return '';
+  try {
+    const image = nativeImage.createFromPath(logo.path);
+    if (!image || image.isEmpty()) return '';
+    const size = image.getSize();
+    const smallest = Math.min(size.width, size.height);
+    const largest = Math.max(size.width, size.height);
+    if (
+      !Number.isFinite(smallest) ||
+      !Number.isFinite(largest) ||
+      smallest < LOGO_ESC_POS_MIN_DIMENSION ||
+      largest > LOGO_ESC_POS_MAX_DIMENSION
+    ) {
+      return '';
+    }
+    const buffer = fsSync.readFileSync(logo.path, { encoding: null });
+    return `data:${logoMimeType(logo.ext)};base64,${buffer.toString('base64')}`;
+  } catch (_error) {
+    return '';
   }
 }
 
@@ -341,7 +346,7 @@ function buildReceiptHtml(receipt, settings) {
   const dateParts = formatDateTimeParts(receipt.createdAt);
   const hasLineDiscount = (receipt.items || []).some((item) => Number(item.discount || 0) > 0);
   const businessName = escapeHtml(settings.businessName || settings.storeName || 'Enterprise POS');
-  const logoSrc = safeLogoSrc(settings.logoPath);
+  const logoSrc = safeLogoDataUrl(settings.logoPath);
   const footerHtml = buildReceiptFooterHtml(settings.receiptFooterText);
   const contactRows = [
     settings.storeAddress ? ['Address', settings.storeAddress] : null,
@@ -785,6 +790,57 @@ async function exportReceiptPdf(receipt, filePath, options = {}) {
   }
 }
 
+async function waitForReceiptPrintReady(printWindow, timeoutMs = RECEIPT_PRINT_READY_TIMEOUT_MS) {
+  const readinessScript = `
+    (async () => {
+      const images = Array.from(document.images || []);
+      await Promise.all(images.map(async (img) => {
+        if (!img.complete) {
+          await new Promise((resolve) => {
+            img.addEventListener('load', resolve, { once: true });
+            img.addEventListener('error', resolve, { once: true });
+          });
+        }
+        if (typeof img.decode === 'function') {
+          try { await img.decode(); } catch (_error) {}
+        }
+      }));
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch (_error) {}
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const logo = document.querySelector('.brand-logo');
+      const logoRect = logo ? logo.getBoundingClientRect() : null;
+      const receipt = document.querySelector('.receipt');
+      const receiptRect = receipt ? receipt.getBoundingClientRect() : null;
+      return {
+        imageCount: images.length,
+        logoReady: !logo || (
+          logo.complete &&
+          logo.naturalWidth > 0 &&
+          logo.naturalHeight > 0 &&
+          logoRect.width > 0 &&
+          logoRect.height > 0
+        ),
+        logoRenderedWidth: logoRect ? logoRect.width : 0,
+        logoRenderedHeight: logoRect ? logoRect.height : 0,
+        receiptWidth: receiptRect ? receiptRect.width : 0,
+        receiptHeight: receiptRect ? receiptRect.height : 0,
+      };
+    })()
+  `;
+  try {
+    return await Promise.race([
+      printWindow.webContents.executeJavaScript(readinessScript, true),
+      new Promise((resolve) => {
+        setTimeout(() => resolve({ timeout: true }), timeoutMs);
+      }),
+    ]);
+  } catch (_error) {
+    return { error: true };
+  }
+}
+
 async function printReceipt(receipt, options = {}) {
   const settings = { ...(await getPrinterSettings()), ...options };
   const html = buildReceiptHtml(receipt, settings);
@@ -794,21 +850,39 @@ async function printReceipt(receipt, options = {}) {
     height: 640,
     webPreferences: { nodeIntegration: false },
   });
-  await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-
-  const printResult = await new Promise((resolve) => {
-    printWindow.webContents.print(
-      {
-        silent: true,
-        deviceName: settings.printerName || undefined,
-        printBackground: true,
-        margins: { marginType: 'none' },
-      },
-      (success, failureReason) => resolve({ success, failureReason })
-    );
-  });
-  printWindow.close();
-  return printResult;
+  try {
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    const readiness = await waitForReceiptPrintReady(printWindow);
+    const printResult = await new Promise((resolve) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve({ success: false, failureReason: 'Print timed out.' });
+      }, RECEIPT_PRINT_CALLBACK_TIMEOUT_MS);
+      printWindow.webContents.print(
+        {
+          silent: true,
+          deviceName: settings.printerName || undefined,
+          printBackground: true,
+          margins: { marginType: 'none' },
+        },
+        (success, failureReason) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          resolve({ success, failureReason });
+        }
+      );
+    });
+    return { ...printResult, readiness };
+  } finally {
+    if (typeof printWindow.isDestroyed === 'function') {
+      if (!printWindow.isDestroyed()) printWindow.close();
+    } else {
+      printWindow.close();
+    }
+  }
 }
 
 module.exports = {
