@@ -5,6 +5,13 @@ async function getPrinterSettingsRow() {
   return result.rows[0] || {};
 }
 
+async function getStoreSettingsRow() {
+  const result = await getPool().query(
+    "SELECT value FROM app_settings WHERE key = 'store' LIMIT 1"
+  );
+  return result.rows[0]?.value || {};
+}
+
 async function savePrinterSettingsRow(settings) {
   const result = await getPool().query(
     `
@@ -28,5 +35,6 @@ async function savePrinterSettingsRow(settings) {
 
 module.exports = {
   getPrinterSettingsRow,
+  getStoreSettingsRow,
   savePrinterSettingsRow,
 };

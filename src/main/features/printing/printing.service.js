@@ -1,4 +1,6 @@
+const fsSync = require('fs');
 const fs = require('fs/promises');
+const { pathToFileURL } = require('url');
 const { BrowserWindow } = require('electron');
 const printingRepository = require('./printing.repository');
 
@@ -48,6 +50,21 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function cleanText(value) {
+  return String(value || '').trim();
+}
+
+function safeLogoSrc(logoPath) {
+  const normalizedPath = cleanText(logoPath);
+  if (!normalizedPath) return '';
+  try {
+    if (!fsSync.existsSync(normalizedPath) || !fsSync.statSync(normalizedPath).isFile()) return '';
+    return pathToFileURL(normalizedPath).toString();
+  } catch (_error) {
+    return '';
+  }
+}
+
 function formatQuantity(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number)) return '0';
@@ -72,6 +89,10 @@ function receiptWidth(paperWidth) {
 
 async function getPrinterSettings() {
   const row = await printingRepository.getPrinterSettingsRow();
+  const store =
+    typeof printingRepository.getStoreSettingsRow === 'function'
+      ? await printingRepository.getStoreSettingsRow()
+      : {};
   return {
     printerName: row.printer_name || '',
     paperWidth: row.paper_width || '80mm',
@@ -79,6 +100,12 @@ async function getPrinterSettings() {
     silentPrint: Boolean(row.silent_print),
     receiptCopies: Number(row.receipt_copies || 1),
     footerText: row.footer_text || 'Thank you for shopping',
+    businessName: cleanText(store.storeName),
+    storeAddress: cleanText(store.address),
+    storePhone: cleanText(store.phone),
+    storeEmail: cleanText(store.email),
+    storeTaxNumber: cleanText(store.taxNumber),
+    logoPath: cleanText(store.logoPath),
   };
 }
 
@@ -96,20 +123,20 @@ async function savePrinterSettings(settings = {}) {
 
 function buildEscPosReceipt(receipt, settings) {
   const width = receiptWidth(settings.paperWidth);
-  const coupons = receipt.luckyDrawCoupons || [];
-  const rows = [
-    '\x1b@',
-    '\x1ba\x01',
-    'Enterprise POS',
-    'Retail Receipt',
-    '\x1ba\x00',
-    line(width),
+  const businessName = cleanText(settings.businessName || settings.storeName) || 'Enterprise POS';
+  const rows = ['\x1b@', '\x1ba\x01', businessName, 'Retail Receipt', '\x1ba\x00', line(width)];
+  if (settings.storeAddress) rows.push(`Address: ${settings.storeAddress}`);
+  if (settings.storePhone) rows.push(`Phone: ${settings.storePhone}`);
+  if (settings.storeEmail) rows.push(`Email: ${settings.storeEmail}`);
+  if (settings.storeTaxNumber) rows.push(`Tax No.: ${settings.storeTaxNumber}`);
+  if (rows[rows.length - 1] !== line(width)) rows.push(line(width));
+  rows.push(
     `Invoice: ${receipt.invoiceNumber}`,
     `Date: ${new Date(receipt.createdAt).toLocaleString()}`,
     `Cashier: ${receipt.cashierName || '-'}`,
     `Customer: ${receipt.customerName || 'Walk-in Customer'}`,
-    line(width),
-  ];
+    line(width)
+  );
 
   for (const item of receipt.items || []) {
     rows.push(item.productName);
@@ -125,19 +152,10 @@ function buildEscPosReceipt(receipt, settings) {
   rows.push(`Total: ${formatMoney(receipt.grandTotal)}`);
   rows.push(`Paid: ${formatMoney(receipt.paidAmount)}`);
   rows.push(`Change: ${formatMoney(receipt.changeAmount)}`);
-  if (coupons.length) {
-    rows.push(line(width));
-    rows.push('Lucky Draw Coupons');
-    for (const coupon of coupons) {
-      rows.push(coupon.campaignName || 'Lucky Draw');
-      rows.push(coupon.couponNo);
-      rows.push(`Barcode/QR: ${coupon.barcodeValue || coupon.qrValue || coupon.couponNo}`);
-    }
-  }
   rows.push(line(width));
   rows.push('\x1ba\x01');
-  rows.push(settings.footerText);
-  rows.push('Urdu Unicode ready');
+  rows.push('Thank you!');
+  rows.push('We hope to see you again soon.');
   rows.push('\n\n\n\x1dV\x00');
   return rows.join('\n');
 }
@@ -149,7 +167,19 @@ function buildReceiptHtml(receipt, settings) {
   const dateParts = formatDateTimeParts(receipt.createdAt);
   const hasLineDiscount = (receipt.items || []).some((item) => Number(item.discount || 0) > 0);
   const businessName = escapeHtml(settings.businessName || settings.storeName || 'Enterprise POS');
-  const footerText = escapeHtml(settings.footerText || 'Thank you for shopping');
+  const logoSrc = safeLogoSrc(settings.logoPath);
+  const contactRows = [
+    settings.storeAddress ? ['Address', settings.storeAddress] : null,
+    settings.storePhone ? ['Phone', settings.storePhone] : null,
+    settings.storeEmail ? ['Email', settings.storeEmail] : null,
+    settings.storeTaxNumber ? ['Tax No.', settings.storeTaxNumber] : null,
+  ]
+    .filter(Boolean)
+    .map(
+      ([label, value]) =>
+        `<div class="brand-contact-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
+    )
+    .join('');
   const rows = (receipt.items || [])
     .map(
       (item) => `
@@ -169,18 +199,6 @@ function buildReceiptHtml(receipt, settings) {
   `
     )
     .join('');
-  const couponRows = (receipt.luckyDrawCoupons || [])
-    .map(
-      (coupon) => `
-    <div class="coupon-block">
-      <strong>${escapeHtml(coupon.couponNo)}</strong>
-      <span>${escapeHtml(coupon.campaignName || 'Lucky Draw')}</span>
-      <code>${escapeHtml(coupon.barcodeValue || coupon.qrValue || coupon.couponNo)}</code>
-    </div>
-  `
-    )
-    .join('');
-
   return `
     <!doctype html>
     <html>
@@ -213,6 +231,15 @@ function buildReceiptHtml(receipt, settings) {
             border-bottom: 2px solid #111;
             text-align: center;
           }
+          .brand-logo {
+            display: block;
+            width: auto;
+            max-width: 28mm;
+            max-height: 16mm;
+            margin: 0 auto 1.4mm;
+            object-fit: contain;
+            filter: grayscale(1) contrast(1.12);
+          }
           .brand strong {
             display: block;
             font-size: 18px;
@@ -227,6 +254,31 @@ function buildReceiptHtml(receipt, settings) {
             font-weight: 800;
             letter-spacing: .16em;
             text-transform: uppercase;
+          }
+          .brand-contact {
+            display: grid;
+            gap: .65mm;
+            margin-top: 1.8mm;
+            text-align: left;
+          }
+          .brand-contact-row {
+            display: grid;
+            grid-template-columns: 13mm minmax(0, 1fr);
+            gap: 2mm;
+            font-size: 10.5px;
+            line-height: 1.25;
+          }
+          .brand-contact-row span {
+            font-weight: 800;
+            text-transform: uppercase;
+          }
+          .brand-contact-row strong {
+            display: block;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0;
+            text-transform: none;
+            word-break: break-word;
           }
           .rule { border-top: 1px dashed #777; margin: 2.2mm 0; }
           .meta {
@@ -328,24 +380,9 @@ function buildReceiptHtml(receipt, settings) {
             border-top: 1px dashed #777;
             padding-top: 1.6mm;
           }
-          .coupon-block {
+          .footer {
             display: grid;
             gap: .8mm;
-            margin-top: 1.4mm;
-            border: 1px dashed #111;
-            padding: 1.5mm;
-            text-align: center;
-          }
-          .coupon-block strong { font-size: 12px; }
-          .coupon-block span { font-size: 10px; }
-          .coupon-block code {
-            display: block;
-            font-family: Consolas, 'Courier New', monospace;
-            font-size: 11px;
-            letter-spacing: .05em;
-            word-break: break-all;
-          }
-          .footer {
             margin-top: 2.4mm;
             border: 1px dashed #777;
             padding: 1.6mm;
@@ -353,13 +390,25 @@ function buildReceiptHtml(receipt, settings) {
             font-size: 11px;
             font-weight: 800;
           }
+          .footer strong {
+            display: block;
+            font-size: 14px;
+            font-weight: 900;
+          }
+          .footer span {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+          }
         </style>
       </head>
       <body>
         <div class="receipt">
           <header class="brand">
+            ${logoSrc ? `<img class="brand-logo" src="${escapeHtml(logoSrc)}" alt="" />` : ''}
             <strong>${businessName}</strong>
             <span>Retail Receipt</span>
+            ${contactRows ? `<div class="brand-contact">${contactRows}</div>` : ''}
           </header>
           <section class="meta" aria-label="Transaction details">
             <div class="meta-row"><span>Invoice</span><span>${escapeHtml(receipt.invoiceNumber || '-')}</span></div>
@@ -399,14 +448,10 @@ function buildReceiptHtml(receipt, settings) {
             <div class="payment-row"><span>Paid</span><span>${formatMoney(receipt.paidAmount)}</span></div>
             <div class="payment-row"><span>Change</span><span>${formatMoney(receipt.changeAmount)}</span></div>
           </section>
-          ${
-            couponRows
-              ? `<div class="rule"></div><section aria-label="Lucky Draw Coupons"><div class="center"><strong>Lucky Draw Coupons</strong></div>${couponRows}</section>`
-              : ''
-          }
           <div class="rule"></div>
           <div class="footer">
-            ${footerText}
+            <strong>Thank you!</strong>
+            <span>We hope to see you again soon.</span>
           </div>
         </div>
       </body>

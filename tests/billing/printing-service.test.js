@@ -61,7 +61,7 @@ function receiptMm(css, property) {
   return match ? Number(match[1]) : null;
 }
 
-function loadPrintingService({ settingsRow, printCallback }) {
+function loadPrintingService({ settingsRow, storeSettingsRow, printCallback }) {
   delete require.cache[servicePath];
   delete require.cache[repositoryPath];
 
@@ -102,6 +102,7 @@ function loadPrintingService({ settingsRow, printCallback }) {
     if (resolved === repositoryPath) {
       return {
         getPrinterSettingsRow: async () => settingsRow,
+        getStoreSettingsRow: async () => storeSettingsRow || {},
         savePrinterSettingsRow: async (settings) => settings,
       };
     }
@@ -292,6 +293,44 @@ test('Billing receipt HTML keeps the refined professional thermal section struct
   assert.match(html, /<span class="section-badge">Payment<\/span>/);
 });
 
+test('Billing receipt renders existing business settings and omits unsupported blank fields', async () => {
+  const { service } = loadPrintingService({
+    settingsRow: {
+      printer_name: '',
+      paper_width: '80mm',
+      silent_print: false,
+      auto_print: false,
+      receipt_copies: 1,
+      footer_text: 'Legacy footer should not render',
+    },
+    storeSettingsRow: {
+      storeName: 'Grocery POS Market',
+      address: '12 Market Road',
+      phone: '+92 300 1234567',
+      email: 'hello@example.test',
+      taxNumber: 'NTN-123',
+      website: '',
+      logoPath: '',
+    },
+    printCallback: () => {},
+  });
+
+  const settings = await service.getPrinterSettings();
+  const html = service.buildReceiptHtml(receipt, settings);
+  const escpos = service.buildEscPosReceipt(receipt, settings);
+
+  assert.match(html, /Grocery POS Market/);
+  assert.match(html, /12 Market Road/);
+  assert.match(html, /\+92 300 1234567/);
+  assert.match(html, /hello@example\.test/);
+  assert.match(html, /NTN-123/);
+  assert.doesNotMatch(html, /website/i);
+  assert.doesNotMatch(html, /Legacy footer should not render/);
+  assert.match(escpos, /Grocery POS Market/);
+  assert.match(escpos, /Address: 12 Market Road/);
+  assert.match(escpos, /Tax No\.: NTN-123/);
+});
+
 test('Billing receipt omits zero-value optional financial rows without changing totals', () => {
   const { service } = loadPrintingService({
     settingsRow: {},
@@ -306,7 +345,7 @@ test('Billing receipt omits zero-value optional financial rows without changing 
   assert.doesNotMatch(html, /<span>Tax<\/span><span>0\.00<\/span>/);
 });
 
-test('Billing receipt keeps existing coupon barcode or QR values printable when present', () => {
+test('Billing receipt removes Lucky Draw coupon values from the standard receipt', () => {
   const { service } = loadPrintingService({
     settingsRow: {},
     printCallback: () => {},
@@ -328,8 +367,26 @@ test('Billing receipt keeps existing coupon barcode or QR values printable when 
     footerText: 'Thanks',
   });
 
-  assert.match(html, /Lucky Draw Coupons/);
-  assert.match(html, /<code>BAR-001-THERMAL<\/code>/);
+  assert.doesNotMatch(html, /Lucky Draw/i);
+  assert.doesNotMatch(html, /LD-001/);
+  assert.doesNotMatch(html, /BAR-001-THERMAL/);
+  assert.doesNotMatch(html, /QR-001/);
+});
+
+test('Billing receipt uses the fixed professional thank-you footer', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    footerText: 'Legacy configurable footer',
+  });
+
+  assert.match(html, /<strong>Thank you!<\/strong>/);
+  assert.match(html, /<span>We hope to see you again soon\.<\/span>/);
+  assert.doesNotMatch(html, /Legacy configurable footer/);
 });
 
 test('Completed Invoice reprint receipt shape uses the same thermal renderer contract', () => {
