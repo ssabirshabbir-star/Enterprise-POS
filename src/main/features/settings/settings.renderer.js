@@ -26,6 +26,11 @@
     pageSize: 100,
     total: 0,
   };
+  const storeLogoState = {
+    logoToken: '',
+    logoAction: '',
+    hasSavedLogo: false,
+  };
 
   const A = () => window.SettingsApi;
 
@@ -71,6 +76,53 @@
     el.style.border = isError ? '1px solid #fca5a5' : '1px solid #86efac';
   }
 
+  function renderStoreLogoPreview(result = {}) {
+    const img = $id('storeLogoPreview');
+    const placeholder = $id('storeLogoPlaceholder');
+    const status = $id('storeLogoStatus');
+    const removeButton = $id('removeStoreLogoButton');
+    const hasPreview = Boolean(result.previewDataUrl);
+    storeLogoState.hasSavedLogo = Boolean(result.hasLogo);
+    if (img) {
+      img.src = hasPreview ? result.previewDataUrl : '';
+      img.classList.toggle('hidden', !hasPreview);
+    }
+    if (placeholder) placeholder.classList.toggle('hidden', hasPreview);
+    if (removeButton) {
+      const canRemove =
+        hasPreview || storeLogoState.hasSavedLogo || storeLogoState.logoAction === 'remove';
+      removeButton.classList.toggle('hidden', !canRemove);
+      removeButton.disabled = storeLogoState.logoAction === 'remove';
+      removeButton.setAttribute('aria-disabled', String(removeButton.disabled));
+    }
+    if (status) {
+      const fileName = result.fileName ? `${result.fileName}. ` : '';
+      status.textContent =
+        result.message ||
+        (hasPreview
+          ? `${fileName}PNG or JPEG, up to 2 MB. Save Store Settings to keep changes.`
+          : 'PNG or JPEG, up to 2 MB. Recommended square or wide logo, at least 64 x 64 px.');
+    }
+  }
+
+  async function loadStoreLogoPreview() {
+    try {
+      const result = await A().getStoreLogoPreview();
+      if (result?.ok) {
+        storeLogoState.logoToken = '';
+        storeLogoState.logoAction = '';
+        renderStoreLogoPreview(result);
+      } else {
+        renderStoreLogoPreview({
+          hasLogo: false,
+          message: result?.message || 'Logo preview unavailable.',
+        });
+      }
+    } catch {
+      renderStoreLogoPreview({ hasLogo: false, message: 'Logo preview unavailable.' });
+    }
+  }
+
   function renderSettings(settings = {}) {
     const store = settings.store || {};
     const tax = settings.tax || {};
@@ -81,7 +133,6 @@
     setValue('storePhone', store.phone);
     setValue('storeEmail', store.email);
     setValue('storeTaxNumber', store.taxNumber);
-    setValue('storeLogoPath', store.logoPath);
     setValue('storeReceiptFooter', store.receiptFooterText);
     setValue('storeAddress', store.address);
 
@@ -115,6 +166,8 @@
       address: ($id('storeAddress')?.value || '').trim(),
       taxNumber: ($id('storeTaxNumber')?.value || '').trim(),
       receiptFooterText: ($id('storeReceiptFooter')?.value || '').replace(/\r\n?/g, '\n').trim(),
+      logoToken: storeLogoState.logoToken,
+      logoAction: storeLogoState.logoAction,
     };
   }
 
@@ -155,12 +208,44 @@
         return;
       }
       if (result.settings) renderSettings(result.settings);
+      await loadStoreLogoPreview();
       showMessage(result.message || 'Store Settings saved successfully.', 'success');
     } catch {
       showMessage('Unable to save Store Settings.', 'error');
     } finally {
       setStoreSaveBusy(false);
     }
+  }
+
+  async function handleChooseStoreLogo() {
+    try {
+      const result = await A().chooseStoreLogo();
+      if (result?.cancelled) return;
+      if (!result?.ok) {
+        showMessage(result?.message || 'Unable to select logo.', 'error');
+        return;
+      }
+      storeLogoState.logoToken = result.logoToken || '';
+      storeLogoState.logoAction = '';
+      renderStoreLogoPreview({
+        previewDataUrl: result.previewDataUrl,
+        fileName: result.fileName,
+        message: result.message || 'Logo selected. Save Store Settings to apply it.',
+      });
+      showMessage(result.message || 'Logo selected. Save Store Settings to apply it.', 'success');
+    } catch {
+      showMessage('Unable to select logo.', 'error');
+    }
+  }
+
+  function handleRemoveStoreLogo() {
+    storeLogoState.logoToken = '';
+    storeLogoState.logoAction = 'remove';
+    renderStoreLogoPreview({
+      hasLogo: false,
+      previewDataUrl: '',
+      message: 'Logo will be removed when Save Store Settings succeeds.',
+    });
   }
 
   function renderAppInfo(result = {}) {
@@ -2380,6 +2465,7 @@
       ]);
 
       if (settings?.ok) renderSettings(settings.settings || {});
+      await loadStoreLogoPreview();
       if (appInfo?.ok) renderAppInfo(appInfo);
       if (backups?.ok) renderBackups(backups);
       else renderBackupHistoryErrorRow(backups?.message || 'Unable to load backup history.');
@@ -2420,6 +2506,8 @@
       addListener(document, 'click', handleBlockedAction, true);
       addListener($id('settingsModule'), 'click', handleTabClick);
       addListener($id('saveStoreSettingsButton'), 'click', handleSaveStoreSettings);
+      addListener($id('chooseStoreLogoButton'), 'click', handleChooseStoreLogo);
+      addListener($id('removeStoreLogoButton'), 'click', handleRemoveStoreLogo);
       addListener($id('assessBackupPreflightButton'), 'click', handleBackupPreflight);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);

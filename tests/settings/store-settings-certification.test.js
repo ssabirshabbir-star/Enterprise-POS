@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const Module = require('module');
+const os = require('os');
 const path = require('path');
 const test = require('node:test');
 const vm = require('vm');
@@ -9,6 +10,18 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+function pngBuffer(width = 96, height = 96) {
+  const buffer = Buffer.alloc(33);
+  Buffer.from('89504e470d0a1a0a', 'hex').copy(buffer, 0);
+  buffer.writeUInt32BE(13, 8);
+  buffer.write('IHDR', 12);
+  buffer.writeUInt32BE(width, 16);
+  buffer.writeUInt32BE(height, 20);
+  buffer[24] = 8;
+  buffer[25] = 6;
+  return buffer;
 }
 
 function loadSettingsService({ profileResult, currentStore, saveImpl, activityImpl } = {}) {
@@ -93,7 +106,10 @@ test('Store Settings tab is available while disabled settings tabs remain disabl
     assert.match(html, new RegExp(`id="${id}"`));
     assert.doesNotMatch(html, new RegExp(`id="${id}"[^>]*disabled`));
   }
-  assert.match(html, /id="storeLogoPath"[^>]*disabled/);
+  assert.doesNotMatch(html, /id="storeLogoPath"/);
+  assert.match(html, /id="storeLogoPreview"/);
+  assert.match(html, /id="chooseStoreLogoButton"[^>]*>Choose Logo<\/button>/);
+  assert.match(html, /id="removeStoreLogoButton"[^>]*>Remove Logo<\/button>/);
   assert.match(html, /<textarea id="storeReceiptFooter"/);
   assert.doesNotMatch(html, /id="storeReceiptFooter"[^>]*disabled/);
   assert.match(html, /id="savePrinterSettingsButton"[^>]*>Save Settings Disabled<\/button>/);
@@ -111,11 +127,27 @@ test('Store Settings exposes a narrow save route without activating restore', ()
   );
 
   assert.match(controller, /\/settings\/store\/save/);
+  assert.match(controller, /\/settings\/store\/logo\/select/);
+  assert.match(controller, /\/settings\/store\/logo\/preview/);
+  assert.match(
+    controller,
+    /showOpenDialog\(windowFromEvent\(event\), \{[\s\S]*extensions:\s*\['png', 'jpg', 'jpeg'\]/
+  );
   assert.match(
     preload,
     /saveStore:\s*\(payload\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/store\/save', payload\)/
   );
+  assert.match(
+    preload,
+    /chooseStoreLogo:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/store\/logo\/select'\)/
+  );
+  assert.match(
+    preload,
+    /getStoreLogoPreview:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/store\/logo\/preview'\)/
+  );
   assert.match(api, /async function saveStoreSettings/);
+  assert.match(api, /async function chooseStoreLogo/);
+  assert.match(api, /async function getStoreLogoPreview/);
   assert.match(api, /saveStoreSettings,/);
   assert.match(storeSave, /INSERT INTO app_settings \(key, value, updated_by, updated_at\)/);
   assert.match(storeSave, /VALUES \('store', \$1::jsonb, \$2, NOW\(\)\)/);
@@ -131,6 +163,8 @@ test('Settings API wrapper calls only the Store Settings preload method', async 
       app: { info: () => ({ ok: true }) },
       settings: {
         saveStore: (payload) => calls.push(['saveStore', payload]) || { ok: true },
+        chooseStoreLogo: () => calls.push(['chooseStoreLogo']) || { ok: true, cancelled: true },
+        getStoreLogoPreview: () => calls.push(['getStoreLogoPreview']) || { ok: true },
       },
     },
   };
@@ -138,7 +172,13 @@ test('Settings API wrapper calls only the Store Settings preload method', async 
   vm.runInNewContext(source, { window });
   assert.equal(typeof window.SettingsApi.saveStoreSettings, 'function');
   await window.SettingsApi.saveStoreSettings({ storeName: 'Updated Store' });
-  assert.deepEqual(calls, [['saveStore', { storeName: 'Updated Store' }]]);
+  await window.SettingsApi.chooseStoreLogo();
+  await window.SettingsApi.getStoreLogoPreview();
+  assert.deepEqual(calls, [
+    ['saveStore', { storeName: 'Updated Store' }],
+    ['chooseStoreLogo'],
+    ['getStoreLogoPreview'],
+  ]);
 });
 
 test('Store Settings save persists receipt footer and preserves non-certified logo field', async () => {
@@ -191,6 +231,149 @@ test('Store Settings save persists receipt footer and preserves non-certified lo
     'taxNumber',
     'receiptFooterText',
   ]);
+});
+
+test('Store logo selection validates files and persists only a managed logo token', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'store-logo-'));
+  const sourceLogo = path.join(tempRoot, 'selected.png');
+  fs.writeFileSync(sourceLogo, pngBuffer(128, 96));
+  const calls = [];
+  const activities = [];
+  const service = loadSettingsService({
+    currentStore: {
+      storeName: 'Enterprise POS',
+      logoPath: '',
+      receiptFooterText: '',
+    },
+    saveImpl: async (store) => {
+      calls.push(store);
+      return { store, tax: {}, printer: {}, system: {} };
+    },
+    activityImpl: async (activity) => {
+      activities.push(activity);
+      return { ok: true };
+    },
+  });
+
+  const selected = await service.prepareStoreLogoSelection(sourceLogo, tempRoot);
+  assert.equal(selected.ok, true);
+  assert.equal(selected.fileName, 'selected.png');
+  assert.match(selected.previewDataUrl, /^data:image\/png;base64,/);
+  assert.equal(selected.width, 128);
+  assert.equal(selected.height, 96);
+
+  const saved = await service.saveStoreSettings(
+    {
+      storeName: 'Enterprise POS',
+      logoToken: selected.logoToken,
+    },
+    tempRoot
+  );
+
+  assert.equal(saved.ok, true);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].logoPath, /store-assets[\\/]+logos[\\/]+business-logo-/);
+  assert.equal(fs.existsSync(calls[0].logoPath), true);
+  assert.equal(fs.existsSync(sourceLogo), true);
+  assert.ok(activities[0].metadata.changedFields.includes('logoPath'));
+});
+
+test('Store logo selection rejects unsafe files without saving Store Settings', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'store-logo-invalid-'));
+  const textFile = path.join(tempRoot, 'logo.txt');
+  const corruptPng = path.join(tempRoot, 'logo.png');
+  const tinyPng = path.join(tempRoot, 'tiny.png');
+  fs.writeFileSync(textFile, 'not an image');
+  fs.writeFileSync(corruptPng, Buffer.from('89504e470d0a1a0a0000', 'hex'));
+  fs.writeFileSync(tinyPng, pngBuffer(32, 32));
+  let saved = false;
+  const service = loadSettingsService({
+    saveImpl: async () => {
+      saved = true;
+      return {};
+    },
+  });
+
+  const wrongExt = await service.prepareStoreLogoSelection(textFile, tempRoot);
+  assert.equal(wrongExt.ok, false);
+  assert.match(wrongExt.message, /Unsupported logo type/);
+
+  const corrupt = await service.prepareStoreLogoSelection(corruptPng, tempRoot);
+  assert.equal(corrupt.ok, false);
+  assert.match(corrupt.message, /corrupt|file type/);
+
+  const tooSmall = await service.prepareStoreLogoSelection(tinyPng, tempRoot);
+  assert.equal(tooSmall.ok, false);
+  assert.match(tooSmall.message, /at least 64 x 64/);
+  assert.equal(saved, false);
+});
+
+test('Store logo removal clears only managed logo references after Store Settings save', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'store-logo-remove-'));
+  const managedDir = path.join(tempRoot, 'store-assets', 'logos');
+  fs.mkdirSync(managedDir, { recursive: true });
+  const oldLogo = path.join(managedDir, 'business-logo-old.png');
+  fs.writeFileSync(oldLogo, pngBuffer(96, 96));
+  const calls = [];
+  const service = loadSettingsService({
+    currentStore: {
+      storeName: 'Enterprise POS',
+      logoPath: oldLogo,
+      receiptFooterText: '',
+    },
+    saveImpl: async (store) => {
+      calls.push(store);
+      return { store, tax: {}, printer: {}, system: {} };
+    },
+  });
+
+  const result = await service.saveStoreSettings(
+    {
+      storeName: 'Enterprise POS',
+      logoAction: 'remove',
+    },
+    tempRoot
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(calls[0].logoPath, '');
+  assert.equal(fs.existsSync(oldLogo), false);
+});
+
+test('Store logo save failure cleans the new managed copy and preserves the source file', async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'store-logo-save-fail-'));
+  const sourceLogo = path.join(tempRoot, 'selected.png');
+  fs.writeFileSync(sourceLogo, pngBuffer(96, 96));
+  const service = loadSettingsService({
+    currentStore: {
+      storeName: 'Enterprise POS',
+      logoPath: '',
+      receiptFooterText: '',
+    },
+    saveImpl: async () => {
+      throw new Error('database unavailable');
+    },
+  });
+
+  const selected = await service.prepareStoreLogoSelection(sourceLogo, tempRoot);
+  assert.equal(selected.ok, true);
+  await assert.rejects(
+    () =>
+      service.saveStoreSettings(
+        {
+          storeName: 'Enterprise POS',
+          logoToken: selected.logoToken,
+        },
+        tempRoot
+      ),
+    /database unavailable/
+  );
+
+  const managedFiles = fs
+    .readdirSync(path.join(tempRoot, 'store-assets', 'logos'), { recursive: true })
+    .filter((entry) => String(entry).includes('business-logo-'));
+  assert.deepEqual(managedFiles, []);
+  assert.equal(fs.existsSync(sourceLogo), true);
 });
 
 test('Store Settings save allows blank footer and rejects invalid footer input', async () => {

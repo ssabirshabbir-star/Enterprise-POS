@@ -36,9 +36,36 @@ function registerSettingsRoutes(ipcMain) {
 
   ipcMain.handle('/settings/store/save', async (_event, payload) => {
     try {
-      return await settingsService.saveStoreSettings(payload || {});
+      return await settingsService.saveStoreSettings(payload || {}, app.getPath('userData'));
     } catch (error) {
       return safeError(error, 'Store settings save error:');
+    }
+  });
+
+  ipcMain.handle('/settings/store/logo/select', async (event) => {
+    try {
+      const result = await dialog.showOpenDialog(windowFromEvent(event), {
+        title: 'Choose Business Logo',
+        properties: ['openFile'],
+        filters: [{ name: 'Image Files', extensions: ['png', 'jpg', 'jpeg'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        return { ok: true, cancelled: true, message: 'Logo selection cancelled.' };
+      }
+      return await settingsService.prepareStoreLogoSelection(
+        result.filePaths[0],
+        app.getPath('userData')
+      );
+    } catch (error) {
+      return safeError(error, 'Store logo selection error:');
+    }
+  });
+
+  ipcMain.handle('/settings/store/logo/preview', async () => {
+    try {
+      return await settingsService.getStoreLogoPreview(app.getPath('userData'));
+    } catch (error) {
+      return safeError(error, 'Store logo preview error:');
     }
   });
 

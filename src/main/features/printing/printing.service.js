@@ -1,8 +1,11 @@
 const fsSync = require('fs');
 const fs = require('fs/promises');
+const path = require('path');
 const { pathToFileURL } = require('url');
 const { BrowserWindow } = require('electron');
 const printingRepository = require('./printing.repository');
+const LOGO_RECEIPT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
+const LOGO_RECEIPT_MAX_BYTES = 2 * 1024 * 1024;
 
 const RECEIPT_PAPER_PROFILES = Object.freeze({
   '58mm': Object.freeze({
@@ -79,7 +82,20 @@ function safeLogoSrc(logoPath) {
   const normalizedPath = cleanText(logoPath);
   if (!normalizedPath) return '';
   try {
-    if (!fsSync.existsSync(normalizedPath) || !fsSync.statSync(normalizedPath).isFile()) return '';
+    const ext = path.extname(normalizedPath).toLowerCase();
+    if (!LOGO_RECEIPT_EXTENSIONS.has(ext)) return '';
+    if (!fsSync.existsSync(normalizedPath)) return '';
+    const stat = fsSync.statSync(normalizedPath);
+    if (!stat.isFile() || stat.size <= 0 || stat.size > LOGO_RECEIPT_MAX_BYTES) return '';
+    const header = fsSync.readFileSync(normalizedPath, { encoding: null }).subarray(0, 8);
+    const isPng = ext === '.png' && header.toString('hex') === '89504e470d0a1a0a';
+    const isJpeg =
+      (ext === '.jpg' || ext === '.jpeg') &&
+      header.length >= 3 &&
+      header[0] === 0xff &&
+      header[1] === 0xd8 &&
+      header[2] === 0xff;
+    if (!isPng && !isJpeg) return '';
     return pathToFileURL(normalizedPath).toString();
   } catch (_error) {
     return '';

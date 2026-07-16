@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const Module = require('node:module');
+const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
@@ -57,6 +58,13 @@ function decodeDataUrl(url) {
 function receiptMm(css, property) {
   const match = css.match(new RegExp(`${property}:\\s*([0-9.]+)mm`));
   return match ? Number(match[1]) : null;
+}
+
+function tempLogoPath(ext = '.png') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'receipt-logo-'));
+  const logoPath = path.join(dir, `brand${ext}`);
+  fs.writeFileSync(logoPath, Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex'));
+  return logoPath;
 }
 
 function loadPrintingService({ settingsRow, storeSettingsRow, printCallback }) {
@@ -327,6 +335,66 @@ test('Billing receipt renders existing business settings and omits unsupported b
   assert.match(escpos, /Grocery POS Market/);
   assert.match(escpos, /Address: 12 Market Road/);
   assert.match(escpos, /Tax No\.: NTN-123/);
+});
+
+test('Billing receipt renders a valid saved business logo in HTML and keeps ESC/POS text-only', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+  const logoPath = tempLogoPath('.png');
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+    receiptFooterText: 'Thanks',
+  });
+  const escpos = service.buildEscPosReceipt(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+    receiptFooterText: 'Thanks',
+  });
+
+  assert.match(html, /<img class="brand-logo" src="file:\/\/\//);
+  assert.match(html, /object-fit:\s*contain/);
+  assert.match(html, /Grocery POS Market/);
+  assert.doesNotMatch(escpos, /file:\/\//);
+  assert.match(escpos, /Grocery POS Market/);
+});
+
+test('Billing receipt omits missing or unsupported logo paths without hiding business name', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+  const unsupportedLogo = tempLogoPath('.gif');
+  const corruptLogo = path.join(os.tmpdir(), `corrupt-business-logo-${Date.now()}.png`);
+  const missingLogo = path.join(os.tmpdir(), 'missing-business-logo.png');
+  fs.writeFileSync(corruptLogo, 'not a png');
+
+  const unsupportedHtml = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath: unsupportedLogo,
+  });
+  const missingHtml = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath: missingLogo,
+  });
+  const corruptHtml = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath: corruptLogo,
+  });
+
+  assert.doesNotMatch(unsupportedHtml, /<img class="brand-logo"/);
+  assert.doesNotMatch(missingHtml, /<img class="brand-logo"/);
+  assert.doesNotMatch(corruptHtml, /<img class="brand-logo"/);
+  assert.match(unsupportedHtml, /Grocery POS Market/);
+  assert.match(missingHtml, /Grocery POS Market/);
+  assert.match(corruptHtml, /Grocery POS Market/);
 });
 
 test('Billing receipt omits zero-value optional financial rows without changing totals', () => {

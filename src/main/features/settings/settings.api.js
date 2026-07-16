@@ -18,6 +18,14 @@
     return api().settings.saveStore(payload || {});
   }
 
+  async function chooseStoreLogo() {
+    return api().settings.chooseStoreLogo();
+  }
+
+  async function getStoreLogoPreview() {
+    return api().settings.getStoreLogoPreview();
+  }
+
   async function appInfo() {
     return api().app.info();
   }
@@ -112,10 +120,12 @@
     assessRestoreAuthorization,
     appInfo,
     cancelRestorePreparation,
+    chooseStoreLogo,
     createBackup,
     dryRunCertificationReport,
     getDryRunCertificationReport,
     getSettings,
+    getStoreLogoPreview,
     inspectRestorePackage,
     listDryRunCertificationReports,
     listBackups,

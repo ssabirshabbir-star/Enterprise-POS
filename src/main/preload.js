@@ -202,6 +202,8 @@ contextBridge.exposeInMainWorld('posApi', {
     get: () => ipcRenderer.invoke('/settings/get'),
     save: (payload) => ipcRenderer.invoke('/settings/save', payload),
     saveStore: (payload) => ipcRenderer.invoke('/settings/store/save', payload),
+    chooseStoreLogo: () => ipcRenderer.invoke('/settings/store/logo/select'),
+    getStoreLogoPreview: () => ipcRenderer.invoke('/settings/store/logo/preview'),
     listBackups: (filters) => ipcRenderer.invoke('/settings/backups/list', filters),
     assessBackupPreflight: () => ipcRenderer.invoke('/settings/backups/preflight'),
     createBackup: () => ipcRenderer.invoke('/settings/backups/create'),

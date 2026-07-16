@@ -1,10 +1,21 @@
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const restoreEngineService = require('../restore-engine/restore-engine.service');
 const settingsRepository = require('./settings.repository');
 
 const SETTINGS_ROLES = new Set(['Admin']);
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_MIN_DIMENSION = 64;
+const LOGO_MAX_DIMENSION = 3000;
+const LOGO_EXTENSIONS = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+]);
+const pendingStoreLogos = new Map();
 const RESTORE_AUTHORIZATION_ACKNOWLEDGEMENT =
   'I understand Restore is not available yet and this is authorization assessment only.';
 
@@ -33,6 +44,219 @@ function cleanMultilineText(value, max = 500) {
     .replace(/\r\n?/g, '\n')
     .trim()
     .slice(0, max);
+}
+
+function storeLogoRoot(userDataPath) {
+  return path.join(userDataPath, 'store-assets', 'logos');
+}
+
+function normalizePathForCompare(value) {
+  return path.resolve(String(value || '')).toLowerCase();
+}
+
+function isManagedLogoPath(filePath, userDataPath) {
+  if (!filePath || !userDataPath) return false;
+  const root = normalizePathForCompare(storeLogoRoot(userDataPath));
+  const target = normalizePathForCompare(filePath);
+  return target === root || target.startsWith(`${root}${path.sep}`);
+}
+
+function logoFileName(filePath) {
+  return path.basename(String(filePath || ''));
+}
+
+function readPngDimensions(buffer) {
+  const signature = '89504e470d0a1a0a';
+  if (buffer.length < 24 || buffer.subarray(0, 8).toString('hex') !== signature) return null;
+  if (buffer.subarray(12, 16).toString('ascii') !== 'IHDR') return null;
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20), mime: 'image/png' };
+}
+
+function readJpegDimensions(buffer) {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+  let offset = 2;
+  while (offset < buffer.length) {
+    if (buffer[offset] !== 0xff) return null;
+    const marker = buffer[offset + 1];
+    offset += 2;
+    if (marker === 0xd9 || marker === 0xda) break;
+    if (offset + 2 > buffer.length) return null;
+    const length = buffer.readUInt16BE(offset);
+    if (length < 2 || offset + length > buffer.length) return null;
+    if (
+      (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf)
+    ) {
+      if (length < 7) return null;
+      return {
+        height: buffer.readUInt16BE(offset + 3),
+        width: buffer.readUInt16BE(offset + 5),
+        mime: 'image/jpeg',
+      };
+    }
+    offset += length;
+  }
+  return null;
+}
+
+function detectLogoImage(buffer, ext) {
+  if (ext === '.png') return readPngDimensions(buffer);
+  if (ext === '.jpg' || ext === '.jpeg') return readJpegDimensions(buffer);
+  return null;
+}
+
+async function validateLogoFile(filePath) {
+  const ext = path.extname(String(filePath || '')).toLowerCase();
+  if (!LOGO_EXTENSIONS.has(ext)) {
+    return { ok: false, message: 'Unsupported logo type. Choose a PNG or JPEG image.' };
+  }
+  let stat;
+  try {
+    stat = await fs.stat(filePath);
+  } catch {
+    return { ok: false, message: 'Logo file could not be found.' };
+  }
+  if (!stat.isFile()) return { ok: false, message: 'Logo selection must be a file.' };
+  if (stat.size <= 0) return { ok: false, message: 'Logo file is empty.' };
+  if (stat.size > LOGO_MAX_BYTES) {
+    return { ok: false, message: 'Logo file must be 2 MB or smaller.' };
+  }
+  let buffer;
+  try {
+    buffer = await fs.readFile(filePath);
+  } catch {
+    return { ok: false, message: 'Logo file could not be read.' };
+  }
+  const image = detectLogoImage(buffer, ext);
+  if (!image || image.mime !== LOGO_EXTENSIONS.get(ext)) {
+    return { ok: false, message: 'Logo file is corrupt or does not match its file type.' };
+  }
+  const smallest = Math.min(image.width, image.height);
+  const largest = Math.max(image.width, image.height);
+  if (smallest < LOGO_MIN_DIMENSION) {
+    return { ok: false, message: 'Logo image must be at least 64 x 64 pixels.' };
+  }
+  if (largest > LOGO_MAX_DIMENSION) {
+    return { ok: false, message: 'Logo image must be 3000 x 3000 pixels or smaller.' };
+  }
+  return {
+    ok: true,
+    ext,
+    buffer,
+    mime: image.mime,
+    width: image.width,
+    height: image.height,
+    size: stat.size,
+  };
+}
+
+async function removeManagedLogo(filePath, userDataPath) {
+  if (!isManagedLogoPath(filePath, userDataPath)) return;
+  try {
+    await fs.unlink(filePath);
+  } catch (_error) {
+    // Best-effort cleanup only. A cleanup miss must not fail a successful settings save.
+  }
+}
+
+async function prepareStoreLogoSelection(filePath, userDataPath) {
+  const access = await requireSettingsAccess('settings.update');
+  if (!access.ok) return access;
+  if (!filePath) return { ok: false, message: 'Logo file was not selected.' };
+  const validation = await validateLogoFile(filePath);
+  if (!validation.ok) return validation;
+  const token = crypto.randomUUID();
+  const pendingDir = path.join(storeLogoRoot(userDataPath), 'pending');
+  await fs.mkdir(pendingDir, { recursive: true });
+  const ext = validation.ext === '.jpeg' ? '.jpg' : validation.ext;
+  const pendingPath = path.join(pendingDir, `${token}${ext}`);
+  await fs.copyFile(filePath, pendingPath);
+  pendingStoreLogos.set(token, {
+    path: pendingPath,
+    ext,
+    originalName: logoFileName(filePath),
+    mime: validation.mime,
+    width: validation.width,
+    height: validation.height,
+    createdAt: Date.now(),
+  });
+  return {
+    ok: true,
+    logoToken: token,
+    fileName: logoFileName(filePath),
+    previewDataUrl: `data:${validation.mime};base64,${validation.buffer.toString('base64')}`,
+    width: validation.width,
+    height: validation.height,
+    size: validation.size,
+    message: 'Logo selected. Save Store Settings to apply it.',
+  };
+}
+
+async function getStoreLogoPreview(userDataPath) {
+  const access = await requireSettingsAccess('settings.view');
+  if (!access.ok) return access;
+  const settings = await settingsRepository.getSettings();
+  const logoPath = settings.store?.logoPath || '';
+  if (!logoPath) return { ok: true, hasLogo: false, previewDataUrl: '', fileName: '' };
+  if (!isManagedLogoPath(logoPath, userDataPath)) {
+    return {
+      ok: true,
+      hasLogo: false,
+      previewDataUrl: '',
+      fileName: '',
+      message: 'Saved logo is outside managed storage.',
+    };
+  }
+  const validation = await validateLogoFile(logoPath);
+  if (!validation.ok) {
+    return {
+      ok: true,
+      hasLogo: false,
+      previewDataUrl: '',
+      fileName: '',
+      message: validation.message,
+    };
+  }
+  return {
+    ok: true,
+    hasLogo: true,
+    previewDataUrl: `data:${validation.mime};base64,${validation.buffer.toString('base64')}`,
+    fileName: logoFileName(logoPath),
+    width: validation.width,
+    height: validation.height,
+  };
+}
+
+async function resolveLogoForStoreSave(payload, currentStore, userDataPath) {
+  const currentLogoPath = cleanText(currentStore.logoPath, 500);
+  if (payload.logoAction === 'remove') {
+    return {
+      logoPath: '',
+      cleanupAfterSave: () => removeManagedLogo(currentLogoPath, userDataPath),
+      cleanupAfterFailure: async () => {},
+    };
+  }
+  if (payload.logoToken) {
+    const pending = pendingStoreLogos.get(payload.logoToken);
+    if (!pending) throw new Error('Selected logo session expired. Choose the logo again.');
+    const logoRoot = storeLogoRoot(userDataPath);
+    await fs.mkdir(logoRoot, { recursive: true });
+    const finalPath = path.join(logoRoot, `business-logo-${payload.logoToken}${pending.ext}`);
+    await fs.rename(pending.path, finalPath);
+    pendingStoreLogos.delete(payload.logoToken);
+    return {
+      logoPath: finalPath,
+      cleanupAfterSave: () => removeManagedLogo(currentLogoPath, userDataPath),
+      cleanupAfterFailure: () => removeManagedLogo(finalPath, userDataPath),
+    };
+  }
+  return {
+    logoPath: currentLogoPath,
+    cleanupAfterSave: async () => {},
+    cleanupAfterFailure: async () => {},
+  };
 }
 
 function moneyNumber(value, fallback = 0) {
@@ -96,7 +320,7 @@ function validateStoreSettings(store = {}) {
   return errors;
 }
 
-function cleanStoreSettings(payload = {}, existingStore = {}) {
+function cleanStoreSettings(payload = {}, logoPath = '') {
   return {
     storeName: cleanText(payload.storeName, 140),
     phone: cleanText(payload.phone, 60),
@@ -104,7 +328,7 @@ function cleanStoreSettings(payload = {}, existingStore = {}) {
     address: cleanText(payload.address, 500),
     taxNumber: cleanText(payload.taxNumber, 80),
     receiptFooterText: cleanMultilineText(payload.receiptFooterText, 500),
-    logoPath: cleanText(existingStore.logoPath, 500),
+    logoPath: cleanText(logoPath, 500),
   };
 }
 
@@ -127,7 +351,7 @@ async function saveSettings(payload = {}) {
   return { ok: true, settings, message: 'Settings saved successfully.' };
 }
 
-async function saveStoreSettings(payload = {}) {
+async function saveStoreSettings(payload = {}, userDataPath = '') {
   const access = await requireSettingsAccess('settings.update');
   if (!access.ok) return access;
   const rawFooter = String(payload.receiptFooterText || '')
@@ -148,17 +372,44 @@ async function saveStoreSettings(payload = {}) {
     };
   }
   const currentSettings = await settingsRepository.getSettings();
-  const store = cleanStoreSettings(payload, currentSettings.store || {});
+  const preliminaryStore = cleanStoreSettings(payload, currentSettings.store?.logoPath || '');
+  const preliminaryErrors = validateStoreSettings(preliminaryStore);
+  if (preliminaryErrors.length) {
+    return { ok: false, message: preliminaryErrors[0], errors: preliminaryErrors };
+  }
+  let logoState;
+  try {
+    logoState = await resolveLogoForStoreSave(payload, currentSettings.store || {}, userDataPath);
+  } catch (error) {
+    return { ok: false, message: error.message || 'Unable to prepare selected logo.' };
+  }
+  const store = cleanStoreSettings(payload, logoState.logoPath);
   const errors = validateStoreSettings(store);
   if (errors.length) return { ok: false, message: errors[0], errors };
-  const settings = await settingsRepository.saveStoreSettings(store, access.profile.id);
+  let settings;
+  try {
+    settings = await settingsRepository.saveStoreSettings(store, access.profile.id);
+  } catch (error) {
+    await logoState.cleanupAfterFailure();
+    throw error;
+  }
+  await logoState.cleanupAfterSave();
+  const changedFields = [
+    'storeName',
+    'phone',
+    'email',
+    'address',
+    'taxNumber',
+    'receiptFooterText',
+  ];
+  if (payload.logoToken || payload.logoAction === 'remove') changedFields.push('logoPath');
   await activityRepository.createActivityLog({
     userId: access.profile.id,
     action: 'settings.store.save',
     status: 'success',
     message: 'Store settings saved',
     metadata: {
-      changedFields: ['storeName', 'phone', 'email', 'address', 'taxNumber', 'receiptFooterText'],
+      changedFields,
     },
   });
   return { ok: true, settings, message: 'Store settings saved successfully.' };
@@ -2975,6 +3226,7 @@ module.exports = {
   getRestoreRecoveryState,
   getRestoreRetentionAssessment,
   getRestoreStartupRecoveryAssessment,
+  getStoreLogoPreview,
   getRestoreReadinessDashboard,
   getRestoreGovernanceAssessment,
   assessControlledRestoreEngineFoundation,
@@ -2982,6 +3234,7 @@ module.exports = {
   listRestoreDryRunReports,
   listBackups,
   prepareRestoreSafetyBackup,
+  prepareStoreLogoSelection,
   createRestoreFinalConfirmation,
   saveSettings,
   saveStoreSettings,
