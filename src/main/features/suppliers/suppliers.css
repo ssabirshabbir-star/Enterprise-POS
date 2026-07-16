@@ -185,30 +185,71 @@
   .epos-suppliers-tabs,
   .epos-suppliers-filters {
     display: grid;
-    border-bottom: 1px solid #e6edf7;
     background: #ffffff;
   }
 
   .epos-suppliers-tabs {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    border-radius: 8px 8px 0 0;
-    overflow: hidden;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) repeat(2, minmax(140px, 1.08fr));
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #e6edf7;
+    border-radius: 8px;
+    padding: 5px 8px;
+    overflow: visible;
+    box-shadow: 0 8px 18px rgb(15 31 61 / 0.05);
   }
 
   .epos-suppliers-tabs button {
-    min-height: 38px;
+    min-height: 34px;
     border: 0;
-    border-right: 1px solid #e6edf7;
-    background: #ffffff;
-    color: #334155;
-    font-size: 12px;
-    font-weight: 900;
+    border-radius: 7px;
+    color: #ffffff;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 950;
+    line-height: 1.1;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 8px 16px rgb(15 31 61 / 0.12);
   }
 
   .epos-suppliers-tabs button.active {
-    background: #0b63f6;
-    color: #ffffff;
+    box-shadow:
+      0 0 0 2px #ffffff,
+      0 0 0 4px rgb(37 99 235 / 0.34),
+      0 10px 18px rgb(15 31 61 / 0.16);
   }
+
+  .epos-suppliers-tabs button:not(:disabled):hover {
+    filter: brightness(0.96);
+    box-shadow: 0 10px 18px rgb(15 31 61 / 0.16);
+  }
+
+  .epos-suppliers-tabs button:focus-visible {
+    outline: 3px solid rgb(37 99 235 / 0.32);
+    outline-offset: 2px;
+  }
+
+  .epos-suppliers-tabs button:disabled,
+  .epos-suppliers-tabs button[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.74;
+    box-shadow: none;
+  }
+
+  .epos-suppliers-tabs button:disabled:hover,
+  .epos-suppliers-tabs button[aria-disabled="true"]:hover {
+    filter: none;
+  }
+
+  .epos-suppliers-tabs [data-supplier-view="list"] { background: #2563eb; }
+  .epos-suppliers-tabs [data-supplier-view="purchases"] { background: #16a34a; }
+  .epos-suppliers-tabs [data-supplier-view="payments"] { background: #7c3aed; }
+  .epos-suppliers-tabs [data-supplier-view="due"] { background: #f97316; }
+  .epos-suppliers-tabs [data-supplier-view="ledger"] { background: #0f766e; }
+  .epos-suppliers-tabs [data-supplier-view="last"] { background: #0284c7; }
+  .epos-suppliers-tabs [data-supplier-view="statements"] { background: #64748b; }
+  .epos-suppliers-tabs [data-supplier-view="analytics"] { background: #475569; }
 
   .epos-suppliers-filters {
     grid-template-columns: minmax(300px, 1.6fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(138px, 0.7fr) minmax(138px, 0.7fr) 88px;

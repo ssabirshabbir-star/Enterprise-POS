@@ -49,7 +49,7 @@ test('Suppliers keeps the certified summary, tabs, filters, and bottom actions',
     'Supplier List',
     'Purchases',
     'Payments',
-    'Due / Outstanding',
+    'Payable',
     'Supplier Ledger',
     'Last Purchases',
     'Statements Unavailable',
@@ -64,6 +64,7 @@ test('Suppliers keeps the certified summary, tabs, filters, and bottom actions',
   }
 
   assert.match(html, /Supplier Advances/);
+  assert.match(html, /data-supplier-view="due">Payable<\/button>/);
   assert.match(html, />Payable<\/th>/);
   assert.match(html, /Last Payment/);
   assert.match(html, /<span>Payable<\/span>/);
@@ -79,6 +80,7 @@ test('Suppliers keeps the certified summary, tabs, filters, and bottom actions',
   assert.match(renderer, /status === 'balance_settled'[\s\S]*?supplierTotalDue\(s\) === 0/);
   assert.match(renderer, /status === 'balance_advance'[\s\S]*?supplierTotalDue\(s\) < 0/);
   assert.doesNotMatch(html, /Overdue Amount/);
+  assert.doesNotMatch(html, /Due \/ Outstanding/);
   assert.doesNotMatch(html, />Overdue<\/th>/);
   assert.doesNotMatch(html, />Due Amount<\/th>/);
   assert.doesNotMatch(html, /All Status/);
@@ -97,6 +99,48 @@ test('Suppliers keeps the certified summary, tabs, filters, and bottom actions',
   );
   assert.doesNotMatch(renderer, /supplierAgingButton'\)\?\.addEventListener\('click'/);
   assert.doesNotMatch(api, /loadSupplierAging|agingReport|supplierAging/);
+});
+
+test('Suppliers navigation tabs use separated permanent color treatments', () => {
+  assert.match(
+    css,
+    /\.epos-suppliers-tabs\s*{[\s\S]*?grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\) repeat\(2,\s*minmax\(140px,\s*1\.08fr\)\);[\s\S]*?gap:\s*8px;[\s\S]*?border:\s*1px solid #e6edf7;[\s\S]*?border-radius:\s*8px;[\s\S]*?padding:\s*5px 8px;[\s\S]*?overflow:\s*visible;/
+  );
+  assert.match(
+    css,
+    /\.epos-suppliers-tabs button\s*{[\s\S]*?min-height:\s*34px;[\s\S]*?border-radius:\s*7px;[\s\S]*?white-space:\s*nowrap;/
+  );
+  assert.doesNotMatch(css, /border-radius:\s*8px 8px 0 0;/);
+  assert.doesNotMatch(css, /border-right:\s*1px solid #e6edf7;/);
+
+  for (const [view, color] of [
+    ['list', '#2563eb'],
+    ['purchases', '#16a34a'],
+    ['payments', '#7c3aed'],
+    ['due', '#f97316'],
+    ['ledger', '#0f766e'],
+    ['last', '#0284c7'],
+    ['statements', '#64748b'],
+    ['analytics', '#475569'],
+  ]) {
+    assert.ok(
+      css.includes(`.epos-suppliers-tabs [data-supplier-view="${view}"] { background: ${color}; }`)
+    );
+  }
+
+  assert.match(css, /\.epos-suppliers-tabs button\.active\s*{[\s\S]*?box-shadow:/);
+  assert.match(
+    css,
+    /\.epos-suppliers-tabs button:not\(:disabled\):hover\s*{[\s\S]*?filter:\s*brightness\(0\.96\);/
+  );
+  assert.match(
+    css,
+    /\.epos-suppliers-tabs button:focus-visible\s*{[\s\S]*?outline:\s*3px solid rgb\(37 99 235 \/ 0\.32\);/
+  );
+  assert.match(
+    css,
+    /\.epos-suppliers-tabs button:disabled,\s*\.epos-suppliers-tabs button\[aria-disabled="true"\]\s*{[\s\S]*?cursor:\s*not-allowed;[\s\S]*?opacity:\s*0\.74;/
+  );
 });
 
 test('Suppliers compact layout transfers vertical space to the table viewport', () => {
