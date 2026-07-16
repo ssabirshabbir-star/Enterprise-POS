@@ -1,12 +1,12 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 
+const repoRoot = path.join(__dirname, '..', '..');
 const servicePath = path.join(
-  __dirname,
-  '..',
-  '..',
+  repoRoot,
   'src',
   'main',
   'features',
@@ -15,9 +15,7 @@ const servicePath = path.join(
 );
 
 const repositoryPath = path.join(
-  __dirname,
-  '..',
-  '..',
+  repoRoot,
   'src',
   'main',
   'features',
@@ -373,7 +371,25 @@ test('Billing receipt removes Lucky Draw coupon values from the standard receipt
   assert.doesNotMatch(html, /QR-001/);
 });
 
-test('Billing receipt uses the fixed professional thank-you footer', () => {
+test('Billing receipt uses configured store receipt footer in HTML and ESC/POS output', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const settings = {
+    paperWidth: '80mm',
+    receiptFooterText: 'Thank you!\nWe hope to see you again soon.',
+  };
+  const html = service.buildReceiptHtml(receipt, settings);
+  const escpos = service.buildEscPosReceipt(receipt, settings);
+
+  assert.match(html, /<span class="footer-line">Thank you!<\/span>/);
+  assert.match(html, /<span class="footer-line">We hope to see you again soon\.<\/span>/);
+  assert.match(escpos, /Thank you!\nWe hope to see you again soon\./);
+});
+
+test('Billing receipt omits configured footer block when store footer is blank', () => {
   const { service } = loadPrintingService({
     settingsRow: {},
     printCallback: () => {},
@@ -381,12 +397,38 @@ test('Billing receipt uses the fixed professional thank-you footer', () => {
 
   const html = service.buildReceiptHtml(receipt, {
     paperWidth: '80mm',
-    footerText: 'Legacy configurable footer',
+    receiptFooterText: '   ',
+  });
+  const escpos = service.buildEscPosReceipt(receipt, {
+    paperWidth: '80mm',
+    receiptFooterText: '',
   });
 
-  assert.match(html, /<strong>Thank you!<\/strong>/);
-  assert.match(html, /<span>We hope to see you again soon\.<\/span>/);
-  assert.doesNotMatch(html, /Legacy configurable footer/);
+  assert.doesNotMatch(html, /class="footer"/);
+  assert.doesNotMatch(html, /Thank you!/);
+  assert.doesNotMatch(escpos, /Thank you!/);
+});
+
+test('Billing receipt escapes multiline footer text and avoids the old hardcoded footer', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    receiptFooterText: 'Line <One>\nLine & Two\n' + 'Long '.repeat(24),
+  });
+  const source = fs.readFileSync(
+    path.join(repoRoot, 'src', 'main', 'features', 'printing', 'printing.service.js'),
+    'utf8'
+  );
+
+  assert.match(html, /Line &lt;One&gt;/);
+  assert.match(html, /Line &amp; Two/);
+  assert.match(html, /footer-line/);
+  assert.match(html, /overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(source, /We hope to see you again soon/);
 });
 
 test('Completed Invoice reprint receipt shape uses the same thermal renderer contract', () => {
@@ -402,13 +444,14 @@ test('Completed Invoice reprint receipt shape uses the same thermal renderer con
 
   const html = service.buildReceiptHtml(completedInvoiceReceipt, {
     paperWidth: '80mm',
-    footerText: 'Thanks',
+    receiptFooterText: 'Thanks',
   });
 
   assert.match(html, /Retail Receipt/);
   assert.match(html, /INV-PRINT-001/);
   assert.match(html, /class="items-head"/);
   assert.match(html, /class="total-row grand"/);
+  assert.match(html, /<span class="footer-line">Thanks<\/span>/);
 });
 
 test('Billing receipt heading fix preserves accepted 80mm geometry', () => {

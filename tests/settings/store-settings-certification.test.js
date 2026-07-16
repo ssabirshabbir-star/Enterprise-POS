@@ -94,7 +94,9 @@ test('Store Settings tab is available while disabled settings tabs remain disabl
     assert.doesNotMatch(html, new RegExp(`id="${id}"[^>]*disabled`));
   }
   assert.match(html, /id="storeLogoPath"[^>]*disabled/);
-  assert.match(html, /id="storeReceiptFooter"[^>]*disabled/);
+  assert.match(html, /<textarea id="storeReceiptFooter"/);
+  assert.doesNotMatch(html, /id="storeReceiptFooter"[^>]*disabled/);
+  assert.match(html, /id="savePrinterSettingsButton"[^>]*>Save Settings Disabled<\/button>/);
   assert.match(html, /id="saveStoreSettingsButton"/);
 });
 
@@ -139,7 +141,7 @@ test('Settings API wrapper calls only the Store Settings preload method', async 
   assert.deepEqual(calls, [['saveStore', { storeName: 'Updated Store' }]]);
 });
 
-test('Store Settings save validates and preserves non-certified logo and footer fields', async () => {
+test('Store Settings save persists receipt footer and preserves non-certified logo field', async () => {
   const calls = [];
   const activities = [];
   const service = loadSettingsService({
@@ -164,6 +166,7 @@ test('Store Settings save validates and preserves non-certified logo and footer 
     email: ' owner@example.com ',
     address: ' Main Road ',
     taxNumber: ' NTN-123 ',
+    receiptFooterText: ' Thank you!\r\nWe hope to see you again soon. ',
     logoPath: 'C:\\unsafe\\new.png',
   });
 
@@ -176,10 +179,49 @@ test('Store Settings save validates and preserves non-certified logo and footer 
     email: 'owner@example.com',
     address: 'Main Road',
     taxNumber: 'NTN-123',
-    receiptFooterText: 'Existing footer',
+    receiptFooterText: 'Thank you!\nWe hope to see you again soon.',
     logoPath: 'C:\\brand\\logo.png',
   });
   assert.equal(activities[0].action, 'settings.store.save');
+  assert.deepEqual(activities[0].metadata.changedFields, [
+    'storeName',
+    'phone',
+    'email',
+    'address',
+    'taxNumber',
+    'receiptFooterText',
+  ]);
+});
+
+test('Store Settings save allows blank footer and rejects invalid footer input', async () => {
+  const calls = [];
+  const service = loadSettingsService({
+    saveImpl: async (store) => {
+      calls.push(store);
+      return { store, tax: {}, printer: {}, system: {} };
+    },
+  });
+
+  const blankFooter = await service.saveStoreSettings({
+    storeName: 'Enterprise POS',
+    receiptFooterText: '   ',
+  });
+  assert.equal(blankFooter.ok, true);
+  assert.equal(calls[0].receiptFooterText, '');
+
+  const markup = await service.saveStoreSettings({
+    storeName: 'Enterprise POS',
+    receiptFooterText: '<b>Thanks</b>',
+  });
+  assert.equal(markup.ok, false);
+  assert.match(markup.message, /HTML markup/);
+
+  const tooLong = await service.saveStoreSettings({
+    storeName: 'Enterprise POS',
+    receiptFooterText: 'x'.repeat(501),
+  });
+  assert.equal(tooLong.ok, false);
+  assert.match(tooLong.message, /500 characters/);
 });
 
 test('Store Settings save rejects blank names, invalid email, and unauthorized users', async () => {

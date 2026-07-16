@@ -114,6 +114,7 @@
       email: ($id('storeEmail')?.value || '').trim(),
       address: ($id('storeAddress')?.value || '').trim(),
       taxNumber: ($id('storeTaxNumber')?.value || '').trim(),
+      receiptFooterText: ($id('storeReceiptFooter')?.value || '').replace(/\r\n?/g, '\n').trim(),
     };
   }
 
@@ -121,6 +122,12 @@
     if (!payload.storeName) return 'Business name is required.';
     if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
       return 'Enter a valid email address.';
+    }
+    if (payload.receiptFooterText.length > 500) {
+      return 'Receipt footer must be 500 characters or less.';
+    }
+    if (/[<>]/.test(payload.receiptFooterText)) {
+      return 'Receipt footer cannot contain HTML markup.';
     }
     return '';
   }

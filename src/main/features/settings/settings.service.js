@@ -28,6 +28,13 @@ function cleanText(value, max = 500) {
     .slice(0, max);
 }
 
+function cleanMultilineText(value, max = 500) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+    .slice(0, max);
+}
+
 function moneyNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
@@ -45,8 +52,7 @@ function cleanSettings(payload = {}) {
       email: cleanText(payload.store?.email, 180),
       address: cleanText(payload.store?.address, 500),
       taxNumber: cleanText(payload.store?.taxNumber, 80),
-      receiptFooterText:
-        cleanText(payload.store?.receiptFooterText, 500) || 'Thank you for shopping',
+      receiptFooterText: cleanMultilineText(payload.store?.receiptFooterText, 500),
       logoPath: cleanText(payload.store?.logoPath, 500),
     },
     tax: {
@@ -82,6 +88,11 @@ function validateStoreSettings(store = {}) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.push('Enter a valid email address.');
   }
+  const rawFooter = String(store.receiptFooterText || '')
+    .replace(/\r\n?/g, '\n')
+    .trim();
+  if (rawFooter.length > 500) errors.push('Receipt footer must be 500 characters or less.');
+  if (/[<>]/.test(rawFooter)) errors.push('Receipt footer cannot contain HTML markup.');
   return errors;
 }
 
@@ -92,7 +103,7 @@ function cleanStoreSettings(payload = {}, existingStore = {}) {
     email: cleanText(payload.email, 180),
     address: cleanText(payload.address, 500),
     taxNumber: cleanText(payload.taxNumber, 80),
-    receiptFooterText: cleanText(existingStore.receiptFooterText, 500) || 'Thank you for shopping',
+    receiptFooterText: cleanMultilineText(payload.receiptFooterText, 500),
     logoPath: cleanText(existingStore.logoPath, 500),
   };
 }
@@ -119,6 +130,23 @@ async function saveSettings(payload = {}) {
 async function saveStoreSettings(payload = {}) {
   const access = await requireSettingsAccess('settings.update');
   if (!access.ok) return access;
+  const rawFooter = String(payload.receiptFooterText || '')
+    .replace(/\r\n?/g, '\n')
+    .trim();
+  if (rawFooter.length > 500) {
+    return {
+      ok: false,
+      message: 'Receipt footer must be 500 characters or less.',
+      errors: ['Receipt footer must be 500 characters or less.'],
+    };
+  }
+  if (/[<>]/.test(rawFooter)) {
+    return {
+      ok: false,
+      message: 'Receipt footer cannot contain HTML markup.',
+      errors: ['Receipt footer cannot contain HTML markup.'],
+    };
+  }
   const currentSettings = await settingsRepository.getSettings();
   const store = cleanStoreSettings(payload, currentSettings.store || {});
   const errors = validateStoreSettings(store);
@@ -130,7 +158,7 @@ async function saveStoreSettings(payload = {}) {
     status: 'success',
     message: 'Store settings saved',
     metadata: {
-      changedFields: ['storeName', 'phone', 'email', 'address', 'taxNumber'],
+      changedFields: ['storeName', 'phone', 'email', 'address', 'taxNumber', 'receiptFooterText'],
     },
   });
   return { ok: true, settings, message: 'Store settings saved successfully.' };

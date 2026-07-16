@@ -54,6 +54,27 @@ function cleanText(value) {
   return String(value || '').trim();
 }
 
+function cleanReceiptFooterText(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .trim();
+}
+
+function receiptFooterLines(value) {
+  const footer = cleanReceiptFooterText(value);
+  if (!footer) return [];
+  return footer.split('\n');
+}
+
+function buildReceiptFooterHtml(value) {
+  const lines = receiptFooterLines(value);
+  if (!lines.length) return '';
+  const markup = lines
+    .map((line) => `<span class="footer-line">${line ? escapeHtml(line) : '&nbsp;'}</span>`)
+    .join('');
+  return `<div class="rule"></div><div class="footer">${markup}</div>`;
+}
+
 function safeLogoSrc(logoPath) {
   const normalizedPath = cleanText(logoPath);
   if (!normalizedPath) return '';
@@ -100,6 +121,7 @@ async function getPrinterSettings() {
     silentPrint: Boolean(row.silent_print),
     receiptCopies: Number(row.receipt_copies || 1),
     footerText: row.footer_text || 'Thank you for shopping',
+    receiptFooterText: cleanReceiptFooterText(store.receiptFooterText),
     businessName: cleanText(store.storeName),
     storeAddress: cleanText(store.address),
     storePhone: cleanText(store.phone),
@@ -152,10 +174,12 @@ function buildEscPosReceipt(receipt, settings) {
   rows.push(`Total: ${formatMoney(receipt.grandTotal)}`);
   rows.push(`Paid: ${formatMoney(receipt.paidAmount)}`);
   rows.push(`Change: ${formatMoney(receipt.changeAmount)}`);
-  rows.push(line(width));
-  rows.push('\x1ba\x01');
-  rows.push('Thank you!');
-  rows.push('We hope to see you again soon.');
+  const footerLines = receiptFooterLines(settings.receiptFooterText);
+  if (footerLines.length) {
+    rows.push(line(width));
+    rows.push('\x1ba\x01');
+    rows.push(...footerLines);
+  }
   rows.push('\n\n\n\x1dV\x00');
   return rows.join('\n');
 }
@@ -168,6 +192,7 @@ function buildReceiptHtml(receipt, settings) {
   const hasLineDiscount = (receipt.items || []).some((item) => Number(item.discount || 0) > 0);
   const businessName = escapeHtml(settings.businessName || settings.storeName || 'Enterprise POS');
   const logoSrc = safeLogoSrc(settings.logoPath);
+  const footerHtml = buildReceiptFooterHtml(settings.receiptFooterText);
   const contactRows = [
     settings.storeAddress ? ['Address', settings.storeAddress] : null,
     settings.storePhone ? ['Phone', settings.storePhone] : null,
@@ -400,6 +425,10 @@ function buildReceiptHtml(receipt, settings) {
             font-size: 11px;
             font-weight: 700;
           }
+          .footer-line {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
         </style>
       </head>
       <body>
@@ -448,11 +477,7 @@ function buildReceiptHtml(receipt, settings) {
             <div class="payment-row"><span>Paid</span><span>${formatMoney(receipt.paidAmount)}</span></div>
             <div class="payment-row"><span>Change</span><span>${formatMoney(receipt.changeAmount)}</span></div>
           </section>
-          <div class="rule"></div>
-          <div class="footer">
-            <strong>Thank you!</strong>
-            <span>We hope to see you again soon.</span>
-          </div>
+          ${footerHtml}
         </div>
       </body>
     </html>
