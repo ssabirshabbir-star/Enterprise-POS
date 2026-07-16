@@ -48,35 +48,30 @@
 
   .epos-purchases-stats article {
     position: relative;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
     min-width: 0;
-    min-height: 102px;
+    min-height: 58px;
     overflow: hidden;
-    border-radius: 8px;
-    padding: 18px 20px;
-    color: #fff;
-    box-shadow: 0 14px 28px rgb(15 23 42 / 0.15);
+    border-radius: 14px;
+    border: 1px solid #edf0fb;
+    background: rgb(255 255 255 / 0.94);
+    padding: 8px 10px;
+    color: #17213e;
+    box-shadow: 0 9px 18px rgb(49 56 120 / 0.07);
   }
 
   .epos-purchases-stats article::after {
-    content: "";
-    position: absolute;
-    right: 20px;
-    bottom: 14px;
-    width: 92px;
-    height: 22px;
-    border-bottom: 3px solid rgb(255 255 255 / 0.34);
-    border-radius: 50%;
-    transform: rotate(-6deg);
+    content: none;
   }
 
-  .epos-purchases-stats .blue { background: linear-gradient(135deg, #2868ff, #0f8ef8); }
-  .epos-purchases-stats .green { background: linear-gradient(135deg, #07a741, #1fcf7f); }
-  .epos-purchases-stats .orange { background: linear-gradient(135deg, #ff6b00, #ff9e11); }
-  .epos-purchases-stats .purple { background: linear-gradient(135deg, #7c3aed, #6246ea); }
-  .epos-purchases-stats .pink { background: linear-gradient(135deg, #f43f5e, #ec4899); }
+  .epos-purchases-stats .blue > span { background: linear-gradient(135deg, #5b7cff, #2563eb); }
+  .epos-purchases-stats .green > span { background: linear-gradient(135deg, #7ed957, #22c55e); }
+  .epos-purchases-stats .orange > span { background: linear-gradient(135deg, #ffd23f, #f59e0b); }
+  .epos-purchases-stats .purple > span { background: linear-gradient(135deg, #9b5cff, #6d28d9); }
+  .epos-purchases-stats .pink > span { background: linear-gradient(135deg, #fb6aa6, #ec4899); }
 
   .epos-purchases-stats p,
   .epos-purchases-stats small {
@@ -87,36 +82,41 @@
   }
 
   .epos-purchases-stats p {
-    font-size: 14px;
+    color: #10184e;
+    font-size: 10px;
   }
 
   .epos-purchases-stats strong {
     position: relative;
     z-index: 1;
     display: block;
-    margin-top: 10px;
-    font-size: 24px;
+    margin-top: 2px;
+    color: #070b34;
+    font-size: 17px;
     line-height: 1;
     font-weight: 950;
   }
 
   .epos-purchases-stats small {
     display: block;
-    margin-top: 18px;
-    font-size: 12px;
+    margin-top: 1px;
+    color: #64709d;
+    font-size: 9px;
   }
 
   .epos-purchases-stats article > span {
     position: relative;
     z-index: 1;
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     place-items: center;
-    border-radius: 999px;
-    background: rgb(255 255 255 / 0.32);
-    font-size: 23px;
+    border-radius: 11px;
+    color: #ffffff;
+    font-size: 15px;
     font-weight: 950;
+    box-shadow: 0 10px 18px rgb(45 53 133 / 0.14);
+    order: -1;
   }
 
   .epos-purchases-panel,
@@ -929,17 +929,17 @@
     }
 
     .epos-purchases-stats article {
-      min-height: 74px;
-      padding: 10px 12px;
+      min-height: 58px;
+      padding: 8px 10px;
     }
 
     .epos-purchases-stats strong {
-      margin-top: 6px;
-      font-size: 21px;
+      margin-top: 2px;
+      font-size: 16px;
     }
 
     .epos-purchases-stats small {
-      margin-top: 8px;
+      margin-top: 1px;
     }
 
     .epos-purchases-tabs button {

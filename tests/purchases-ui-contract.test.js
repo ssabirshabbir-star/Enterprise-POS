@@ -31,6 +31,23 @@ test('Purchases keeps top dashboard statistics and removes duplicated footer sum
   assert.doesNotMatch(renderer, /purchaseFooter(?:Count|Total|Paid|Due)/);
 });
 
+test('Purchases stat cards use the finalized neutral card treatment', () => {
+  const css = read(cssPath);
+
+  assert.match(
+    css,
+    /\.epos-purchases-stats article\s*{[\s\S]*?grid-template-columns:\s*38px minmax\(0, 1fr\);[\s\S]*?border-radius:\s*14px;[\s\S]*?border:\s*1px solid #edf0fb;[\s\S]*?background:\s*rgb\(255 255 255 \/ 0\.94\);/
+  );
+  assert.match(css, /\.epos-purchases-stats article::after\s*{[\s\S]*?content:\s*none;/);
+  assert.match(css, /\.epos-purchases-stats \.blue > span/);
+  assert.match(css, /\.epos-purchases-stats \.green > span/);
+  assert.match(css, /\.epos-purchases-stats \.orange > span/);
+  assert.doesNotMatch(
+    css,
+    /\.epos-purchases-stats \.(?:blue|green|orange|purple|pink)\s*{\s*background:\s*linear-gradient/
+  );
+});
+
 test('Purchases footer preserves pagination controls only', () => {
   const html = read(htmlPath);
   const css = read(cssPath);

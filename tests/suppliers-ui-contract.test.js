@@ -117,6 +117,21 @@ test('Suppliers compact layout transfers vertical space to the table viewport', 
   assert.match(css, /\.epos-suppliers-filters\s*{[\s\S]*?padding:\s*6px 8px;/);
 });
 
+test('Suppliers stat cards use neutral surfaces with icon-only accents', () => {
+  assert.match(
+    css,
+    /\.epos-suppliers-stats article\s*{[\s\S]*?grid-template-columns:\s*38px minmax\(0, 1fr\);[\s\S]*?border:\s*1px solid #edf0fb;[\s\S]*?border-radius:\s*14px;[\s\S]*?background:\s*rgb\(255 255 255 \/ 0\.94\);/
+  );
+  assert.match(css, /\.epos-suppliers-stats article::after\s*{[\s\S]*?display:\s*none;/);
+  assert.match(css, /\.epos-suppliers-stats \.blue > span/);
+  assert.match(css, /\.epos-suppliers-stats \.green > span/);
+  assert.match(css, /\.epos-suppliers-stats \.orange > span/);
+  assert.doesNotMatch(
+    css,
+    /\.epos-suppliers-stats \.(?:blue|green|purple|orange|teal|sky)\s*{\s*background:\s*linear-gradient/
+  );
+});
+
 test('Suppliers route keeps small shell insets without returning shared blank bands', () => {
   assert.match(
     compactCss,

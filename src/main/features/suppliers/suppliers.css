@@ -115,59 +115,72 @@
   }
 
   .epos-suppliers-stats article {
-    display: flex;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-height: 60px;
-    border-radius: 8px;
-    color: #ffffff;
-    padding: 7px 10px;
+    border: 1px solid #edf0fb;
+    border-radius: 14px;
+    background: rgb(255 255 255 / 0.94);
+    color: #0f1f3d;
+    padding: 8px 10px;
     overflow: hidden;
     position: relative;
-    box-shadow: 0 12px 24px rgb(15 31 61 / 0.14);
+    box-shadow: 0 9px 18px rgb(49 56 120 / 0.07);
   }
 
   .epos-suppliers-stats article::after {
     content: "⌁";
-    position: absolute;
-    right: 12px;
-    bottom: 4px;
-    color: rgb(255 255 255 / 0.22);
-    font-size: 30px;
-    font-weight: 900;
+    display: none;
   }
 
   .epos-suppliers-stats article > span {
     display: grid;
     place-items: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: rgb(255 255 255 / 0.2);
-    font-size: 17px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 950;
+    box-shadow: 0 10px 18px rgb(45 53 133 / 0.14);
   }
 
   .epos-suppliers-stats p,
   .epos-suppliers-stats small {
     margin: 0;
+  }
+
+  .epos-suppliers-stats p {
+    color: #10184e;
     font-size: 10px;
     font-weight: 850;
+  }
+
+  .epos-suppliers-stats small {
+    display: block;
+    margin-top: 1px;
+    color: #64709d;
+    font-size: 9px;
+    font-weight: 800;
   }
 
   .epos-suppliers-stats strong {
     display: block;
     margin-top: 2px;
+    color: #070b34;
     font-size: 15px;
     font-weight: 950;
     line-height: 1.1;
   }
 
-  .epos-suppliers-stats .blue { background: linear-gradient(135deg, #0a63f6, #005be0); }
-  .epos-suppliers-stats .green { background: linear-gradient(135deg, #06b61d, #009e14); }
-  .epos-suppliers-stats .purple { background: linear-gradient(135deg, #7f22e7, #5d17c7); }
-  .epos-suppliers-stats .orange { background: linear-gradient(135deg, #ff9400, #ff6900); }
-  .epos-suppliers-stats .teal { background: linear-gradient(135deg, #0ea5a0, #078580); }
-  .epos-suppliers-stats .sky { background: linear-gradient(135deg, #0488ff, #005fe8); }
+  .epos-suppliers-stats .blue > span { background: linear-gradient(135deg, #5b7cff, #2563eb); }
+  .epos-suppliers-stats .green > span { background: linear-gradient(135deg, #7ed957, #22c55e); }
+  .epos-suppliers-stats .purple > span { background: linear-gradient(135deg, #9b5cff, #6d28d9); }
+  .epos-suppliers-stats .orange > span { background: linear-gradient(135deg, #ffd23f, #f59e0b); }
+  .epos-suppliers-stats .teal > span { background: linear-gradient(135deg, #34d399, #0f766e); }
+  .epos-suppliers-stats .sky > span { background: linear-gradient(135deg, #38bdf8, #2563eb); }
 
   .epos-suppliers-tabs,
   .epos-suppliers-filters {
@@ -900,8 +913,8 @@
   @media (max-width: 1366px) {
     .epos-suppliers-page { gap: 4px; padding: 1px 0 4px; }
     .epos-suppliers-stats { gap: 8px; }
-    .epos-suppliers-stats article { min-height: 60px; padding: 7px 9px; }
-    .epos-suppliers-stats article > span { width: 40px; height: 40px; font-size: 16px; }
+    .epos-suppliers-stats article { min-height: 60px; padding: 8px 9px; }
+    .epos-suppliers-stats article > span { width: 36px; height: 36px; font-size: 14px; }
     .epos-suppliers-stats strong { font-size: 14px; }
     .epos-suppliers-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
     .epos-suppliers-stats,
