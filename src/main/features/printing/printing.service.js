@@ -193,6 +193,7 @@ function buildReceiptHtml(receipt, settings) {
             color: #111;
             background: #fff;
             font-family: Arial, 'Segoe UI', sans-serif;
+            line-height: 1.35;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -206,24 +207,33 @@ function buildReceiptHtml(receipt, settings) {
             overflow-wrap: anywhere;
           }
           .center { text-align: center; }
-          .brand { margin-bottom: 2mm; text-align: center; }
+          .brand {
+            margin-bottom: 2.6mm;
+            padding-bottom: 1.8mm;
+            border-bottom: 2px solid #111;
+            text-align: center;
+          }
           .brand strong {
             display: block;
-            font-size: 16px;
-            font-weight: 800;
-            letter-spacing: .04em;
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: .02em;
             text-transform: uppercase;
           }
           .brand span {
             display: block;
-            margin-top: 1mm;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: .18em;
+            margin-top: .8mm;
+            font-size: 9.5px;
+            font-weight: 800;
+            letter-spacing: .16em;
             text-transform: uppercase;
           }
-          .rule { border-top: 1px dashed #111; margin: 2mm 0; }
-          .meta { display: grid; gap: .7mm; }
+          .rule { border-top: 1px dashed #777; margin: 2.2mm 0; }
+          .meta {
+            display: grid;
+            gap: .85mm;
+            padding: .2mm 0;
+          }
           .meta-row,
           .total-row,
           .payment-row {
@@ -248,14 +258,18 @@ function buildReceiptHtml(receipt, settings) {
           .items-head,
           .item-line {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 8mm 14mm 16mm;
-            gap: 2mm;
+            grid-template-columns: minmax(0, 1fr) 7mm 13mm 15mm;
+            gap: 1.5mm;
             align-items: baseline;
           }
           .items-head {
+            margin-bottom: .4mm;
+            border-top: 1px solid #111;
+            border-bottom: 1px solid #111;
+            padding: 1mm 0;
             font-size: 10px;
             font-weight: 800;
-            letter-spacing: .04em;
+            letter-spacing: .03em;
             text-transform: uppercase;
           }
           .items-head span:not(:first-child),
@@ -265,11 +279,11 @@ function buildReceiptHtml(receipt, settings) {
           .item-row {
             display: grid;
             gap: .7mm;
-            padding: 1.2mm 0;
-            border-bottom: 1px dotted #999;
+            padding: 1.35mm 0;
+            border-bottom: 1px dashed #aaa;
           }
           .item-name {
-            font-weight: 800;
+            font-weight: 750;
             line-height: 1.25;
             word-break: break-word;
           }
@@ -283,17 +297,37 @@ function buildReceiptHtml(receipt, settings) {
             font-size: 10px;
             text-align: right;
           }
-          .total-row { padding: .6mm 0; }
+          .totals {
+            display: grid;
+            gap: .4mm;
+          }
+          .total-row { padding: .45mm 0; }
           .grand {
-            margin-top: 1mm;
-            border-top: 1px solid #111;
-            border-bottom: 1px solid #111;
-            padding: 1.3mm 0;
-            font-size: 15px;
+            margin-top: 1.2mm;
+            border-top: 2px solid #111;
+            border-bottom: 2px solid #111;
+            padding: 1.4mm 0;
+            font-size: 16px;
             font-weight: 900;
             text-transform: uppercase;
           }
-          .payment { display: grid; gap: .7mm; }
+          .section-badge {
+            display: inline-block;
+            margin-bottom: 1mm;
+            border: 1px solid #111;
+            padding: .8mm 1.6mm;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+          }
+          .payment {
+            display: grid;
+            gap: .65mm;
+            margin-top: 2.2mm;
+            border-top: 1px dashed #777;
+            padding-top: 1.6mm;
+          }
           .coupon-block {
             display: grid;
             gap: .8mm;
@@ -312,10 +346,12 @@ function buildReceiptHtml(receipt, settings) {
             word-break: break-all;
           }
           .footer {
-            margin-top: 2mm;
+            margin-top: 2.4mm;
+            border: 1px dashed #777;
+            padding: 1.6mm;
             text-align: center;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 800;
           }
         </style>
       </head>
@@ -325,7 +361,6 @@ function buildReceiptHtml(receipt, settings) {
             <strong>${businessName}</strong>
             <span>Retail Receipt</span>
           </header>
-          <div class="rule"></div>
           <section class="meta" aria-label="Transaction details">
             <div class="meta-row"><span>Invoice</span><span>${escapeHtml(receipt.invoiceNumber || '-')}</span></div>
             <div class="meta-row"><span>Date</span><span>${escapeHtml(dateParts.date)}</span></div>
@@ -344,7 +379,7 @@ function buildReceiptHtml(receipt, settings) {
             ${rows || '<div class="item-row"><div class="item-name">No items found.</div></div>'}
           </section>
           <div class="rule"></div>
-          <section aria-label="Receipt totals">
+          <section class="totals" aria-label="Receipt totals">
             <div class="total-row"><span>Subtotal</span><span>${formatMoney(receipt.subtotal)}</span></div>
             ${
               Number(receipt.discount || 0) > 0
@@ -359,6 +394,7 @@ function buildReceiptHtml(receipt, settings) {
             <div class="total-row grand"><span>Grand Total</span><span>${formatMoney(receipt.grandTotal)}</span></div>
           </section>
           <section class="payment" aria-label="Payment details">
+            <div><span class="section-badge">Payment</span></div>
             <div class="payment-row"><span>Payment</span><span>${escapeHtml(receipt.paymentMethod || '-')}</span></div>
             <div class="payment-row"><span>Paid</span><span>${formatMoney(receipt.paidAmount)}</span></div>
             <div class="payment-row"><span>Change</span><span>${formatMoney(receipt.changeAmount)}</span></div>

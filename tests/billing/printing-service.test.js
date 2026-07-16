@@ -273,6 +273,25 @@ test('Billing receipt HTML contains professional item columns and dynamic rows',
   assert.match(html, /Discount 1\.00/);
 });
 
+test('Billing receipt HTML keeps the refined professional thermal section structure', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, { paperWidth: '80mm', footerText: 'Thanks' });
+  const css = receiptCss(html);
+
+  assert.match(css, /\.brand\s*\{[\s\S]*border-bottom:\s*2px solid #111;/);
+  assert.match(css, /\.items-head\s*\{[\s\S]*border-top:\s*1px solid #111;/);
+  assert.match(css, /\.items-head\s*\{[\s\S]*border-bottom:\s*1px solid #111;/);
+  assert.match(css, /\.grand\s*\{[\s\S]*border-top:\s*2px solid #111;/);
+  assert.match(css, /\.grand\s*\{[\s\S]*border-bottom:\s*2px solid #111;/);
+  assert.match(css, /\.payment\s*\{[\s\S]*border-top:\s*1px dashed #777;/);
+  assert.match(html, /<section class="totals" aria-label="Receipt totals">/);
+  assert.match(html, /<span class="section-badge">Payment<\/span>/);
+});
+
 test('Billing receipt omits zero-value optional financial rows without changing totals', () => {
   const { service } = loadPrintingService({
     settingsRow: {},
