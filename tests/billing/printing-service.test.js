@@ -161,8 +161,12 @@ test('Billing receipt print output uses the shared thermal HTML headings', async
   await service.printReceipt(receipt);
   const html = decodeDataUrl(windows[0].url);
 
-  assert.match(html, /<div>Item<\/div>/);
-  assert.match(html, /<div>Qty x Price - Discount = Total<\/div>/);
+  assert.match(html, /<span>Item<\/span>/);
+  assert.match(html, /<span>Qty<\/span>/);
+  assert.match(html, /<span>Unit Price<\/span>/);
+  assert.match(html, /<span>Total<\/span>/);
+  assert.match(html, /aria-label="Transaction details"/);
+  assert.match(html, /aria-label="Payment details"/);
 });
 
 test('Billing receipt print passes configured printer name without enabling auto print', async () => {
@@ -230,7 +234,7 @@ test('Billing receipt HTML uses safe 80mm paper profile geometry', () => {
   assert.doesNotMatch(css, /width:\s*302px/);
 });
 
-test('Billing receipt HTML contains item headings in receipt column order', () => {
+test('Billing receipt HTML contains professional item columns and dynamic rows', () => {
   const { service } = loadPrintingService({
     settingsRow: {},
     printCallback: () => {},
@@ -252,18 +256,83 @@ test('Billing receipt HTML contains item headings in receipt column order', () =
     paperWidth: '80mm',
     footerText: 'Thanks',
   });
-  const headingIndexes = ['Item', 'Qty', 'Price', 'Discount', 'Total'].map((heading) =>
+  const headingIndexes = ['Item', 'Qty', 'Unit Price', 'Total'].map((heading) =>
     html.indexOf(heading)
   );
 
   assert.deepEqual(
     headingIndexes,
     [...headingIndexes].sort((a, b) => a - b),
-    'receipt headings should follow item, quantity, price, discount, total order'
+    'receipt headings should follow item, quantity, unit price, total order'
   );
-  assert.match(html, /<div>Qty x Price - Discount = Total<\/div>/);
+  assert.match(html, /class="item-line"/);
   assert.match(html, /Very Long Product Name That Should Remain Printable/);
-  assert.match(html, /2 x 12\.50 - 1\.00 = 24\.00/);
+  assert.match(html, /<span>2<\/span>/);
+  assert.match(html, /<span>12\.50<\/span>/);
+  assert.match(html, /<span>24\.00<\/span>/);
+  assert.match(html, /Discount 1\.00/);
+});
+
+test('Billing receipt omits zero-value optional financial rows without changing totals', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, { paperWidth: '80mm', footerText: 'Thanks' });
+
+  assert.match(html, /<span>Subtotal<\/span><span>10\.00<\/span>/);
+  assert.match(html, /<span>Grand Total<\/span><span>10\.00<\/span>/);
+  assert.doesNotMatch(html, /<span>Discount<\/span><span>0\.00<\/span>/);
+  assert.doesNotMatch(html, /<span>Tax<\/span><span>0\.00<\/span>/);
+});
+
+test('Billing receipt keeps existing coupon barcode or QR values printable when present', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+  const couponReceipt = {
+    ...receipt,
+    luckyDrawCoupons: [
+      {
+        couponNo: 'LD-001',
+        campaignName: 'Lucky Draw',
+        barcodeValue: 'BAR-001-THERMAL',
+        qrValue: 'QR-001',
+      },
+    ],
+  };
+
+  const html = service.buildReceiptHtml(couponReceipt, {
+    paperWidth: '80mm',
+    footerText: 'Thanks',
+  });
+
+  assert.match(html, /Lucky Draw Coupons/);
+  assert.match(html, /<code>BAR-001-THERMAL<\/code>/);
+});
+
+test('Completed Invoice reprint receipt shape uses the same thermal renderer contract', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+  const completedInvoiceReceipt = {
+    ...receipt,
+    status: 'COMPLETED',
+    payments: [{ paymentMethod: 'Cash', amount: 10, createdAt: receipt.createdAt }],
+  };
+
+  const html = service.buildReceiptHtml(completedInvoiceReceipt, {
+    paperWidth: '80mm',
+    footerText: 'Thanks',
+  });
+
+  assert.match(html, /Retail Receipt/);
+  assert.match(html, /INV-PRINT-001/);
+  assert.match(html, /class="items-head"/);
+  assert.match(html, /class="total-row grand"/);
 });
 
 test('Billing receipt heading fix preserves accepted 80mm geometry', () => {

@@ -39,6 +39,33 @@ function formatMoney(value) {
   return Number(value || 0).toFixed(2);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatQuantity(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return '0';
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function formatDateTimeParts(value) {
+  const date = value ? new Date(value) : new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  return {
+    date: safeDate.toLocaleDateString(),
+    time: safeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    full: safeDate.toLocaleString(),
+  };
+}
+
 function receiptWidth(paperWidth) {
   return receiptPaperProfile(paperWidth).receiptColumns;
 }
@@ -119,12 +146,25 @@ function buildReceiptHtml(receipt, settings) {
   const paperProfile = receiptPaperProfile(settings.paperWidth);
   const receiptWidthMm =
     paperProfile.receiptWidthMm || paperProfile.pageWidthMm - paperProfile.printableInsetMm * 2;
+  const dateParts = formatDateTimeParts(receipt.createdAt);
+  const hasLineDiscount = (receipt.items || []).some((item) => Number(item.discount || 0) > 0);
+  const businessName = escapeHtml(settings.businessName || settings.storeName || 'Enterprise POS');
+  const footerText = escapeHtml(settings.footerText || 'Thank you for shopping');
   const rows = (receipt.items || [])
     .map(
       (item) => `
-    <div class="item">
-      <div>${item.productName}</div>
-      <div>${item.quantity} x ${formatMoney(item.unitPrice)} - ${formatMoney(item.discount)} = ${formatMoney(item.total)}</div>
+    <div class="item-row">
+      <div class="item-line">
+        <div class="item-name">${escapeHtml(item.productName || 'Item')}</div>
+        <span>${formatQuantity(item.quantity)}</span>
+        <span>${formatMoney(item.unitPrice)}</span>
+        <span>${formatMoney(item.total)}</span>
+      </div>
+      ${
+        hasLineDiscount && Number(item.discount || 0) > 0
+          ? `<div class="item-discount">Discount ${formatMoney(item.discount)}</div>`
+          : ''
+      }
     </div>
   `
     )
@@ -132,10 +172,10 @@ function buildReceiptHtml(receipt, settings) {
   const couponRows = (receipt.luckyDrawCoupons || [])
     .map(
       (coupon) => `
-    <div class="item center">
-      <strong>${coupon.couponNo}</strong><br/>
-      ${coupon.campaignName || 'Lucky Draw'}<br/>
-      <span>Barcode/QR: ${coupon.barcodeValue || coupon.qrValue || coupon.couponNo}</span>
+    <div class="coupon-block">
+      <strong>${escapeHtml(coupon.couponNo)}</strong>
+      <span>${escapeHtml(coupon.campaignName || 'Lucky Draw')}</span>
+      <code>${escapeHtml(coupon.barcodeValue || coupon.qrValue || coupon.couponNo)}</code>
     </div>
   `
     )
@@ -150,8 +190,11 @@ function buildReceiptHtml(receipt, settings) {
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; }
           body {
-            font-family: Consolas, 'Noto Nastaliq Urdu', monospace;
             color: #111;
+            background: #fff;
+            font-family: Arial, 'Segoe UI', sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .receipt {
             width: ${receiptWidthMm}mm;
@@ -163,37 +206,172 @@ function buildReceiptHtml(receipt, settings) {
             overflow-wrap: anywhere;
           }
           .center { text-align: center; }
-          .line { border-top: 1px dashed #333; margin: 8px 0; }
-          .row { display: flex; justify-content: space-between; gap: 8px; }
-          .item { margin: 6px 0; }
-          .item-heading { font-weight: 700; margin: 6px 0; }
-          .total { font-weight: 700; font-size: 14px; }
+          .brand { margin-bottom: 2mm; text-align: center; }
+          .brand strong {
+            display: block;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+          }
+          .brand span {
+            display: block;
+            margin-top: 1mm;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+          }
+          .rule { border-top: 1px dashed #111; margin: 2mm 0; }
+          .meta { display: grid; gap: .7mm; }
+          .meta-row,
+          .total-row,
+          .payment-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 3mm;
+          }
+          .meta-row span:first-child,
+          .total-row span:first-child,
+          .payment-row span:first-child {
+            color: #333;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+          .meta-row span:last-child,
+          .total-row span:last-child,
+          .payment-row span:last-child {
+            text-align: right;
+            font-weight: 700;
+          }
+          .items-head,
+          .item-line {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 8mm 14mm 16mm;
+            gap: 2mm;
+            align-items: baseline;
+          }
+          .items-head {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+          }
+          .items-head span:not(:first-child),
+          .item-line span {
+            text-align: right;
+          }
+          .item-row {
+            display: grid;
+            gap: .7mm;
+            padding: 1.2mm 0;
+            border-bottom: 1px dotted #999;
+          }
+          .item-name {
+            font-weight: 800;
+            line-height: 1.25;
+            word-break: break-word;
+          }
+          .item-line {
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 11px;
+          }
+          .item-name { font-family: Arial, 'Segoe UI', sans-serif; }
+          .item-discount {
+            color: #333;
+            font-size: 10px;
+            text-align: right;
+          }
+          .total-row { padding: .6mm 0; }
+          .grand {
+            margin-top: 1mm;
+            border-top: 1px solid #111;
+            border-bottom: 1px solid #111;
+            padding: 1.3mm 0;
+            font-size: 15px;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+          .payment { display: grid; gap: .7mm; }
+          .coupon-block {
+            display: grid;
+            gap: .8mm;
+            margin-top: 1.4mm;
+            border: 1px dashed #111;
+            padding: 1.5mm;
+            text-align: center;
+          }
+          .coupon-block strong { font-size: 12px; }
+          .coupon-block span { font-size: 10px; }
+          .coupon-block code {
+            display: block;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 11px;
+            letter-spacing: .05em;
+            word-break: break-all;
+          }
+          .footer {
+            margin-top: 2mm;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+          }
         </style>
       </head>
       <body>
         <div class="receipt">
-          <div class="center"><strong>Enterprise POS</strong><br/>Retail Receipt</div>
-          <div class="line"></div>
-          <div>Invoice: ${receipt.invoiceNumber}</div>
-          <div>Date: ${new Date(receipt.createdAt).toLocaleString()}</div>
-          <div>Cashier: ${receipt.cashierName || '-'}</div>
-          <div>Customer: ${receipt.customerName || 'Walk-in Customer'}</div>
-          <div class="line"></div>
-          <div class="item-heading">
-            <div>Item</div>
-            <div>Qty x Price - Discount = Total</div>
+          <header class="brand">
+            <strong>${businessName}</strong>
+            <span>Retail Receipt</span>
+          </header>
+          <div class="rule"></div>
+          <section class="meta" aria-label="Transaction details">
+            <div class="meta-row"><span>Invoice</span><span>${escapeHtml(receipt.invoiceNumber || '-')}</span></div>
+            <div class="meta-row"><span>Date</span><span>${escapeHtml(dateParts.date)}</span></div>
+            <div class="meta-row"><span>Time</span><span>${escapeHtml(dateParts.time)}</span></div>
+            <div class="meta-row"><span>Cashier</span><span>${escapeHtml(receipt.cashierName || '-')}</span></div>
+            <div class="meta-row"><span>Customer</span><span>${escapeHtml(receipt.customerName || 'Walk-in Customer')}</span></div>
+          </section>
+          <div class="rule"></div>
+          <section aria-label="Receipt items">
+            <div class="items-head">
+              <span>Item</span>
+              <span>Qty</span>
+              <span>Unit Price</span>
+              <span>Total</span>
+            </div>
+            ${rows || '<div class="item-row"><div class="item-name">No items found.</div></div>'}
+          </section>
+          <div class="rule"></div>
+          <section aria-label="Receipt totals">
+            <div class="total-row"><span>Subtotal</span><span>${formatMoney(receipt.subtotal)}</span></div>
+            ${
+              Number(receipt.discount || 0) > 0
+                ? `<div class="total-row"><span>Discount</span><span>${formatMoney(receipt.discount)}</span></div>`
+                : ''
+            }
+            ${
+              Number(receipt.tax || 0) > 0
+                ? `<div class="total-row"><span>Tax</span><span>${formatMoney(receipt.tax)}</span></div>`
+                : ''
+            }
+            <div class="total-row grand"><span>Grand Total</span><span>${formatMoney(receipt.grandTotal)}</span></div>
+          </section>
+          <section class="payment" aria-label="Payment details">
+            <div class="payment-row"><span>Payment</span><span>${escapeHtml(receipt.paymentMethod || '-')}</span></div>
+            <div class="payment-row"><span>Paid</span><span>${formatMoney(receipt.paidAmount)}</span></div>
+            <div class="payment-row"><span>Change</span><span>${formatMoney(receipt.changeAmount)}</span></div>
+          </section>
+          ${
+            couponRows
+              ? `<div class="rule"></div><section aria-label="Lucky Draw Coupons"><div class="center"><strong>Lucky Draw Coupons</strong></div>${couponRows}</section>`
+              : ''
+          }
+          <div class="rule"></div>
+          <div class="footer">
+            ${footerText}
           </div>
-          ${rows}
-          <div class="line"></div>
-          <div class="row"><span>Subtotal</span><span>${formatMoney(receipt.subtotal)}</span></div>
-          <div class="row"><span>Discount</span><span>${formatMoney(receipt.discount)}</span></div>
-          <div class="row"><span>Tax</span><span>${formatMoney(receipt.tax)}</span></div>
-          <div class="row total"><span>Total</span><span>${formatMoney(receipt.grandTotal)}</span></div>
-          <div class="row"><span>Paid</span><span>${formatMoney(receipt.paidAmount)}</span></div>
-          <div class="row"><span>Change</span><span>${formatMoney(receipt.changeAmount)}</span></div>
-          ${couponRows ? `<div class="line"></div><div class="center"><strong>Lucky Draw Coupons</strong></div>${couponRows}` : ''}
-          <div class="line"></div>
-          <div class="center">${settings.footerText}<br/>Urdu Unicode ready</div>
         </div>
       </body>
     </html>
