@@ -674,6 +674,21 @@ async function saveSettings(payload, userId) {
   return getSettings();
 }
 
+async function saveStoreSettings(store, userId) {
+  await withTransaction(async (client) => {
+    await client.query(
+      `
+        INSERT INTO app_settings (key, value, updated_by, updated_at)
+        VALUES ('store', $1::jsonb, $2, NOW())
+        ON CONFLICT (key)
+        DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+      `,
+      [JSON.stringify(store || {}), userId]
+    );
+  });
+  return getSettings();
+}
+
 async function exportBackup(filePath, userId, options = {}) {
   const db = options.pool || getPool();
   const backupId = createBackupId();
@@ -2862,6 +2877,7 @@ module.exports = {
   recordRestoreRecoveryTransition,
   listBackupLogs,
   saveSettings,
+  saveStoreSettings,
   transitionRestoreOperation,
   verifyRestorePackage,
 };

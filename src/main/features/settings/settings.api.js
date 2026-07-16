@@ -14,6 +14,10 @@
     return api().settings.get();
   }
 
+  async function saveStoreSettings(payload) {
+    return api().settings.saveStore(payload || {});
+  }
+
   async function appInfo() {
     return api().app.info();
   }
@@ -125,6 +129,7 @@
     restoreRecoveryState,
     restoreReadinessDashboard,
     restoreTransactionFoundationAssessment,
+    saveStoreSettings,
     unavailable,
     verifyRestorePackage,
   };

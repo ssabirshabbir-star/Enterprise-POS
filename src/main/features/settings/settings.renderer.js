@@ -107,6 +107,55 @@
     setValue('nextInvoiceNumber', system.nextInvoiceNumber);
   }
 
+  function collectStoreSettings() {
+    return {
+      storeName: ($id('storeName')?.value || '').trim(),
+      phone: ($id('storePhone')?.value || '').trim(),
+      email: ($id('storeEmail')?.value || '').trim(),
+      address: ($id('storeAddress')?.value || '').trim(),
+      taxNumber: ($id('storeTaxNumber')?.value || '').trim(),
+    };
+  }
+
+  function validateStoreForm(payload) {
+    if (!payload.storeName) return 'Business name is required.';
+    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      return 'Enter a valid email address.';
+    }
+    return '';
+  }
+
+  function setStoreSaveBusy(isBusy) {
+    const button = $id('saveStoreSettingsButton');
+    if (!button) return;
+    button.disabled = Boolean(isBusy);
+    button.setAttribute('aria-disabled', String(Boolean(isBusy)));
+    button.textContent = isBusy ? 'Saving...' : 'Save Store Settings';
+  }
+
+  async function handleSaveStoreSettings() {
+    const payload = collectStoreSettings();
+    const validationMessage = validateStoreForm(payload);
+    if (validationMessage) {
+      showMessage(validationMessage, 'error');
+      return;
+    }
+    setStoreSaveBusy(true);
+    try {
+      const result = await A().saveStoreSettings(payload);
+      if (!result?.ok) {
+        showMessage(result?.message || 'Unable to save Store Settings.', 'error');
+        return;
+      }
+      if (result.settings) renderSettings(result.settings);
+      showMessage(result.message || 'Store Settings saved successfully.', 'success');
+    } catch {
+      showMessage('Unable to save Store Settings.', 'error');
+    } finally {
+      setStoreSaveBusy(false);
+    }
+  }
+
   function renderAppInfo(result = {}) {
     const info = result.info || {};
     setText('updateCurrentVersion', info.version || info.packageVersion);
@@ -749,12 +798,12 @@
     const recovery = policy.recoveryState || {};
     const blockers = Array.isArray(policy.blockers) ? policy.blockers : [];
     const warnings = Array.isArray(policy.warnings) ? policy.warnings : [];
-    const requiredActions = Array.isArray(policy.requiredActions)
-      ? policy.requiredActions
-      : [];
+    const requiredActions = Array.isArray(policy.requiredActions) ? policy.requiredActions : [];
     const safety = policy.safetyBackupReference || recovery.safetyBackupReference || {};
-    const databaseIdentity = policy.databaseIdentity || policy.productionGovernance?.databaseIdentity || {};
-    const startupRecovery = policy.startupRecovery || policy.productionGovernance?.startupRecovery || {};
+    const databaseIdentity =
+      policy.databaseIdentity || policy.productionGovernance?.databaseIdentity || {};
+    const startupRecovery =
+      policy.startupRecovery || policy.productionGovernance?.startupRecovery || {};
     const finalAssessment =
       policy.finalCertificationAssessment ||
       policy.productionGovernance?.finalCertificationAssessment ||
@@ -2091,8 +2140,11 @@
           result?.message ||
           'Restore safety preparation completed. Restore execution remains unavailable.',
       });
-      if (result?.recoveryState) renderRestoreExecutionPolicy({ policy: { recoveryState: result.recoveryState } });
-      const policy = await A().restoreExecutionPolicy().catch(() => null);
+      if (result?.recoveryState)
+        renderRestoreExecutionPolicy({ policy: { recoveryState: result.recoveryState } });
+      const policy = await A()
+        .restoreExecutionPolicy()
+        .catch(() => null);
       if (policy?.ok) renderRestoreExecutionPolicy(policy);
       if (result?.ok) {
         showMessage(
@@ -2104,7 +2156,10 @@
       }
       showMessage(result?.message || 'Restore safety preparation did not complete.', 'error');
     } catch {
-      showMessage('Restore safety preparation failed. Restore execution remains unavailable.', 'error');
+      showMessage(
+        'Restore safety preparation failed. Restore execution remains unavailable.',
+        'error'
+      );
     } finally {
       restorePreparationBusy = false;
       syncRestorePreparationControls();
@@ -2118,8 +2173,11 @@
     syncRestorePreparationControls();
     try {
       const result = await A().cancelRestorePreparation(operationId);
-      if (result?.recoveryState) renderRestoreExecutionPolicy({ policy: { recoveryState: result.recoveryState } });
-      const policy = await A().restoreExecutionPolicy().catch(() => null);
+      if (result?.recoveryState)
+        renderRestoreExecutionPolicy({ policy: { recoveryState: result.recoveryState } });
+      const policy = await A()
+        .restoreExecutionPolicy()
+        .catch(() => null);
       if (policy?.ok) renderRestoreExecutionPolicy(policy);
       showMessage(
         result?.message ||
@@ -2146,11 +2204,14 @@
         typedPhrase: phrase,
         preflightDigest: lastRestorePolicy?.recoveryState?.sourcePackageChecksum || null,
         executionPolicyDigest:
-          lastRestorePolicy?.productionGovernance?.finalCertificationAssessment?.blockers?.join('|') ||
-          null,
+          lastRestorePolicy?.productionGovernance?.finalCertificationAssessment?.blockers?.join(
+            '|'
+          ) || null,
       });
       renderRestoreFinalConfirmation(result || {});
-      const policy = await A().restoreExecutionPolicy().catch(() => null);
+      const policy = await A()
+        .restoreExecutionPolicy()
+        .catch(() => null);
       if (policy?.ok) renderRestoreExecutionPolicy(policy);
       showMessage(
         result?.message ||
@@ -2169,7 +2230,10 @@
     try {
       const result = await A().restoreStartupRecovery();
       renderRestoreStartupRecovery(result || {});
-      showMessage(result?.message || 'Restore startup recovery status refreshed.', result?.ok ? 'success' : 'error');
+      showMessage(
+        result?.message || 'Restore startup recovery status refreshed.',
+        result?.ok ? 'success' : 'error'
+      );
     } catch {
       showMessage('Unable to refresh Restore startup recovery status.', 'error');
     }
@@ -2179,7 +2243,10 @@
     try {
       const result = await A().restoreRetentionAssessment();
       renderRestoreRetentionAssessment(result || {});
-      showMessage(result?.message || 'Restore retention status refreshed.', result?.ok ? 'success' : 'error');
+      showMessage(
+        result?.message || 'Restore retention status refreshed.',
+        result?.ok ? 'success' : 'error'
+      );
     } catch {
       showMessage('Unable to refresh Restore retention status.', 'error');
     }
@@ -2244,7 +2311,6 @@
     if (result.reason) lines.push(`Abort Reason: ${result.reason}`);
     panel.textContent = lines.join('\n');
   }
-
 
   function scheduleDryRunReportSearch() {
     clearTimeout(reportSearchTimer);
@@ -2346,6 +2412,7 @@
       initialized = true;
       addListener(document, 'click', handleBlockedAction, true);
       addListener($id('settingsModule'), 'click', handleTabClick);
+      addListener($id('saveStoreSettingsButton'), 'click', handleSaveStoreSettings);
       addListener($id('assessBackupPreflightButton'), 'click', handleBackupPreflight);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
@@ -2406,11 +2473,7 @@
         'click',
         handlePrepareRestoreSafetyBackup
       );
-      addListener(
-        $id('cancelRestorePreparationButton'),
-        'click',
-        handleCancelRestorePreparation
-      );
+      addListener($id('cancelRestorePreparationButton'), 'click', handleCancelRestorePreparation);
       addListener(
         $id('recordRestoreFinalConfirmationButton'),
         'click',

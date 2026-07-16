@@ -34,6 +34,14 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/store/save', async (_event, payload) => {
+    try {
+      return await settingsService.saveStoreSettings(payload || {});
+    } catch (error) {
+      return safeError(error, 'Store settings save error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/list', async (_event, filters) => {
     try {
       return await settingsService.listBackups(filters || {});

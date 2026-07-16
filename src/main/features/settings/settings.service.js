@@ -75,6 +75,28 @@ function cleanSettings(payload = {}) {
   };
 }
 
+function validateStoreSettings(store = {}) {
+  const errors = [];
+  if (!cleanText(store.storeName, 140)) errors.push('Business name is required.');
+  const email = cleanText(store.email, 180);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push('Enter a valid email address.');
+  }
+  return errors;
+}
+
+function cleanStoreSettings(payload = {}, existingStore = {}) {
+  return {
+    storeName: cleanText(payload.storeName, 140),
+    phone: cleanText(payload.phone, 60),
+    email: cleanText(payload.email, 180),
+    address: cleanText(payload.address, 500),
+    taxNumber: cleanText(payload.taxNumber, 80),
+    receiptFooterText: cleanText(existingStore.receiptFooterText, 500) || 'Thank you for shopping',
+    logoPath: cleanText(existingStore.logoPath, 500),
+  };
+}
+
 async function getSettings() {
   const access = await requireSettingsAccess('settings.view');
   if (!access.ok) return access;
@@ -92,6 +114,26 @@ async function saveSettings(payload = {}) {
     message: 'Settings saved',
   });
   return { ok: true, settings, message: 'Settings saved successfully.' };
+}
+
+async function saveStoreSettings(payload = {}) {
+  const access = await requireSettingsAccess('settings.update');
+  if (!access.ok) return access;
+  const currentSettings = await settingsRepository.getSettings();
+  const store = cleanStoreSettings(payload, currentSettings.store || {});
+  const errors = validateStoreSettings(store);
+  if (errors.length) return { ok: false, message: errors[0], errors };
+  const settings = await settingsRepository.saveStoreSettings(store, access.profile.id);
+  await activityRepository.createActivityLog({
+    userId: access.profile.id,
+    action: 'settings.store.save',
+    status: 'success',
+    message: 'Store settings saved',
+    metadata: {
+      changedFields: ['storeName', 'phone', 'email', 'address', 'taxNumber'],
+    },
+  });
+  return { ok: true, settings, message: 'Store settings saved successfully.' };
 }
 
 async function createBackup(filePath) {
@@ -2914,5 +2956,6 @@ module.exports = {
   prepareRestoreSafetyBackup,
   createRestoreFinalConfirmation,
   saveSettings,
+  saveStoreSettings,
   verifyRestorePackage,
 };
