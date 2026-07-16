@@ -2,10 +2,16 @@ const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, nativeImage } = require('electron');
 const printingRepository = require('./printing.repository');
 const LOGO_RECEIPT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
 const LOGO_RECEIPT_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_ESC_POS_MIN_DIMENSION = 64;
+const LOGO_ESC_POS_MAX_DIMENSION = 3000;
+const LOGO_ESC_POS_MAX_BYTES = 2 * 1024 * 1024;
+const ESC_POS_LOGO_MAX_WIDTH_DOTS = 240;
+const ESC_POS_LOGO_MAX_HEIGHT_DOTS = 160;
+const ESC_POS_TINY_LOGO_MAX_UPSCALE = 2;
 
 const RECEIPT_PAPER_PROFILES = Object.freeze({
   '58mm': Object.freeze({
@@ -14,6 +20,7 @@ const RECEIPT_PAPER_PROFILES = Object.freeze({
     printableInsetMm: 3,
     receiptColumns: 32,
     fontSizePx: 11,
+    printableDots: 384,
   }),
   '80mm': Object.freeze({
     paperWidth: '80mm',
@@ -22,6 +29,7 @@ const RECEIPT_PAPER_PROFILES = Object.freeze({
     receiptWidthMm: 69,
     receiptColumns: 48,
     fontSizePx: 12,
+    printableDots: 576,
   }),
   A4: Object.freeze({
     paperWidth: 'A4',
@@ -29,6 +37,7 @@ const RECEIPT_PAPER_PROFILES = Object.freeze({
     printableInsetMm: 8,
     receiptColumns: 72,
     fontSizePx: 12,
+    printableDots: 576,
   }),
 });
 
@@ -102,6 +111,126 @@ function safeLogoSrc(logoPath) {
   }
 }
 
+function validateReceiptLogoPath(logoPath) {
+  const normalizedPath = cleanText(logoPath);
+  if (!normalizedPath) return { ok: false, reason: 'empty' };
+  try {
+    const ext = path.extname(normalizedPath).toLowerCase();
+    if (!LOGO_RECEIPT_EXTENSIONS.has(ext)) return { ok: false, reason: 'unsupported_type' };
+    if (!fsSync.existsSync(normalizedPath)) return { ok: false, reason: 'missing' };
+    const stat = fsSync.statSync(normalizedPath);
+    if (!stat.isFile()) return { ok: false, reason: 'not_file' };
+    if (stat.size <= 0) return { ok: false, reason: 'empty_file' };
+    if (stat.size > LOGO_ESC_POS_MAX_BYTES) return { ok: false, reason: 'oversized_file' };
+    const buffer = fsSync.readFileSync(normalizedPath, { encoding: null });
+    const header = buffer.subarray(0, 24);
+    const isPng =
+      ext === '.png' &&
+      header.length >= 24 &&
+      header.subarray(0, 8).toString('hex') === '89504e470d0a1a0a' &&
+      header.subarray(12, 16).toString('ascii') === 'IHDR';
+    const isJpeg =
+      (ext === '.jpg' || ext === '.jpeg') &&
+      header.length >= 3 &&
+      header[0] === 0xff &&
+      header[1] === 0xd8 &&
+      header[2] === 0xff;
+    if (!isPng && !isJpeg) return { ok: false, reason: 'invalid_signature' };
+    return { ok: true, path: normalizedPath, ext, size: stat.size };
+  } catch (_error) {
+    return { ok: false, reason: 'unreadable' };
+  }
+}
+
+function logoTargetSize(sourceSize, printableDots) {
+  const sourceWidth = Math.max(1, Number(sourceSize.width || 0));
+  const sourceHeight = Math.max(1, Number(sourceSize.height || 0));
+  const maxWidth = Math.min(ESC_POS_LOGO_MAX_WIDTH_DOTS, Math.max(64, printableDots - 32));
+  const maxHeight = ESC_POS_LOGO_MAX_HEIGHT_DOTS;
+  const scale = Math.min(
+    maxWidth / sourceWidth,
+    maxHeight / sourceHeight,
+    sourceWidth < maxWidth ? ESC_POS_TINY_LOGO_MAX_UPSCALE : 1
+  );
+  return {
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  };
+}
+
+function escPosRasterCommandFromBitmap(bitmap, width, height) {
+  const bytesPerRow = Math.ceil(width / 8);
+  const raster = Buffer.alloc(bytesPerRow * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const blue = bitmap[offset] || 0;
+      const green = bitmap[offset + 1] || 0;
+      const red = bitmap[offset + 2] || 0;
+      const alpha = bitmap[offset + 3] ?? 255;
+      const luminance = alpha === 0 ? 255 : red * 0.299 + green * 0.587 + blue * 0.114;
+      if (luminance < 176) {
+        raster[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+      }
+    }
+  }
+  return Buffer.concat([
+    Buffer.from([
+      0x1d,
+      0x76,
+      0x30,
+      0x00,
+      bytesPerRow & 0xff,
+      (bytesPerRow >> 8) & 0xff,
+      height & 0xff,
+      (height >> 8) & 0xff,
+    ]),
+    raster,
+  ]);
+}
+
+function buildEscPosLogoCommand(settings = {}) {
+  const logo = validateReceiptLogoPath(settings.logoPath);
+  if (!logo.ok) return null;
+  try {
+    const sourceImage = nativeImage.createFromPath(logo.path);
+    if (!sourceImage || sourceImage.isEmpty()) return null;
+    const sourceSize = sourceImage.getSize();
+    const smallest = Math.min(sourceSize.width, sourceSize.height);
+    const largest = Math.max(sourceSize.width, sourceSize.height);
+    if (
+      smallest < LOGO_ESC_POS_MIN_DIMENSION ||
+      largest > LOGO_ESC_POS_MAX_DIMENSION ||
+      !Number.isFinite(smallest) ||
+      !Number.isFinite(largest)
+    ) {
+      return null;
+    }
+    const profile = receiptPaperProfile(settings.paperWidth);
+    const target = logoTargetSize(sourceSize, profile.printableDots || 576);
+    const resized = sourceImage.resize({
+      width: target.width,
+      height: target.height,
+      quality: 'best',
+    });
+    if (!resized || resized.isEmpty()) return null;
+    const bitmap = resized.toBitmap();
+    if (!Buffer.isBuffer(bitmap) || bitmap.length < target.width * target.height * 4) return null;
+    return {
+      command: Buffer.concat([
+        Buffer.from([0x1b, 0x61, 0x01]),
+        escPosRasterCommandFromBitmap(bitmap, target.width, target.height),
+        Buffer.from([0x0a, 0x1b, 0x61, 0x00]),
+      ]),
+      width: target.width,
+      height: target.height,
+      printableDots: profile.printableDots || 576,
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
 function formatQuantity(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number)) return '0';
@@ -162,7 +291,10 @@ async function savePrinterSettings(settings = {}) {
 function buildEscPosReceipt(receipt, settings) {
   const width = receiptWidth(settings.paperWidth);
   const businessName = cleanText(settings.businessName || settings.storeName) || 'Enterprise POS';
-  const rows = ['\x1b@', '\x1ba\x01', businessName, 'Retail Receipt', '\x1ba\x00', line(width)];
+  const logoCommand = buildEscPosLogoCommand(settings);
+  const rows = [Buffer.from([0x1b, 0x40])];
+  if (logoCommand) rows.push(logoCommand.command);
+  rows.push('\x1ba\x01', businessName, 'Retail Receipt', '\x1ba\x00', line(width));
   if (settings.storeAddress) rows.push(`Address: ${settings.storeAddress}`);
   if (settings.storePhone) rows.push(`Phone: ${settings.storePhone}`);
   if (settings.storeEmail) rows.push(`Email: ${settings.storeEmail}`);
@@ -197,7 +329,9 @@ function buildEscPosReceipt(receipt, settings) {
     rows.push(...footerLines);
   }
   rows.push('\n\n\n\x1dV\x00');
-  return rows.join('\n');
+  return Buffer.concat(
+    rows.map((row) => (Buffer.isBuffer(row) ? row : Buffer.from(`${String(row)}\n`, 'latin1')))
+  );
 }
 
 function buildReceiptHtml(receipt, settings) {

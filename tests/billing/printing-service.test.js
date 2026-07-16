@@ -63,11 +63,72 @@ function receiptMm(css, property) {
 function tempLogoPath(ext = '.png') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'receipt-logo-'));
   const logoPath = path.join(dir, `brand${ext}`);
-  fs.writeFileSync(logoPath, Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex'));
+  if (ext === '.jpg' || ext === '.jpeg')
+    fs.writeFileSync(logoPath, Buffer.from([0xff, 0xd8, 0xff, 0xdb]));
+  else {
+    const buffer = Buffer.alloc(33);
+    Buffer.from('89504e470d0a1a0a', 'hex').copy(buffer, 0);
+    buffer.writeUInt32BE(13, 8);
+    buffer.write('IHDR', 12);
+    buffer.writeUInt32BE(96, 16);
+    buffer.writeUInt32BE(96, 20);
+    buffer[24] = 8;
+    buffer[25] = 6;
+    fs.writeFileSync(logoPath, buffer);
+  }
   return logoPath;
 }
 
-function loadPrintingService({ settingsRow, storeSettingsRow, printCallback }) {
+function escposText(buffer) {
+  return Buffer.isBuffer(buffer) ? buffer.toString('latin1') : String(buffer || '');
+}
+
+function rasterMeta(buffer) {
+  const offset = buffer.indexOf(Buffer.from([0x1d, 0x76, 0x30, 0x00]));
+  if (offset < 0) return null;
+  const widthBytes = buffer[offset + 4] + buffer[offset + 5] * 256;
+  const height = buffer[offset + 6] + buffer[offset + 7] * 256;
+  return {
+    offset,
+    widthBytes,
+    widthDots: widthBytes * 8,
+    height,
+    payloadBytes: widthBytes * height,
+  };
+}
+
+function fakeNativeImageFactory({ size = { width: 120, height: 80 }, failResize = false } = {}) {
+  const calls = [];
+  function image(width, height) {
+    return {
+      isEmpty: () => false,
+      getSize: () => ({ width, height }),
+      resize: (options) => {
+        calls.push(options);
+        if (failResize) return { isEmpty: () => true };
+        return image(options.width, options.height);
+      },
+      toBitmap: () => {
+        const buffer = Buffer.alloc(width * height * 4);
+        for (let index = 0; index < buffer.length; index += 4) {
+          buffer[index] = 0;
+          buffer[index + 1] = 0;
+          buffer[index + 2] = 0;
+          buffer[index + 3] = 255;
+        }
+        return buffer;
+      },
+    };
+  }
+  return {
+    calls,
+    nativeImage: {
+      createFromPath: () => image(size.width, size.height),
+    },
+  };
+}
+
+function loadPrintingService({ settingsRow, storeSettingsRow, printCallback, nativeImage }) {
   delete require.cache[servicePath];
   delete require.cache[repositoryPath];
 
@@ -103,7 +164,7 @@ function loadPrintingService({ settingsRow, storeSettingsRow, printCallback }) {
   Module._load = function patchedLoad(request, parent, isMain) {
     const resolved = Module._resolveFilename(request, parent, isMain);
     if (request === 'electron') {
-      return { BrowserWindow: FakeBrowserWindow };
+      return { BrowserWindow: FakeBrowserWindow, nativeImage };
     }
     if (resolved === repositoryPath) {
       return {
@@ -332,12 +393,12 @@ test('Billing receipt renders existing business settings and omits unsupported b
   assert.match(html, /NTN-123/);
   assert.doesNotMatch(html, /website/i);
   assert.doesNotMatch(html, /Legacy footer should not render/);
-  assert.match(escpos, /Grocery POS Market/);
-  assert.match(escpos, /Address: 12 Market Road/);
-  assert.match(escpos, /Tax No\.: NTN-123/);
+  assert.match(escposText(escpos), /Grocery POS Market/);
+  assert.match(escposText(escpos), /Address: 12 Market Road/);
+  assert.match(escposText(escpos), /Tax No\.: NTN-123/);
 });
 
-test('Billing receipt renders a valid saved business logo in HTML and keeps ESC/POS text-only', () => {
+test('Billing receipt renders a valid saved business logo in HTML without leaking paths into ESC/POS', () => {
   const { service } = loadPrintingService({
     settingsRow: {},
     printCallback: () => {},
@@ -359,8 +420,111 @@ test('Billing receipt renders a valid saved business logo in HTML and keeps ESC/
   assert.match(html, /<img class="brand-logo" src="file:\/\/\//);
   assert.match(html, /object-fit:\s*contain/);
   assert.match(html, /Grocery POS Market/);
-  assert.doesNotMatch(escpos, /file:\/\//);
-  assert.match(escpos, /Grocery POS Market/);
+  assert.doesNotMatch(escposText(escpos), /file:\/\//);
+  assert.match(escposText(escpos), /Grocery POS Market/);
+});
+
+test('Billing ESC/POS receipt renders valid managed PNG logo as centered binary raster before business name', () => {
+  const logoPath = tempLogoPath('.png');
+  const fake = fakeNativeImageFactory({ size: { width: 160, height: 80 } });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+
+  const escpos = service.buildEscPosReceipt(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+    receiptFooterText: 'Thanks',
+  });
+  const meta = rasterMeta(escpos);
+  const text = escposText(escpos);
+
+  assert.equal(Buffer.isBuffer(escpos), true);
+  assert.ok(meta);
+  assert.equal(meta.widthDots <= 240, true);
+  assert.equal(meta.height <= 160, true);
+  assert.equal(meta.payloadBytes, meta.widthBytes * meta.height);
+  assert.equal(escpos.indexOf(Buffer.from('Grocery POS Market', 'latin1')) > meta.offset, true);
+  assert.match(text, /Grocery POS Market/);
+  assert.match(text, /Thanks/);
+  assert.doesNotMatch(text, /file:\/\//);
+  assert.equal(escpos[0], 0x1b);
+  assert.equal(escpos[1], 0x40);
+  assert.deepEqual([...escpos.subarray(meta.offset - 3, meta.offset)], [0x1b, 0x61, 0x01]);
+});
+
+test('Billing ESC/POS receipt renders valid JPEG logo and preserves aspect ratio while downscaling', () => {
+  const logoPath = tempLogoPath('.jpg');
+  const fake = fakeNativeImageFactory({ size: { width: 1200, height: 600 } });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+
+  const escpos = service.buildEscPosReceipt(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+  });
+  const meta = rasterMeta(escpos);
+
+  assert.ok(meta);
+  assert.equal(fake.calls[0].width, 240);
+  assert.equal(fake.calls[0].height, 120);
+  assert.equal(meta.height, 120);
+  assert.equal(meta.widthDots, 240);
+});
+
+test('Billing ESC/POS receipt avoids excessive upscaling of small logos', () => {
+  const logoPath = tempLogoPath('.png');
+  const fake = fakeNativeImageFactory({ size: { width: 80, height: 80 } });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+
+  const escpos = service.buildEscPosReceipt(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+  });
+  const meta = rasterMeta(escpos);
+
+  assert.ok(meta);
+  assert.equal(fake.calls[0].width, 160);
+  assert.equal(fake.calls[0].height, 160);
+  assert.equal(meta.widthDots, 160);
+  assert.equal(meta.height, 160);
+});
+
+test('Billing ESC/POS receipt falls back to text-only for missing, corrupt, unsupported, or failed logos', () => {
+  const missingLogo = path.join(os.tmpdir(), 'missing-escpos-logo.png');
+  const corruptLogo = path.join(os.tmpdir(), `corrupt-escpos-logo-${Date.now()}.png`);
+  const unsupportedLogo = tempLogoPath('.gif');
+  fs.writeFileSync(corruptLogo, 'not a png');
+  const fake = fakeNativeImageFactory({ size: { width: 120, height: 80 }, failResize: true });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+
+  for (const logoPath of ['', missingLogo, corruptLogo, unsupportedLogo, tempLogoPath('.png')]) {
+    const escpos = service.buildEscPosReceipt(receipt, {
+      paperWidth: '80mm',
+      businessName: 'Grocery POS Market',
+      logoPath,
+      receiptFooterText: 'Thanks',
+    });
+    assert.equal(rasterMeta(escpos), null);
+    assert.match(escposText(escpos), /Grocery POS Market/);
+    assert.match(escposText(escpos), /Thanks/);
+  }
 });
 
 test('Billing receipt omits missing or unsupported logo paths without hiding business name', () => {
@@ -454,7 +618,7 @@ test('Billing receipt uses configured store receipt footer in HTML and ESC/POS o
 
   assert.match(html, /<span class="footer-line">Thank you!<\/span>/);
   assert.match(html, /<span class="footer-line">We hope to see you again soon\.<\/span>/);
-  assert.match(escpos, /Thank you!\nWe hope to see you again soon\./);
+  assert.match(escposText(escpos), /Thank you!\nWe hope to see you again soon\./);
 });
 
 test('Billing receipt omits configured footer block when store footer is blank', () => {
@@ -474,7 +638,7 @@ test('Billing receipt omits configured footer block when store footer is blank',
 
   assert.doesNotMatch(html, /class="footer"/);
   assert.doesNotMatch(html, /Thank you!/);
-  assert.doesNotMatch(escpos, /Thank you!/);
+  assert.doesNotMatch(escposText(escpos), /Thank you!/);
 });
 
 test('Billing receipt escapes multiline footer text and avoids the old hardcoded footer', () => {
@@ -520,6 +684,37 @@ test('Completed Invoice reprint receipt shape uses the same thermal renderer con
   assert.match(html, /class="items-head"/);
   assert.match(html, /class="total-row grand"/);
   assert.match(html, /<span class="footer-line">Thanks<\/span>/);
+});
+
+test('Completed Invoice ESC/POS reprint uses the same business logo raster behavior', () => {
+  const logoPath = tempLogoPath('.png');
+  const fake = fakeNativeImageFactory({ size: { width: 160, height: 80 } });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+  const completedInvoiceReceipt = {
+    ...receipt,
+    invoiceNumber: 'INV-COMPLETE-LOGO',
+    status: 'COMPLETED',
+    payments: [{ paymentMethod: 'Cash', amount: 10, createdAt: receipt.createdAt }],
+  };
+
+  const escpos = service.buildEscPosReceipt(completedInvoiceReceipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+    receiptFooterText: 'Thanks',
+  });
+
+  assert.ok(rasterMeta(escpos));
+  assert.equal(
+    escpos.indexOf(Buffer.from('Grocery POS Market', 'latin1')) > rasterMeta(escpos).offset,
+    true
+  );
+  assert.match(escposText(escpos), /INV-COMPLETE-LOGO/);
+  assert.match(escposText(escpos), /Thanks/);
 });
 
 test('Billing receipt heading fix preserves accepted 80mm geometry', () => {
