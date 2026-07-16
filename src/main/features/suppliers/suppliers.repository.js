@@ -35,27 +35,84 @@ function mapPurchase(row) {
   };
 }
 
+function supplierFinancialSummaryJoins(alias = 'suppliers') {
+  return `
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(SUM(purchases.grand_total), 0)::numeric AS total_purchases,
+        COALESCE(SUM(purchases.paid_amount), 0)::numeric AS purchase_paid,
+        MAX(purchases.purchase_date) AS last_purchase_date
+      FROM purchases
+      WHERE purchases.supplier_id = ${alias}.id
+        AND purchases.deleted_at IS NULL
+    ) purchase_summary ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(SUM(supplier_payments.amount), 0)::numeric AS supplier_payments_total
+      FROM supplier_payments
+      WHERE supplier_payments.supplier_id = ${alias}.id
+    ) payment_summary ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT MAX(supplier_payments.created_at) AS last_payment_date
+      FROM supplier_payments
+      WHERE supplier_payments.supplier_id = ${alias}.id
+    ) last_payment_summary ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT supplier_ledger.balance AS latest_ledger_balance
+      FROM supplier_ledger
+      WHERE supplier_ledger.supplier_id = ${alias}.id
+      ORDER BY supplier_ledger.created_at DESC, supplier_ledger.id DESC
+      LIMIT 1
+    ) ledger_summary ON TRUE
+  `;
+}
+
+function supplierFinancialSummaryColumns(alias = 'suppliers') {
+  return `
+    COALESCE(purchase_summary.total_purchases, 0)::numeric AS total_purchases,
+    COALESCE(purchase_summary.purchase_paid, 0)::numeric AS purchase_paid,
+    COALESCE(payment_summary.supplier_payments_total, 0)::numeric AS supplier_payments_total,
+    (
+      COALESCE(purchase_summary.purchase_paid, 0)
+      + COALESCE(payment_summary.supplier_payments_total, 0)
+    )::numeric AS total_paid,
+    ${alias}.current_balance::numeric AS total_due,
+    purchase_summary.last_purchase_date AS last_purchase_date,
+    last_payment_summary.last_payment_date AS last_payment_date,
+    ledger_summary.latest_ledger_balance::numeric AS latest_ledger_balance
+  `;
+}
+
+function mapSupplierFinancialStats(row = {}) {
+  const totalDue = Number(row.total_due ?? row.current_balance ?? 0);
+  return {
+    totalPurchases: Number(row.total_purchases || 0),
+    totalPaid: Number(row.total_paid || 0),
+    totalPayments: Number(row.total_paid || 0),
+    totalDue,
+    outstandingBalance: totalDue,
+    purchasePaid: Number(row.purchase_paid || 0),
+    supplierPayments: Number(row.supplier_payments_total || 0),
+    ledgerBalance:
+      row.latest_ledger_balance === null || row.latest_ledger_balance === undefined
+        ? null
+        : Number(row.latest_ledger_balance || 0),
+    lastPurchaseDate: row.last_purchase_date,
+    lastPaymentDate: row.last_payment_date,
+  };
+}
+
 async function listSuppliers() {
   const result = await getPool().query(`
     SELECT suppliers.*,
-      COALESCE(SUM(purchases.grand_total) FILTER (WHERE purchases.deleted_at IS NULL), 0)::numeric AS total_purchases,
-      COALESCE(SUM(purchases.paid_amount) FILTER (WHERE purchases.deleted_at IS NULL), 0)::numeric AS total_paid,
-      COALESCE(SUM(purchases.due_amount) FILTER (WHERE purchases.deleted_at IS NULL), 0)::numeric AS total_due,
-      MAX(purchases.purchase_date) AS last_purchase_date
+      ${supplierFinancialSummaryColumns('suppliers')}
     FROM suppliers
-    LEFT JOIN purchases ON purchases.supplier_id = suppliers.id
+    ${supplierFinancialSummaryJoins('suppliers')}
     WHERE suppliers.deleted_at IS NULL
-    GROUP BY suppliers.id
     ORDER BY suppliers.name ASC
   `);
   return result.rows.map((row) => ({
     ...mapSupplier(row),
-    stats: {
-      totalPurchases: Number(row.total_purchases || 0),
-      totalPaid: Number(row.total_paid || 0),
-      totalDue: Number(row.total_due || 0),
-      lastPurchaseDate: row.last_purchase_date,
-    },
+    stats: mapSupplierFinancialStats(row),
   }));
 }
 
@@ -157,12 +214,10 @@ async function getSupplierDetails(id) {
   const ledger = await getSupplierLedger(id);
   const statsResult = await getPool().query(
     `
-      SELECT COALESCE(SUM(grand_total), 0)::numeric AS total_purchases,
-             COALESCE(SUM(paid_amount), 0)::numeric AS total_paid,
-             COALESCE(SUM(due_amount), 0)::numeric AS total_due,
-             MAX(purchase_date) AS last_purchase_date
-      FROM purchases
-      WHERE supplier_id = $1 AND deleted_at IS NULL
+      SELECT ${supplierFinancialSummaryColumns('suppliers')}
+      FROM suppliers
+      ${supplierFinancialSummaryJoins('suppliers')}
+      WHERE suppliers.id = $1 AND suppliers.deleted_at IS NULL
     `,
     [id]
   );
@@ -170,12 +225,7 @@ async function getSupplierDetails(id) {
   return {
     supplier: {
       ...mapSupplier(suppliers.rows[0]),
-      stats: {
-        totalPurchases: Number(stats.total_purchases || 0),
-        totalPaid: Number(stats.total_paid || 0),
-        totalDue: Number(stats.total_due || 0),
-        lastPurchaseDate: stats.last_purchase_date,
-      },
+      stats: mapSupplierFinancialStats({ ...suppliers.rows[0], ...stats }),
     },
     purchases: purchases.rows.map(mapPurchase),
     ledger,

@@ -49,6 +49,34 @@
   function supplierLastPurchase(supplier) {
     return supplier?.stats?.lastPurchaseDate || supplier?.lastPurchaseDate || null;
   }
+  function supplierLastPayment(supplier) {
+    return supplier?.stats?.lastPaymentDate || supplier?.lastPaymentDate || null;
+  }
+  function formatDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+  }
+  function formatDateTitle(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+  }
+  function supplierOutstandingDisplay(value) {
+    const balance = Number(value || 0);
+    if (balance < 0) {
+      return {
+        text: `Advance ${money(Math.abs(balance))}`,
+        color: '#0f766e',
+        title: 'Supplier advance / credit balance',
+      };
+    }
+    return {
+      text: money(balance),
+      color: balance > 0 ? '#dc2626' : '#16a34a',
+      title: balance > 0 ? 'Payable balance' : 'Settled balance',
+    };
+  }
   function supplierCity(supplier) {
     const direct = supplier?.city || supplier?.supplierCity;
     if (direct) return String(direct).trim();
@@ -105,11 +133,15 @@
     set('supplierStatTotal', suppliers.length);
     const totalPurchases = suppliers.reduce((s, x) => s + supplierTotalPurchases(x), 0);
     const totalPayments = suppliers.reduce((s, x) => s + supplierTotalPayments(x), 0);
-    const totalDue = suppliers.reduce((s, x) => s + supplierTotalDue(x), 0);
+    const totalDue = suppliers.reduce((s, x) => s + Math.max(supplierTotalDue(x), 0), 0);
+    const totalAdvances = suppliers.reduce((s, x) => {
+      const balance = supplierTotalDue(x);
+      return s + (balance < 0 ? Math.abs(balance) : 0);
+    }, 0);
     set('supplierStatPurchases', money(totalPurchases));
     set('supplierStatPayments', money(totalPayments));
     set('supplierStatDue', money(totalDue));
-    set('supplierStatOverdue', money(totalDue)); // same field — no aging API
+    set('supplierStatAdvances', money(totalAdvances));
     set('supplierStatToday', money(0)); // no today-specific endpoint
   }
 
@@ -129,9 +161,11 @@
           (s.address || '').toLowerCase().includes(search)
       );
     }
-    if (status === 'active') list = list.filter((s) => s.isActive);
-    if (status === 'inactive') list = list.filter((s) => !s.isActive);
-    if (status === 'due') list = list.filter((s) => Number(s.currentBalance || 0) > 0);
+    if (status === 'status_active') list = list.filter((s) => s.isActive);
+    if (status === 'status_inactive') list = list.filter((s) => !s.isActive);
+    if (status === 'balance_payable') list = list.filter((s) => supplierTotalDue(s) > 0);
+    if (status === 'balance_settled') list = list.filter((s) => supplierTotalDue(s) === 0);
+    if (status === 'balance_advance') list = list.filter((s) => supplierTotalDue(s) < 0);
     if (city) list = list.filter((s) => supplierCity(s) === city);
     return list;
   }
@@ -167,10 +201,11 @@
     }
     tbody.innerHTML = list
       .map((s, i) => {
-        const due = supplierTotalDue(s);
-        const dueColor = due > 0 ? '#dc2626' : '#16a34a';
+        const outstanding = supplierTotalDue(s);
+        const outstandingDisplay = supplierOutstandingDisplay(outstanding);
         const selected = String(s.id) === String(_selectedSupplierId);
         const lastPurchase = supplierLastPurchase(s);
+        const lastPayment = supplierLastPayment(s);
         const badge = s.isActive
           ? '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Active</span>'
           : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Inactive</span>';
@@ -180,9 +215,9 @@
         <td style="font-size:.75rem">${esc(s.phone || '—')}</td>
         <td style="text-align:right;font-size:.78rem">${money(supplierTotalPurchases(s))}</td>
         <td style="text-align:right;font-size:.78rem">${money(supplierTotalPayments(s))}</td>
-        <td style="text-align:right;font-weight:700;color:${dueColor};font-size:.82rem">${money(due)}</td>
-        <td style="text-align:right;font-size:.75rem;color:${due > 0 ? '#dc2626' : '#6b7280'}">${money(due)}</td>
-        <td style="font-size:.75rem;color:#9ca3af">${lastPurchase ? new Date(lastPurchase).toLocaleDateString() : '—'}</td>
+        <td title="${esc(outstandingDisplay.title)}" style="text-align:right;font-weight:700;color:${outstandingDisplay.color};font-size:.82rem">${esc(outstandingDisplay.text)}</td>
+        <td title="${esc(formatDateTitle(lastPurchase))}" style="font-size:.75rem;color:#9ca3af">${formatDate(lastPurchase)}</td>
+        <td title="${esc(formatDateTitle(lastPayment))}" style="font-size:.75rem;color:#9ca3af">${formatDate(lastPayment)}</td>
         <td data-supplier-status>${badge}</td>
         <td class="epos-suppliers-row-actions">
           <button type="button" data-view-supplier="${s.id}" title="View supplier details">View</button>
@@ -398,7 +433,8 @@
     }
     const due = $id('supplierPaymentDue');
     const supplier = _allSuppliers.find((s) => String(s.id) === String(supplierId));
-    if (due && supplier) due.textContent = money(supplier.currentBalance);
+    if (due && supplier)
+      due.textContent = supplierOutstandingDisplay(supplierTotalDue(supplier)).text;
     modal.classList.remove('hidden');
     setTimeout(() => $id('supplierPaymentStandaloneAmount')?.focus(), 40);
   }
@@ -467,7 +503,7 @@
       _allSuppliers
         .map(
           (s) =>
-            `<option value="${s.id}">${esc(s.name)}${Number(s.currentBalance || 0) > 0 ? ` (Due: ${money(s.currentBalance)})` : ''}</option>`
+            `<option value="${s.id}">${esc(s.name)}${Number(s.currentBalance || 0) > 0 ? ` (Payable: ${money(s.currentBalance)})` : ''}</option>`
         )
         .join('');
   }
@@ -519,7 +555,7 @@
       <div style="padding:12px 14px;display:grid;gap:8px">
         <div style="display:flex;justify-content:space-between;font-size:.78rem"><span>Total Purchases</span><strong>${money(supplierTotalPurchases(supplier))}</strong></div>
         <div style="display:flex;justify-content:space-between;font-size:.78rem"><span>Total Payments</span><strong>${money(supplierTotalPayments(supplier))}</strong></div>
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span>Outstanding</span><strong style="color:#dc2626">${money(supplierTotalDue(supplier))}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span>Payable</span><strong style="color:${supplierOutstandingDisplay(supplierTotalDue(supplier)).color}">${esc(supplierOutstandingDisplay(supplierTotalDue(supplier)).text)}</strong></div>
         <p style="margin:8px 0 4px;font-size:.75rem;font-weight:700;color:#374151">Purchase History (${purchases.length})</p>
         ${
           purchases.length
@@ -664,7 +700,7 @@
       const s = $id('supplierInlineSearch');
       if (s) s.value = '';
       const f = $id('supplierStatusFilter');
-      if (f) f.value = '';
+      if (f) f.value = 'all';
       ['supplierCityFilter', 'supplierFromDateFilter', 'supplierToDateFilter'].forEach((id) => {
         const el = $id(id);
         if (el) el.value = '';
@@ -737,9 +773,6 @@
       .forEach((el) => el.addEventListener('click', () => closePaymentModal()));
 
     // Ledger picker
-    $id('supplierAgingButton')?.addEventListener('click', () =>
-      showMsg(api().placeholder('aging').message, 'info')
-    );
     $id('supplierStatementButton')?.addEventListener('click', () =>
       showMsg(api().placeholder('statement').message, 'info')
     );
@@ -790,9 +823,9 @@
         if (!supplier?.phone) return;
         const digits = supplier.phone.replace(/\D/g, '');
         const messages = {
-          ledger: `Dear ${supplier.name},\nYour ledger statement is ready. Outstanding balance: Rs.${Number(supplier.currentBalance || 0).toFixed(2)}.\nPlease contact us for details.`,
+          ledger: `Dear ${supplier.name},\nYour ledger statement is ready. Payable balance: Rs.${Number(supplier.currentBalance || 0).toFixed(2)}.\nPlease contact us for details.`,
           invoices: `Dear ${supplier.name},\nYour purchase invoice history is available. Contact us to get a copy.`,
-          due: `Dear ${supplier.name},\nReminder: Your outstanding balance is Rs.${Number(supplier.currentBalance || 0).toFixed(2)}. Please clear at your earliest convenience.`,
+          due: `Dear ${supplier.name},\nReminder: Your payable balance is Rs.${Number(supplier.currentBalance || 0).toFixed(2)}. Please clear at your earliest convenience.`,
           payment: `Dear ${supplier.name},\nThank you for your payment. Your account has been updated.`,
           custom: '',
         };

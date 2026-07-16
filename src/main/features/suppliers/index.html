@@ -4,7 +4,7 @@
     <article class="green"><span>PO</span><div><p>Total Purchases</p><strong id="supplierStatPurchases">Rs. 0.00</strong><small>All purchase history</small></div></article>
     <article class="purple"><span>PY</span><div><p>Total Payments</p><strong id="supplierStatPayments">Rs. 0.00</strong><small>Ledger payments</small></div></article>
     <article class="orange"><span>DU</span><div><p>Total Due (Payable)</p><strong id="supplierStatDue">Rs. 0.00</strong><small>Outstanding balance</small></div></article>
-    <article class="teal"><span>OD</span><div><p>Overdue Amount</p><strong id="supplierStatOverdue">Rs. 0.00</strong><small>Suppliers with due balance</small></div></article>
+    <article class="teal"><span>AD</span><div><p>Supplier Advances</p><strong id="supplierStatAdvances">Rs. 0.00</strong><small>Credit balance held</small></div></article>
     <article class="sky"><span>TD</span><div><p>Today Purchases</p><strong id="supplierStatToday">Rs. 0.00</strong><small>Live database value</small></div></article>
   </div>
 
@@ -20,8 +20,8 @@
   </nav>
 
   <div class="epos-suppliers-filters">
-    <input id="supplierInlineSearch" placeholder="Search supplier, phone, city, due, status..." />
-    <select id="supplierStatusFilter"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="due">Due Balance</option></select>
+    <input id="supplierInlineSearch" placeholder="Search supplier, phone, city, payable, status..." />
+    <select id="supplierStatusFilter"><option value="all">All Suppliers</option><option value="status_active">Active</option><option value="status_inactive">Inactive</option><option value="balance_payable">Payable</option><option value="balance_settled">Settled</option><option value="balance_advance">Advance</option></select>
     <select id="supplierCityFilter"><option value="">All Cities</option></select>
     <input id="supplierFromDateFilter" type="date" aria-label="From date" />
     <input id="supplierToDateFilter" type="date" aria-label="To date" />
@@ -41,9 +41,9 @@
               <th>Contact</th>
               <th>Total Purchases</th>
               <th>Total Payments</th>
-              <th>Due Amount</th>
-              <th>Overdue</th>
+              <th>Payable</th>
               <th>Last Purchase</th>
+              <th>Last Payment</th>
               <th>Status</th>
               <th>Action</th>
             </tr>
@@ -61,7 +61,7 @@
     <button id="supplierNewPurchaseButton" type="button" class="blue navLink" data-route="/purchases">New Purchase</button>
     <button id="supplierBottomPaymentButton" type="button" class="purple">Make Payment</button>
     <button id="supplierStatementButton" type="button" class="orange" disabled aria-disabled="true" title="Supplier statement is unavailable until certification.">Statement Unavailable</button>
-    <button id="supplierAgingButton" type="button" class="teal" disabled aria-disabled="true" title="Supplier aging report is unavailable until certification.">Aging Unavailable</button>
+    <button id="supplierAgingButton" type="button" class="teal" disabled aria-disabled="true" title="Supplier aging requires due dates and payment allocation and is not available yet.">Aging Unavailable</button>
     <button id="supplierWhatsAppButton" type="button" class="whatsapp">📲 WhatsApp</button>
     <button id="supplierExportButton" type="button" class="sky" disabled aria-disabled="true" title="Supplier export is unavailable until certification.">Export Unavailable</button>
     <button id="supplierPrintButton" type="button" class="slate" disabled aria-disabled="true" title="Supplier print is unavailable until certification.">Print Unavailable</button>
@@ -112,7 +112,7 @@
           <select id="supplierPaymentSupplier" required></select>
         </label>
         <div>
-          <span>Outstanding Balance</span>
+          <span>Payable</span>
           <strong id="supplierPaymentDue">Rs. 0.00</strong>
         </div>
       </div>
@@ -167,7 +167,7 @@
       <div class="epos-suppliers-wa-actions">
         <button type="button" class="epos-suppliers-wa-btn" data-wa-action="ledger">📊 Send Ledger Statement</button>
         <button type="button" class="epos-suppliers-wa-btn" data-wa-action="invoices">🧾 Send Purchase Invoices</button>
-        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="due">💰 Send Due Balance Reminder</button>
+        <button type="button" class="epos-suppliers-wa-btn" data-wa-action="due">💰 Send Payable Reminder</button>
         <button type="button" class="epos-suppliers-wa-btn" data-wa-action="payment">✅ Send Payment Confirmation</button>
         <button type="button" class="epos-suppliers-wa-btn" data-wa-action="custom">✏️ Custom Message</button>
       </div>

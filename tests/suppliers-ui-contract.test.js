@@ -9,6 +9,14 @@ const css = fs.readFileSync(
   path.join(repoRoot, 'src/main/features/suppliers/suppliers.css'),
   'utf8'
 );
+const api = fs.readFileSync(
+  path.join(repoRoot, 'src/main/features/suppliers/suppliers.api.js'),
+  'utf8'
+);
+const renderer = fs.readFileSync(
+  path.join(repoRoot, 'src/main/features/suppliers/suppliers.renderer.js'),
+  'utf8'
+);
 const compactCss = fs.readFileSync(path.join(repoRoot, 'src/renderer/styles/compact.css'), 'utf8');
 
 test('Suppliers keeps the certified summary, tabs, filters, and bottom actions', () => {
@@ -17,7 +25,7 @@ test('Suppliers keeps the certified summary, tabs, filters, and bottom actions',
     'supplierStatPurchases',
     'supplierStatPayments',
     'supplierStatDue',
-    'supplierStatOverdue',
+    'supplierStatAdvances',
     'supplierStatToday',
   ];
   for (const id of statIds) assert.match(html, new RegExp(`id="${id}"`));
@@ -54,6 +62,41 @@ test('Suppliers keeps the certified summary, tabs, filters, and bottom actions',
   ]) {
     assert.match(html, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+
+  assert.match(html, /Supplier Advances/);
+  assert.match(html, />Payable<\/th>/);
+  assert.match(html, /Last Payment/);
+  assert.match(html, /<span>Payable<\/span>/);
+  assert.match(html, /<option value="all">All Suppliers<\/option>/);
+  assert.match(html, /<option value="status_active">Active<\/option>/);
+  assert.match(html, /<option value="status_inactive">Inactive<\/option>/);
+  assert.match(html, /<option value="balance_payable">Payable<\/option>/);
+  assert.match(html, /<option value="balance_settled">Settled<\/option>/);
+  assert.match(html, /<option value="balance_advance">Advance<\/option>/);
+  assert.match(renderer, /status === 'status_active'[\s\S]*?s\.isActive/);
+  assert.match(renderer, /status === 'status_inactive'[\s\S]*?!s\.isActive/);
+  assert.match(renderer, /status === 'balance_payable'[\s\S]*?supplierTotalDue\(s\) > 0/);
+  assert.match(renderer, /status === 'balance_settled'[\s\S]*?supplierTotalDue\(s\) === 0/);
+  assert.match(renderer, /status === 'balance_advance'[\s\S]*?supplierTotalDue\(s\) < 0/);
+  assert.doesNotMatch(html, /Overdue Amount/);
+  assert.doesNotMatch(html, />Overdue<\/th>/);
+  assert.doesNotMatch(html, />Due Amount<\/th>/);
+  assert.doesNotMatch(html, /All Status/);
+  assert.doesNotMatch(html, /Due Balance/);
+  assert.doesNotMatch(html, /Outstanding Balance/);
+  assert.doesNotMatch(renderer, /Outstanding Balance/);
+  assert.doesNotMatch(renderer, /Due:/);
+  assert.match(renderer, /Payable:/);
+  assert.match(
+    html,
+    /id="supplierAgingButton"[^>]*disabled[^>]*aria-disabled="true"[^>]*>Aging Unavailable<\/button>/
+  );
+  assert.match(
+    api,
+    /aging:\s*'Supplier aging report is coming soon\. It is not implemented yet\.'/
+  );
+  assert.doesNotMatch(renderer, /supplierAgingButton'\)\?\.addEventListener\('click'/);
+  assert.doesNotMatch(api, /loadSupplierAging|agingReport|supplierAging/);
 });
 
 test('Suppliers compact layout transfers vertical space to the table viewport', () => {

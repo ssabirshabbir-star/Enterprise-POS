@@ -334,9 +334,9 @@
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table td:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
-  .epos-suppliers-table td:nth-child(6),
+  .epos-suppliers-table td:nth-child(6) { width: 9%; }
   .epos-suppliers-table th:nth-child(7),
-  .epos-suppliers-table td:nth-child(7) { width: 9%; }
+  .epos-suppliers-table td:nth-child(7),
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) { width: 8%; }
   .epos-suppliers-table th:nth-child(9),
@@ -400,20 +400,20 @@
   .epos-suppliers-table th:nth-child(4),
   .epos-suppliers-table th:nth-child(5),
   .epos-suppliers-table th:nth-child(6),
-  .epos-suppliers-table th:nth-child(7),
   .epos-suppliers-table td:nth-child(4),
   .epos-suppliers-table td:nth-child(5),
-  .epos-suppliers-table td:nth-child(6),
-  .epos-suppliers-table td:nth-child(7) {
+  .epos-suppliers-table td:nth-child(6) {
     text-align: right;
     white-space: nowrap;
     overflow: visible;
     text-overflow: clip;
   }
 
+  .epos-suppliers-table th:nth-child(7),
+  .epos-suppliers-table td:nth-child(7),
   .epos-suppliers-table th:nth-child(8),
   .epos-suppliers-table td:nth-child(8) {
-    text-align: right;
+    text-align: left;
     white-space: nowrap;
   }
   .epos-supplier-status { color: #009d24; font-weight: 950; }
