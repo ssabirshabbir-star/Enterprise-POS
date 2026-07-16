@@ -16,8 +16,8 @@
 
   .epos-dashboard-page {
     display: grid;
-    grid-template-rows: auto auto minmax(190px, 1fr) minmax(190px, 1fr);
-    gap: 10px;
+    grid-template-rows: auto auto minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: clamp(8px, 0.72vw, 14px);
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -26,21 +26,20 @@
 
   .epos-dashboard-header,
   .epos-dashboard-reportbar,
-  .epos-dashboard-card-head,
-  .epos-dashboard-donut-row {
+  .epos-dashboard-card-head {
     display: flex;
     align-items: center;
   }
 
   .epos-dashboard-header {
     justify-content: space-between;
-    gap: 16px;
+    gap: clamp(12px, 1vw, 20px);
     min-width: 0;
     border: 1px solid #e3eaf5;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #ffffff, #f4f8ff);
-    padding: 7px 10px 7px 14px;
-    box-shadow: 0 10px 20px rgb(15 31 61 / 0.05);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 7px 10px 7px 12px;
+    box-shadow: 0 8px 18px rgb(15 31 61 / 0.05);
   }
 
   .epos-dashboard-header p,
@@ -52,14 +51,14 @@
     color: #007b83;
     font-size: 10px;
     font-weight: 900;
-    letter-spacing: 1.8px;
+    letter-spacing: 1.6px;
     text-transform: uppercase;
   }
 
   .epos-dashboard-header h2 {
     margin-top: 2px;
     color: #0f1f3d;
-    font-size: 17px;
+    font-size: clamp(16px, 1.05vw, 20px);
     font-weight: 950;
     line-height: 1;
   }
@@ -73,9 +72,9 @@
   .epos-dashboard-reportbar span,
   .epos-dashboard-reportbar button,
   .epos-dashboard-card-head button {
-    min-height: 28px;
+    min-height: 26px;
     border: 1px solid #dbe4f2;
-    border-radius: 8px;
+    border-radius: 7px;
     background: #ffffff;
     color: #2563eb;
     padding: 0 10px;
@@ -107,52 +106,62 @@
 
   .epos-dashboard-kpis {
     display: grid;
-    gap: 14px;
-  }
-
-  .epos-dashboard-kpis {
+    gap: clamp(8px, 0.78vw, 14px);
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .epos-dashboard-kpis article {
     position: relative;
-    min-height: 112px;
+    display: grid;
+    align-content: space-between;
+    min-height: clamp(86px, 8.2vh, 116px);
     overflow: hidden;
-    border-radius: 12px;
+    border: 1px solid rgb(255 255 255 / 0.34);
+    border-radius: 8px;
     color: #ffffff;
-    padding: 18px 20px;
-    box-shadow: 0 15px 26px rgb(15 31 61 / 0.13);
+    padding: clamp(12px, 1vw, 18px);
+    box-shadow: 0 12px 24px rgb(15 31 61 / 0.12);
   }
 
   .epos-dashboard-kpis article > span {
     position: absolute;
-    right: 18px;
-    top: 18px;
-    color: rgb(255 255 255 / 0.42);
-    font-size: 28px;
+    right: clamp(12px, 1vw, 16px);
+    top: clamp(12px, 1vw, 16px);
+    display: grid;
+    width: clamp(34px, 2.7vw, 44px);
+    height: clamp(34px, 2.7vw, 44px);
+    place-items: center;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.15);
+    color: rgb(255 255 255 / 0.72);
+    font-size: clamp(10px, 0.78vw, 13px);
     font-weight: 950;
+    letter-spacing: 0;
   }
 
   .epos-dashboard-kpis p {
     margin: 0;
-    font-size: 13px;
+    padding-right: clamp(38px, 3.5vw, 54px);
+    font-size: clamp(11px, 0.84vw, 13px);
     font-weight: 850;
+    line-height: 1.15;
   }
 
   .epos-dashboard-kpis strong {
     display: block;
-    margin-top: 8px;
-    font-size: 23px;
+    margin-top: clamp(6px, 0.6vw, 9px);
+    font-size: clamp(18px, 1.45vw, 27px);
     font-weight: 950;
-    line-height: 1;
+    line-height: 1.05;
   }
 
   .epos-dashboard-kpis small {
     display: inline-flex;
-    margin-top: 18px;
+    margin-top: clamp(8px, 1vw, 16px);
     color: rgb(255 255 255 / 0.92);
-    font-size: 11px;
+    font-size: clamp(11px, 0.72vw, 12px);
     font-weight: 800;
+    line-height: 1.3;
   }
 
   .epos-dashboard-kpis .blue { background: linear-gradient(135deg, #0b6bff, #0056d6); }
@@ -165,15 +174,15 @@
   .epos-dashboard-grid-bottom {
     display: grid;
     min-height: 0;
-    gap: 12px;
+    gap: clamp(8px, 0.78vw, 14px);
   }
 
   .epos-dashboard-grid-top {
-    grid-template-columns: 1.25fr 0.9fr 0.95fr;
+    grid-template-columns: minmax(360px, 1.35fr) minmax(260px, 0.9fr) minmax(260px, 0.9fr);
   }
 
   .epos-dashboard-grid-bottom {
-    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+    grid-template-columns: minmax(420px, 1.45fr) minmax(280px, 0.9fr);
   }
 
   .epos-dashboard-card {
@@ -183,18 +192,18 @@
     min-height: 0;
     overflow: hidden;
     border: 1px solid #e3eaf5;
-    border-radius: 10px;
+    border-radius: 8px;
     background: #ffffff;
-    padding: 11px 12px;
-    box-shadow: 0 10px 22px rgb(15 31 61 / 0.06);
+    padding: clamp(10px, 0.85vw, 14px);
+    box-shadow: 0 10px 22px rgb(15 31 61 / 0.055);
   }
 
   .epos-dashboard-card-head {
     flex: 0 0 auto;
     justify-content: space-between;
     gap: 10px;
-    min-height: 28px;
-    padding-bottom: 7px;
+    min-height: 27px;
+    padding-bottom: 6px;
     border-bottom: 1px solid #edf2f8;
   }
 
@@ -203,7 +212,7 @@
     margin: 0;
     overflow: hidden;
     color: #0f1f3d;
-    font-size: 14px;
+    font-size: clamp(13px, 0.86vw, 15px);
     font-weight: 950;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -220,90 +229,69 @@
   .epos-dashboard-line-chart {
     display: grid;
     flex: 1;
-    align-items: end;
+    align-items: stretch;
     height: auto;
-    min-height: 145px;
+    min-height: 0;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 12px;
+    gap: clamp(8px, 0.82vw, 16px);
     margin-top: 8px;
     border-bottom: 1px solid #e9eff7;
-    padding: 12px 10px 0;
+    padding: clamp(10px, 0.82vw, 16px) clamp(8px, 0.8vw, 14px) 0;
     background:
       linear-gradient(#eef4ff 1px, transparent 1px) 0 0 / 100% 25%;
   }
 
+  .epos-dashboard-line-point {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: end;
+    min-width: 0;
+    gap: 6px;
+  }
+
   .epos-dashboard-line-bar {
     align-self: end;
+    display: block;
+    width: 100%;
     min-height: 10px;
     border-radius: 999px 999px 3px 3px;
     background: linear-gradient(180deg, #1d7cff, #b44cff);
     box-shadow: 0 8px 18px rgb(37 99 235 / 0.2);
   }
 
-  .epos-dashboard-donut-row {
-    gap: 18px;
-    flex: 1;
-    min-height: 0;
-    justify-content: center;
-  }
-
-  .epos-dashboard-donut {
-    display: grid;
-    flex: 0 0 145px;
-    width: 145px;
-    height: 145px;
-    place-items: center;
-    border-radius: 999px;
-    background: conic-gradient(#0b6bff 0 40%, #ff3366 40% 70%, #ffba08 70% 90%, #6b7cff 90% 100%);
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.54), 0 10px 18px rgb(15 31 61 / 0.08);
-  }
-
-  .epos-dashboard-donut.category {
-    background: conic-gradient(#0b6bff 0 38%, #ff3366 38% 68%, #ffba08 68% 88%, #14b8c9 88% 100%);
-  }
-
-  .epos-dashboard-donut span {
-    display: grid;
-    width: 82px;
-    height: 82px;
-    place-items: center;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #0f1f3d;
-    font-size: 11px;
-    font-weight: 750;
+  .epos-dashboard-line-point em {
+    min-width: 0;
+    overflow: hidden;
+    color: #64748b;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 900;
     text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .epos-dashboard-donut strong {
-    font-size: 14px;
-    font-weight: 950;
-  }
-
-  .epos-dashboard-legend,
   .epos-dashboard-product-rank,
-  .epos-dashboard-transactions {
+  .epos-dashboard-transactions,
+  .epos-dashboard-share-list {
     flex: 1;
     min-width: 0;
     min-height: 0;
     overflow: auto;
   }
 
-  .epos-dashboard-legend div,
   .epos-dashboard-product-rank div,
   .epos-dashboard-transactions div {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     align-items: center;
-    padding: 7px 0;
+    padding: clamp(5px, 0.55vw, 8px) 0;
     color: #334155;
     font-size: 12px;
     font-weight: 800;
   }
 
-  .epos-dashboard-legend span,
-  .epos-dashboard-product-rank span,
   .epos-dashboard-transactions span,
   .epos-dashboard-transactions strong {
     min-width: 0;
@@ -314,8 +302,29 @@
 
   .epos-dashboard-product-rank div {
     grid-template-columns: 24px minmax(0, 1fr) auto;
-    min-height: 34px;
+    min-height: 32px;
     border-bottom: 1px solid #edf2f8;
+  }
+
+  .epos-dashboard-product-rank span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .epos-dashboard-product-rank span em,
+  .epos-dashboard-product-rank span small {
+    min-width: 0;
+    overflow: hidden;
+    font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .epos-dashboard-product-rank span small {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 850;
   }
 
   .epos-dashboard-product-rank b {
@@ -334,7 +343,7 @@
     grid-template-columns: minmax(82px, 1fr) minmax(78px, 1fr) minmax(72px, 0.8fr) minmax(58px, 0.68fr);
     gap: 8px;
     flex: 0 0 auto;
-    margin-top: 8px;
+    margin-top: 7px;
     padding: 0 2px 5px;
     color: #64748b;
     font-size: 10px;
@@ -342,9 +351,103 @@
     border-bottom: 1px solid #edf2f8;
   }
 
+  .epos-dashboard-mix-panel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: clamp(8px, 0.8vw, 12px);
+    flex: 1;
+    min-height: 0;
+    padding-top: 8px;
+  }
+
+  .epos-dashboard-mix-total {
+    display: grid;
+    gap: 3px;
+    border: 1px solid #e7edf7;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8fbff, #ffffff);
+    padding: 9px 10px;
+  }
+
+  .epos-dashboard-mix-total span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .epos-dashboard-mix-total strong {
+    color: #0f1f3d;
+    font-size: clamp(16px, 1.1vw, 20px);
+    font-weight: 950;
+    line-height: 1.05;
+  }
+
+  .epos-dashboard-share-list {
+    display: grid;
+    align-content: start;
+    gap: 9px;
+  }
+
+  .epos-dashboard-share-list .epos-dashboard-empty,
+  .epos-dashboard-product-rank .epos-dashboard-empty {
+    align-self: center;
+    justify-self: center;
+    width: 100%;
+    max-width: none;
+    line-height: 1.35;
+  }
+
+  .epos-dashboard-share-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    align-items: center;
+  }
+
+  .epos-dashboard-share-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    grid-column: 1 / -1;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  .epos-dashboard-share-meta span,
+  .epos-dashboard-share-meta strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .epos-dashboard-share-track {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #edf2f8;
+  }
+
+  .epos-dashboard-share-track i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #2563eb, #14b8a6);
+  }
+
+  .epos-dashboard-share-row small {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+  }
+
   .epos-dashboard-transactions div {
     grid-template-columns: minmax(82px, 1fr) minmax(78px, 1fr) minmax(72px, 0.8fr) minmax(58px, 0.68fr);
-    min-height: 27px;
+    min-height: clamp(27px, 2.4vh, 36px);
     border-bottom: 1px solid #edf2f8;
   }
 
@@ -374,21 +477,19 @@
     color: #94a3b8;
     font-size: 12px;
     font-weight: 800;
+    line-height: 1.35;
     text-align: center;
+    white-space: normal;
   }
 
   @media (max-width: 1366px) {
     .epos-dashboard-page {
-      grid-template-rows: auto auto minmax(170px, 0.95fr) minmax(178px, 1fr);
+      grid-template-rows: auto auto minmax(168px, 1fr) minmax(176px, 0.92fr);
       gap: 8px;
     }
-    .epos-dashboard-kpis article { min-height: 92px; padding: 14px 16px; }
-    .epos-dashboard-kpis strong { font-size: 19px; }
-    .epos-dashboard-grid-top { grid-template-columns: 1.2fr 0.86fr 0.92fr; }
-    .epos-dashboard-card { padding: 11px 12px; }
-    .epos-dashboard-line-chart { min-height: 112px; }
-    .epos-dashboard-donut { flex-basis: 116px; width: 116px; height: 116px; }
-    .epos-dashboard-donut span { width: 68px; height: 68px; }
+    .epos-dashboard-kpis article { min-height: 90px; padding: 12px 14px; }
+    .epos-dashboard-grid-top { grid-template-columns: minmax(340px, 1.25fr) minmax(248px, 0.9fr) minmax(248px, 0.9fr); }
+    .epos-dashboard-card { padding: 10px 12px; }
   }
 
   @media (max-width: 1180px) {
@@ -406,7 +507,7 @@
       grid-template-columns: 1fr;
     }
 
-    .epos-dashboard-donut-row {
+    .epos-dashboard-mix-panel {
       min-height: 150px;
     }
   }

@@ -47,6 +47,46 @@
     return Boolean(window.FeatureGate.check(featureId).ok);
   }
 
+  function percentOf(value, total) {
+    const number = Number(value || 0);
+    const denominator = Number(total || 0);
+    if (!denominator || denominator <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((number / denominator) * 100)));
+  }
+
+  function renderShareRows(items, total, labelKey, valueKey) {
+    return items
+      .map((item) => {
+        const value = Number(item[valueKey] || 0);
+        const share = percentOf(value, total);
+        return (
+          `<div class="epos-dashboard-share-row">` +
+          `<div class="epos-dashboard-share-meta"><span>${esc(item[labelKey] || '-')}</span><strong>${$money(value)}</strong></div>` +
+          `<div class="epos-dashboard-share-track" aria-hidden="true"><i style="width:${share}%"></i></div>` +
+          `<small>${share}%</small>` +
+          `</div>`
+        );
+      })
+      .join('');
+  }
+
+  function dayLabel(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toLocaleDateString(undefined, { weekday: 'short' });
+    }
+    const raw = String(value || '').trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) {
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString(undefined, { weekday: 'short' });
+      }
+      return raw.slice(0, 3) || '-';
+    }
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return date.toLocaleDateString(undefined, { weekday: 'short' });
+  }
+
   function renderUI(state) {
     const result = state || {};
     const stats = result.stats || {};
@@ -77,12 +117,14 @@
     if (salesEl) {
       salesEl.innerHTML =
         recentSales
-          .map(
-            (s) =>
-              `<div><span>${s.invoiceNumber || '-'}</span><span>${s.customerName || 'Walk-in'}</span>` +
-              `<strong>${$money(s.grandTotal)}</strong><span>${s.paymentMethod || 'Cash'}</span></div>`
-          )
-          .join('') || '<p class="text-zinc-500">No sales yet.</p>';
+          .map((s) => {
+            const invoice = s.invoiceNumber || '-';
+            return (
+              `<div><span title="${esc(invoice)}">${esc(invoice)}</span><span>${esc(s.customerName || 'Walk-in')}</span>` +
+              `<strong>${$money(s.grandTotal)}</strong><span>${esc(s.paymentMethod || 'Cash')}</span></div>`
+            );
+          })
+          .join('') || renderEmptyPanel('No recent transactions yet.');
     }
 
     const lowEl = document.getElementById('dashboardLowStock');
@@ -101,26 +143,41 @@
     if (chart && featureAllowed('dashboard.sales_chart')) {
       const vals = salesTrend.map((s) => Number(s.total || 0));
       const max = Math.max(...vals, 1);
-      chart.innerHTML = vals.length
-        ? vals
-            .map(
-              (v) =>
-                `<span class="epos-dashboard-line-bar" title="${$money(v)}" style="height:${Math.max(8, Math.round((v / max) * 100))}%"></span>`
-            )
-            .join('')
-        : '<p class="epos-dashboard-empty">No sales data.</p>';
+      const hasSales = vals.some((value) => value > 0);
+      chart.innerHTML =
+        vals.length && hasSales
+          ? vals
+              .map((v, index) => {
+                const trendDate =
+                  salesTrend[index]?.date ||
+                  salesTrend[index]?.saleDate ||
+                  salesTrend[index]?.sale_date;
+                const label = dayLabel(trendDate);
+                return (
+                  `<span class="epos-dashboard-line-point" title="${esc(label)} - ${$money(v)}">` +
+                  `<i class="epos-dashboard-line-bar" style="height:${Math.max(8, Math.round((v / max) * 100))}%"></i>` +
+                  `<em>${esc(label)}</em>` +
+                  `</span>`
+                );
+              })
+              .join('')
+          : renderEmptyPanel('No sales in the selected week yet.');
     }
 
     const topEl = document.getElementById('dashboardTopProducts');
     if (topEl && featureAllowed('dashboard.top_products')) {
       topEl.innerHTML = topProducts.length
         ? topProducts
-            .map(
-              (p, i) =>
-                `<div><b>${i + 1}</b><span>${p.name}</span><strong>${$money(p.total)}</strong></div>`
-            )
+            .map((p, i) => {
+              const quantity = Number(p.quantity || 0).toLocaleString();
+              return (
+                `<div><b>${i + 1}</b><span title="${esc(p.name || '-')}">` +
+                `<em>${esc(p.name || '-')}</em><small>${quantity} sold</small></span>` +
+                `<strong>${$money(p.total)}</strong></div>`
+              );
+            })
             .join('')
-        : renderEmptyPanel('No sales today.');
+        : renderEmptyPanel('No products sold today.');
     }
 
     const payEl = document.getElementById('dashboardPaymentMethods');
@@ -128,11 +185,10 @@
     if (payEl && featureAllowed('dashboard.payment_methods_chart')) {
       const payTotal = paymentMethods.reduce((s, m) => s + Number(m.total || 0), 0);
       if (payTotalEl) payTotalEl.textContent = $money(payTotal);
-      payEl.innerHTML = paymentMethods.length
-        ? paymentMethods
-            .map((m) => `<div><span>${m.method}</span><strong>${$money(m.total)}</strong></div>`)
-            .join('')
-        : renderEmptyPanel('No sales today.');
+      payEl.innerHTML =
+        paymentMethods.length && payTotal > 0
+          ? renderShareRows(paymentMethods, payTotal, 'method', 'total')
+          : renderEmptyPanel('No payments recorded today.');
     }
 
     const catEl = document.getElementById('dashboardCategorySales');
@@ -140,11 +196,10 @@
     if (catEl && featureAllowed('dashboard.category_sales_chart')) {
       const catTotal = categorySales.reduce((s, c) => s + Number(c.total || 0), 0);
       if (catTotalEl) catTotalEl.textContent = $money(catTotal);
-      catEl.innerHTML = categorySales.length
-        ? categorySales
-            .map((c) => `<div><span>${c.category}</span><strong>${$money(c.total)}</strong></div>`)
-            .join('')
-        : renderEmptyPanel('No sales today.');
+      catEl.innerHTML =
+        categorySales.length && catTotal > 0
+          ? renderShareRows(categorySales, catTotal, 'category', 'total')
+          : renderEmptyPanel('No category sales today.');
     }
   }
 

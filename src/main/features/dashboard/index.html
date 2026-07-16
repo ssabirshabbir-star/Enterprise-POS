@@ -1,7 +1,7 @@
 <section class="epos-dashboard-page">
   <header class="epos-dashboard-header">
     <div>
-      <p>Manager overview</p>
+      <p>Executive overview</p>
       <h2>Today's business overview</h2>
     </div>
     <div class="epos-dashboard-reportbar">
@@ -39,7 +39,7 @@
     <article class="pink">
       <p>Low Stock Items</p>
       <strong id="dashboardLowStockCount">0</strong>
-      <small>Out: <span id="dashboardOutOfStockCount">0</span> · Stock: <span id="dashboardStockValue">Rs. 0.00</span></small>
+      <small>Out of stock: <span id="dashboardOutOfStockCount">0</span> · Stock value: <span id="dashboardStockValue">Rs. 0.00</span></small>
       <span>LOW</span>
     </article>
   </section>
@@ -57,9 +57,12 @@
       <div class="epos-dashboard-card-head">
         <h3>Sales by Payment Method</h3>
       </div>
-      <div class="epos-dashboard-donut-row">
-        <div class="epos-dashboard-donut"><span>Total<br><strong id="dashboardPaymentTotal">Rs. 0.00</strong></span></div>
-        <div id="dashboardPaymentMethods" class="epos-dashboard-legend"></div>
+      <div class="epos-dashboard-mix-panel">
+        <div class="epos-dashboard-mix-total">
+          <span>Total collected</span>
+          <strong id="dashboardPaymentTotal">Rs. 0.00</strong>
+        </div>
+        <div id="dashboardPaymentMethods" class="epos-dashboard-share-list"></div>
       </div>
     </article>
 
@@ -87,9 +90,12 @@
         <h3>Category Sales</h3>
         <button type="button" data-route="/reports">View All</button>
       </div>
-      <div class="epos-dashboard-donut-row">
-        <div class="epos-dashboard-donut category"><span>Total<br><strong id="dashboardCategoryTotal">Rs. 0.00</strong></span></div>
-        <div id="dashboardCategorySales" class="epos-dashboard-legend"></div>
+      <div class="epos-dashboard-mix-panel">
+        <div class="epos-dashboard-mix-total">
+          <span>Category total</span>
+          <strong id="dashboardCategoryTotal">Rs. 0.00</strong>
+        </div>
+        <div id="dashboardCategorySales" class="epos-dashboard-share-list"></div>
       </div>
     </article>
   </section>
