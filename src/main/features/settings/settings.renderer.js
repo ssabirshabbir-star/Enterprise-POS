@@ -130,6 +130,7 @@
     const system = settings.system || {};
 
     setValue('storeName', store.storeName);
+    setValue('storeBusinessDescription', store.businessDescription);
     setValue('storePhone', store.phone);
     setValue('storeEmail', store.email);
     setValue('storeTaxNumber', store.taxNumber);
@@ -161,6 +162,7 @@
   function collectStoreSettings() {
     return {
       storeName: ($id('storeName')?.value || '').trim(),
+      businessDescription: ($id('storeBusinessDescription')?.value || '').trim(),
       phone: ($id('storePhone')?.value || '').trim(),
       email: ($id('storeEmail')?.value || '').trim(),
       address: ($id('storeAddress')?.value || '').trim(),
@@ -175,6 +177,12 @@
     if (!payload.storeName) return 'Business name is required.';
     if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
       return 'Enter a valid email address.';
+    }
+    if (payload.businessDescription.length > 120) {
+      return 'Business description must be 120 characters or less.';
+    }
+    if (/[<>]/.test(payload.businessDescription)) {
+      return 'Business description cannot contain HTML markup.';
     }
     if (payload.receiptFooterText.length > 500) {
       return 'Receipt footer must be 500 characters or less.';

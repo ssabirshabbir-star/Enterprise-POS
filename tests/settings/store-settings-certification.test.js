@@ -59,6 +59,7 @@ function loadSettingsService({ profileResult, currentStore, saveImpl, activityIm
         getSettings: async () => ({
           store: currentStore || {
             storeName: 'Enterprise POS',
+            businessDescription: 'Retail Store',
             logoPath: 'C:\\brand\\logo.png',
             receiptFooterText: 'Existing footer',
           },
@@ -102,7 +103,14 @@ test('Store Settings tab is available while disabled settings tabs remain disabl
     assert.match(html, new RegExp(`data-settings-tab="${tab}"[^>]*aria-disabled="true"`));
   }
 
-  for (const id of ['storeName', 'storePhone', 'storeEmail', 'storeTaxNumber', 'storeAddress']) {
+  for (const id of [
+    'storeName',
+    'storeBusinessDescription',
+    'storePhone',
+    'storeEmail',
+    'storeTaxNumber',
+    'storeAddress',
+  ]) {
     assert.match(html, new RegExp(`id="${id}"`));
     assert.doesNotMatch(html, new RegExp(`id="${id}"[^>]*disabled`));
   }
@@ -187,6 +195,7 @@ test('Store Settings save persists receipt footer and preserves non-certified lo
   const service = loadSettingsService({
     currentStore: {
       storeName: 'Enterprise POS',
+      businessDescription: 'Retail Store',
       logoPath: 'C:\\brand\\logo.png',
       receiptFooterText: 'Existing footer',
     },
@@ -202,6 +211,7 @@ test('Store Settings save persists receipt footer and preserves non-certified lo
 
   const result = await service.saveStoreSettings({
     storeName: '  Grocery POS Market  ',
+    businessDescription: ' Grocery & General Store ',
     phone: ' 03001234567 ',
     email: ' owner@example.com ',
     address: ' Main Road ',
@@ -215,6 +225,7 @@ test('Store Settings save persists receipt footer and preserves non-certified lo
   assert.equal(calls[0].userId, 7);
   assert.deepEqual(calls[0].store, {
     storeName: 'Grocery POS Market',
+    businessDescription: 'Grocery & General Store',
     phone: '03001234567',
     email: 'owner@example.com',
     address: 'Main Road',
@@ -225,6 +236,7 @@ test('Store Settings save persists receipt footer and preserves non-certified lo
   assert.equal(activities[0].action, 'settings.store.save');
   assert.deepEqual(activities[0].metadata.changedFields, [
     'storeName',
+    'businessDescription',
     'phone',
     'email',
     'address',
@@ -405,6 +417,20 @@ test('Store Settings save allows blank footer and rejects invalid footer input',
   });
   assert.equal(tooLong.ok, false);
   assert.match(tooLong.message, /500 characters/);
+
+  const markupDescription = await service.saveStoreSettings({
+    storeName: 'Enterprise POS',
+    businessDescription: '<b>Grocery</b>',
+  });
+  assert.equal(markupDescription.ok, false);
+  assert.match(markupDescription.message, /Business description cannot contain HTML markup/);
+
+  const longDescription = await service.saveStoreSettings({
+    storeName: 'Enterprise POS',
+    businessDescription: 'x'.repeat(121),
+  });
+  assert.equal(longDescription.ok, false);
+  assert.match(longDescription.message, /120 characters/);
 });
 
 test('Store Settings save rejects blank names, invalid email, and unauthorized users', async () => {
@@ -443,6 +469,7 @@ test('receipt branding continues to read authoritative store settings', () => {
   assert.match(printingRepository, /SELECT value FROM app_settings WHERE key = 'store'/);
   assert.match(printingService, /getStoreSettingsRow/);
   assert.match(printingService, /businessName:\s*cleanText\(store\.storeName\)/);
+  assert.match(printingService, /businessDescription:\s*cleanText\(store\.businessDescription\)/);
   assert.match(printingService, /storeAddress:\s*cleanText\(store\.address\)/);
   assert.match(printingService, /storePhone:\s*cleanText\(store\.phone\)/);
   assert.match(printingService, /storeEmail:\s*cleanText\(store\.email\)/);

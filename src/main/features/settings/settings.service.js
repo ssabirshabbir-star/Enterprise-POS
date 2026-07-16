@@ -272,6 +272,7 @@ function cleanSettings(payload = {}) {
   return {
     store: {
       storeName: cleanText(payload.store?.storeName, 140) || 'Enterprise POS',
+      businessDescription: cleanText(payload.store?.businessDescription, 120),
       phone: cleanText(payload.store?.phone, 60),
       email: cleanText(payload.store?.email, 180),
       address: cleanText(payload.store?.address, 500),
@@ -312,6 +313,10 @@ function validateStoreSettings(store = {}) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.push('Enter a valid email address.');
   }
+  const businessDescription = cleanText(store.businessDescription, 120);
+  if (/[<>]/.test(businessDescription)) {
+    errors.push('Business description cannot contain HTML markup.');
+  }
   const rawFooter = String(store.receiptFooterText || '')
     .replace(/\r\n?/g, '\n')
     .trim();
@@ -323,6 +328,7 @@ function validateStoreSettings(store = {}) {
 function cleanStoreSettings(payload = {}, logoPath = '') {
   return {
     storeName: cleanText(payload.storeName, 140),
+    businessDescription: cleanText(payload.businessDescription, 120),
     phone: cleanText(payload.phone, 60),
     email: cleanText(payload.email, 180),
     address: cleanText(payload.address, 500),
@@ -354,6 +360,21 @@ async function saveSettings(payload = {}) {
 async function saveStoreSettings(payload = {}, userDataPath = '') {
   const access = await requireSettingsAccess('settings.update');
   if (!access.ok) return access;
+  const rawBusinessDescription = String(payload.businessDescription || '').trim();
+  if (rawBusinessDescription.length > 120) {
+    return {
+      ok: false,
+      message: 'Business description must be 120 characters or less.',
+      errors: ['Business description must be 120 characters or less.'],
+    };
+  }
+  if (/[<>]/.test(rawBusinessDescription)) {
+    return {
+      ok: false,
+      message: 'Business description cannot contain HTML markup.',
+      errors: ['Business description cannot contain HTML markup.'],
+    };
+  }
   const rawFooter = String(payload.receiptFooterText || '')
     .replace(/\r\n?/g, '\n')
     .trim();
@@ -396,6 +417,7 @@ async function saveStoreSettings(payload = {}, userDataPath = '') {
   await logoState.cleanupAfterSave();
   const changedFields = [
     'storeName',
+    'businessDescription',
     'phone',
     'email',
     'address',

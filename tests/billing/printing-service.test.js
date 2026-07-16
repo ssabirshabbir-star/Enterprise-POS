@@ -97,24 +97,45 @@ function rasterMeta(buffer) {
   };
 }
 
-function fakeNativeImageFactory({ size = { width: 120, height: 80 }, failResize = false } = {}) {
+function fakeNativeImageFactory({
+  size = { width: 120, height: 80 },
+  failResize = false,
+  whiteBorder = 0,
+  dataUrl = 'data:image/png;base64,T1BUSU1JWkVE',
+} = {}) {
   const calls = [];
+  const cropCalls = [];
   function image(width, height) {
     return {
       isEmpty: () => false,
       getSize: () => ({ width, height }),
+      crop: (bounds) => {
+        cropCalls.push(bounds);
+        return image(bounds.width, bounds.height);
+      },
       resize: (options) => {
         calls.push(options);
         if (failResize) return { isEmpty: () => true };
         return image(options.width, options.height);
       },
+      toDataURL: () => dataUrl,
       toBitmap: () => {
         const buffer = Buffer.alloc(width * height * 4);
-        for (let index = 0; index < buffer.length; index += 4) {
-          buffer[index] = 0;
-          buffer[index + 1] = 0;
-          buffer[index + 2] = 0;
-          buffer[index + 3] = 255;
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+            const inBorder =
+              whiteBorder > 0 &&
+              (x < whiteBorder ||
+                y < whiteBorder ||
+                x >= width - whiteBorder ||
+                y >= height - whiteBorder);
+            const value = inBorder ? 255 : 0;
+            buffer[index] = value;
+            buffer[index + 1] = value;
+            buffer[index + 2] = value;
+            buffer[index + 3] = 255;
+          }
         }
         return buffer;
       },
@@ -122,6 +143,7 @@ function fakeNativeImageFactory({ size = { width: 120, height: 80 }, failResize 
   }
   return {
     calls,
+    cropCalls,
     nativeImage: {
       createFromPath: () => image(size.width, size.height),
     },
@@ -305,7 +327,7 @@ test('Billing receipt HTML uses safe 58mm paper profile geometry', () => {
   assert.match(css, /\.receipt\s*\{[^}]*margin:\s*0 0 0 3mm;/);
   assert.doesNotMatch(
     css,
-    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|align-items:\s*center|translate\(/
+    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|translate\(/
   );
   assert.doesNotMatch(css, /width:\s*220px/);
 });
@@ -326,7 +348,7 @@ test('Billing receipt HTML uses safe 80mm paper profile geometry', () => {
   assert.match(css, /\.receipt\s*\{[^}]*margin:\s*0 0 0 4mm;/);
   assert.doesNotMatch(
     css,
-    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|align-items:\s*center|translate\(/
+    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|translate\(/
   );
   assert.doesNotMatch(css, /width:\s*302px/);
 });
@@ -401,6 +423,7 @@ test('Billing receipt renders existing business settings and omits unsupported b
     },
     storeSettingsRow: {
       storeName: 'Grocery POS Market',
+      businessDescription: 'Grocery & General Store',
       address: '12 Market Road',
       phone: '+92 300 1234567',
       email: 'hello@example.test',
@@ -416,6 +439,7 @@ test('Billing receipt renders existing business settings and omits unsupported b
   const escpos = service.buildEscPosReceipt(receipt, settings);
 
   assert.match(html, /Grocery POS Market/);
+  assert.match(html, /Grocery &amp; General Store/);
   assert.match(html, /12 Market Road/);
   assert.match(html, /\+92 300 1234567/);
   assert.match(html, /hello@example\.test/);
@@ -423,11 +447,12 @@ test('Billing receipt renders existing business settings and omits unsupported b
   assert.doesNotMatch(html, /website/i);
   assert.doesNotMatch(html, /Legacy footer should not render/);
   assert.match(escposText(escpos), /Grocery POS Market/);
+  assert.match(escposText(escpos), /Grocery & General Store/);
   assert.match(escposText(escpos), /Address: 12 Market Road/);
   assert.match(escposText(escpos), /Tax No\.: NTN-123/);
 });
 
-test('Billing receipt renders a valid saved business logo in HTML without leaking paths into ESC/POS', () => {
+test('Billing receipt renders a valid saved business logo in the left identity slot without leaking paths into ESC/POS', () => {
   const fake = fakeNativeImageFactory({ size: { width: 120, height: 80 } });
   const { service } = loadPrintingService({
     settingsRow: {},
@@ -438,23 +463,84 @@ test('Billing receipt renders a valid saved business logo in HTML without leakin
   const html = service.buildReceiptHtml(receipt, {
     paperWidth: '80mm',
     businessName: 'Grocery POS Market',
+    businessDescription: 'Grocery & General Store',
     logoPath,
     receiptFooterText: 'Thanks',
   });
   const escpos = service.buildEscPosReceipt(receipt, {
     paperWidth: '80mm',
     businessName: 'Grocery POS Market',
+    businessDescription: 'Grocery & General Store',
     logoPath,
     receiptFooterText: 'Thanks',
   });
 
-  assert.match(html, /<img class="brand-logo" src="data:image\/png;base64,/);
+  assert.match(
+    html,
+    /<div class="brand-identity">[\s\S]*<img class="brand-logo" src="data:image\/png;base64,/
+  );
+  assert.equal(
+    html.indexOf('<img class="brand-logo"') < html.indexOf('<strong>Grocery POS Market</strong>'),
+    true
+  );
+  assert.match(html, /<span class="brand-description">Grocery &amp; General Store<\/span>/);
   assert.match(html, /object-fit:\s*contain/);
+  assert.match(html, /grid-template-columns:\s*19mm minmax\(0, 1fr\);/);
   assert.match(html, /Grocery POS Market/);
   assert.doesNotMatch(html, /file:\/\//);
   assert.doesNotMatch(html, new RegExp(logoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.doesNotMatch(escposText(escpos), /file:\/\//);
   assert.match(escposText(escpos), /Grocery POS Market/);
+  assert.match(escposText(escpos), /Grocery & General Store/);
+});
+
+test('Billing receipt omits the business description badge when it is blank and keeps name centered without a logo', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    businessDescription: '   ',
+    logoPath: '',
+    receiptFooterText: 'Thanks',
+  });
+
+  assert.doesNotMatch(html, /class="brand-logo"/);
+  assert.doesNotMatch(html, /class="brand-description"/);
+  assert.match(html, /<div class="brand-title centered">/);
+  assert.match(html, /grid-template-columns:\s*minmax\(0, 1fr\);/);
+  assert.match(html, /<strong>Grocery POS Market<\/strong>/);
+});
+
+test('Billing receipt optimizes the HTML logo data URL by trimming white margins and bounding print size', () => {
+  const fake = fakeNativeImageFactory({
+    size: { width: 200, height: 140 },
+    whiteBorder: 24,
+    dataUrl: 'data:image/png;base64,UFJJTlQtT1BUSU1JWkVE',
+  });
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    nativeImage: fake.nativeImage,
+    printCallback: () => {},
+  });
+  const logoPath = tempLogoPath('.png');
+
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Grocery POS Market',
+    logoPath,
+  });
+
+  assert.match(html, /src="data:image\/png;base64,UFJJTlQtT1BUSU1JWkVE"/);
+  assert.equal(fake.cropCalls.length, 1);
+  assert.equal(fake.cropCalls[0].width < 200, true);
+  assert.equal(fake.cropCalls[0].height < 140, true);
+  assert.equal(fake.calls.length, 1);
+  assert.equal(fake.calls[0].width <= 150, true);
+  assert.equal(fake.calls[0].height <= 90, true);
 });
 
 test('Billing physical HTML print embeds logo as data URL and waits for image readiness before printing', async () => {
@@ -472,6 +558,7 @@ test('Billing physical HTML print embeds logo as data URL and waits for image re
     },
     storeSettingsRow: {
       storeName: 'Fresh Mart',
+      businessDescription: 'Grocery & General Store',
       logoPath,
       receiptFooterText: 'Thanks again',
     },
@@ -500,6 +587,7 @@ test('Billing physical HTML print embeds logo as data URL and waits for image re
   assert.match(windows[0].readinessScript, /\.decode\(\)/);
   assert.match(windows[0].readinessScript, /getBoundingClientRect/);
   assert.match(html, /<img class="brand-logo" src="data:image\/png;base64,/);
+  assert.match(html, /Grocery &amp; General Store/);
   assert.doesNotMatch(html, /file:\/\//);
   assert.doesNotMatch(html, new RegExp(logoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(html, /Fresh Mart/);
@@ -795,7 +883,7 @@ test('Completed Invoice reprint receipt shape uses the same thermal renderer con
     receiptFooterText: 'Thanks',
   });
 
-  assert.match(html, /Retail Receipt/);
+  assert.match(html, /Enterprise POS/);
   assert.match(html, /INV-PRINT-001/);
   assert.match(html, /class="items-head"/);
   assert.match(html, /class="total-row grand"/);
@@ -824,7 +912,7 @@ test('Completed Invoice HTML reprint embeds the same saved business logo data UR
     receiptFooterText: 'Thanks',
   });
 
-  assert.match(html, /<img class="brand-logo" src="data:image\/jpeg;base64,/);
+  assert.match(html, /<img class="brand-logo" src="data:image\/png;base64,/);
   assert.doesNotMatch(html, /file:\/\//);
   assert.doesNotMatch(html, new RegExp(logoPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(html, /INV-COMPLETE-HTML-LOGO/);
@@ -880,7 +968,7 @@ test('Billing receipt heading fix preserves accepted 80mm geometry', () => {
   assert.doesNotMatch(css, /html,\s*body\s*\{[^}]*width:/);
   assert.doesNotMatch(
     css,
-    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|align-items:\s*center|translate\(/
+    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|translate\(/
   );
 });
 
@@ -895,9 +983,12 @@ test('Billing receipt print CSS keeps the business logo visible and bounded for 
   );
 
   assert.match(css, /\.brand-logo\s*\{[^}]*display:\s*block;/);
-  assert.match(css, /\.brand-logo\s*\{[^}]*max-width:\s*28mm;/);
-  assert.match(css, /\.brand-logo\s*\{[^}]*max-height:\s*16mm;/);
+  assert.match(css, /\.brand-identity\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/);
+  assert.match(css, /\.brand-logo\s*\{[^}]*max-width:\s*18mm;/);
+  assert.match(css, /\.brand-logo\s*\{[^}]*max-height:\s*15mm;/);
   assert.match(css, /\.brand-logo\s*\{[^}]*object-fit:\s*contain;/);
+  assert.match(css, /\.brand-logo\s*\{[^}]*contrast\(1\.85\)/);
+  assert.match(css, /\.brand-description\s*\{[^}]*border:\s*1px solid #111;/);
   assert.doesNotMatch(css, /\.brand-logo\s*\{[^}]*display:\s*none/);
   assert.doesNotMatch(css, /\.brand-logo\s*\{[^}]*visibility:\s*hidden/);
 });

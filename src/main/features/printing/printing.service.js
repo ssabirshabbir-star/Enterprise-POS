@@ -13,6 +13,8 @@ const ESC_POS_LOGO_MAX_HEIGHT_DOTS = 160;
 const ESC_POS_TINY_LOGO_MAX_UPSCALE = 2;
 const RECEIPT_PRINT_READY_TIMEOUT_MS = 2500;
 const RECEIPT_PRINT_CALLBACK_TIMEOUT_MS = 30000;
+const HTML_LOGO_MAX_WIDTH_PX = 150;
+const HTML_LOGO_MAX_HEIGHT_PX = 90;
 
 const RECEIPT_PAPER_PROFILES = Object.freeze({
   '58mm': Object.freeze({
@@ -123,6 +125,80 @@ function logoMimeType(ext) {
   return ext === '.png' ? 'image/png' : 'image/jpeg';
 }
 
+function imageContentBounds(bitmap, width, height) {
+  if (!Buffer.isBuffer(bitmap) || width <= 0 || height <= 0) return null;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const blue = bitmap[offset] || 0;
+      const green = bitmap[offset + 1] || 0;
+      const red = bitmap[offset + 2] || 0;
+      const alpha = bitmap[offset + 3] ?? 255;
+      const isContent = alpha > 12 && (red < 242 || green < 242 || blue < 242);
+      if (isContent) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+  const padding = 2;
+  const x = Math.max(0, minX - padding);
+  const y = Math.max(0, minY - padding);
+  return {
+    x,
+    y,
+    width: Math.min(width - x, maxX - minX + 1 + padding * 2),
+    height: Math.min(height - y, maxY - minY + 1 + padding * 2),
+  };
+}
+
+function optimizedLogoDataUrl(image, fallbackBuffer, mime) {
+  try {
+    let workingImage = image;
+    const size = workingImage.getSize();
+    if (typeof workingImage.toBitmap === 'function' && typeof workingImage.crop === 'function') {
+      const bitmap = workingImage.toBitmap();
+      const bounds = imageContentBounds(bitmap, size.width, size.height);
+      if (
+        bounds &&
+        bounds.width > 0 &&
+        bounds.height > 0 &&
+        (bounds.width < size.width || bounds.height < size.height)
+      ) {
+        workingImage = workingImage.crop(bounds);
+      }
+    }
+    const croppedSize = workingImage.getSize();
+    const scale = Math.min(
+      HTML_LOGO_MAX_WIDTH_PX / croppedSize.width,
+      HTML_LOGO_MAX_HEIGHT_PX / croppedSize.height,
+      croppedSize.width < HTML_LOGO_MAX_WIDTH_PX ? 1.35 : 1
+    );
+    const targetWidth = Math.max(1, Math.round(croppedSize.width * scale));
+    const targetHeight = Math.max(1, Math.round(croppedSize.height * scale));
+    if (typeof workingImage.resize === 'function') {
+      workingImage = workingImage.resize({
+        width: targetWidth,
+        height: targetHeight,
+        quality: 'best',
+      });
+    }
+    if (workingImage && !workingImage.isEmpty() && typeof workingImage.toDataURL === 'function') {
+      return workingImage.toDataURL();
+    }
+  } catch (_error) {
+    // Fall back to the validated source bytes. Logo optimization must never block printing.
+  }
+  return `data:${mime};base64,${fallbackBuffer.toString('base64')}`;
+}
+
 function safeLogoDataUrl(logoPath) {
   const logo = validateReceiptLogoPath(logoPath);
   if (!logo.ok || logo.size > LOGO_RECEIPT_MAX_BYTES) return '';
@@ -141,7 +217,7 @@ function safeLogoDataUrl(logoPath) {
       return '';
     }
     const buffer = fsSync.readFileSync(logo.path, { encoding: null });
-    return `data:${logoMimeType(logo.ext)};base64,${buffer.toString('base64')}`;
+    return optimizedLogoDataUrl(image, buffer, logoMimeType(logo.ext));
   } catch (_error) {
     return '';
   }
@@ -273,6 +349,7 @@ async function getPrinterSettings() {
     footerText: row.footer_text || 'Thank you for shopping',
     receiptFooterText: cleanReceiptFooterText(store.receiptFooterText),
     businessName: cleanText(store.storeName),
+    businessDescription: cleanText(store.businessDescription),
     storeAddress: cleanText(store.address),
     storePhone: cleanText(store.phone),
     storeEmail: cleanText(store.email),
@@ -296,10 +373,13 @@ async function savePrinterSettings(settings = {}) {
 function buildEscPosReceipt(receipt, settings) {
   const width = receiptWidth(settings.paperWidth);
   const businessName = cleanText(settings.businessName || settings.storeName) || 'Enterprise POS';
+  const businessDescription = cleanText(settings.businessDescription);
   const logoCommand = buildEscPosLogoCommand(settings);
   const rows = [Buffer.from([0x1b, 0x40])];
   if (logoCommand) rows.push(logoCommand.command);
-  rows.push('\x1ba\x01', businessName, 'Retail Receipt', '\x1ba\x00', line(width));
+  rows.push('\x1ba\x01', businessName);
+  if (businessDescription) rows.push(businessDescription);
+  rows.push('Retail Receipt', '\x1ba\x00', line(width));
   if (settings.storeAddress) rows.push(`Address: ${settings.storeAddress}`);
   if (settings.storePhone) rows.push(`Phone: ${settings.storePhone}`);
   if (settings.storeEmail) rows.push(`Email: ${settings.storeEmail}`);
@@ -346,6 +426,7 @@ function buildReceiptHtml(receipt, settings) {
   const dateParts = formatDateTimeParts(receipt.createdAt);
   const hasLineDiscount = (receipt.items || []).some((item) => Number(item.discount || 0) > 0);
   const businessName = escapeHtml(settings.businessName || settings.storeName || 'Enterprise POS');
+  const businessDescription = cleanText(settings.businessDescription);
   const logoSrc = safeLogoDataUrl(settings.logoPath);
   const footerHtml = buildReceiptFooterHtml(settings.receiptFooterText);
   const contactRows = [
@@ -409,36 +490,58 @@ function buildReceiptHtml(receipt, settings) {
             margin-bottom: 2.6mm;
             padding-bottom: 1.8mm;
             border-bottom: 2px solid #111;
-            text-align: center;
+            text-align: left;
+          }
+          .brand-identity {
+            display: grid;
+            grid-template-columns: ${logoSrc ? '19mm minmax(0, 1fr)' : 'minmax(0, 1fr)'};
+            gap: 2.8mm;
+            align-items: center;
+            margin-bottom: ${contactRows ? '1.8mm' : '0'};
           }
           .brand-logo {
             display: block;
             width: auto;
-            max-width: 28mm;
-            max-height: 16mm;
-            margin: 0 auto 1.4mm;
+            max-width: 18mm;
+            max-height: 15mm;
+            margin: 0;
             object-fit: contain;
-            filter: grayscale(1) contrast(1.12);
+            filter: grayscale(1) contrast(1.85) brightness(.78);
+          }
+          .brand-title {
+            min-width: 0;
+            text-align: ${logoSrc ? 'left' : 'center'};
           }
           .brand strong {
             display: block;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 900;
             letter-spacing: .02em;
             text-transform: uppercase;
+            line-height: 1.08;
           }
-          .brand span {
+          .brand-description {
             display: block;
-            margin-top: .8mm;
-            font-size: 9.5px;
+            width: max-content;
+            max-width: 100%;
+            margin-top: .9mm;
+            border: 1px solid #111;
+            border-radius: 2px;
+            padding: .45mm 1.2mm;
+            font-size: 8.5px;
             font-weight: 800;
-            letter-spacing: .16em;
+            letter-spacing: .08em;
+            line-height: 1.15;
             text-transform: uppercase;
+            overflow-wrap: anywhere;
+          }
+          .brand-title.centered {
+            display: grid;
+            justify-items: center;
           }
           .brand-contact {
             display: grid;
             gap: .65mm;
-            margin-top: 1.8mm;
             text-align: left;
           }
           .brand-contact-row {
@@ -589,9 +692,13 @@ function buildReceiptHtml(receipt, settings) {
       <body>
         <div class="receipt">
           <header class="brand">
-            ${logoSrc ? `<img class="brand-logo" src="${escapeHtml(logoSrc)}" alt="" />` : ''}
-            <strong>${businessName}</strong>
-            <span>Retail Receipt</span>
+            <div class="brand-identity">
+              ${logoSrc ? `<img class="brand-logo" src="${escapeHtml(logoSrc)}" alt="" />` : ''}
+              <div class="brand-title ${logoSrc ? '' : 'centered'}">
+                <strong>${businessName}</strong>
+                ${businessDescription ? `<span class="brand-description">${escapeHtml(businessDescription)}</span>` : ''}
+              </div>
+            </div>
             ${contactRows ? `<div class="brand-contact">${contactRows}</div>` : ''}
           </header>
           <section class="meta" aria-label="Transaction details">
