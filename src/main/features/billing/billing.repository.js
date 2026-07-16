@@ -180,26 +180,46 @@ async function invoiceExists(invoiceNumber) {
   return Boolean(result.rows[0]);
 }
 
-async function createSale(payload, cashierId) {
-  return withTransaction(async (client) => {
-    const customerId = payload.customerId || (await getWalkInCustomerId(client));
-    const terminal = await syncRepository.getOrCreateTerminal(client);
-    let lockedCustomer = null;
-    if (payload.dueAmount > 0) {
-      const customerResult = await client.query(
-        'SELECT id, current_balance, credit_limit, is_walk_in FROM customers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
-        [customerId]
-      );
-      lockedCustomer = customerResult.rows[0];
-      if (!lockedCustomer || lockedCustomer.is_walk_in)
-        throw new Error('CREDIT_SALE_REQUIRES_CUSTOMER');
-      const nextBalance = Number(lockedCustomer.current_balance || 0) + Number(payload.dueAmount);
-      const creditLimit = Number(lockedCustomer.credit_limit || 0);
-      if (creditLimit > 0 && nextBalance > creditLimit) throw new Error('CREDIT_LIMIT_EXCEEDED');
-      lockedCustomer.next_balance = nextBalance;
-    }
-    const saleResult = await client.query(
-      `
+function isInvoiceNumberCollision(error) {
+  if (error?.code !== '23505') return false;
+  const constraint = String(error.constraint || '').toLowerCase();
+  const detail = String(error.detail || '').toLowerCase();
+  return constraint.includes('sales_invoice') || detail.includes('invoice_number');
+}
+
+async function createSale(payload, cashierId, options = {}) {
+  const invoiceNumberGenerator =
+    typeof options.invoiceNumberGenerator === 'function'
+      ? options.invoiceNumberGenerator
+      : () => payload.invoiceNumber;
+  const maxInvoiceAttempts = Math.max(1, Math.min(20, Number(options.maxInvoiceAttempts || 1)));
+  let lastCollision = null;
+
+  for (let attempt = 0; attempt < maxInvoiceAttempts; attempt += 1) {
+    const invoiceNumber = String(invoiceNumberGenerator() || '').trim();
+    if (!invoiceNumber) throw new Error('INVOICE_NUMBER_REQUIRED');
+    try {
+      return await withTransaction(async (client) => {
+        const customerId = payload.customerId || (await getWalkInCustomerId(client));
+        const terminal = await syncRepository.getOrCreateTerminal(client);
+        let lockedCustomer = null;
+        if (payload.dueAmount > 0) {
+          const customerResult = await client.query(
+            'SELECT id, current_balance, credit_limit, is_walk_in FROM customers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+            [customerId]
+          );
+          lockedCustomer = customerResult.rows[0];
+          if (!lockedCustomer || lockedCustomer.is_walk_in)
+            throw new Error('CREDIT_SALE_REQUIRES_CUSTOMER');
+          const nextBalance =
+            Number(lockedCustomer.current_balance || 0) + Number(payload.dueAmount);
+          const creditLimit = Number(lockedCustomer.credit_limit || 0);
+          if (creditLimit > 0 && nextBalance > creditLimit)
+            throw new Error('CREDIT_LIMIT_EXCEEDED');
+          lockedCustomer.next_balance = nextBalance;
+        }
+        const saleResult = await client.query(
+          `
         INSERT INTO sales (
           invoice_number, customer_id, terminal_id, cashier_id, subtotal, discount, tax,
           grand_total, paid_amount, change_amount, payment_method, status
@@ -207,130 +227,141 @@ async function createSale(payload, cashierId) {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'COMPLETED')
         RETURNING *
       `,
-      [
-        payload.invoiceNumber,
-        customerId,
-        terminal.id,
-        cashierId,
-        payload.subtotal,
-        payload.discount,
-        payload.tax,
-        payload.grandTotal,
-        payload.paidAmount,
-        payload.changeAmount,
-        payload.paymentMethod,
-      ]
-    );
-    const sale = saleResult.rows[0];
+          [
+            invoiceNumber,
+            customerId,
+            terminal.id,
+            cashierId,
+            payload.subtotal,
+            payload.discount,
+            payload.tax,
+            payload.grandTotal,
+            payload.paidAmount,
+            payload.changeAmount,
+            payload.paymentMethod,
+          ]
+        );
+        const sale = saleResult.rows[0];
 
-    const warehouseResult = await client.query(
-      'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
-    );
-    const warehouseId = warehouseResult.rows[0]?.id;
+        const warehouseResult = await client.query(
+          'SELECT id FROM warehouses WHERE is_default = TRUE AND deleted_at IS NULL LIMIT 1'
+        );
+        const warehouseId = warehouseResult.rows[0]?.id;
 
-    for (const item of payload.items) {
-      const productResult = await client.query(
-        'SELECT id, current_stock, min_stock_level, is_active FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
-        [item.productId]
-      );
-      const product = productResult.rows[0];
-      if (!product || !product.is_active) throw new Error('Product is inactive or unavailable.');
+        for (const item of payload.items) {
+          const productResult = await client.query(
+            'SELECT id, current_stock, min_stock_level, is_active FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+            [item.productId]
+          );
+          const product = productResult.rows[0];
+          if (!product || !product.is_active)
+            throw new Error('Product is inactive or unavailable.');
 
-      const previousStock = Number(product.current_stock);
-      const newStock = previousStock - Number(item.quantity);
-      if (newStock < 0) throw new Error('Insufficient stock.');
+          const previousStock = Number(product.current_stock);
+          const newStock = previousStock - Number(item.quantity);
+          if (newStock < 0) throw new Error('Insufficient stock.');
 
-      await client.query(
-        `
+          await client.query(
+            `
           INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, discount, total)
           VALUES ($1, $2, $3, $4, $5, $6)
         `,
-        [sale.id, item.productId, item.quantity, item.unitPrice, item.discount, item.total]
-      );
+            [sale.id, item.productId, item.quantity, item.unitPrice, item.discount, item.total]
+          );
 
-      await client.query(
-        'UPDATE products SET current_stock = $2, updated_at = NOW() WHERE id = $1',
-        [item.productId, newStock]
-      );
+          await client.query(
+            'UPDATE products SET current_stock = $2, updated_at = NOW() WHERE id = $1',
+            [item.productId, newStock]
+          );
 
-      if (warehouseId) {
-        await client.query(
-          `
+          if (warehouseId) {
+            await client.query(
+              `
             INSERT INTO inventory (product_id, warehouse_id, current_stock, min_stock_level)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (product_id, warehouse_id)
             DO UPDATE SET current_stock = EXCLUDED.current_stock, updated_at = NOW()
           `,
-          [item.productId, warehouseId, newStock, product.min_stock_level]
-        );
-      }
+              [item.productId, warehouseId, newStock, product.min_stock_level]
+            );
+          }
 
-      await client.query(
-        `
+          await client.query(
+            `
           INSERT INTO stock_movements (
             product_id, warehouse_id, movement_type, quantity, previous_stock, new_stock,
             reference_type, reference_id, reason, notes, user_id, created_by
           )
           VALUES ($1, $2, 'SALE_OUT', $3, $4, $5, 'sale', $6, 'POS sale completed', $7, $8, $8)
         `,
-        [
-          item.productId,
-          warehouseId,
-          item.quantity,
-          previousStock,
-          newStock,
-          sale.id,
-          sale.invoice_number,
-          cashierId,
-        ]
-      );
+            [
+              item.productId,
+              warehouseId,
+              item.quantity,
+              previousStock,
+              newStock,
+              sale.id,
+              sale.invoice_number,
+              cashierId,
+            ]
+          );
+        }
+
+        await client.query(
+          'INSERT INTO payments (sale_id, payment_method, amount) VALUES ($1, $2, $3)',
+          [sale.id, payload.paymentMethod, payload.paidAmount]
+        );
+
+        if (payload.dueAmount > 0) {
+          const balance = lockedCustomer.next_balance;
+          await client.query(
+            'UPDATE customers SET current_balance = $2, updated_at = NOW() WHERE id = $1',
+            [customerId, balance]
+          );
+          await client.query(
+            'INSERT INTO customer_ledger (customer_id, sale_id, entry_type, debit, credit, balance, notes) VALUES ($1, $2, $3, $4, 0, $5, $6)',
+            [customerId, sale.id, 'SALE_CREDIT', payload.dueAmount, balance, sale.invoice_number]
+          );
+        }
+
+        // V2 owns Billing auto-entry; failures must not block sale completion.
+        let luckyDrawV2Entries = [];
+        try {
+          luckyDrawV2Entries = await luckyDrawV2Repository.createEntriesForSale(
+            client,
+            sale,
+            cashierId
+          );
+        } catch (v2Err) {
+          void v2Err;
+        }
+
+        await syncRepository.queueOperation({
+          client,
+          entityType: 'sale',
+          entityId: sale.id,
+          operation: 'CREATE',
+          terminalId: terminal.id,
+          payload: {
+            invoiceNumber: sale.invoice_number,
+            grandTotal: Number(sale.grand_total),
+            luckyDrawCoupons: luckyDrawV2Entries.map((entry) => entry.couponNo),
+          },
+        });
+
+        sale.lucky_draw_entries = luckyDrawV2Entries;
+        return sale;
+      });
+    } catch (error) {
+      if (isInvoiceNumberCollision(error) && attempt < maxInvoiceAttempts - 1) {
+        lastCollision = error;
+        continue;
+      }
+      throw error;
     }
+  }
 
-    await client.query(
-      'INSERT INTO payments (sale_id, payment_method, amount) VALUES ($1, $2, $3)',
-      [sale.id, payload.paymentMethod, payload.paidAmount]
-    );
-
-    if (payload.dueAmount > 0) {
-      const balance = lockedCustomer.next_balance;
-      await client.query(
-        'UPDATE customers SET current_balance = $2, updated_at = NOW() WHERE id = $1',
-        [customerId, balance]
-      );
-      await client.query(
-        'INSERT INTO customer_ledger (customer_id, sale_id, entry_type, debit, credit, balance, notes) VALUES ($1, $2, $3, $4, 0, $5, $6)',
-        [customerId, sale.id, 'SALE_CREDIT', payload.dueAmount, balance, sale.invoice_number]
-      );
-    }
-
-    // V2 owns Billing auto-entry; failures must not block sale completion.
-    let luckyDrawV2Entries = [];
-    try {
-      luckyDrawV2Entries = await luckyDrawV2Repository.createEntriesForSale(
-        client,
-        sale,
-        cashierId
-      );
-    } catch (v2Err) {
-      void v2Err;
-    }
-
-    await syncRepository.queueOperation({
-      client,
-      entityType: 'sale',
-      entityId: sale.id,
-      operation: 'CREATE',
-      terminalId: terminal.id,
-      payload: {
-        invoiceNumber: sale.invoice_number,
-        grandTotal: Number(sale.grand_total),
-        luckyDrawCoupons: luckyDrawV2Entries.map((entry) => entry.couponNo),
-      },
-    });
-
-    sale.lucky_draw_entries = luckyDrawV2Entries;
-    return sale;
-  });
+  throw lastCollision || new Error('INVOICE_NUMBER_COLLISION_RETRY_EXHAUSTED');
 }
 
 async function getSaleReceipt(saleId) {

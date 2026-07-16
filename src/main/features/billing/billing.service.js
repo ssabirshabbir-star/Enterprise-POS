@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const billingRepository = require('./billing.repository');
@@ -8,6 +9,10 @@ const {
   canRefundOrExchangeSales,
   canWriteSales,
 } = require('./billing.permissions');
+
+const INVOICE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+const INVOICE_RANDOM_LENGTH = 10;
+const INVOICE_MAX_ATTEMPTS = 8;
 
 async function requireSalesAccess(mode) {
   const profileResult = await authService.getProfile();
@@ -33,24 +38,11 @@ function pricesDiffer(left, right) {
 }
 
 function generateInvoiceNumber() {
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10).replaceAll('-', '');
-  const terminal =
-    String(process.env.POS_TERMINAL_CODE || require('os').hostname() || 'T1')
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g, '')
-      .slice(0, 8) || 'T1';
-  return `POS-${terminal}-${date}-${Date.now().toString().slice(-7)}`;
-}
-
-async function generateUniqueInvoiceNumber() {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const invoiceNumber = generateInvoiceNumber();
-    if (!(await billingRepository.invoiceExists(invoiceNumber))) {
-      return invoiceNumber;
-    }
+  let token = '';
+  for (let index = 0; index < INVOICE_RANDOM_LENGTH; index += 1) {
+    token += INVOICE_ALPHABET[crypto.randomInt(0, INVOICE_ALPHABET.length)];
   }
-  throw new Error('Could not generate invoice number.');
+  return `INV-${token}`;
 }
 
 async function searchProducts(filters) {
@@ -177,12 +169,9 @@ async function completeSale(payload = {}) {
     };
   if (paymentMethod === 'Credit' && !payload.customerId)
     return { ok: false, message: 'Credit sale requires a customer.' };
-  const invoiceNumber = await generateUniqueInvoiceNumber();
-
   try {
     const sale = await billingRepository.createSale(
       {
-        invoiceNumber,
         customerId: payload.customerId ? Number(payload.customerId) : null,
         subtotal,
         discount,
@@ -194,7 +183,11 @@ async function completeSale(payload = {}) {
         paymentMethod,
         items: cleanItems,
       },
-      access.profile.id
+      access.profile.id,
+      {
+        invoiceNumberGenerator: generateInvoiceNumber,
+        maxInvoiceAttempts: INVOICE_MAX_ATTEMPTS,
+      }
     );
     const receipt = await billingRepository.getSaleReceipt(sale.id);
     await activityRepository.createActivityLog({
@@ -204,7 +197,7 @@ async function completeSale(payload = {}) {
       message: 'Sale completed',
       metadata: {
         saleId: sale.id,
-        invoiceNumber,
+        invoiceNumber: sale.invoice_number,
         grandTotal,
         priceOverrideCount: priceOverrides.length,
         priceOverrides,
