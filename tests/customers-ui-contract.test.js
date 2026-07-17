@@ -87,6 +87,7 @@ test('Customers dropdown remains the single authoritative customer filter state'
 
 test('Customers removed tab row and compacted footer return vertical space to table viewport', () => {
   const footerBlock = css.match(/\.epos-customers-footer\s*{[^}]*}/)?.[0] || '';
+  const footerSpanBlock = css.match(/\.epos-customers-footer span\s*{[^}]*}/)?.[0] || '';
   assert.doesNotMatch(html, /<div class="epos-customers-tabs"|data-customer-tab/);
   assert.match(
     css,
@@ -98,14 +99,12 @@ test('Customers removed tab row and compacted footer return vertical space to ta
   );
   assert.match(
     css,
-    /\.epos-customers-footer\s*{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?flex:\s*0 0 18px;[\s\S]*?height:\s*18px;[\s\S]*?min-height:\s*18px;[\s\S]*?box-sizing:\s*border-box;[\s\S]*?padding:\s*0 12px;[\s\S]*?line-height:\s*1;/
+    /\.epos-customers-footer\s*{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?flex:\s*0 0 24px;[\s\S]*?height:\s*24px;[\s\S]*?min-height:\s*24px;[\s\S]*?box-sizing:\s*border-box;[\s\S]*?background:\s*#ffffff;[\s\S]*?padding:\s*4px 12px;[\s\S]*?font-size:\s*10px;[\s\S]*?line-height:\s*15px;/
   );
-  assert.match(
-    css,
-    /\.epos-customers-footer span\s*{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?height:\s*100%;[\s\S]*?line-height:\s*1;/
-  );
+  assert.match(css, /\.epos-customers-footer span\s*{[\s\S]*?line-height:\s*15px;/);
   assert.doesNotMatch(footerBlock, /transform:\s*translateY/);
   assert.doesNotMatch(footerBlock, /margin-(?:top|bottom):\s*-/);
+  assert.doesNotMatch(footerSpanBlock, /height:\s*100%;/);
 });
 
 test('Customers removes dead search-row menu placeholder and keeps safe controls', () => {
