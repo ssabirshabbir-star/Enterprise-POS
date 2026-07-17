@@ -171,21 +171,40 @@
   function getActiveCartRowIndex() {
     return getCart().activeRowIndex ?? -1;
   }
-  function setActiveCartRow(index) {
+  function getCartScrollContainer() {
+    const tbody = ui('cartTableBody');
+    return tbody?.closest('.epos-invoice-cart') || tbody?.parentElement || null;
+  }
+  function scrollCartRowIntoView(index) {
+    const container = getCartScrollContainer();
+    const row = ui('cartTableBody')?.querySelector(UI.selectors.cartRow(index));
+    if (!container || !row) return;
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    if (rowRect.top < containerRect.top) {
+      container.scrollTop -= containerRect.top - rowRect.top;
+    } else if (rowRect.bottom > containerRect.bottom) {
+      container.scrollTop += rowRect.bottom - containerRect.bottom;
+    }
+  }
+  function setActiveCartRow(index, options = {}) {
     const items = getCart().items;
     const nextIndex = items.length
       ? Math.max(0, Math.min(Number(index) || 0, items.length - 1))
       : -1;
-    if (getCart().activeRowIndex === nextIndex) return nextIndex;
+    const changed = getCart().activeRowIndex !== nextIndex;
     getCart().activeRowIndex = nextIndex;
-    ui('cartTableBody')
-      ?.querySelectorAll('[data-cart-row]')
-      .forEach((row) => {
-        const on = Number(row.dataset.cartRow) === nextIndex;
-        row.classList.toggle('epos-cart-row-active', on);
-        row.setAttribute('aria-selected', String(on));
-        row.tabIndex = on ? 0 : -1;
-      });
+    if (changed) {
+      ui('cartTableBody')
+        ?.querySelectorAll('[data-cart-row]')
+        .forEach((row) => {
+          const on = Number(row.dataset.cartRow) === nextIndex;
+          row.classList.toggle('epos-cart-row-active', on);
+          row.setAttribute('aria-selected', String(on));
+          row.tabIndex = on ? 0 : -1;
+        });
+    }
+    if (options.scroll === true && nextIndex >= 0) scrollCartRowIntoView(nextIndex);
     return nextIndex;
   }
   function moveActiveCartRow(delta) {
@@ -193,7 +212,7 @@
     if (!items.length) return -1;
     const current = getActiveCartRowIndex();
     const base = current >= 0 ? current : 0;
-    const nextIndex = setActiveCartRow(base + delta);
+    const nextIndex = setActiveCartRow(base + delta, { scroll: true });
     const row = ui('cartTableBody')?.querySelector(UI.selectors.cartRow(nextIndex));
     row?.focus({ preventScroll: true });
     return nextIndex;
@@ -437,8 +456,8 @@
       <tr data-cart-row="${i}" class="${i === activeRowIndex ? 'epos-cart-row-active' : ''}" aria-selected="${i === activeRowIndex}" tabindex="${i === activeRowIndex ? '0' : '-1'}">
         <td style="text-align:center;color:#9ca3af;font-size:.78rem">${i + 1}</td>
         <td>
-          <div style="font-weight:600;font-size:.83rem">${esc(item.name)}</div>
-          ${item.sku ? `<div style="font-size:.7rem;color:#9ca3af">${esc(item.sku)}</div>` : ''}
+          <div class="epos-cart-product-name">${esc(item.name)}</div>
+          ${item.sku ? `<div class="epos-cart-product-sku">${esc(item.sku)}</div>` : ''}
           <div class="epos-cart-policy-badges">
             ${item.expiryRequired ? '<span class="epos-cart-badge epos-cart-badge-required">Expiry required</span>' : item.trackExpiry ? '<span class="epos-cart-badge epos-cart-badge-expiry">Expiry tracked</span>' : ''}
           </div>
@@ -463,10 +482,18 @@
             ${
               item.priceUnlocked
                 ? `<span class="epos-cart-price-lock epos-cart-price-lock-open" title="Price editable&#10;Unit price override active." aria-label="Price editable. Unit price override active.">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 7.4-2.2"></path></svg>
+                    <svg class="epos-cart-lock-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path class="epos-cart-lock-body" d="M3.25 7h9.5c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-5c0-.69.56-1.25 1.25-1.25Z"></path>
+                      <path class="epos-cart-lock-shackle" d="M5 7V5.15A3.15 3.15 0 0 1 10.7 3.3"></path>
+                      <path class="epos-cart-lock-keyhole" d="M8 9.35a1.05 1.05 0 0 0-.38 2.03v1.1h.76v-1.1A1.05 1.05 0 0 0 8 9.35Z"></path>
+                    </svg>
                   </span>`
                 : `<button type="button" class="epos-cart-price-lock epos-cart-price-lock-closed" data-unlock-price="${i}" title="Price locked&#10;Unit price cannot be changed." aria-label="Price locked. Unit price cannot be changed.">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+                    <svg class="epos-cart-lock-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path class="epos-cart-lock-body" d="M3.25 7h9.5c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-5c0-.69.56-1.25 1.25-1.25Z"></path>
+                      <path class="epos-cart-lock-shackle" d="M4.75 7V5.25a3.25 3.25 0 0 1 6.5 0V7"></path>
+                      <path class="epos-cart-lock-keyhole" d="M8 9.35a1.05 1.05 0 0 0-.38 2.03v1.1h.76v-1.1A1.05 1.05 0 0 0 8 9.35Z"></path>
+                    </svg>
                   </button>`
             }
           </div>

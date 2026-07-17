@@ -148,19 +148,64 @@ test('Billing cart uses compact lock indicators beside Unit Price instead of pri
   assert.match(cart, /data-cart-price="\$\{i\}"[\s\S]*class="epos-cart-discount/);
   assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-closed"/);
   assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-open"/);
+  assert.match(cart, /class="epos-cart-lock-icon" viewBox="0 0 16 16"/);
+  assert.match(cart, /class="epos-cart-lock-body"/);
+  assert.match(cart, /class="epos-cart-lock-shackle"/);
+  assert.match(cart, /class="epos-cart-lock-keyhole"/);
+  assert.match(cart, /d="M4\.75 7V5\.25a3\.25 3\.25 0 0 1 6\.5 0V7"/);
+  assert.match(cart, /d="M5 7V5\.15A3\.15 3\.15 0 0 1 10\.7 3\.3"/);
   assert.match(cart, /title="Price locked&#10;Unit price cannot be changed\."/);
   assert.match(cart, /title="Price editable&#10;Unit price override active\."/);
   assert.match(
     css,
-    /\.epos-cart-price-control\s*\{[\s\S]*?grid-template-columns:\s*var\(--epos-cart-qty-input-width\) 16px/
+    /\.epos-cart-price-control\s*\{[\s\S]*?grid-template-columns:\s*var\(--epos-cart-qty-input-width\) 14px/
   );
   assert.match(css, /\.epos-cart-price-control\s*\{[\s\S]*?gap:\s*4px/);
+  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?width:\s*14px/);
+  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?height:\s*14px/);
+  assert.match(css, /\.epos-cart-lock-icon\s*\{[\s\S]*?width:\s*14px/);
+  assert.match(css, /\.epos-cart-lock-icon\s*\{[\s\S]*?height:\s*14px/);
+  assert.match(css, /\.epos-cart-lock-body\s*\{\s*fill:\s*currentColor;/);
+  assert.match(css, /\.epos-cart-lock-shackle\s*\{[\s\S]*?stroke:\s*currentColor/);
   assert.match(css, /\.epos-cart-price-lock-closed\s*\{\s*color:\s*#374151;/);
   assert.match(css, /\.epos-cart-price-lock-open\s*\{\s*color:\s*#16a34a;/);
+  assert.doesNotMatch(cart, /🔒|🔓/);
   assert.doesNotMatch(
     css,
     /\.epos-cart-price-lock-closed\s*\{[^}]*#dc2626|\.epos-cart-price-lock-closed\s*\{[^}]*#b91c1c/
   );
+});
+
+test('Billing cart row density is compact without hiding product identity or controls', () => {
+  const cart = readCart();
+  const css = readCss();
+  const densityBlocks = [
+    css.match(
+      /\.epos-billing-shell\.epos-invoice-ui \.epos-invoice-cart td\s*\{[\s\S]*?\n  \}/
+    )?.[0],
+    css.match(
+      /\.epos-billing-shell\.epos-invoice-ui \.epos-cart-product-name\s*\{[\s\S]*?\n  \}/
+    )?.[0],
+    css.match(
+      /\.epos-billing-shell\.epos-invoice-ui \.epos-cart-product-sku\s*\{[\s\S]*?\n  \}/
+    )?.[0],
+    css.match(
+      /\.epos-billing-shell\.epos-invoice-ui \.epos-cart-price-control\s*\{[\s\S]*?\n  \}/
+    )?.[0],
+  ].join('\n');
+
+  assert.match(cart, /class="epos-cart-product-name"/);
+  assert.match(cart, /class="epos-cart-product-sku"/);
+  assert.match(css, /--epos-cart-cell-pad-y:\s*4px;/);
+  assert.match(css, /\.epos-invoice-cart td\s*\{[\s\S]*?min-height:\s*40px !important;/);
+  assert.match(css, /\.epos-cart-product-name\s*\{[\s\S]*?line-height:\s*1\.08;/);
+  assert.match(css, /\.epos-cart-product-sku\s*\{[\s\S]*?line-height:\s*1\.05;/);
+  assert.match(css, /\.epos-cart-qty button\s*\{[\s\S]*?width:\s*var\(--epos-cart-qty-btn-size\)/);
+  assert.match(
+    css,
+    /\.epos-cart-qty input,[\s\S]*?\.epos-cart-discount\s*\{[\s\S]*?height:\s*var\(--epos-cart-qty-btn-size\)/
+  );
+  assert.doesNotMatch(densityBlocks, /translateY\(|margin-top:\s*-\d|margin-bottom:\s*-\d/);
 });
 
 test('Billing cart maintains one authoritative active row for mouse and keyboard workflow', () => {
@@ -169,11 +214,14 @@ test('Billing cart maintains one authoritative active row for mouse and keyboard
   const css = readCss();
 
   assert.match(cart, /activeRowIndex:\s*-1/);
+  assert.match(cart, /function getCartScrollContainer\(\)/);
+  assert.match(cart, /function scrollCartRowIntoView\(index\)/);
   assert.match(cart, /function getActiveCartRowIndex\(\)/);
-  assert.match(cart, /function setActiveCartRow\(index\)/);
+  assert.match(cart, /function setActiveCartRow\(index, options = \{\}\)/);
   assert.match(cart, /function moveActiveCartRow\(delta\)/);
   assert.match(cart, /class="\$\{i === activeRowIndex \? 'epos-cart-row-active' : ''\}"/);
   assert.match(cart, /aria-selected="\$\{i === activeRowIndex\}"/);
+  assert.match(cart, /getCart\(\)\.activeRowIndex = -1/);
   assert.match(
     renderer,
     /const row = e\.target\.closest\('\[data-cart-row\]'\);[\s\S]*C\(\)\.setActiveCartRow\(Number\(row\.dataset\.cartRow\)\);/
@@ -182,6 +230,11 @@ test('Billing cart maintains one authoritative active row for mouse and keyboard
     renderer,
     /if \(e\.key === 'ArrowUp' \|\| e\.key === 'ArrowDown'\) \{[\s\S]*C\(\)\.moveActiveCartRow\(e\.key === 'ArrowDown' \? 1 : -1\);/
   );
+  assert.match(cart, /setActiveCartRow\(base \+ delta, \{ scroll: true \}\)/);
+  assert.match(cart, /rowRect\.top < containerRect\.top[\s\S]*container\.scrollTop -=/);
+  assert.match(cart, /rowRect\.bottom > containerRect\.bottom[\s\S]*container\.scrollTop \+=/);
+  assert.match(cart, /row\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(renderer, /if \(!inInput && !e\.ctrlKey && !e\.altKey && !e\.metaKey\)/);
   assert.match(css, /tr\.epos-cart-row-active td\s*\{[\s\S]*background:\s*#eff6ff/);
   assert.match(css, /tr\.epos-cart-row-active td:first-child\s*\{[\s\S]*inset 4px 0 0 #2563eb/);
 });
