@@ -42,7 +42,7 @@
 
   .epos-customers-topbar {
     display: grid;
-    grid-template-columns: 42px minmax(280px, 1fr) 148px;
+    grid-template-columns: 42px minmax(280px, 1fr) 178px 148px;
     gap: 6px;
     align-items: center;
     border-radius: 12px;
@@ -221,69 +221,6 @@
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
-  }
-
-  .epos-customers-tabs {
-    display: block;
-    min-width: 0;
-    padding: 0;
-  }
-
-  .epos-customers-tab-buttons,
-  .epos-customers-tab-filters {
-    display: flex;
-    min-width: 0;
-    align-items: end;
-    gap: 4px;
-  }
-
-  .epos-customers-tab-buttons {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .epos-customers-tab-filters {
-    display: grid;
-    grid-template-columns: repeat(3, 118px);
-    justify-self: end;
-    padding: 0 12px 4px 0;
-  }
-
-  .epos-customers-tabs button {
-    min-width: 0;
-    min-height: 34px;
-    border: 0;
-    border-radius: 14px 14px 0 0;
-    background: #f5f7fb;
-    color: #344054;
-    font-size: 11px;
-    font-weight: 900;
-    cursor: pointer;
-    overflow: hidden;
-    padding: 0 4px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .epos-customers-tab-filters select {
-    width: 118px;
-    min-height: 32px;
-    border: 1px solid #d9e1ee;
-    border-radius: 9px;
-    background: #ffffff;
-    color: #344054;
-    padding: 0 8px;
-    font-size: 11px;
-    font-weight: 850;
-    outline: none;
-  }
-
-  .epos-customers-tabs button.active {
-    color: #1455ff;
-    background: #ffffff;
-    box-shadow: inset 0 3px 0 #a855f7;
   }
 
   .epos-customers-filters {
@@ -483,6 +420,20 @@
     white-space: nowrap;
   }
 
+  .epos-customers-filter-select {
+    min-width: 0;
+    min-height: 38px;
+    border: 1px solid #d9e1ee;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #344054;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 900;
+    outline: none;
+    white-space: nowrap;
+  }
+
   .epos-customers-group-cell,
   .epos-customers-city-cell,
   .epos-customers-muted-cell {
@@ -607,10 +558,12 @@
     justify-content: space-between;
     gap: 10px;
     border-top: 1px solid #edf1f7;
-    padding: 4px 12px;
+    min-height: 18px;
+    padding: 1px 12px;
     color: #667085;
     font-size: 11px;
     font-weight: 850;
+    line-height: 1.1;
   }
 
   .epos-customers-side {
@@ -1519,22 +1472,6 @@
   }
 
   @media (max-width: 1366px) {
-    .epos-customers-tabs {
-      display: block;
-      padding-inline: 0;
-    }
-
-    .epos-customers-tab-buttons {
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 2px;
-    }
-
-    .epos-customers-tabs button {
-      min-height: 34px;
-      padding-inline: 3px;
-      font-size: 11px;
-    }
-
     .epos-customers-filters {
       grid-template-columns: minmax(92px, 1fr) minmax(108px, 1fr) minmax(64px, 0.7fr) minmax(64px, 0.7fr) minmax(104px, 1fr) minmax(108px, 1fr) minmax(62px, 0.7fr) minmax(78px, 0.8fr);
       gap: 3px;

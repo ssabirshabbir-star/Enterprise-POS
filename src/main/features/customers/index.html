@@ -12,24 +12,21 @@
       <span>⌕</span>
       <input id="customerPageSearch" placeholder="Search customers by name, phone, email or CNIC..." />
     </label>
+    <select id="customerFilterSelect" class="epos-customers-filter-select" aria-label="Customer Filter">
+      <option value="">All Customers</option>
+      <option value="active">Active Customers</option>
+      <option value="inactive">Inactive Customers</option>
+      <option value="vip">VIP Customers</option>
+      <option value="recent">Recent Customers</option>
+      <option value="regular">Regular Customers</option>
+      <option value="credit">Credit Customers</option>
+    </select>
     <button id="customerBulkActionsButton" type="button" class="epos-customers-bulk-top" disabled aria-disabled="true" title="Bulk customer actions are planned for a future phase.">Bulk Actions</button>
   </section>
 
 
   <div class="epos-customers-workspace">
     <main class="epos-customers-card">
-      <div class="epos-customers-tabs">
-        <div class="epos-customers-tab-buttons">
-          <button type="button" class="active" data-customer-tab="">All Customers</button>
-          <button type="button" data-customer-tab="active">Active Customers</button>
-          <button type="button" data-customer-tab="inactive">Inactive Customers</button>
-          <button type="button" data-customer-tab="vip">VIP Customers</button>
-          <button type="button" data-customer-tab="recent">Recent Customers</button>
-          <button type="button" data-customer-tab="regular">Regular Customers</button>
-          <button type="button" data-customer-tab="credit">Credit Customers</button>
-        </div>
-        </div>
-
       <div class="epos-customers-filters">
         <button id="customerAddButton" type="button" class="add">+ Add Customer</button>
         <button id="openCustomerGroupsButton" type="button" class="groups" disabled aria-disabled="true" title="Customer groups are planned for a future phase.">Customer Groups</button>

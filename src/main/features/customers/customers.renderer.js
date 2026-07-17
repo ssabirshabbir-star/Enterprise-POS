@@ -616,12 +616,13 @@
   function setActiveTab(tab) {
     if (tab === 'vip' || tab === 'regular') {
       showMsg('Customer group tabs are coming soon. They are not implemented yet.', true);
+      const select = $id('customerFilterSelect');
+      if (select) select.value = _currentTab;
       return;
     }
     _currentTab = tab;
-    document.querySelectorAll('[data-customer-tab]').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.customerTab === tab);
-    });
+    const select = $id('customerFilterSelect');
+    if (select) select.value = tab;
     // Re-filter already-loaded customers client-side (no extra IPC call)
     if (_allCustomers.length) renderCustomerTable(_allCustomers, { tab });
   }
@@ -637,10 +638,10 @@
       _searchTimer = setTimeout(() => refreshCustomers(getCurrentFilters()), 300);
     });
 
-    // ── Tab buttons ───────────────────────────────────────────────────────────
-    document
-      .querySelectorAll('[data-customer-tab]')
-      .forEach((btn) => btn.addEventListener('click', () => setActiveTab(btn.dataset.customerTab)));
+    // Customer filter dropdown
+    $id('customerFilterSelect')?.addEventListener('change', (event) =>
+      setActiveTab(event.target.value || '')
+    );
 
     // ── Add customer (both top + bottom buttons share same IDs — use delegation) ─
     // Note: HTML has duplicate #customerBottomAddButton and #customerAddButton

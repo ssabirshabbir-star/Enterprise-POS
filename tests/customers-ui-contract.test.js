@@ -37,6 +37,73 @@ test('Customers keeps table and action surfaces present', () => {
   assert.match(html, /id="customerPageList"/);
 });
 
+test('Customers consolidates customer-status tabs into one search-row dropdown', () => {
+  const topbar =
+    html.match(/<section class="epos-customers-topbar">[\s\S]*?<\/section>/)?.[0] || '';
+
+  assert.match(topbar, /class="epos-customers-menu"/);
+  assert.match(topbar, /id="customerPageSearch"/);
+  assert.match(
+    topbar,
+    /id="customerFilterSelect" class="epos-customers-filter-select" aria-label="Customer Filter"[\s\S]*<option value="">All Customers<\/option>[\s\S]*<option value="active">Active Customers<\/option>[\s\S]*<option value="inactive">Inactive Customers<\/option>[\s\S]*<option value="vip">VIP Customers<\/option>[\s\S]*<option value="recent">Recent Customers<\/option>[\s\S]*<option value="regular">Regular Customers<\/option>[\s\S]*<option value="credit">Credit Customers<\/option>/
+  );
+  assert.match(topbar, /id="customerBulkActionsButton"/);
+
+  const order = [
+    'epos-customers-menu',
+    'customerPageSearch',
+    'customerFilterSelect',
+    'customerBulkActionsButton',
+  ].map((needle) => topbar.indexOf(needle));
+  assert.ok(
+    order.every((index) => index >= 0),
+    'all topbar controls are present'
+  );
+  assert.deepEqual(
+    [...order].sort((a, b) => a - b),
+    order,
+    'search row order is stable'
+  );
+
+  assert.doesNotMatch(html, /epos-customers-tabs|epos-customers-tab-buttons|data-customer-tab/);
+  assert.doesNotMatch(css, /\.epos-customers-tabs|\.epos-customers-tab-buttons|data-customer-tab/);
+  assert.match(
+    css,
+    /\.epos-customers-topbar\s*{[\s\S]*?grid-template-columns:\s*42px minmax\(280px, 1fr\) 178px 148px;/
+  );
+  assert.match(
+    css,
+    /\.epos-customers-filter-select\s*{[\s\S]*?min-height:\s*38px;[\s\S]*?white-space:\s*nowrap;/
+  );
+});
+
+test('Customers dropdown remains the single authoritative customer filter state', () => {
+  assert.match(renderer, /let _currentTab = '';/);
+  assert.match(renderer, /tab:\s*_currentTab/);
+  assert.match(renderer, /function setActiveTab\(tab\)/);
+  assert.match(renderer, /\$id\('customerFilterSelect'\)\?\.addEventListener\('change'/);
+  assert.match(renderer, /setActiveTab\(event\.target\.value \|\| ''\)/);
+  assert.match(renderer, /if \(select\) select\.value = tab;/);
+  assert.match(renderer, /if \(select\) select\.value = _currentTab;/);
+  assert.doesNotMatch(renderer, /querySelectorAll\('\[data-customer-tab\]'\)/);
+});
+
+test('Customers removed tab row and compacted footer return vertical space to table viewport', () => {
+  assert.doesNotMatch(html, /<div class="epos-customers-tabs"|data-customer-tab/);
+  assert.match(
+    css,
+    /\.epos-customers-card\s*{[\s\S]*?display:\s*flex;[\s\S]*?height:\s*100%;[\s\S]*?flex-direction:\s*column;[\s\S]*?overflow:\s*hidden;/
+  );
+  assert.match(
+    css,
+    /\.epos-customers-table-wrap\s*{[\s\S]*?flex:\s*1 1 auto;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*auto;/
+  );
+  assert.match(
+    css,
+    /\.epos-customers-footer\s*{[\s\S]*?align-items:\s*center;[\s\S]*?min-height:\s*18px;[\s\S]*?padding:\s*1px 12px;[\s\S]*?line-height:\s*1\.1;/
+  );
+});
+
 test('Dashboard shell padding targets only the route host main element', () => {
   assert.match(
     compactCss,
