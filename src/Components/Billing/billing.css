@@ -303,7 +303,7 @@
   .epos-invoice-cart td {
     border-bottom: 1px solid var(--epos-line-soft);
     background: var(--epos-white);
-    padding: 8px;
+    padding: 6px 8px;
     color: var(--epos-text);
     vertical-align: middle;
   }
@@ -988,6 +988,17 @@
   }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-cart th:nth-child(7), .epos-billing-shell.epos-invoice-ui .epos-invoice-cart td:nth-child(7) { width: 11% !important; text-align: right; }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-cart th:nth-child(8), .epos-billing-shell.epos-invoice-ui .epos-invoice-cart td:nth-child(8) { width: 5% !important; text-align: center; }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-cart tr.epos-cart-row-active td {
+    background: #eff6ff !important;
+    box-shadow: inset 0 1px 0 #bfdbfe, inset 0 -1px 0 #bfdbfe;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-cart tr.epos-cart-row-active td:first-child {
+    box-shadow: inset 4px 0 0 #2563eb, inset 0 1px 0 #bfdbfe, inset 0 -1px 0 #bfdbfe;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-cart tr.epos-cart-row-active:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+  }
   .epos-billing-shell.epos-invoice-ui .epos-cart-qty {
     display: grid !important;
     grid-template-columns: var(--epos-cart-qty-btn-size) var(--epos-cart-qty-input-width) var(--epos-cart-qty-btn-size) !important;
@@ -1037,12 +1048,52 @@
     border-color: #93c5fd !important;
     background: #eff6ff !important;
   }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-control {
+    display: inline-grid !important;
+    grid-template-columns: var(--epos-cart-qty-input-width) 16px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    width: calc(var(--epos-cart-qty-input-width) + 20px) !important;
+    margin-inline: auto !important;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    line-height: 1 !important;
+  }
+  .epos-billing-shell.epos-invoice-ui button.epos-cart-price-lock {
+    cursor: pointer;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-closed { color: #374151; }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-open { color: #16a34a; }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
   .epos-cart-policy-badges {
     display: flex;
     flex-wrap: wrap;
     gap: 3px;
-    margin-top: 4px;
+    margin-top: 2px;
   }
+  .epos-cart-policy-badges:empty { display: none; }
   .epos-cart-badge {
     display: inline-flex;
     align-items: center;

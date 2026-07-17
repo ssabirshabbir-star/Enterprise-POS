@@ -77,7 +77,7 @@
   };
 
   function makeEmptyCart() {
-    return { items: [], customerId: null, paymentMethod: 'Cash' };
+    return { items: [], customerId: null, paymentMethod: 'Cash', activeRowIndex: -1 };
   }
 
   // ── DOM / format utilities ────────────────────────────────────────────────
@@ -168,6 +168,36 @@
   function getBillingMode() {
     return billingMode;
   }
+  function getActiveCartRowIndex() {
+    return getCart().activeRowIndex ?? -1;
+  }
+  function setActiveCartRow(index) {
+    const items = getCart().items;
+    const nextIndex = items.length
+      ? Math.max(0, Math.min(Number(index) || 0, items.length - 1))
+      : -1;
+    if (getCart().activeRowIndex === nextIndex) return nextIndex;
+    getCart().activeRowIndex = nextIndex;
+    ui('cartTableBody')
+      ?.querySelectorAll('[data-cart-row]')
+      .forEach((row) => {
+        const on = Number(row.dataset.cartRow) === nextIndex;
+        row.classList.toggle('epos-cart-row-active', on);
+        row.setAttribute('aria-selected', String(on));
+        row.tabIndex = on ? 0 : -1;
+      });
+    return nextIndex;
+  }
+  function moveActiveCartRow(delta) {
+    const items = getCart().items;
+    if (!items.length) return -1;
+    const current = getActiveCartRowIndex();
+    const base = current >= 0 ? current : 0;
+    const nextIndex = setActiveCartRow(base + delta);
+    const row = ui('cartTableBody')?.querySelector(UI.selectors.cartRow(nextIndex));
+    row?.focus({ preventScroll: true });
+    return nextIndex;
+  }
   function setAutoAdvanceUnitPrice(enabled) {
     autoAdvanceUnitPrice = enabled !== false;
   }
@@ -257,6 +287,7 @@
         expiryRequired: product.expiryRequired === true,
       });
     }
+    getCart().activeRowIndex = changedIndex;
     renderCart();
     pulseCartRow(changedIndex);
     pulseSummaryTotals();
@@ -266,6 +297,8 @@
 
   function removeCartItem(index) {
     getCart().items.splice(index, 1);
+    if (!getCart().items.length) getCart().activeRowIndex = -1;
+    else getCart().activeRowIndex = Math.min(index, getCart().items.length - 1);
     renderCart();
   }
 
@@ -385,29 +418,28 @@
     if (badge) badge.textContent = String(count);
 
     if (!count) {
+      getCart().activeRowIndex = -1;
       tbody.innerHTML = '';
       emptyEl && emptyEl.classList.remove('hidden');
       updateDisplayTotals();
       return;
     }
     emptyEl && emptyEl.classList.add('hidden');
+    const activeRowIndex =
+      getCart().activeRowIndex >= 0 && getCart().activeRowIndex < count
+        ? getCart().activeRowIndex
+        : 0;
+    getCart().activeRowIndex = activeRowIndex;
 
     tbody.innerHTML = items
       .map(
         (item, i) => `
-      <tr data-cart-row="${i}">
+      <tr data-cart-row="${i}" class="${i === activeRowIndex ? 'epos-cart-row-active' : ''}" aria-selected="${i === activeRowIndex}" tabindex="${i === activeRowIndex ? '0' : '-1'}">
         <td style="text-align:center;color:#9ca3af;font-size:.78rem">${i + 1}</td>
         <td>
           <div style="font-weight:600;font-size:.83rem">${esc(item.name)}</div>
           ${item.sku ? `<div style="font-size:.7rem;color:#9ca3af">${esc(item.sku)}</div>` : ''}
           <div class="epos-cart-policy-badges">
-            ${
-              item.allowSalePriceOverride
-                ? item.priceUnlocked
-                  ? '<span class="epos-cart-badge epos-cart-badge-editable">Price unlocked</span>'
-                  : `<button type="button" class="epos-cart-badge epos-cart-badge-editable epos-cart-price-unlock" data-unlock-price="${i}" title="Unlock unit price with Admin approval">Unlock Price</button>`
-                : '<span class="epos-cart-badge epos-cart-badge-locked">Price locked</span>'
-            }
             ${item.expiryRequired ? '<span class="epos-cart-badge epos-cart-badge-required">Expiry required</span>' : item.trackExpiry ? '<span class="epos-cart-badge epos-cart-badge-expiry">Expiry tracked</span>' : ''}
           </div>
         </td>
@@ -424,8 +456,21 @@
             <button type="button" data-inc-item="${i}">+</button>
           </div>
         </td>
-        <td><input type="number" min="0" step="0.01" value="${item.unitPrice}"
-          data-cart-price="${i}" class="epos-cart-discount ${item.priceUnlocked ? 'epos-cart-price-editable' : 'epos-cart-price-locked'}" style="text-align:right" ${item.priceUnlocked ? '' : `readonly title="${item.allowSalePriceOverride ? 'Unlock price before editing.' : 'Sale price is locked by product policy.'}"`} /></td>
+        <td>
+          <div class="epos-cart-price-control">
+            <input type="number" min="0" step="0.01" value="${item.unitPrice}"
+              data-cart-price="${i}" class="epos-cart-discount ${item.priceUnlocked ? 'epos-cart-price-editable' : 'epos-cart-price-locked'}" style="text-align:right" ${item.priceUnlocked ? '' : `readonly title="${item.allowSalePriceOverride ? 'Unlock price before editing.' : 'Sale price is locked by product policy.'}"`} />
+            ${
+              item.priceUnlocked
+                ? `<span class="epos-cart-price-lock epos-cart-price-lock-open" title="Price editable&#10;Unit price override active." aria-label="Price editable. Unit price override active.">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 7.4-2.2"></path></svg>
+                  </span>`
+                : `<button type="button" class="epos-cart-price-lock epos-cart-price-lock-closed" data-unlock-price="${i}" title="Price locked&#10;Unit price cannot be changed." aria-label="Price locked. Unit price cannot be changed.">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+                  </button>`
+            }
+          </div>
+        </td>
         <td>
           <input type="number" min="0" step="0.01" value="${item.discount}"
             data-cart-disc="${i}" class="epos-cart-discount" style="text-align:right"/>
@@ -752,6 +797,9 @@ Method: ${receipt.paymentMethod || 'Cash'}${
     switchToCart,
     refreshCartItemDisplay,
     unlockCartItemPrice,
+    getActiveCartRowIndex,
+    setActiveCartRow,
+    moveActiveCartRow,
     setCartCustomer, // controlled customer ID setter
     // Rendering
     renderCart,

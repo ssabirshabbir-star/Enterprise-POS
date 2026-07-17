@@ -13,6 +13,7 @@ const billingRendererPath = path.join(
   'billing',
   'billing.renderer.js'
 );
+const billingCartPath = path.join(root, 'src', 'main', 'features', 'billing', 'billing.cart.js');
 const billingCssPath = path.join(root, 'src', 'Components', 'Billing', 'billing.css');
 
 function escapeRegExp(value) {
@@ -25,6 +26,10 @@ function readHtml() {
 
 function readRenderer() {
   return fs.readFileSync(billingRendererPath, 'utf8');
+}
+
+function readCart() {
+  return fs.readFileSync(billingCartPath, 'utf8');
 }
 
 function readCss() {
@@ -130,4 +135,65 @@ test('Billing disabled buttons have a non-interactive visual contract', () => {
   assert.match(css, /\.epos-invoice-unified-grid button:disabled/);
   assert.match(css, /\.epos-invoice-unified-grid button\[aria-disabled="true"\]/);
   assert.match(css, /cursor:\s*not-allowed\s*!important/);
+});
+
+test('Billing cart uses compact lock indicators beside Unit Price instead of price text badges', () => {
+  const cart = readCart();
+  const css = readCss();
+
+  assert.doesNotMatch(cart, />Price locked<\/span>/);
+  assert.doesNotMatch(cart, />Price unlocked<\/span>/);
+  assert.doesNotMatch(cart, />Unlock Price<\/button>/);
+  assert.match(cart, /class="epos-cart-price-control"/);
+  assert.match(cart, /data-cart-price="\$\{i\}"[\s\S]*class="epos-cart-discount/);
+  assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-closed"/);
+  assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-open"/);
+  assert.match(cart, /title="Price locked&#10;Unit price cannot be changed\."/);
+  assert.match(cart, /title="Price editable&#10;Unit price override active\."/);
+  assert.match(
+    css,
+    /\.epos-cart-price-control\s*\{[\s\S]*?grid-template-columns:\s*var\(--epos-cart-qty-input-width\) 16px/
+  );
+  assert.match(css, /\.epos-cart-price-control\s*\{[\s\S]*?gap:\s*4px/);
+  assert.match(css, /\.epos-cart-price-lock-closed\s*\{\s*color:\s*#374151;/);
+  assert.match(css, /\.epos-cart-price-lock-open\s*\{\s*color:\s*#16a34a;/);
+  assert.doesNotMatch(
+    css,
+    /\.epos-cart-price-lock-closed\s*\{[^}]*#dc2626|\.epos-cart-price-lock-closed\s*\{[^}]*#b91c1c/
+  );
+});
+
+test('Billing cart maintains one authoritative active row for mouse and keyboard workflow', () => {
+  const cart = readCart();
+  const renderer = readRenderer();
+  const css = readCss();
+
+  assert.match(cart, /activeRowIndex:\s*-1/);
+  assert.match(cart, /function getActiveCartRowIndex\(\)/);
+  assert.match(cart, /function setActiveCartRow\(index\)/);
+  assert.match(cart, /function moveActiveCartRow\(delta\)/);
+  assert.match(cart, /class="\$\{i === activeRowIndex \? 'epos-cart-row-active' : ''\}"/);
+  assert.match(cart, /aria-selected="\$\{i === activeRowIndex\}"/);
+  assert.match(
+    renderer,
+    /const row = e\.target\.closest\('\[data-cart-row\]'\);[\s\S]*C\(\)\.setActiveCartRow\(Number\(row\.dataset\.cartRow\)\);/
+  );
+  assert.match(
+    renderer,
+    /if \(e\.key === 'ArrowUp' \|\| e\.key === 'ArrowDown'\) \{[\s\S]*C\(\)\.moveActiveCartRow\(e\.key === 'ArrowDown' \? 1 : -1\);/
+  );
+  assert.match(css, /tr\.epos-cart-row-active td\s*\{[\s\S]*background:\s*#eff6ff/);
+  assert.match(css, /tr\.epos-cart-row-active td:first-child\s*\{[\s\S]*inset 4px 0 0 #2563eb/);
+});
+
+test('Billing Ctrl+L unlock shortcut reuses the existing price authorization flow', () => {
+  const renderer = readRenderer();
+
+  assert.match(
+    renderer,
+    /if \(k === 'l'\) \{[\s\S]*const index = C\(\)\.getActiveCartRowIndex\?\.\(\);[\s\S]*unlockPriceFromUI\(index\);/
+  );
+  assert.match(renderer, /if \(k === 'b'\)/);
+  assert.match(renderer, /if \(k === 'w'\)/);
+  assert.doesNotMatch(renderer, /if \(k === 'l'\)[\s\S]*openPriceUnlockReason\(/);
 });

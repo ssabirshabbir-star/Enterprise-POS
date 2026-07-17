@@ -326,6 +326,13 @@
         C().setPaymentMethod('Bank');
         return;
       }
+      if (k === 'l') {
+        e.preventDefault();
+        const index = C().getActiveCartRowIndex?.();
+        if (Number.isInteger(index) && index >= 0) unlockPriceFromUI(index);
+        else C().showMsg('Select a cart row before unlocking unit price.', true);
+        return;
+      }
       if (k === 'w') {
         e.preventDefault();
         const whatsAppButton = $id('posWhatsappButton');
@@ -349,6 +356,14 @@
       if (e.key === 'Delete') {
         e.preventDefault();
         clearCartConfirmFromUI();
+        return;
+      }
+    }
+
+    if (!inInput && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        C().moveActiveCartRow(e.key === 'ArrowDown' ? 1 : -1);
         return;
       }
     }
@@ -722,6 +737,9 @@
       tbody.addEventListener('input', updateCartInput);
       tbody.addEventListener('change', updateCartInput);
       tbody.addEventListener('click', (e) => {
+        const row = e.target.closest('[data-cart-row]');
+        if (row) C().setActiveCartRow(Number(row.dataset.cartRow));
+
         const unlock = e.target.closest('[data-unlock-price]');
         if (unlock) {
           unlockPriceFromUI(Number(unlock.dataset.unlockPrice));
