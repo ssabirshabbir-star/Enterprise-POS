@@ -15,6 +15,10 @@
     overflow: hidden;
   }
 
+  #dashboard #appMain #customersModule {
+    padding-bottom: 0;
+  }
+
   .epos-customers-page {
     --app-table-header-height: 40px;
     --app-table-header-padding: 0 12px;

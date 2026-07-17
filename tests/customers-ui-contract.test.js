@@ -88,6 +88,7 @@ test('Customers dropdown remains the single authoritative customer filter state'
 test('Customers removed tab row and compacted footer return vertical space to table viewport', () => {
   const footerBlock = css.match(/\.epos-customers-footer\s*{[^}]*}/)?.[0] || '';
   const footerSpanBlock = css.match(/\.epos-customers-footer span\s*{[^}]*}/)?.[0] || '';
+  const cardBlock = html.match(/<main class="epos-customers-card">[\s\S]*?<\/main>/)?.[0] || '';
   assert.doesNotMatch(html, /<div class="epos-customers-tabs"|data-customer-tab/);
   assert.match(
     css,
@@ -105,6 +106,16 @@ test('Customers removed tab row and compacted footer return vertical space to ta
   assert.doesNotMatch(footerBlock, /transform:\s*translateY/);
   assert.doesNotMatch(footerBlock, /margin-(?:top|bottom):\s*-/);
   assert.doesNotMatch(footerSpanBlock, /height:\s*100%;/);
+  assert.match(
+    css,
+    /#dashboard #appMain #customersModule\s*{[\s\S]*?padding-bottom:\s*0;[\s\S]*?}/
+  );
+  assert.ok(
+    cardBlock.indexOf('class="epos-customers-table-wrap"') >= 0 &&
+      cardBlock.indexOf('class="epos-customers-footer"') >
+        cardBlock.indexOf('class="epos-customers-table-wrap"'),
+    'footer follows the table wrapper as the terminal card row'
+  );
 });
 
 test('Customers removes dead search-row menu placeholder and keeps safe controls', () => {
