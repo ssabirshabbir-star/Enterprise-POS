@@ -184,9 +184,11 @@
       .map((c, i) => {
         const balance = Number(c.currentBalance || 0);
         const balColor = balance > 0 ? '#dc2626' : '#16a34a';
+        const groupLabel = c.group || '&mdash;';
+        const cityLabel = c.address?.split(',').pop()?.trim() || '&mdash;';
         const groupBadge = c.group
-          ? `<span style="background:#ede9fe;color:#7c3aed;padding:1px 7px;border-radius:9px;font-size:.7rem">${esc(c.group)}</span>`
-          : '<span style="color:#9ca3af;font-size:.75rem">—</span>';
+          ? `<span class="epos-customer-pill regular" title="${esc(groupLabel)}">${esc(groupLabel)}</span>`
+          : `<span class="epos-customers-muted-cell" title="No group">&mdash;</span>`;
         const statusBadge = c.isActive
           ? '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Active</span>'
           : '<span style="background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:9px;font-size:.72rem;font-weight:600">Inactive</span>';
@@ -197,8 +199,8 @@
         <td style="font-weight:600;font-size:.82rem">${esc(c.name)}</td>
         <td style="color:#6b7280;font-size:.75rem">#${c.id}</td>
         <td style="font-size:.78rem">${esc(c.phone || '—')}</td>
-        <td>${groupBadge}</td>
-        <td style="font-size:.75rem">${esc(c.address?.split(',').pop()?.trim() || '—')}</td>
+        <td class="epos-customers-group-cell" title="${c.group ? esc(groupLabel) : 'No group'}">${groupBadge}</td>
+        <td class="epos-customers-city-cell" title="${cityLabel === '&mdash;' ? 'No city' : esc(cityLabel)}">${cityLabel === '&mdash;' ? '&mdash;' : esc(cityLabel)}</td>
         <td style="text-align:right;font-size:.78rem">Rs.${fmt(c.stats?.totalPurchases)}</td>
         <td style="text-align:right;font-weight:700;font-size:.82rem;color:${balColor}">Rs.${fmt(balance)}</td>
         <td style="text-align:center">${statusBadge}</td>

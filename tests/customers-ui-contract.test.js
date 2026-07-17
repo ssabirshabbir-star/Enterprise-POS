@@ -30,6 +30,10 @@ test('Customers keeps table and action surfaces present', () => {
 
   assert.match(html, /class="epos-customers-table-wrap"/);
   assert.match(html, /class="epos-customers-table"/);
+  assert.match(
+    html,
+    /<colgroup>[\s\S]*?epos-customers-col-group[\s\S]*?epos-customers-col-city[\s\S]*?epos-customers-col-action[\s\S]*?<\/colgroup>/
+  );
   assert.match(html, /id="customerPageList"/);
 });
 
@@ -61,10 +65,22 @@ test('Customers table owns full width inside its wrapper without stale max width
     css,
     /\.epos-customers-table\s*{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?table-layout:\s*fixed;/
   );
+  assert.match(css, /--customers-col-group:\s*9%;/);
+  assert.match(css, /--customers-col-city:\s*11%;/);
+  assert.match(css, /--customers-col-action:\s*13%;/);
   assert.match(
     css,
-    /\.epos-customers-table th:nth-child\(11\),\s*\.epos-customers-table td:nth-child\(11\)\s*{[\s\S]*?width:\s*19%;[\s\S]*?white-space:\s*nowrap;/
+    /\.epos-customers-col-action\s*{\s*width:\s*var\(--customers-col-action\);\s*}/
   );
+  assert.doesNotMatch(css, /nth-child\(11\)[\s\S]*?width:\s*19%;/);
+  assert.doesNotMatch(css, /nth-child\(6\)[\s\S]*?width:\s*6%;/);
+  assert.doesNotMatch(css, /nth-child\(7\)[\s\S]*?width:\s*5%;/);
+  assert.match(
+    css,
+    /\.epos-customers-group-cell,\s*\.epos-customers-city-cell,\s*\.epos-customers-muted-cell\s*{[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap;/
+  );
+  assert.match(renderer, /class="epos-customers-group-cell" title=/);
+  assert.match(renderer, /class="epos-customers-city-cell" title=/);
   assert.doesNotMatch(
     css,
     /\.epos-customers-(?:workspace|card|table-wrap|table)\s*{[^}]*max-width:\s*(?:calc\(|[0-9]+px|[0-9]+rem)/s
