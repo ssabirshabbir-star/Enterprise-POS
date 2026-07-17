@@ -130,7 +130,14 @@ test('Purchases consolidated filter row keeps search left and equal filters righ
     css,
     /@media \(max-width: 1366px\)[\s\S]*?grid-template-columns:\s*minmax\(300px, 1fr\) repeat\(4, 164px\);/
   );
-  assert.match(css, /\.epos-purchases-date-panel\s*{[\s\S]*?position:\s*absolute;/);
+  assert.match(
+    css,
+    /\.epos-purchases-date-panel\s*{[\s\S]*?position:\s*absolute;[\s\S]*?right:\s*0;[\s\S]*?left:\s*auto;/
+  );
+  assert.match(
+    css,
+    /\.epos-purchases-date-panel\s*{[\s\S]*?width:\s*min\(560px, calc\(100vw - 32px\)\);[\s\S]*?max-width:\s*calc\(100vw - 32px\);/
+  );
   assert.match(css, /\.epos-purchases-keyword\s*{[\s\S]*?justify-self:\s*stretch;/);
   assert.match(
     css,
