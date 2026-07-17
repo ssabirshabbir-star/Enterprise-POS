@@ -68,6 +68,10 @@ test('Purchases exposes only certified filter controls', () => {
   const renderer = read(rendererPath);
 
   assert.match(html, /class="epos-purchases-filter-row"/);
+  assert.match(
+    html,
+    /id="purchaseStatusFilter" aria-label="Purchase Status"[\s\S]*<option value="">All Purchases<\/option>[\s\S]*<option value="DRAFT">Draft<\/option>[\s\S]*<option value="PENDING">Pending<\/option>[\s\S]*<option value="PARTIAL">Partial Paid<\/option>[\s\S]*<option value="PAID">Paid<\/option>[\s\S]*<option value="CANCELLED">Cancelled<\/option>[\s\S]*<option value="RETURN">Purchase Return<\/option>/
+  );
   assert.match(html, /id="purchaseSupplierFilter"/);
   assert.match(
     html,
@@ -92,9 +96,12 @@ test('Purchases exposes only certified filter controls', () => {
   assert.match(html, /id="purchaseClearDateFiltersButton"/);
   assert.match(html, /id="purchaseClearFiltersButton"[\s\S]*Reset All Filters/);
   assert.doesNotMatch(html, /id="purchaseRowsPerPage"[^>]*disabled/);
+  assert.doesNotMatch(html, /class="epos-purchases-tabs"|data-purchase-status-tab/);
 
   assert.match(renderer, /A\(\)\.list\(getFilters\(\)\)/);
+  assert.match(renderer, /purchaseTab:\s*\$id\('purchaseStatusFilter'\)\?\.value \|\| ''/);
   assert.doesNotMatch(renderer, /function filteredPurchases/);
+  assert.doesNotMatch(renderer, /data-purchase-status-tab|epos-purchases-tabs/);
   assert.match(renderer, /purchasePagination/);
   assert.match(renderer, /function clearDateFilters/);
   assert.match(renderer, /function updateDateFilterSummary/);
@@ -107,6 +114,7 @@ test('Purchases consolidated filter row keeps search left and equal filters righ
     html.match(/<div class="epos-purchases-filter-row">[\s\S]*?<\/div>\s*<\/section>/)?.[0] || '';
   const order = [
     'purchaseKeywordSearch',
+    'purchaseStatusFilter',
     'purchaseSupplierFilter',
     'purchaseMethodFilter',
     'purchasePaymentFilter',
@@ -124,11 +132,11 @@ test('Purchases consolidated filter row keeps search left and equal filters righ
   );
   assert.match(
     css,
-    /\.epos-purchases-filter-row\s*{[\s\S]*?grid-template-columns:\s*minmax\(300px, 1fr\) repeat\(4, 168px\);/
+    /\.epos-purchases-filter-row\s*{[\s\S]*?grid-template-columns:\s*minmax\(280px, 1fr\) repeat\(5, 154px\);/
   );
   assert.match(
     css,
-    /@media \(max-width: 1366px\)[\s\S]*?grid-template-columns:\s*minmax\(300px, 1fr\) repeat\(4, 164px\);/
+    /@media \(max-width: 1366px\)[\s\S]*?grid-template-columns:\s*minmax\(270px, 1fr\) repeat\(5, 150px\);/
   );
   assert.match(
     css,
@@ -164,6 +172,7 @@ test('Purchases consolidated filter row keeps search left and equal filters righ
     /\.epos-purchases-date-menu summary\s*{[\s\S]*?justify-content:\s*space-between;/
   );
   assert.doesNotMatch(css, /\.epos-purchases-search-row\s*{/);
+  assert.doesNotMatch(css, /\.epos-purchases-tabs|data-purchase-status-tab/);
 
   const filterCss = css.slice(
     css.indexOf('.epos-purchases-filter-row'),
@@ -172,6 +181,35 @@ test('Purchases consolidated filter row keeps search left and equal filters righ
   assert.doesNotMatch(filterCss, /text-overflow:\s*ellipsis/);
   assert.doesNotMatch(filterCss, /overflow:\s*hidden/);
   assert.doesNotMatch(filterCss, /flex-wrap:\s*wrap/);
+});
+
+test('Purchases removes the status tab row and transfers that space to the table area', () => {
+  const html = read(htmlPath);
+  const css = read(cssPath);
+
+  assert.doesNotMatch(html, /<nav class="epos-purchases-tabs"|data-purchase-status-tab/);
+  assert.doesNotMatch(css, /\.epos-purchases-tabs/);
+  assert.doesNotMatch(css, /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-tabs button/);
+  assert.match(
+    css,
+    /\.epos-purchases-page\s*{[\s\S]*?grid-template-rows:\s*auto auto auto minmax\(0, 1fr\) auto;/
+  );
+  assert.match(
+    css,
+    /\.epos-purchases-table-card\s*{[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/
+  );
+  assert.match(
+    css,
+    /\.epos-purchases-table-wrap\s*{[\s\S]*?height:\s*100%;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*auto;/
+  );
+  assert.match(
+    css,
+    /\.epos-purchases-footer\s*{[\s\S]*?min-height:\s*36px;[\s\S]*?padding:\s*2px 14px;/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-footer\s*{[\s\S]*?padding:\s*2px 10px;/
+  );
 });
 
 test('Purchases date and due filter dropdown preserves disabled unique options', () => {

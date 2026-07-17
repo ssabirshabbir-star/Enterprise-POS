@@ -120,9 +120,7 @@
       supplierId: $id('purchaseSupplierFilter')?.value || '',
       paymentMethod: $id('purchaseMethodFilter')?.value || '',
       paymentStatus: $id('purchasePaymentFilter')?.value || '',
-      purchaseTab:
-        document.querySelector('[data-purchase-status-tab].active')?.dataset.purchaseStatusTab ||
-        '',
+      purchaseTab: $id('purchaseStatusFilter')?.value || '',
       dateFrom: $id('purchaseFilterFrom')?.value || '',
       dateTo: $id('purchaseFilterTo')?.value || '',
       datePreset: activeDatePreset,
@@ -685,14 +683,16 @@
       const el = $id(id);
       if (el) el.value = '';
     });
-    ['purchaseSupplierFilter', 'purchaseMethodFilter', 'purchasePaymentFilter'].forEach((id) => {
+    [
+      'purchaseStatusFilter',
+      'purchaseSupplierFilter',
+      'purchaseMethodFilter',
+      'purchasePaymentFilter',
+    ].forEach((id) => {
       const el = $id(id);
       if (el) el.value = '';
     });
     activeDatePreset = '';
-    document
-      .querySelectorAll('[data-purchase-status-tab]')
-      .forEach((btn) => btn.classList.toggle('active', btn.dataset.purchaseStatusTab === ''));
     document
       .querySelectorAll('[data-purchase-range]')
       .forEach((btn) => btn.classList.remove('active'));
@@ -803,6 +803,7 @@
       })
     );
     [
+      'purchaseStatusFilter',
       'purchaseSupplierFilter',
       'purchaseMethodFilter',
       'purchasePaymentFilter',
@@ -816,15 +817,6 @@
     );
     $id('purchaseClearDateFiltersButton')?.addEventListener('click', clearDateFilters);
     $id('purchaseClearFiltersButton')?.addEventListener('click', clearFilters);
-    document.querySelectorAll('[data-purchase-status-tab]').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        document
-          .querySelectorAll('[data-purchase-status-tab]')
-          .forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        refreshForFilterChange();
-      })
-    );
     document.querySelectorAll('[data-purchase-range]:not([disabled])').forEach((btn) =>
       btn.addEventListener('click', () => {
         activateDatePreset(btn.dataset.purchaseRange || '');

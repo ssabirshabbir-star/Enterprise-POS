@@ -221,21 +221,20 @@
   </section>
 
   <section class="epos-purchases-panel">
-    <nav class="epos-purchases-tabs" aria-label="Purchase status filters">
-      <button type="button" class="active" data-purchase-status-tab="">All Purchases</button>
-      <button type="button" data-purchase-status-tab="DRAFT">Draft</button>
-      <button type="button" data-purchase-status-tab="PENDING">Pending</button>
-      <button type="button" data-purchase-status-tab="PARTIAL">Partial Paid</button>
-      <button type="button" data-purchase-status-tab="PAID">Paid</button>
-      <button type="button" data-purchase-status-tab="CANCELLED">Cancelled</button>
-      <button type="button" data-purchase-status-tab="RETURN">Purchase Return</button>
-    </nav>
-
     <div class="epos-purchases-filter-row">
       <label class="epos-purchases-keyword">
         <span>&#128269;</span>
         <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
       </label>
+      <select id="purchaseStatusFilter" aria-label="Purchase Status">
+        <option value="">All Purchases</option>
+        <option value="DRAFT">Draft</option>
+        <option value="PENDING">Pending</option>
+        <option value="PARTIAL">Partial Paid</option>
+        <option value="PAID">Paid</option>
+        <option value="CANCELLED">Cancelled</option>
+        <option value="RETURN">Purchase Return</option>
+      </select>
       <select id="purchaseSupplierFilter" aria-label="Supplier"><option value="">All Suppliers</option></select>
       <select id="purchaseMethodFilter" aria-label="Payment Method"><option value="">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option></select>
       <select id="purchasePaymentFilter" aria-label="Payment status"><option value="">All Payment Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial</option><option value="UNPAID">Unpaid</option></select>

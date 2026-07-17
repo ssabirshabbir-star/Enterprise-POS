@@ -129,32 +129,9 @@
     box-shadow: 0 10px 24px rgb(15 23 42 / 0.06);
   }
 
-  .epos-purchases-tabs {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    min-width: 0;
-    border-bottom: 1px solid #dde6f2;
-  }
-
-  .epos-purchases-tabs button {
-    min-height: 48px;
-    border: 0;
-    border-bottom: 3px solid transparent;
-    background: #fff;
-    color: #34415f;
-    font-size: 14px;
-    font-weight: 850;
-    cursor: pointer;
-  }
-
-  .epos-purchases-tabs button.active {
-    border-bottom-color: #6d28d9;
-    color: #5b35ee;
-  }
-
   .epos-purchases-filter-row {
     display: grid;
-    grid-template-columns: minmax(300px, 1fr) repeat(4, 168px);
+    grid-template-columns: minmax(280px, 1fr) repeat(5, 154px);
     gap: 10px;
     align-items: center;
     padding: 12px 12px;
@@ -1010,13 +987,8 @@
       margin-top: 1px;
     }
 
-    .epos-purchases-tabs button {
-      min-height: 40px;
-      font-size: 12px;
-    }
-
     .epos-purchases-filter-row {
-      grid-template-columns: minmax(300px, 1fr) repeat(4, 164px);
+      grid-template-columns: minmax(270px, 1fr) repeat(5, 150px);
       gap: 8px;
       padding: 6px 10px;
     }
