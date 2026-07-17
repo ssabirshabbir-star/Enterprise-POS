@@ -14,9 +14,16 @@ const signedInUser = document.getElementById('signedInUser');
 const logoutButton = document.getElementById('logoutButton');
 const routeTitle = document.getElementById('routeTitle');
 const routePanels = document.querySelectorAll('[data-route-panel]');
+const appShell = document.getElementById('appShell');
+const appSidebar = document.getElementById('appSidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 
 // ---- App State ---------------------------------------------
 let currentProfile = null;
+let sidebarDesktopPreference = sessionStorage.getItem('enterprisePos.sidebarMode') || '';
+let sidebarMobileOpen = false;
+let lastSidebarViewport = '';
 
 const AuthApi = () => window.AuthApi;
 
@@ -101,9 +108,97 @@ function applySidebarVisibility(profile) {
   });
 }
 
+function sidebarViewportMode() {
+  if (window.outerWidth <= 767) return 'mobile';
+  if (window.matchMedia('(max-width: 960px)').matches) return 'mobile';
+  if (window.matchMedia('(max-width: 1199px)').matches) return 'medium';
+  return 'large';
+}
+
+function preferredSidebarMode(viewport = sidebarViewportMode()) {
+  if (viewport === 'mobile') return 'mobile';
+  if (sidebarDesktopPreference === 'expanded' || sidebarDesktopPreference === 'compact') {
+    return sidebarDesktopPreference;
+  }
+  return viewport === 'medium' ? 'compact' : 'expanded';
+}
+
+function visibleSidebarNavItems() {
+  return [...document.querySelectorAll('#sidebarNav .navLink')].filter(
+    (link) => !link.classList.contains('hidden') && !link.hidden
+  );
+}
+
+function syncSidebarNavAccessibility() {
+  document.querySelectorAll('#sidebarNav .navLink').forEach((link) => {
+    const label =
+      link.querySelector('.epos-sidebar-label')?.textContent?.trim() || 'Navigation item';
+    link.setAttribute('aria-label', label);
+    link.title = label;
+  });
+}
+
+function applySidebarState(options = {}) {
+  if (!appShell || !appSidebar || !sidebarToggle || !sidebarBackdrop) return;
+
+  const viewport = sidebarViewportMode();
+  if (viewport !== lastSidebarViewport) {
+    sidebarMobileOpen = false;
+    lastSidebarViewport = viewport;
+  }
+
+  if (options.closeMobile) sidebarMobileOpen = false;
+
+  const mode = preferredSidebarMode(viewport);
+  const mobile = viewport === 'mobile';
+  const open = mobile ? sidebarMobileOpen : false;
+  const expanded = mobile ? open : mode === 'expanded';
+
+  appShell.dataset.sidebarMode = mode;
+  appShell.dataset.sidebarOpen = open ? 'true' : 'false';
+  appSidebar.classList.toggle('epos-sidebar-rail', mode === 'compact');
+  appSidebar.setAttribute('aria-hidden', mobile && !open ? 'true' : 'false');
+  appSidebar.toggleAttribute('inert', mobile && !open);
+  sidebarBackdrop.hidden = !open;
+  sidebarToggle.setAttribute('aria-expanded', String(expanded));
+  sidebarToggle.setAttribute(
+    'aria-label',
+    mobile
+      ? open
+        ? 'Close navigation menu'
+        : 'Open navigation menu'
+      : mode === 'expanded'
+        ? 'Collapse navigation menu'
+        : 'Expand navigation menu'
+  );
+  sidebarToggle.title = sidebarToggle.getAttribute('aria-label');
+
+  syncSidebarNavAccessibility();
+}
+
+function toggleSidebar() {
+  const viewport = sidebarViewportMode();
+  if (viewport === 'mobile') {
+    sidebarMobileOpen = !sidebarMobileOpen;
+    applySidebarState();
+    if (sidebarMobileOpen) {
+      requestAnimationFrame(() => visibleSidebarNavItems()[0]?.focus());
+    } else {
+      sidebarToggle?.focus();
+    }
+    return;
+  }
+
+  const nextMode = preferredSidebarMode(viewport) === 'expanded' ? 'compact' : 'expanded';
+  sidebarDesktopPreference = nextMode;
+  sessionStorage.setItem('enterprisePos.sidebarMode', nextMode);
+  applySidebarState();
+}
+
 function showDashboard(profile) {
   setAuthUser(profile);
   applySidebarVisibility(profile);
+  applySidebarState({ closeMobile: true });
   loadingScreen.classList.add('hidden');
   loginScreen.classList.add('hidden');
   dashboard.classList.remove('hidden');
@@ -199,6 +294,8 @@ async function navigateTo(route) {
   if (target === '/settings') window.initSettingsModule?.();
   if (target === '/sync') window.initSyncModule?.();
   if (target === '/users') window.initAccessControlModule?.();
+
+  applySidebarState({ closeMobile: true });
 }
 
 // ---- Login Handler -----------------------------------------
@@ -264,6 +361,22 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
   navigateTo(link.dataset.route).catch(() => {});
 });
+
+sidebarToggle?.addEventListener('click', toggleSidebar);
+sidebarBackdrop?.addEventListener('click', () => {
+  sidebarMobileOpen = false;
+  applySidebarState();
+  sidebarToggle?.focus();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !appShell || appShell.dataset.sidebarOpen !== 'true') return;
+  sidebarMobileOpen = false;
+  applySidebarState();
+  sidebarToggle?.focus();
+});
+
+window.addEventListener('resize', () => applySidebarState());
 
 // ---- Session Restore ---------------------------------------
 

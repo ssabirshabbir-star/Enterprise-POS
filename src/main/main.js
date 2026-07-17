@@ -40,8 +40,8 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1180,
     height: 760,
-    minWidth: 960,
-    minHeight: 620,
+    minWidth: 390,
+    minHeight: 560,
     autoHideMenuBar: true,
     backgroundColor: '#f6f4ef',
     title: 'Enterprise POS',
