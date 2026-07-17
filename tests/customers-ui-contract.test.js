@@ -89,7 +89,9 @@ test('Customers removed tab row and compacted footer return vertical space to ta
   const footerBlock = css.match(/\.epos-customers-footer\s*{[^}]*}/)?.[0] || '';
   const footerSpanBlock = css.match(/\.epos-customers-footer span\s*{[^}]*}/)?.[0] || '';
   const cardBlock = html.match(/<main class="epos-customers-card">[\s\S]*?<\/main>/)?.[0] || '';
+  const footerMatches = html.match(/class="epos-customers-footer"/g) || [];
   assert.doesNotMatch(html, /<div class="epos-customers-tabs"|data-customer-tab/);
+  assert.equal(footerMatches.length, 1);
   assert.match(
     css,
     /\.epos-customers-card\s*{[\s\S]*?display:\s*flex;[\s\S]*?height:\s*100%;[\s\S]*?flex-direction:\s*column;[\s\S]*?overflow:\s*hidden;/
@@ -100,7 +102,11 @@ test('Customers removed tab row and compacted footer return vertical space to ta
   );
   assert.match(
     css,
-    /\.epos-customers-footer\s*{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?flex:\s*0 0 24px;[\s\S]*?height:\s*24px;[\s\S]*?min-height:\s*24px;[\s\S]*?box-sizing:\s*border-box;[\s\S]*?background:\s*#ffffff;[\s\S]*?padding:\s*4px 12px;[\s\S]*?font-size:\s*10px;[\s\S]*?line-height:\s*15px;/
+    /\.epos-customers-footer\s*{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?flex:\s*0 0 24px;[\s\S]*?height:\s*24px;[\s\S]*?min-height:\s*24px;[\s\S]*?box-sizing:\s*border-box;[\s\S]*?border-radius:\s*0;[\s\S]*?background:\s*#eef3fb;[\s\S]*?padding:\s*4px 12px;[\s\S]*?font-size:\s*10px;[\s\S]*?line-height:\s*15px;/
+  );
+  assert.doesNotMatch(
+    footerBlock,
+    /background:\s*(?:#fff(?:fff)?|white|rgb\(255\s+255\s+255|rgb\(255,\s*255,\s*255)/i
   );
   assert.match(css, /\.epos-customers-footer span\s*{[\s\S]*?line-height:\s*15px;/);
   assert.doesNotMatch(footerBlock, /transform:\s*translateY/);
