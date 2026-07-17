@@ -27,6 +27,26 @@ test('application shell owns one authoritative sidebar toggle and drawer', () =>
   assert.match(html, /id="sidebarBackdrop"[\s\S]*hidden/);
 });
 
+test('sidebar toggle uses the shared three-line menu button treatment', () => {
+  const html = read(shellHtmlPath);
+  const css = read(sidebarCssPath);
+
+  assert.match(
+    html,
+    /id="sidebarToggle"[\s\S]*<span aria-hidden="true"><\/span>[\s\S]*<span aria-hidden="true"><\/span>[\s\S]*<span aria-hidden="true"><\/span>/
+  );
+  assert.match(
+    css,
+    /\.epos-sidebar-toggle\s*{[\s\S]*width:\s*38px;[\s\S]*height:\s*38px;[\s\S]*gap:\s*5px;[\s\S]*border:\s*0;[\s\S]*border-radius:\s*12px;[\s\S]*background:\s*#ffffff;[\s\S]*color:\s*#2563eb;[\s\S]*inset 2px 2px 5px/
+  );
+  assert.match(
+    css,
+    /\.epos-sidebar-toggle span\s*{[\s\S]*width:\s*18px;[\s\S]*height:\s*2px;[\s\S]*background:\s*currentColor;/
+  );
+  assert.match(css, /\.epos-sidebar-toggle:hover\s*{[\s\S]*background:\s*#f8fbff;/);
+  assert.match(css, /\.epos-sidebar-toggle:focus-visible\s*{[\s\S]*outline:/);
+});
+
 test('sidebar controller supports expanded, compact, and mobile overlay behavior', () => {
   const renderer = read(shellRendererPath);
   const css = read(sidebarCssPath);

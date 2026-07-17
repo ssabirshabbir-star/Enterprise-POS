@@ -599,21 +599,35 @@
     height: 38px;
     flex: 0 0 auto;
     place-items: center;
-    gap: 4px;
-    border: 1px solid #dbe3ef;
+    gap: 5px;
+    border: 0;
     border-radius: 12px;
     background: #ffffff;
-    color: #315cf6;
-    box-shadow: 0 8px 18px rgb(15 23 42 / 0.08);
+    color: #2563eb;
+    box-shadow: inset 2px 2px 5px rgb(15 23 42 / 0.06),
+      inset -2px -2px 5px #ffffff;
     cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
   }
 
   .epos-sidebar-toggle span {
     display: block;
-    width: 17px;
+    width: 18px;
     height: 2px;
     border-radius: 999px;
     background: currentColor;
+  }
+
+  .epos-sidebar-toggle:hover {
+    background: #f8fbff;
+    color: #1d4ed8;
+    box-shadow: inset 2px 2px 6px rgb(15 23 42 / 0.08),
+      inset -2px -2px 6px #ffffff;
+  }
+
+  .epos-sidebar-toggle:active {
+    box-shadow: inset 3px 3px 7px rgb(15 23 42 / 0.1),
+      inset -2px -2px 5px #ffffff;
   }
 
   .epos-sidebar-toggle:focus-visible {
