@@ -232,6 +232,10 @@
     </nav>
 
     <div class="epos-purchases-filter-row">
+      <label class="epos-purchases-keyword">
+        <span>&#128269;</span>
+        <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
+      </label>
       <select id="purchaseSupplierFilter" aria-label="Supplier"><option value="">All Suppliers</option></select>
       <select id="purchaseMethodFilter" aria-label="Payment Method"><option value="">All Methods</option><option value="Cash">Cash</option><option value="Credit">Credit</option></select>
       <select id="purchasePaymentFilter" aria-label="Payment status"><option value="">All Payment Status</option><option value="PAID">Paid</option><option value="PARTIAL">Partial</option><option value="UNPAID">Unpaid</option></select>
@@ -265,10 +269,6 @@
           </div>
         </div>
       </details>
-      <label class="epos-purchases-keyword">
-        <span>&#128269;</span>
-        <input id="purchaseKeywordSearch" type="search" placeholder="Search product, invoice, supplier, amount..." autocomplete="off" />
-      </label>
     </div>
   </section>
 

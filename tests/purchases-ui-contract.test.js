@@ -100,23 +100,51 @@ test('Purchases exposes only certified filter controls', () => {
   assert.match(renderer, /function updateDateFilterSummary/);
 });
 
-test('Purchases consolidated filter row gives search the right-side workspace', () => {
+test('Purchases consolidated filter row keeps search left and equal filters right', () => {
   const html = read(htmlPath);
   const css = read(cssPath);
   const filterRow =
     html.match(/<div class="epos-purchases-filter-row">[\s\S]*?<\/div>\s*<\/section>/)?.[0] || '';
+  const order = [
+    'purchaseKeywordSearch',
+    'purchaseSupplierFilter',
+    'purchaseMethodFilter',
+    'purchasePaymentFilter',
+    'purchaseDateFilterMenu',
+  ].map((id) => filterRow.indexOf(id));
 
-  assert.match(
-    filterRow,
-    /purchaseSupplierFilter[\s\S]*purchaseMethodFilter[\s\S]*purchasePaymentFilter[\s\S]*purchaseDateFilterMenu[\s\S]*purchaseKeywordSearch/
+  assert.ok(
+    order.every((index) => index >= 0),
+    'all row controls are present'
+  );
+  assert.deepEqual(
+    [...order].sort((a, b) => a - b),
+    order,
+    'search precedes the filters, and filter order is unchanged'
   );
   assert.match(
     css,
-    /\.epos-purchases-filter-row\s*{[\s\S]*?grid-template-columns:\s*118px 112px 142px 188px minmax\(340px, 1fr\);/
+    /\.epos-purchases-filter-row\s*{[\s\S]*?grid-template-columns:\s*minmax\(300px, 1fr\) repeat\(4, 168px\);/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?grid-template-columns:\s*minmax\(300px, 1fr\) repeat\(4, 164px\);/
   );
   assert.match(css, /\.epos-purchases-date-panel\s*{[\s\S]*?position:\s*absolute;/);
   assert.match(css, /\.epos-purchases-keyword\s*{[\s\S]*?justify-self:\s*stretch;/);
+  assert.match(
+    css,
+    /\.epos-purchases-date-menu summary\s*{[\s\S]*?justify-content:\s*space-between;/
+  );
   assert.doesNotMatch(css, /\.epos-purchases-search-row\s*{/);
+
+  const filterCss = css.slice(
+    css.indexOf('.epos-purchases-filter-row'),
+    css.indexOf('.epos-purchases-toolbar')
+  );
+  assert.doesNotMatch(filterCss, /text-overflow:\s*ellipsis/);
+  assert.doesNotMatch(filterCss, /overflow:\s*hidden/);
+  assert.doesNotMatch(filterCss, /flex-wrap:\s*wrap/);
 });
 
 test('Purchases date and due filter dropdown preserves disabled unique options', () => {
