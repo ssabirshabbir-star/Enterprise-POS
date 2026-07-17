@@ -330,15 +330,10 @@
         e.preventDefault();
         const whatsAppButton = $id('posWhatsappButton');
         if (whatsAppButton?.disabled || whatsAppButton?.getAttribute('aria-disabled') === 'true') {
-          C().showMsg('WhatsApp sharing is not available in Core Release.', true);
+          C().showMsg('WhatsApp sharing is not available yet.', true);
           return;
         }
         sendWhatsAppFromUI();
-        return;
-      }
-      if (k === 's') {
-        e.preventDefault();
-        holdSaleFromUI();
         return;
       }
       if (k === 'r') {
@@ -811,9 +806,6 @@
       .getElementById('reprintLastBillButton')
       ?.addEventListener('click', reprintLastBillFromUI);
     document.getElementById('clearCartButton')?.addEventListener('click', clearCartConfirmFromUI);
-    document
-      .getElementById('posSaveDraftButton')
-      ?.addEventListener('click', () => $id('clearCartButton')?.click());
     document
       .getElementById('refundSaleButton')
       ?.addEventListener('click', () => validateSaleAction('refund'));

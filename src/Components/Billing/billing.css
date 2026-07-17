@@ -1308,6 +1308,22 @@
     border-color: color-mix(in srgb, var(--billing-accent) 24%, var(--epos-white) 76%);
     background: rgb(255 255 255 / 0.9);
   }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:disabled,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button[aria-disabled="true"] {
+    cursor: not-allowed !important;
+    opacity: 0.68;
+    filter: grayscale(0.18) saturate(0.72) brightness(0.98) !important;
+    transform: none !important;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:disabled:hover,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button[aria-disabled="true"]:hover,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:disabled:active,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button[aria-disabled="true"]:active {
+    cursor: not-allowed !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.78), 0 3px 8px rgb(15 23 42 / 0.08) !important;
+    filter: grayscale(0.18) saturate(0.72) brightness(0.98) !important;
+    transform: none !important;
+  }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid .epos-action-icon, .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid .epos-pay-amount { display: none !important; }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid .epos-btn-row {
     display: flex !important;
@@ -1348,7 +1364,7 @@
     position: relative;
     z-index: 1;
   }
-  /* Action button color mapping: Cash, Card, Bank, Credit, Split, Return, Exchange, Reprint, Cancel, Pay */
+  /* Action button color mapping: Cash, Card, Bank, Credit, Split, Return, Exchange, Reprint, Pay */
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(1) { --billing-accent: var(--billing-cash); --billing-fill: linear-gradient(180deg, #f7fff9 0%, #dff8e7 100%); --billing-shadow: rgb(20 164 77 / 0.22); }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(2) { --billing-accent: var(--billing-card); --billing-fill: linear-gradient(180deg, #fbfdff 0%, var(--epos-blue-soft-border) 100%); --billing-shadow: rgb(37 99 235 / 0.22); }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(3) { --billing-accent: var(--billing-bank); --billing-fill: linear-gradient(180deg, #fffdf8 0%, #ffedd5 100%); --billing-shadow: rgb(240 138 17 / 0.24); }
@@ -1357,8 +1373,7 @@
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(6) { --billing-accent: var(--billing-return); --billing-fill: linear-gradient(180deg, #fffafb 0%, #fecdd3 100%); --billing-shadow: rgb(235 64 95 / 0.24); }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(7) { --billing-accent: var(--billing-exchange); --billing-fill: linear-gradient(180deg, #fcfbff 0%, #ddd6fe 100%); --billing-shadow: rgb(143 93 247 / 0.24); }
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(8) { --billing-accent: var(--billing-reprint); --billing-fill: linear-gradient(180deg, #fbfdff 0%, var(--epos-blue-soft-border) 100%); --billing-shadow: rgb(63 142 241 / 0.22); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(9) { --billing-accent: var(--billing-cancel); --billing-fill: linear-gradient(180deg, #fffafc 0%, #fecdd3 100%); --billing-shadow: rgb(231 80 99 / 0.24); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(10) { --billing-accent: var(--billing-pay); --billing-fill: linear-gradient(180deg, #f6fffb 0%, #ccfbf1 100%); --billing-shadow: rgb(5 150 105 / 0.24); }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(9) { --billing-accent: var(--billing-pay); --billing-fill: linear-gradient(180deg, #f6fffb 0%, #ccfbf1 100%); --billing-shadow: rgb(5 150 105 / 0.24); }
 
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(-n + 4) {
     border-width: 1.5px;
@@ -1374,8 +1389,7 @@
   .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(n + 5):nth-child(-n + 7) kbd {
     color: #64748b !important;
   }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(8),
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(9) {
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-unified-grid button:nth-child(8) {
     --billing-fill: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     --billing-shadow: rgb(100 116 139 / 0.12);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.82), 0 4px 10px rgb(15 23 42 / 0.08) !important;
@@ -1397,6 +1411,17 @@
   .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button {
     filter: saturate(0.78) brightness(0.98);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.36), inset 0 -2px 0 rgb(0 0 0 / 0.12), 0 2px 0 rgb(15 23 42 / 0.12), 0 6px 10px rgb(15 23 42 / 0.12) !important;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:disabled,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button[aria-disabled="true"],
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:disabled:hover,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button[aria-disabled="true"]:hover,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:disabled:active,
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button[aria-disabled="true"]:active {
+    cursor: not-allowed !important;
+    opacity: 0.62;
+    filter: grayscale(0.28) saturate(0.55) brightness(0.94) !important;
+    transform: none !important;
   }
   /* ==========================================================
      SPECIFICITY AUDIT NOTES - V6
