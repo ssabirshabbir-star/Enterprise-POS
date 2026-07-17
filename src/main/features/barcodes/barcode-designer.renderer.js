@@ -3,6 +3,7 @@
 
   const SETTINGS_KEY = 'enterprise-pos.barcode-label-designer.settings.v1';
   const LAUNCH_KEY = 'enterprise-pos.barcode-label-designer.launch.v1';
+  const MAX_INITIAL_INVENTORY_SELECTION = 100;
   const DEFAULTS = Object.freeze({
     labelPrinter: '',
     showTitle: true,
@@ -147,25 +148,40 @@
 
   function normalizeLaunchPayload(raw = {}) {
     const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const mode = input.mode === 'products' ? 'products' : 'inventory';
     const products = (Array.isArray(input.products) ? input.products : [])
       .map((product) => {
         const productId = Number(product?.productId ?? product?.id);
         if (!Number.isInteger(productId) || productId <= 0) return null;
+        const barcode = String(product.barcode || '');
+        const isActive = product.isActive !== false;
+        const printable = isActive && Boolean(barcode.trim());
         return {
           productId,
           name: String(product.name || `Product ${productId}`),
           sku: String(product.sku || ''),
-          barcode: String(product.barcode || ''),
+          barcode,
           salePrice: Number(product.salePrice || 0) || 0,
           stock: Number(product.stock ?? product.currentStock ?? 0) || 0,
           copies: clampNumber(product.copies, 1, 1, 100),
-          selected: product.selected !== false,
+          isActive,
+          printable,
+          selected: product.selected !== false && printable,
         };
       })
       .filter(Boolean);
+    let selectedInventoryCount = 0;
+    const normalizedProducts = products.map((product) => {
+      if (mode !== 'inventory' || !product.selected) return product;
+      if (selectedInventoryCount >= MAX_INITIAL_INVENTORY_SELECTION) {
+        return { ...product, selected: false };
+      }
+      selectedInventoryCount += 1;
+      return product;
+    });
     return {
-      mode: input.mode === 'products' ? 'products' : 'inventory',
-      products,
+      mode,
+      products: normalizedProducts,
     };
   }
 
@@ -193,7 +209,9 @@
   }
 
   function selectedProducts(products = state.products) {
-    return products.filter((product) => product.selected && product.copies > 0);
+    return products.filter(
+      (product) => product.printable !== false && product.selected && product.copies > 0
+    );
   }
 
   function normalizeProductSearch(value) {
@@ -332,17 +350,19 @@
   }
 
   function renderProductRow(product, index) {
+    const disabled = product.printable === false;
+    const disabledText = disabled ? 'Not printable' : '';
     return `
-        <label class="epos-barcode-product-row">
-          <input type="checkbox" data-product-selected="${index}" ${product.selected ? 'checked' : ''} />
+        <label class="epos-barcode-product-row" ${disabled ? `title="${optionEsc(disabledText)}"` : ''}>
+          <input type="checkbox" data-product-selected="${index}" ${product.selected ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
           <span class="epos-barcode-product-details">
             <strong>${esc(product.name)}</strong>
-            <small>${esc(product.sku || product.barcode || 'No code')} - Stock ${Number(product.stock || 0).toFixed(0)}</small>
+            <small>${esc(disabledText || product.sku || product.barcode || 'No code')} - Stock ${Number(product.stock || 0).toFixed(0)}</small>
           </span>
           <span class="epos-barcode-copy-stepper" aria-label="Copies for ${esc(product.name)}">
-            <button type="button" data-product-copy-step="${index}:-1" aria-label="Decrease copies for ${esc(product.name)}">-</button>
-            <input class="epos-barcode-copies" type="number" min="1" max="100" value="${product.copies}" data-product-copies="${index}" aria-label="Copies for ${esc(product.name)}" />
-            <button type="button" data-product-copy-step="${index}:1" aria-label="Increase copies for ${esc(product.name)}">+</button>
+            <button type="button" data-product-copy-step="${index}:-1" aria-label="Decrease copies for ${esc(product.name)}" ${disabled ? 'disabled' : ''}>-</button>
+            <input class="epos-barcode-copies" type="number" min="1" max="100" value="${product.copies}" data-product-copies="${index}" aria-label="Copies for ${esc(product.name)}" ${disabled ? 'disabled' : ''} />
+            <button type="button" data-product-copy-step="${index}:1" aria-label="Increase copies for ${esc(product.name)}" ${disabled ? 'disabled' : ''}>+</button>
           </span>
         </label>`;
   }
@@ -607,7 +627,13 @@
     const copiesIndex = event.target?.dataset?.productCopies;
     if (selectedIndex != null) {
       const index = Number(selectedIndex);
-      state.products[index] = { ...state.products[index], selected: event.target.checked };
+      const product = state.products[index];
+      if (product) {
+        state.products[index] = {
+          ...product,
+          selected: product.printable !== false && event.target.checked,
+        };
+      }
     }
     if (copiesIndex != null) {
       const index = Number(copiesIndex);
@@ -628,6 +654,7 @@
     const index = Number(indexValue);
     const direction = Number(directionValue);
     if (!Number.isInteger(index) || !Number.isInteger(direction) || !state.products[index]) return;
+    if (state.products[index].printable === false) return;
     const nextCopies = clampNumber(Number(state.products[index].copies) + direction, 1, 1, 100);
     state.products[index] = { ...state.products[index], copies: nextCopies, selected: true };
     const input = document.querySelector(`[data-product-copies="${index}"]`);
@@ -644,7 +671,9 @@
     const visibleIndexes = new Set(visibleProductEntries().map(({ index }) => index));
     if (!visibleIndexes.size) return;
     state.products = state.products.map((product, index) =>
-      visibleIndexes.has(index) ? { ...product, selected } : product
+      visibleIndexes.has(index)
+        ? { ...product, selected: selected && product.printable !== false }
+        : product
     );
     renderProductList();
     schedulePreview();

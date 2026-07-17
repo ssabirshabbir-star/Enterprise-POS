@@ -119,7 +119,10 @@
     const productsResult = await loadProducts({});
     if (!productsResult.ok) return productsResult;
     const products = (productsResult.products || [])
-      .filter((item) => Number(item?.id ?? item?.productId) > 0 && item?.barcode)
+      .filter(
+        (item) =>
+          Number(item?.id ?? item?.productId) > 0 && item?.barcode && item?.isActive !== false
+      )
       .map((item) => {
         const itemId = Number(item.id ?? item.productId);
         return {
@@ -129,6 +132,7 @@
           barcode: item.barcode,
           salePrice: item.salePrice,
           currentStock: item.currentStock,
+          isActive: item.isActive !== false,
           copies: itemId === productId ? Number(product?.copies) || 1 : 1,
           selected: itemId === productId,
         };

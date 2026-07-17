@@ -13,6 +13,10 @@ const launcherPath = path.join(
   '../../src/main/features/barcodes/barcode-designer.launcher.js'
 );
 const productsApiPath = path.join(__dirname, '../../src/main/features/products/products.api.js');
+const inventoryRendererPath = path.join(
+  __dirname,
+  '../../src/main/features/inventory/inventory.renderer.js'
+);
 const designerHtmlPath = path.join(
   __dirname,
   '../../src/main/features/barcodes/barcode-designer.html'
@@ -297,6 +301,89 @@ test('barcode designer normalizes products and inventory launch context', () => 
   assert.equal(launch.products[0].productId, 7);
   assert.equal(launch.products[0].copies, 2);
   assert.equal(launch.products[0].selected, true);
+  assert.equal(launch.products[0].printable, true);
+});
+
+test('barcode designer hydrates inventory initial selection from printable product state', () => {
+  const hooks = loadRendererHooks();
+  const launch = hooks.normalizeLaunchPayload({
+    mode: 'inventory',
+    products: [
+      {
+        productId: 7,
+        name: 'Almonds 250g',
+        sku: 'GROC-096',
+        barcode: '8801000000096',
+        copies: 2,
+        isActive: true,
+      },
+      {
+        productId: 8,
+        name: 'Inactive Spice',
+        sku: 'SPICE-404',
+        barcode: '8801000000404',
+        copies: 1,
+        isActive: false,
+        selected: true,
+      },
+      {
+        productId: 9,
+        name: 'Missing Barcode',
+        sku: 'NOCODE',
+        barcode: '',
+        copies: 1,
+        selected: true,
+      },
+    ],
+  });
+  const request = hooks.buildPreviewRequest(launch.products, hooks.normalizeSettings());
+
+  assert.equal(launch.mode, 'inventory');
+  assert.deepEqual(
+    launch.products.map((product) => ({
+      productId: product.productId,
+      printable: product.printable,
+      selected: product.selected,
+      copies: product.copies,
+    })),
+    [
+      { productId: 7, printable: true, selected: true, copies: 2 },
+      { productId: 8, printable: false, selected: false, copies: 1 },
+      { productId: 9, printable: false, selected: false, copies: 1 },
+    ]
+  );
+  assert.equal(
+    JSON.stringify(request.items),
+    JSON.stringify([
+      {
+        productId: 7,
+        copies: 2,
+        labelSize: request.label.labelSize,
+        humanReadable: true,
+        priceDisplay: true,
+      },
+    ])
+  );
+});
+
+test('barcode designer caps inventory initial selection to the certified batch limit', () => {
+  const hooks = loadRendererHooks();
+  const products = Array.from({ length: 101 }, (_, index) => ({
+    productId: index + 1,
+    name: `Product ${index + 1}`,
+    sku: `SKU-${index + 1}`,
+    barcode: `GROC-${String(index + 1).padStart(3, '0')}`,
+    selected: true,
+    isActive: true,
+    copies: 1,
+  }));
+  const launch = hooks.normalizeLaunchPayload({ mode: 'inventory', products });
+  const request = hooks.buildPreviewRequest(launch.products, hooks.normalizeSettings());
+
+  assert.equal(launch.products.length, 101);
+  assert.equal(launch.products.filter((product) => product.selected).length, 100);
+  assert.equal(launch.products[100].selected, false);
+  assert.equal(request.items.length, 100);
 });
 
 test('barcode designer builds certified preview request payload without legacy print dependency', () => {
@@ -304,6 +391,7 @@ test('barcode designer builds certified preview request payload without legacy p
   const products = [
     { productId: 1, selected: true, copies: 3 },
     { productId: 2, selected: false, copies: 1 },
+    { productId: 3, selected: true, copies: 1, printable: false, barcode: '8801000000003' },
   ];
   const request = hooks.buildPreviewRequest(products, {
     ...hooks.normalizeSettings(),
@@ -432,8 +520,79 @@ test('barcode designer launcher stores plain launch context and opens dedicated 
   assert.equal(stored.products.length, 2);
   assert.equal(stored.products[0].productId, 9);
   assert.equal(stored.products[0].selected, true);
+  assert.equal(stored.products[0].printable, true);
   assert.equal(stored.products[1].productId, 10);
   assert.equal(stored.products[1].selected, false);
+});
+
+test('barcode designer launcher makes checked state a projection of printable state', () => {
+  const context = loadLauncher();
+  const result = context.window.BarcodeDesignerLauncher.open({
+    mode: 'inventory',
+    products: [
+      {
+        id: 1,
+        name: 'Printable Rice',
+        sku: 'GROC-001',
+        barcode: '8801000000001',
+        selected: true,
+        isActive: true,
+      },
+      {
+        id: 2,
+        name: 'Inactive Barcode Product',
+        sku: 'GROC-002',
+        barcode: '8801000000002',
+        selected: true,
+        isActive: false,
+      },
+      {
+        id: 3,
+        name: 'No Barcode Product',
+        sku: 'GROC-003',
+        selected: true,
+        isActive: true,
+      },
+    ],
+  });
+  const stored = JSON.parse(
+    context.localStorage.getItem(context.window.BarcodeDesignerLauncher.LAUNCH_KEY)
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    stored.products.map((product) => ({
+      productId: product.productId,
+      printable: product.printable,
+      selected: product.selected,
+    })),
+    [
+      { productId: 1, printable: true, selected: true },
+      { productId: 2, printable: false, selected: false },
+      { productId: 3, printable: false, selected: false },
+    ]
+  );
+});
+
+test('barcode designer launcher caps inventory default selection before opening preview', () => {
+  const context = loadLauncher();
+  const products = Array.from({ length: 101 }, (_, index) => ({
+    id: index + 1,
+    name: `Product ${index + 1}`,
+    sku: `SKU-${index + 1}`,
+    barcode: `GROC-${String(index + 1).padStart(3, '0')}`,
+    selected: true,
+    isActive: true,
+  }));
+  const result = context.window.BarcodeDesignerLauncher.open({ mode: 'inventory', products });
+  const stored = JSON.parse(
+    context.localStorage.getItem(context.window.BarcodeDesignerLauncher.LAUNCH_KEY)
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(stored.products.length, 101);
+  assert.equal(stored.products.filter((product) => product.selected).length, 100);
+  assert.equal(stored.products[100].selected, false);
 });
 
 test('products barcode action opens the shared designer with all products and one initial selection', async () => {
@@ -457,6 +616,7 @@ test('products barcode action opens the shared designer with all products and on
           barcode: '8801000000003',
           salePrice: 84,
           currentStock: 27,
+          isActive: true,
           copies: 1,
           selected: true,
         },
@@ -467,6 +627,7 @@ test('products barcode action opens the shared designer with all products and on
           barcode: '8801000000036',
           salePrice: 100,
           currentStock: 54,
+          isActive: true,
           copies: 1,
           selected: false,
         },
@@ -517,6 +678,21 @@ test('products table exposes a saved-product barcode launch action without form 
   assert(productsCss.includes('width: 190px;'));
   assert(renderer.includes('data-edit-product'));
   assert(renderer.includes('data-delete-product'));
+});
+
+test('inventory barcode launch passes only active barcode products into shared designer', () => {
+  const renderer = fs.readFileSync(inventoryRendererPath, 'utf8');
+
+  assert(renderer.includes("window.BarcodeDesignerLauncher.open({ mode: 'inventory', products })"));
+  assert(renderer.includes('item?.productId && item?.barcode && item?.isActive !== false'));
+  assert(renderer.includes('isActive: item.isActive !== false'));
+  assert(renderer.includes('let selectedCount = 0;'));
+  assert(renderer.includes('const selected = selectedCount < 100;'));
+  assert(
+    !renderer.includes(
+      "window.BarcodeDesignerLauncher.open({ mode: 'inventory', products: _allItems })"
+    )
+  );
 });
 
 test('barcode designer keeps packing and expiry dates in one paired row', () => {

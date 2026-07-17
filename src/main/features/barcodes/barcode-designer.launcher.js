@@ -3,6 +3,7 @@
 
   const LAUNCH_KEY = 'enterprise-pos.barcode-label-designer.launch.v1';
   const DESIGNER_PATH = '../main/features/barcodes/barcode-designer.html';
+  const MAX_INITIAL_INVENTORY_SELECTION = 100;
 
   function clampCopies(value) {
     const number = Number(value);
@@ -13,15 +14,20 @@
   function plainProduct(product) {
     const id = Number(product?.productId ?? product?.id);
     if (!Number.isInteger(id) || id <= 0) return null;
+    const barcode = String(product.barcode || '').trim();
+    const isActive = product.isActive !== false;
+    const printable = isActive && Boolean(barcode);
     return {
       productId: id,
       name: String(product.name || product.productName || `Product ${id}`).trim(),
       sku: String(product.sku || product.code || '').trim(),
-      barcode: String(product.barcode || '').trim(),
+      barcode,
       salePrice: Number(product.salePrice ?? product.price ?? 0) || 0,
       stock: Number(product.currentStock ?? product.stock ?? 0) || 0,
       copies: clampCopies(product.copies ?? 1),
-      selected: product.selected !== false,
+      isActive,
+      printable,
+      selected: product.selected !== false && printable,
     };
   }
 
@@ -30,11 +36,20 @@
     const products = (Array.isArray(input.products) ? input.products : [])
       .map(plainProduct)
       .filter(Boolean);
+    let selectedInventoryCount = 0;
+    const normalizedProducts = products.map((product) => {
+      if (mode !== 'inventory' || !product.selected) return product;
+      if (selectedInventoryCount >= MAX_INITIAL_INVENTORY_SELECTION) {
+        return { ...product, selected: false };
+      }
+      selectedInventoryCount += 1;
+      return product;
+    });
     return Object.freeze({
       schemaVersion: 1,
       mode,
       createdAt: new Date().toISOString(),
-      products: Object.freeze(products),
+      products: Object.freeze(normalizedProducts),
     });
   }
 

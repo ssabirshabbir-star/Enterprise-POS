@@ -1196,17 +1196,24 @@
       showMsg(api().placeholder('transfer').message, true);
     });
     $id('inventoryBarcodeButton')?.addEventListener('click', () => {
+      let selectedCount = 0;
       const products = _allItems
-        .filter((item) => item?.productId && item?.barcode)
-        .map((item) => ({
-          productId: item.productId,
-          name: item.name,
-          sku: item.sku,
-          barcode: item.barcode,
-          salePrice: item.salePrice,
-          currentStock: item.currentStock,
-          copies: 1,
-        }));
+        .filter((item) => item?.productId && item?.barcode && item?.isActive !== false)
+        .map((item) => {
+          const selected = selectedCount < 100;
+          if (selected) selectedCount += 1;
+          return {
+            productId: item.productId,
+            name: item.name,
+            sku: item.sku,
+            barcode: item.barcode,
+            salePrice: item.salePrice,
+            currentStock: item.currentStock,
+            isActive: item.isActive !== false,
+            copies: 1,
+            selected,
+          };
+        });
       const result = window.BarcodeDesignerLauncher?.open
         ? window.BarcodeDesignerLauncher.open({ mode: 'inventory', products })
         : { ok: false, message: 'Barcode designer is unavailable.' };
