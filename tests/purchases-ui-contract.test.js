@@ -132,6 +132,26 @@ test('Purchases consolidated filter row keeps search left and equal filters righ
   );
   assert.match(
     css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-page\s*{[\s\S]*?gap:\s*4px;/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-filter-row\s*{[\s\S]*?padding:\s*6px 10px;/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-keyword\s*{[\s\S]*?height:\s*36px;[\s\S]*?box-sizing:\s*border-box;/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-filter-row input,[\s\S]*?\.epos-purchases-filter-row select,[\s\S]*?\.epos-purchases-filter-row button\s*{[\s\S]*?height:\s*36px;[\s\S]*?box-sizing:\s*border-box;/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-date-menu summary\s*{[\s\S]*?height:\s*36px;[\s\S]*?min-height:\s*36px;[\s\S]*?box-sizing:\s*border-box;/
+  );
+  assert.match(
+    css,
     /\.epos-purchases-date-panel\s*{[\s\S]*?position:\s*absolute;[\s\S]*?right:\s*0;[\s\S]*?left:\s*auto;/
   );
   assert.match(

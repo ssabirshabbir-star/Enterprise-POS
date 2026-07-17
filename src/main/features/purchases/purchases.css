@@ -989,7 +989,7 @@
 
   @media (max-width: 1366px) {
     .epos-purchases-page {
-      gap: 6px;
+      gap: 4px;
     }
 
     .epos-purchases-stats {
@@ -1018,12 +1018,14 @@
     .epos-purchases-filter-row {
       grid-template-columns: minmax(300px, 1fr) repeat(4, 164px);
       gap: 8px;
-      padding: 10px;
+      padding: 6px 10px;
     }
 
     .epos-purchases-keyword {
+      height: 36px;
       min-height: 36px;
       padding-inline: 10px;
+      box-sizing: border-box;
     }
 
     .epos-purchases-keyword input {
@@ -1039,9 +1041,17 @@
     .epos-purchases-filter-row input,
     .epos-purchases-filter-row select,
     .epos-purchases-filter-row button {
+      height: 36px;
       min-height: 36px;
       padding-inline: 8px;
       font-size: 11px;
+      box-sizing: border-box;
+    }
+
+    .epos-purchases-date-menu summary {
+      height: 36px;
+      min-height: 36px;
+      box-sizing: border-box;
     }
 
     .epos-purchases-table th {
