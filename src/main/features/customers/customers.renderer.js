@@ -60,6 +60,15 @@
   function fmt(v) {
     return Number(v || 0).toFixed(2);
   }
+  function fmtDate(value) {
+    return value ? new Date(value).toLocaleDateString() : '—';
+  }
+  function moneyClass(value) {
+    const amount = Number(value || 0);
+    if (amount > 0) return 'is-due';
+    if (amount < 0) return 'is-credit';
+    return 'is-settled';
+  }
 
   let _msgTimer = null;
 
@@ -215,74 +224,148 @@
       );
   }
 
-  function renderCustomerDetails(data) {
-    const panel = $id('customerDetailsPanel');
-    if (!panel) return;
+  function renderCustomerLedgerWorkspace(panel, data) {
     const c = data.customer || data;
     const sales = data.sales || [];
     const ledger = data.ledger || [];
     const balance = Number(c.currentBalance || 0);
-    const balColor = balance > 0 ? '#dc2626' : '#16a34a';
+    const creditLimit = Number(c.creditLimit || 0);
+    const availableCredit = Math.max(creditLimit - Math.max(balance, 0), 0);
+    const initials = String(c.name || 'C')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase();
+
     setSelectedCustomer(c);
     highlightSelectedRow(c.id);
     panel.classList.remove('hidden');
     panel.innerHTML = `
-      <div style="padding:10px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <h3 style="margin:0;font-size:.92rem;font-weight:700">${esc(c.name)}</h3>
-          <p style="margin:2px 0 0;font-size:.72rem;color:#6b7280">${esc(c.phone || '')}${c.email ? ' · ' + esc(c.email) : ''}</p>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="text-align:right">
-            <p style="margin:0;font-size:.72rem;color:#9ca3af">Balance Due</p>
-            <strong style="font-size:1rem;color:${balColor}">Rs.${fmt(balance)}</strong>
+      <div class="epos-ledger-workspace" role="dialog" aria-label="Customer Ledger">
+        <header class="epos-ledger-hero">
+          <div class="epos-ledger-hero-copy">
+            <span class="epos-ledger-kicker">Customer Account</span>
+            <h2 class="epos-ledger-hero-title">Customer Ledger</h2>
+            <p class="epos-ledger-hero-subtitle">Review customer identity, balance, sales history, and account ledger entries.</p>
           </div>
-          <button type="button" data-close-details
-            style="padding:4px 10px;border:1px solid #e5e7eb;background:#f9fafb;border-radius:5px;cursor:pointer;font-size:.8rem;color:#6b7280">✕ Close</button>
+          <button type="button" class="epos-ledger-close-btn" data-close-details aria-label="Close customer ledger">Close</button>
+        </header>
+
+        <section class="epos-ledger-summary-card">
+          <div class="epos-ledger-avatar" aria-hidden="true">${esc(initials || 'C')}</div>
+          <div class="epos-ledger-identity">
+            <div class="epos-ledger-name-row">
+              <h3>${esc(c.name || 'Customer')}</h3>
+              <span class="epos-ledger-status ${c.isActive ? 'active' : 'inactive'}">${c.isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+            <dl class="epos-ledger-contact-grid">
+              <div><dt>Customer ID</dt><dd>#${esc(c.id || '—')}</dd></div>
+              <div><dt>Phone</dt><dd>${esc(c.phone || '—')}</dd></div>
+              <div><dt>Email</dt><dd>${esc(c.email || '—')}</dd></div>
+              <div><dt>Address</dt><dd>${esc(c.address || '—')}</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="epos-ledger-stat-grid" aria-label="Customer financial summary">
+          <article class="epos-ledger-stat-card sales"><span aria-hidden="true">Rs</span><div><p>Total Sales</p><strong>Rs.${fmt(c.stats?.totalPurchases)}</strong><small>From stored sales history</small></div></article>
+          <article class="epos-ledger-stat-card payments"><span aria-hidden="true">✓</span><div><p>Total Payments</p><strong>Rs.${fmt(c.stats?.totalPaid)}</strong><small>Paid against invoices</small></div></article>
+          <article class="epos-ledger-stat-card balance"><span aria-hidden="true">!</span><div><p>Current Balance</p><strong class="${moneyClass(balance)}">Rs.${fmt(balance)}</strong><small>${balance > 0 ? 'Balance due' : 'Settled account'}</small></div></article>
+          <article class="epos-ledger-stat-card credit"><span aria-hidden="true">CL</span><div><p>Credit Limit</p><strong>Rs.${fmt(creditLimit)}</strong><small>Available: Rs.${fmt(availableCredit)}</small></div></article>
+        </section>
+
+        <div class="epos-ledger-main-grid">
+          <main class="epos-ledger-main-column">
+            <section class="epos-ledger-section epos-ledger-transactions">
+              <div class="epos-ledger-section-head">
+                <div>
+                  <span class="epos-ledger-tab active">Ledger Transactions</span>
+                  <p>${ledger.length} account ${ledger.length === 1 ? 'entry' : 'entries'} from the authoritative ledger.</p>
+                </div>
+                <button type="button" class="epos-ledger-pay-disabled" data-payment-unavailable disabled aria-disabled="true" title="Payment posting requires workflow completion">Post Payment</button>
+              </div>
+              ${
+                ledger.length
+                  ? `<div class="epos-ledger-table-wrap">
+                <table class="epos-ledger-table">
+                  <thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Description</th><th class="money">Debit</th><th class="money">Credit</th><th class="money">Running Balance</th><th>Status</th></tr></thead>
+                  <tbody>${ledger
+                    .map(
+                      (row) => `<tr>
+                    <td>${fmtDate(row.createdAt)}</td>
+                    <td><span class="epos-ledger-type">${esc(row.entryType || '—')}</span></td>
+                    <td>${esc(row.saleId ? `Sale #${row.saleId}` : row.paymentId ? `Payment #${row.paymentId}` : row.returnId ? `Return #${row.returnId}` : '—')}</td>
+                    <td>${esc(row.notes || '—')}</td>
+                    <td class="money debit">Rs.${fmt(row.debit)}</td>
+                    <td class="money credit">Rs.${fmt(row.credit)}</td>
+                    <td class="money balance ${moneyClass(row.balance)}">Rs.${fmt(row.balance)}</td>
+                    <td><span class="epos-ledger-status-pill">Posted</span></td>
+                  </tr>`
+                    )
+                    .join('')}</tbody>
+                </table>
+              </div>`
+                  : '<div class="epos-ledger-empty"><strong>No ledger entries yet.</strong><span>Transactions will appear here after sales, payments, returns, or opening balance postings.</span></div>'
+              }
+            </section>
+
+            <section class="epos-ledger-section">
+              <div class="epos-ledger-section-head">
+                <div>
+                  <span class="epos-ledger-tab">Sales History</span>
+                  <p>${sales.length} stored ${sales.length === 1 ? 'invoice' : 'invoices'} for this customer.</p>
+                </div>
+              </div>
+              ${
+                sales.length
+                  ? `<div class="epos-ledger-table-wrap compact">
+                <table class="epos-ledger-table">
+                  <thead><tr><th>Invoice</th><th>Date</th><th>Payment</th><th class="money">Total</th><th class="money">Paid</th><th class="money">Due</th></tr></thead>
+                  <tbody>${sales
+                    .map(
+                      (s) => `<tr>
+                    <td>${esc(s.invoiceNumber || '—')}</td>
+                    <td>${fmtDate(s.createdAt)}</td>
+                    <td>${esc(s.paymentMethod || '—')}</td>
+                    <td class="money">Rs.${fmt(s.grandTotal)}</td>
+                    <td class="money credit">Rs.${fmt(s.paidAmount)}</td>
+                    <td class="money debit">Rs.${fmt(s.dueAmount)}</td>
+                  </tr>`
+                    )
+                    .join('')}</tbody>
+                </table>
+              </div>`
+                  : '<div class="epos-ledger-empty compact"><strong>No sales history yet.</strong><span>Completed invoices for this customer will appear here.</span></div>'
+              }
+            </section>
+          </main>
+
+          <aside class="epos-ledger-balance-panel" aria-label="Balance summary">
+            <h3>Balance Summary</h3>
+            <dl>
+              <div><dt>Opening Balance</dt><dd>Rs.${fmt(c.openingBalance)}</dd></div>
+              <div><dt>Total Sales</dt><dd>Rs.${fmt(c.stats?.totalPurchases)}</dd></div>
+              <div><dt>Total Payments</dt><dd>Rs.${fmt(c.stats?.totalPaid)}</dd></div>
+              <div><dt>Current Balance</dt><dd class="${moneyClass(balance)}">Rs.${fmt(balance)}</dd></div>
+              <div><dt>Credit Limit</dt><dd>Rs.${fmt(creditLimit)}</dd></div>
+              <div><dt>Available Credit</dt><dd class="is-credit">Rs.${fmt(availableCredit)}</dd></div>
+            </dl>
+            <div class="epos-ledger-note">
+              <strong>Payment workflow</strong>
+              <span>Payment posting requires workflow completion and is intentionally disabled in this visual phase.</span>
+            </div>
+          </aside>
         </div>
-      </div>
-      <div style="padding:8px 16px;border-bottom:1px solid #e5e7eb;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:.72rem;color:#6b7280">Credit Limit: <strong>Rs.${fmt(c.creditLimit)}</strong></span>
-        <span style="font-size:.72rem;color:#6b7280">Total Purchases: <strong>Rs.${fmt(c.stats?.totalPurchases)}</strong></span>
-        <button type="button" data-pay-customer="${c.id}"
-          style="margin-left:auto;padding:4px 12px;background:#16a34a;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.72rem;font-weight:600">+ Post Payment</button>
-      </div>
-      <div style="padding:10px 16px">
-        <p style="margin:0 0 6px;font-size:.72rem;font-weight:600;color:#374151">Purchase History (${sales.length})</p>
-        ${
-          sales.length
-            ? `<div style="max-height:220px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:.71rem">
-            <thead><tr style="background:#f9fafb"><th style="padding:3px 6px;text-align:left">Invoice</th><th style="padding:3px 6px;text-align:right">Total</th><th style="padding:3px 6px;text-align:right">Paid</th><th style="padding:3px 6px;text-align:right;color:#dc2626">Due</th><th style="padding:3px 6px;text-align:left">Date</th></tr></thead>
-            <tbody>${sales
-              .map(
-                (s) => `<tr style="border-top:1px solid #f3f4f6">
-              <td style="padding:3px 6px;color:#6366f1">${esc(s.invoiceNumber || '—')}</td><td style="padding:3px 6px;text-align:right">Rs.${fmt(s.grandTotal)}</td><td style="padding:3px 6px;text-align:right;color:#16a34a">Rs.${fmt(s.paidAmount)}</td><td style="padding:3px 6px;text-align:right;color:#dc2626">Rs.${fmt(s.dueAmount)}</td><td style="padding:3px 6px;color:#9ca3af">${s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}</td>
-            </tr>`
-              )
-              .join('')}</tbody>
-          </table></div>`
-            : '<p style="color:#9ca3af;font-size:.72rem;margin:0">No purchases yet.</p>'
-        }
-        <p style="margin:12px 0 6px;font-size:.72rem;font-weight:600;color:#374151">Ledger (${ledger.length})</p>
-        ${
-          ledger.length
-            ? `<div style="max-height:220px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:.71rem">
-            <thead><tr style="background:#f9fafb"><th style="padding:3px 6px;text-align:left">Type</th><th style="padding:3px 6px;text-align:right">Debit</th><th style="padding:3px 6px;text-align:right">Credit</th><th style="padding:3px 6px;text-align:right">Balance</th><th style="padding:3px 6px;text-align:left">Notes</th><th style="padding:3px 6px;text-align:left">Date</th></tr></thead>
-            <tbody>${ledger
-              .map(
-                (row) => `<tr style="border-top:1px solid #f3f4f6">
-              <td style="padding:3px 6px;color:#6366f1">${esc(row.entryType || '—')}</td><td style="padding:3px 6px;text-align:right;color:#dc2626">Rs.${fmt(row.debit)}</td><td style="padding:3px 6px;text-align:right;color:#16a34a">Rs.${fmt(row.credit)}</td><td style="padding:3px 6px;text-align:right;font-weight:600">Rs.${fmt(row.balance)}</td><td style="padding:3px 6px;color:#6b7280">${esc(row.notes || '—')}</td><td style="padding:3px 6px;color:#9ca3af">${row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—'}</td>
-            </tr>`
-              )
-              .join('')}</tbody>
-          </table></div>`
-            : '<p style="color:#9ca3af;font-size:.72rem;margin:0">No ledger entries yet.</p>'
-        }
       </div>`;
   }
 
+  function renderCustomerDetails(data) {
+    const panel = $id('customerDetailsPanel');
+    if (!panel) return;
+    renderCustomerLedgerWorkspace(panel, data);
+  }
   function openEditorModal(customer) {
     const modal = $id('customerEditorModal');
     const title = $id('customerEditorTitle');
@@ -341,27 +424,6 @@
   function closeWhatsAppModal() {
     $id('customerWhatsAppModal')?.classList.add('hidden');
     $id('customerWaCustomBox')?.classList.add('hidden');
-  }
-
-  // ── Payment prompt (inline in details panel) ──────────────────────────────
-
-  async function promptPayment(customerId) {
-    let amount = '';
-    amount = await window.posApi.dialog.prompt('Enter payment amount (PKR):', '');
-    window.focus?.();
-    const parsed = parseFloat(amount);
-    if (!parsed || parsed <= 0) {
-      if (amount !== '' && amount !== null) showMsg('Invalid payment amount.', true);
-      return;
-    }
-
-    let note = '';
-    try {
-      note = await window.posApi.dialog.prompt('Payment note (optional):', '');
-      window.focus?.();
-    } catch {}
-
-    postPaymentFromUI(customerId, { amount: parsed, notes: (note || '').trim() || undefined });
   }
 
   function buildCustomerPayload() {
@@ -489,20 +551,6 @@
       return;
     }
     renderCustomerDetails(res);
-  }
-
-  async function postPaymentFromUI(customerId, payload) {
-    const res = await A().postPayment(customerId, payload);
-    if (!res?.ok) {
-      showMsg(res?.message || 'Payment failed.', true);
-      return;
-    }
-    showMsg(res.message || 'Payment posted.');
-    await refreshCustomerLiveState({
-      filters: getCurrentFilters(),
-      selectedCustomerId: customerId,
-      refreshDetails: true,
-    });
   }
 
   async function sendWhatsAppFromUI(action, customText) {
@@ -651,14 +699,12 @@
 
     // ── Details panel — pay button + close button (delegation) ───────────────────────
     $id('customerDetailsPanel')?.addEventListener('click', (e) => {
-      const pay = e.target.closest('[data-pay-customer]');
-      if (pay) {
-        promptPayment(Number(pay.dataset.payCustomer));
+      if (e.target.closest('[data-payment-unavailable]')) {
+        showMsg('Payment posting requires workflow completion.', true);
         return;
       }
       if (e.target.closest('[data-close-details]')) {
-        $id('customerDetailsPanel')?.classList.add('hidden');
-        highlightSelectedRow(-1); // clear all row highlights
+        closeDetailsPanel();
       }
     });
 

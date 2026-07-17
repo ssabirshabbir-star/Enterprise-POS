@@ -803,7 +803,7 @@
   }
 
   .epos-customers-modal-card,
-  .epos-customers-details > * {
+  .epos-customers-details > :not(.epos-ledger-workspace) {
     width: min(620px, 100%);
     max-height: min(720px, 92vh);
     overflow: auto;
@@ -1513,6 +1513,524 @@
       min-height: 36px;
       padding-inline: 4px;
       font-size: 12px;
+    }
+  }
+}
+
+@layer components {
+  .epos-customers-details {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: #f5f8ff;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .epos-customers-details.hidden {
+    display: none;
+  }
+
+  .epos-ledger-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    color: #172033;
+  }
+
+  .epos-ledger-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex: 0 0 auto;
+    min-height: 70px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 48%, #fb7185 100%);
+    color: #ffffff;
+    box-shadow: 0 16px 32px rgb(37 99 235 / 0.18);
+  }
+
+  .epos-ledger-kicker {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0.88;
+  }
+
+  .epos-ledger-hero-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    color: #ffffff;
+  }
+
+  .epos-customers-details .epos-ledger-hero-title {
+    margin: 0;
+    color: #ffffff;
+    -webkit-text-fill-color: #ffffff;
+    font-size: 20px;
+    font-weight: 950;
+    line-height: 1.1;
+  }
+
+  .epos-customers-details .epos-ledger-hero-subtitle {
+    margin: 0;
+    max-width: 620px;
+    color: #ffffff;
+    -webkit-text-fill-color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+    opacity: 0.92;
+  }
+
+  .epos-ledger-close-btn {
+    display: inline-grid;
+    min-width: 78px;
+    min-height: 34px;
+    place-items: center;
+    border: 1px solid rgb(255 255 255 / 0.6);
+    border-radius: 9px;
+    background: rgb(255 255 255 / 0.16);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .epos-ledger-close-btn:hover {
+    background: rgb(255 255 255 / 0.24);
+  }
+
+  .epos-ledger-summary-card,
+  .epos-ledger-section,
+  .epos-ledger-balance-panel {
+    border: 1px solid #dbe5f3;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgb(15 23 42 / 0.08);
+  }
+
+  .epos-ledger-summary-card {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 12px 14px;
+  }
+
+  .epos-ledger-avatar {
+    display: grid;
+    width: 64px;
+    height: 64px;
+    place-items: center;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 950;
+    box-shadow: 0 14px 24px rgb(37 99 235 / 0.22);
+  }
+
+  .epos-ledger-identity {
+    min-width: 0;
+  }
+
+  .epos-ledger-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .epos-ledger-name-row h3 {
+    margin: 0;
+    min-width: 0;
+    color: #111833;
+    font-size: 20px;
+    font-weight: 950;
+    line-height: 1.15;
+  }
+
+  .epos-ledger-status,
+  .epos-ledger-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .epos-ledger-status.active,
+  .epos-ledger-status-pill {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .epos-ledger-status.inactive {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
+  .epos-ledger-contact-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 10px 0 0;
+  }
+
+  .epos-ledger-contact-grid div {
+    min-width: 0;
+  }
+
+  .epos-ledger-contact-grid dt,
+  .epos-ledger-balance-panel dt {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .epos-ledger-contact-grid dd,
+  .epos-ledger-balance-panel dd {
+    margin: 2px 0 0;
+    min-width: 0;
+    overflow: hidden;
+    color: #172033;
+    font-size: 12px;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .epos-ledger-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    flex: 0 0 auto;
+  }
+
+  .epos-ledger-stat-card {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    min-height: 74px;
+    padding: 11px 12px;
+    border: 1px solid #dbe5f3;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgb(15 23 42 / 0.07);
+  }
+
+  .epos-ledger-stat-card > span {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 950;
+  }
+
+  .epos-ledger-stat-card.sales > span { background: linear-gradient(135deg, #6366f1, #2563eb); }
+  .epos-ledger-stat-card.payments > span { background: linear-gradient(135deg, #22c55e, #059669); }
+  .epos-ledger-stat-card.balance > span { background: linear-gradient(135deg, #f97316, #ef4444); }
+  .epos-ledger-stat-card.credit > span { background: linear-gradient(135deg, #38bdf8, #2563eb); }
+
+  .epos-ledger-stat-card p,
+  .epos-ledger-stat-card small {
+    margin: 0;
+  }
+
+  .epos-ledger-stat-card p {
+    color: #475569;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .epos-ledger-stat-card strong {
+    display: block;
+    margin-top: 2px;
+    color: #111833;
+    font-size: 17px;
+    font-weight: 950;
+    line-height: 1.15;
+  }
+
+  .epos-ledger-stat-card small {
+    display: block;
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .epos-ledger-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .epos-ledger-main-column {
+    display: grid;
+    grid-template-rows: minmax(0, 1.35fr) minmax(156px, 0.65fr);
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .epos-ledger-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .epos-ledger-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e7edf7;
+  }
+
+  .epos-ledger-section-head p {
+    margin: 3px 0 0;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .epos-ledger-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    border-radius: 8px;
+    background: #f1f5ff;
+    color: #334155;
+    padding: 0 11px;
+    font-size: 12px;
+    font-weight: 950;
+  }
+
+  .epos-ledger-tab.active {
+    background: linear-gradient(135deg, #6d28d9, #2563eb);
+    color: #ffffff;
+  }
+
+  .epos-ledger-pay-disabled {
+    min-height: 34px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #64748b;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: not-allowed;
+    opacity: 0.86;
+    white-space: nowrap;
+  }
+
+  .epos-ledger-table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .epos-ledger-table {
+    width: 100%;
+    min-width: 780px;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .epos-ledger-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: linear-gradient(90deg, #5b35e8, #2563eb);
+    color: #ffffff;
+    padding: 10px 9px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .epos-ledger-table td {
+    border-bottom: 1px solid #edf2f7;
+    padding: 9px;
+    color: #26344f;
+    font-size: 12px;
+    font-weight: 750;
+    vertical-align: middle;
+  }
+
+  .epos-ledger-table .money {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .epos-ledger-table .debit,
+  .epos-ledger-table .is-due,
+  .epos-ledger-balance-panel .is-due {
+    color: #dc2626;
+  }
+
+  .epos-ledger-table .credit,
+  .epos-ledger-table .is-credit,
+  .epos-ledger-balance-panel .is-credit {
+    color: #059669;
+  }
+
+  .epos-ledger-table .is-settled,
+  .epos-ledger-balance-panel .is-settled {
+    color: #2563eb;
+  }
+
+  .epos-ledger-type {
+    display: inline-flex;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4f46e5;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .epos-ledger-empty {
+    display: grid;
+    flex: 1 1 auto;
+    place-items: center;
+    align-content: center;
+    gap: 4px;
+    min-height: 150px;
+    padding: 18px;
+    text-align: center;
+    color: #64748b;
+  }
+
+  .epos-ledger-empty strong {
+    color: #172033;
+    font-size: 14px;
+    font-weight: 950;
+  }
+
+  .epos-ledger-empty span {
+    max-width: 460px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .epos-ledger-balance-panel {
+    align-self: stretch;
+    padding: 14px;
+    overflow: auto;
+  }
+
+  .epos-ledger-balance-panel h3 {
+    margin: 0 0 12px;
+    color: #4f46e5;
+    font-size: 15px;
+    font-weight: 950;
+  }
+
+  .epos-ledger-balance-panel dl {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .epos-ledger-balance-panel dl div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+    border-bottom: 1px solid #edf2f7;
+  }
+
+  .epos-ledger-balance-panel dd {
+    overflow: visible;
+    text-align: right;
+  }
+
+  .epos-ledger-note {
+    display: grid;
+    gap: 4px;
+    margin-top: 14px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .epos-ledger-note strong {
+    color: #334155;
+    font-size: 12px;
+    font-weight: 950;
+  }
+
+  @media (max-width: 1180px) {
+    .epos-ledger-main-grid {
+      grid-template-columns: minmax(0, 1fr);
+      align-content: start;
+      overflow: auto;
+    }
+
+    .epos-ledger-main-column {
+      grid-template-rows: minmax(210px, auto) minmax(170px, auto);
+      overflow: visible;
+    }
+
+    .epos-ledger-transactions {
+      min-height: 210px;
+    }
+
+    .epos-ledger-main-grid .epos-ledger-table th {
+      position: static;
+    }
+
+    .epos-ledger-balance-panel {
+      max-height: 210px;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .epos-ledger-contact-grid,
+    .epos-ledger-stat-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .epos-ledger-summary-card {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .epos-ledger-avatar {
+      display: none;
     }
   }
 }
