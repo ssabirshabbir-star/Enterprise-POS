@@ -41,7 +41,7 @@ test('Customers consolidates customer-status tabs into one search-row dropdown',
   const topbar =
     html.match(/<section class="epos-customers-topbar">[\s\S]*?<\/section>/)?.[0] || '';
 
-  assert.match(topbar, /class="epos-customers-menu"/);
+  assert.doesNotMatch(topbar, /class="epos-customers-menu"|aria-label="Customer menu"/);
   assert.match(topbar, /id="customerPageSearch"/);
   assert.match(
     topbar,
@@ -49,12 +49,9 @@ test('Customers consolidates customer-status tabs into one search-row dropdown',
   );
   assert.match(topbar, /id="customerBulkActionsButton"/);
 
-  const order = [
-    'epos-customers-menu',
-    'customerPageSearch',
-    'customerFilterSelect',
-    'customerBulkActionsButton',
-  ].map((needle) => topbar.indexOf(needle));
+  const order = ['customerPageSearch', 'customerFilterSelect', 'customerBulkActionsButton'].map(
+    (needle) => topbar.indexOf(needle)
+  );
   assert.ok(
     order.every((index) => index >= 0),
     'all topbar controls are present'
@@ -69,7 +66,7 @@ test('Customers consolidates customer-status tabs into one search-row dropdown',
   assert.doesNotMatch(css, /\.epos-customers-tabs|\.epos-customers-tab-buttons|data-customer-tab/);
   assert.match(
     css,
-    /\.epos-customers-topbar\s*{[\s\S]*?grid-template-columns:\s*42px minmax\(280px, 1fr\) 178px 148px;/
+    /\.epos-customers-topbar\s*{[\s\S]*?grid-template-columns:\s*minmax\(320px, 1fr\) 178px 148px;/
   );
   assert.match(
     css,
@@ -89,6 +86,7 @@ test('Customers dropdown remains the single authoritative customer filter state'
 });
 
 test('Customers removed tab row and compacted footer return vertical space to table viewport', () => {
+  const footerBlock = css.match(/\.epos-customers-footer\s*{[^}]*}/)?.[0] || '';
   assert.doesNotMatch(html, /<div class="epos-customers-tabs"|data-customer-tab/);
   assert.match(
     css,
@@ -100,7 +98,25 @@ test('Customers removed tab row and compacted footer return vertical space to ta
   );
   assert.match(
     css,
-    /\.epos-customers-footer\s*{[\s\S]*?align-items:\s*center;[\s\S]*?min-height:\s*18px;[\s\S]*?padding:\s*1px 12px;[\s\S]*?line-height:\s*1\.1;/
+    /\.epos-customers-footer\s*{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*center;[\s\S]*?flex:\s*0 0 18px;[\s\S]*?height:\s*18px;[\s\S]*?min-height:\s*18px;[\s\S]*?box-sizing:\s*border-box;[\s\S]*?padding:\s*0 12px;[\s\S]*?line-height:\s*1;/
+  );
+  assert.match(
+    css,
+    /\.epos-customers-footer span\s*{[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?height:\s*100%;[\s\S]*?line-height:\s*1;/
+  );
+  assert.doesNotMatch(footerBlock, /transform:\s*translateY/);
+  assert.doesNotMatch(footerBlock, /margin-(?:top|bottom):\s*-/);
+});
+
+test('Customers removes dead search-row menu placeholder and keeps safe controls', () => {
+  assert.doesNotMatch(html, /epos-customers-menu|Customer menu/);
+  assert.doesNotMatch(css, /epos-customers-menu/);
+  assert.doesNotMatch(renderer, /epos-customers-menu|Customer menu/);
+  assert.match(html, /id="customerPageSearch"/);
+  assert.match(html, /id="customerFilterSelect"/);
+  assert.match(
+    html,
+    /id="customerBulkActionsButton" type="button" class="epos-customers-bulk-top" disabled aria-disabled="true"/
   );
 });
 

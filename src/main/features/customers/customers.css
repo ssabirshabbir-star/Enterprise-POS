@@ -42,14 +42,13 @@
 
   .epos-customers-topbar {
     display: grid;
-    grid-template-columns: 42px minmax(280px, 1fr) 178px 148px;
+    grid-template-columns: minmax(320px, 1fr) 178px 148px;
     gap: 6px;
     align-items: center;
     border-radius: 12px;
     padding: 6px;
   }
 
-  .epos-customers-menu,
   .epos-customers-icon-btn {
     display: grid;
     min-height: 38px;
@@ -62,10 +61,6 @@
     font-weight: 950;
     cursor: pointer;
     box-shadow: inset 2px 2px 5px rgb(15 23 42 / 0.06), inset -2px -2px 5px #ffffff;
-  }
-
-  .epos-customers-menu {
-    font-size: 24px;
   }
 
   .epos-customers-search {
@@ -557,13 +552,23 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    border-top: 1px solid #edf1f7;
+    flex: 0 0 18px;
+    height: 18px;
     min-height: 18px;
-    padding: 1px 12px;
+    box-sizing: border-box;
+    border-top: 1px solid #edf1f7;
+    padding: 0 12px;
     color: #667085;
     font-size: 11px;
     font-weight: 850;
-    line-height: 1.1;
+    line-height: 1;
+  }
+
+  .epos-customers-footer span {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    line-height: 1;
   }
 
   .epos-customers-side {
