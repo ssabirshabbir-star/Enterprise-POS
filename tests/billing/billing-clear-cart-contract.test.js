@@ -53,10 +53,41 @@ test('Billing renderer keeps one Clear Cart handler and removes Ctrl+S routing',
     renderer,
     /getElementById\('clearCartButton'\)\?\s*\.addEventListener\('click', clearCartConfirmFromUI\)/
   );
+  assert.match(
+    renderer,
+    /\$id\('subtotalDiscountButton'\)\?\.addEventListener\('click', \(\) => \{[\s\S]*const el = \$id\('discountInput'\);/
+  );
   assert.match(renderer, /if \(e\.key === 'Delete'\) \{[\s\S]*clearCartConfirmFromUI\(\);/);
   assert.doesNotMatch(renderer, /posSaveDraftButton/);
   assert.doesNotMatch(renderer, /k === 's'/);
   assert.doesNotMatch(renderer, /holdSaleFromUI\(\);\s*return;\s*\}\s*if \(k === 'r'\)/);
+});
+
+test('Billing cart footer uses semantic colors for Discount and Clear Cart actions', () => {
+  const html = readHtml();
+  const css = readCss();
+
+  assert.match(
+    html,
+    /<button id="posSubtotalDiscountButton" type="button" data-pos-shortcut="F8">/
+  );
+  assert.match(
+    html,
+    /<button id="clearCartButton" type="button" data-pos-shortcut="Ctrl\+Delete">/
+  );
+  assert.match(
+    css,
+    /#posSubtotalDiscountButton\s*\{\s*--footer-top:\s*#ff9a21;\s*--footer-mid:\s*#f06f00;\s*--footer-bottom:\s*#b94900;\s*\}/
+  );
+  assert.match(
+    css,
+    /#clearCartButton\s*\{\s*--footer-top:\s*#ff5757;\s*--footer-mid:\s*#e9322f;\s*--footer-bottom:\s*#b91c1c;\s*\}/
+  );
+  assert.doesNotMatch(
+    css,
+    /#posSubtotalDiscountButton\s*\{[^}]*#ff5757|#posSubtotalDiscountButton\s*\{[^}]*#e9322f|#posSubtotalDiscountButton\s*\{[^}]*#b91c1c/
+  );
+  assert.doesNotMatch(css, /\.epos-invoice-bottom-actions button:nth-child\(3\)\s*\{[^}]*#ff5757/);
 });
 
 test('Billing restores incomplete summary actions as disabled roadmap buttons', () => {

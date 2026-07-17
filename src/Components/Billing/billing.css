@@ -1207,10 +1207,10 @@
   }
 
   .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:focus-visible { outline: var(--epos-btn-focus-ring); outline-offset: var(--epos-footer-btn-focus-offset); }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:nth-child(2) { --footer-top: #39d95f; --footer-mid: #18a83a; --footer-bottom: #087f27; }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:nth-child(3) { --footer-top: #ff5757; --footer-mid: #e9322f; --footer-bottom: #b91c1c; }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:nth-child(4) { --footer-top: #ff9a21; --footer-mid: #f06f00; --footer-bottom: #b94900; }
-  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions button:nth-child(5) { --footer-top: #23c3df; --footer-mid: #0896b5; --footer-bottom: #0e7490; }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions #posDownloadPdfButton { --footer-top: #39d95f; --footer-mid: #18a83a; --footer-bottom: #087f27; }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions #posSubtotalDiscountButton { --footer-top: #ff9a21; --footer-mid: #f06f00; --footer-bottom: #b94900; }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions #posWhatsappButton { --footer-top: #23c3df; --footer-mid: #0896b5; --footer-bottom: #0e7490; }
+  .epos-billing-shell.epos-invoice-ui .epos-invoice-bottom-actions #clearCartButton { --footer-top: #ff5757; --footer-mid: #e9322f; --footer-bottom: #b91c1c; }
   
   /* ==========================================================
      BILLING SUMMARY ACTION GRID
