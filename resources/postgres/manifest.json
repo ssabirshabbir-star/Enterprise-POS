@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "component": "postgresql-server",
+  "version": "17.10",
+  "architecture": "win32-x64",
+  "format": "zip-server-only",
+  "fileName": "postgresql-17.10-server-windows-x64.zip",
+  "sha256": "TO_BE_SUPPLIED_BY_RELEASE_ENGINEERING",
+  "publisher": "PostgreSQL Global Development Group",
+  "sourceReference": "https://www.postgresql.org/",
+  "redistributionStatus": "not-certified",
+  "signatureStatus": "required-before-production",
+  "installMethod": "extract-and-provision-dedicated-cluster",
+  "licenseNoticeFiles": ["POSTGRESQL-LICENSE.txt", "THIRD-PARTY-NOTICES.md"],
+  "includedExecutables": ["bin/postgres.exe", "bin/initdb.exe", "bin/pg_ctl.exe", "bin/psql.exe"],
+  "compatibilityPolicyVersion": "managed-postgres-policy-v1"
+}

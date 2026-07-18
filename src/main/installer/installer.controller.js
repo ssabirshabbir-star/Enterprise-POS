@@ -1,5 +1,6 @@
 const installerConfigStore = require('./installer-config.store');
 const installerDiagnostics = require('./installer-diagnostics.service');
+const postgresProvisioning = require('./postgres-provisioning.service');
 
 function safeError(error) {
   return {
@@ -52,6 +53,36 @@ function registerInstallerRoutes(ipcMain, app) {
         userDataPath: app.getPath('userData'),
         config: payload.config || payload,
         admin: payload.admin || null,
+      });
+    } catch (error) {
+      return safeError(error);
+    }
+  });
+
+  ipcMain.handle('/installer/postgres/preflight', async () => {
+    try {
+      return await postgresProvisioning.assessManagedPostgresPreflight({
+        userDataPath: app.getPath('userData'),
+      });
+    } catch (error) {
+      return safeError(error);
+    }
+  });
+
+  ipcMain.handle('/installer/postgres/provision', async () => {
+    try {
+      return await postgresProvisioning.startManagedPostgresProvisioning({
+        userDataPath: app.getPath('userData'),
+      });
+    } catch (error) {
+      return safeError(error);
+    }
+  });
+
+  ipcMain.handle('/installer/postgres/provision/status', async () => {
+    try {
+      return postgresProvisioning.getManagedPostgresProvisioningStatus({
+        userDataPath: app.getPath('userData'),
       });
     } catch (error) {
       return safeError(error);

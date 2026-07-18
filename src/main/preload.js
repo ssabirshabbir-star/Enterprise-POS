@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('posApi', {
     testDatabase: (payload) => ipcRenderer.invoke('/installer/database/test', payload),
     createDatabase: (payload) => ipcRenderer.invoke('/installer/database/create', payload),
     initializeDatabase: (payload) => ipcRenderer.invoke('/installer/database/initialize', payload),
+    postgresPreflight: () => ipcRenderer.invoke('/installer/postgres/preflight'),
+    provisionManagedPostgres: () => ipcRenderer.invoke('/installer/postgres/provision'),
+    managedPostgresStatus: () => ipcRenderer.invoke('/installer/postgres/provision/status'),
   },
   updates: {
     check: () => ipcRenderer.invoke('/updates/check'),

@@ -7,8 +7,8 @@ const { Pool } = require('pg');
 const { initializeDatabase } = require('../database/schema');
 const { closeDatabase, getPool, withTransaction } = require('../database/connection');
 const configStore = require('./installer-config.store');
-
-const SUPPORTED_POSTGRES_MAJOR = Object.freeze([14, 15, 16, 17]);
+const postgresPolicy = require('./postgres-version-policy');
+const postgresProvisioning = require('./postgres-provisioning.service');
 
 function sanitizeError(error) {
   return {
@@ -21,8 +21,7 @@ function sanitizeError(error) {
 }
 
 function parsePostgresMajor(versionText = '') {
-  const match = String(versionText).match(/PostgreSQL\s+(\d+)/i);
-  return match ? Number(match[1]) : null;
+  return postgresPolicy.parsePostgresVersion(versionText).major;
 }
 
 function poolConfig(input = {}, databaseOverride = null) {
@@ -54,12 +53,14 @@ async function detectPostgres(input = {}) {
       const result = await pool.query('SELECT version() AS version');
       const version = result.rows[0]?.version || 'unknown';
       const major = parsePostgresMajor(version);
+      const compatibility = postgresPolicy.classifyPostgresVersion(version);
       return {
         ok: true,
         serviceDetected: true,
         version,
         major,
-        supported: SUPPORTED_POSTGRES_MAJOR.includes(major),
+        supported: compatibility.existingInstallAllowed,
+        compatibility,
       };
     });
   } catch (error) {
@@ -116,6 +117,9 @@ async function assessInstallerHealth({ userDataPath, config = null } = {}) {
     : { ok: false, serviceDetected: false };
   const exists = candidate ? await databaseExists(candidate) : { ok: false, exists: false };
   const backupDir = process.env.BACKUP_DIR || path.join(userDataPath || os.tmpdir(), 'backups');
+  const managedPostgres = await postgresProvisioning.assessManagedPostgresPreflight({
+    userDataPath,
+  });
   return {
     ok: postgres.ok && exists.ok && exists.exists,
     mode: loaded.ok ? 'configured' : 'configuration_required',
@@ -125,6 +129,7 @@ async function assessInstallerHealth({ userDataPath, config = null } = {}) {
     writableUserData: userDataPath ? pathWritable(userDataPath) : { ok: false },
     writableBackupFolder: pathWritable(backupDir),
     migrations: exists.exists ? 'ready_for_schema_initialization' : 'database_missing',
+    managedPostgres,
   };
 }
 
@@ -199,7 +204,6 @@ async function createInitialAdministrator(admin = {}) {
 }
 
 module.exports = {
-  SUPPORTED_POSTGRES_MAJOR,
   assessInstallerHealth,
   createDatabaseIfMissing,
   createInitialAdministrator,

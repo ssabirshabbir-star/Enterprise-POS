@@ -1,0 +1,185 @@
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+
+const credentials = require('../src/main/installer/postgres-credential.service');
+const payloadVerifier = require('../src/main/installer/postgres-payload-verifier');
+const provisioningModel = require('../src/main/installer/postgres-provisioning.model');
+const provisioningRepository = require('../src/main/installer/postgres-provisioning.repository');
+const provisioningService = require('../src/main/installer/postgres-provisioning.service');
+const serviceManager = require('../src/main/installer/postgres-service-manager');
+const versionPolicy = require('../src/main/installer/postgres-version-policy');
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+}
+
+function tempDir(prefix) {
+  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+function writePayloadFixture(root, overrides = {}) {
+  const payload = Buffer.from('fixture-postgresql-server', 'utf8');
+  const digest = crypto.createHash('sha256').update(payload).digest('hex');
+  const manifest = {
+    version: versionPolicy.MANAGED_POSTGRES_VERSION,
+    architecture: 'win32-x64',
+    format: 'zip-server-only',
+    fileName: 'postgresql-fixture.zip',
+    sha256: digest,
+    redistributionStatus: 'certified',
+    licenseNoticeFiles: ['POSTGRESQL-LICENSE.txt', 'THIRD-PARTY-NOTICES.md'],
+    ...overrides,
+  };
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, manifest.fileName), payload);
+  fs.writeFileSync(path.join(root, 'POSTGRESQL-LICENSE.txt'), 'PostgreSQL license notice fixture');
+  fs.writeFileSync(path.join(root, 'THIRD-PARTY-NOTICES.md'), 'Third-party notice fixture');
+  fs.writeFileSync(path.join(root, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+  return manifest;
+}
+
+test('managed PostgreSQL policy pins an exact Windows server version', () => {
+  const policy = versionPolicy.getManagedPostgresPolicy();
+  assert.equal(policy.policyVersion, 'managed-postgres-policy-v1');
+  assert.equal(policy.managedVersion, '17.10');
+  assert.equal(policy.architecture, 'win32-x64');
+  assert.equal(policy.productionReady, false);
+  assert.equal(
+    versionPolicy.classifyPostgresVersion('PostgreSQL 17.10 on x86_64-windows').status,
+    'SUPPORTED_AND_TESTED'
+  );
+  assert.equal(
+    versionPolicy.classifyPostgresVersion('PostgreSQL 17.9 on x86_64-windows').status,
+    'SUPPORTED_UNTESTED'
+  );
+  assert.equal(
+    versionPolicy.classifyPostgresVersion('PostgreSQL 16.9 on x86_64-windows').status,
+    'UNSUPPORTED_TOO_OLD'
+  );
+  assert.equal(
+    versionPolicy.classifyPostgresVersion('PostgreSQL 18.0 on x86_64-windows').status,
+    'UNSUPPORTED_TOO_NEW'
+  );
+});
+
+test('payload verifier rejects the repository placeholder payload before mutation', () => {
+  const result = payloadVerifier.verifyPayloadManifest(
+    path.join(__dirname, '..', 'resources', 'postgres')
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'REDISTRIBUTION_NOT_CERTIFIED');
+  assert.equal(result.code, 'INSTALLER_POSTGRES_REDISTRIBUTION_NOT_CERTIFIED');
+});
+
+test('payload verifier requires checksum, notices, architecture, and file integrity', () => {
+  const root = tempDir('epos-postgres-payload-');
+  writePayloadFixture(root);
+  assert.equal(payloadVerifier.verifyPayloadManifest(root).ok, true);
+
+  const missingNoticeRoot = tempDir('epos-postgres-payload-notice-');
+  writePayloadFixture(missingNoticeRoot);
+  fs.unlinkSync(path.join(missingNoticeRoot, 'POSTGRESQL-LICENSE.txt'));
+  assert.equal(
+    payloadVerifier.verifyPayloadManifest(missingNoticeRoot).status,
+    'LICENSE_NOTICE_MISSING'
+  );
+
+  const badDigestRoot = tempDir('epos-postgres-payload-digest-');
+  writePayloadFixture(badDigestRoot, { sha256: '0'.repeat(64) });
+  assert.equal(payloadVerifier.verifyPayloadManifest(badDigestRoot).status, 'CHECKSUM_MISMATCH');
+
+  const badArchRoot = tempDir('epos-postgres-payload-arch-');
+  writePayloadFixture(badArchRoot, { architecture: 'linux-x64' });
+  assert.equal(payloadVerifier.verifyPayloadManifest(badArchRoot).status, 'ARCHITECTURE_MISMATCH');
+});
+
+test('managed PostgreSQL credentials are high entropy and redacted', () => {
+  const first = credentials.generateManagedPostgresPassword();
+  const second = credentials.generateManagedPostgresPassword();
+  assert.notEqual(first, second);
+  assert.ok(first.length >= 32);
+  assert.deepEqual(credentials.redactConnectionFields({ username: 'epos', password: first }), {
+    username: 'epos',
+    password: '[redacted]',
+  });
+  assert.throws(() => credentials.generateManagedPostgresPassword({ bytes: 8 }), /entropy/i);
+});
+
+test('managed service plan validates service names and path ownership', () => {
+  const root = tempDir('epos-postgres-service-');
+  const plan = serviceManager.buildManagedServicePlan({ installRoot: root });
+  assert.equal(plan.serviceName, 'EnterprisePOSPostgreSQL');
+  assert.equal(plan.port, 55432);
+  assert.match(plan.serviceCommand.args.join(' '), /EnterprisePOSPostgreSQL/);
+  assert.throws(() => serviceManager.normalizeWindowsServiceName('bad name'), /invalid/i);
+  assert.throws(
+    () =>
+      serviceManager.buildManagedServicePlan({
+        installRoot: root,
+        runtimeDir: path.parse(root).root,
+      }),
+    /escapes/i
+  );
+});
+
+test('provisioning journal persists state transitions without secrets', () => {
+  const root = tempDir('epos-postgres-journal-');
+  let operation = provisioningModel.createProvisioningOperation({
+    target: { database: 'enterprise_pos', managed: true },
+  });
+  operation = provisioningModel.transitionProvisioningOperation(
+    operation,
+    provisioningModel.PROVISIONING_STATES.PREFLIGHT_PASSED,
+    { reason: 'test_preflight' },
+    { now: '2026-07-18T00:00:00.000Z' }
+  );
+  const saved = provisioningRepository.saveProvisioningOperation(root, operation);
+  assert.equal(saved.ok, true);
+  const raw = fs.readFileSync(provisioningRepository.journalPath(root), 'utf8');
+  assert.doesNotMatch(raw, /password|secret|connectionString/i);
+  assert.equal(
+    provisioningRepository.getLatestProvisioningOperation(root).state,
+    'PREFLIGHT_PASSED'
+  );
+});
+
+test('managed provisioning is blocked safely when packaged payload is not certified', async () => {
+  const userDataPath = tempDir('epos-postgres-provision-');
+  const result = await provisioningService.startManagedPostgresProvisioning({ userDataPath });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'INSTALLER_POSTGRES_REDISTRIBUTION_NOT_CERTIFIED');
+  assert.equal(result.operation.state, 'CANCELLED_BEFORE_MUTATION');
+  assert.equal(result.operation.startedAt, undefined);
+});
+
+test('setup IPC exposes managed PostgreSQL status without renderer-controlled system commands', () => {
+  const preload = read('src/main/preload.js');
+  const controller = read('src/main/installer/installer.controller.js');
+  const setup = read('src/renderer/setup.html');
+
+  assert.match(preload, /postgresPreflight/);
+  assert.match(preload, /provisionManagedPostgres/);
+  assert.match(controller, /\/installer\/postgres\/preflight/);
+  assert.match(controller, /\/installer\/postgres\/provision/);
+  assert.match(setup, /Managed PostgreSQL runtime/);
+  assert.match(setup, /blocked until a checksum-pinned, license-audited Windows server payload/);
+  assert.match(setup, /installerPostgresProvisionButton"[^>]*disabled/);
+  assert.doesNotMatch(controller, /_event,\s*payload[\s\S]*sc\.exe/);
+});
+
+test('Windows package is NSIS-oriented and preserves data on uninstall', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.scripts['package:win'], 'npm run build && electron-builder --win nsis');
+  assert.deepEqual(pkg.build.win.target, ['nsis']);
+  assert.equal(pkg.build.nsis.deleteAppDataOnUninstall, false);
+  assert.ok(
+    pkg.build.extraResources.some(
+      (entry) => entry.from === 'resources/postgres' && entry.to === 'postgres'
+    )
+  );
+  assert.equal(pkg.build.win.signAndEditExecutable, false);
+});
