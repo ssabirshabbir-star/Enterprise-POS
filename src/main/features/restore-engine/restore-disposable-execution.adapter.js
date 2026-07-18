@@ -763,7 +763,7 @@ async function executeDisposableRestore({
   });
 
   try {
-    const result = await applyPackageAndVerify({
+    const application = await applyPackageToDisposableDatabase({
       databaseName: targetDatabase,
       backup: sourcePackage.backup,
       injectFailureStage,
@@ -780,6 +780,19 @@ async function executeDisposableRestore({
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.POST_RESTORE_VERIFYING,
       targetDatabaseReference,
     });
+    if (injectFailureStage === 'post_verification' || injectFailureStage === 'rollback_failure') {
+      throw new Error('CONTROLLED_POST_RESTORE_VERIFICATION_FAILURE');
+    }
+    const pool = poolForDatabase(targetDatabase);
+    let verification;
+    try {
+      verification = await verifyAppliedPackage(pool, sourcePackage.backup);
+    } finally {
+      await pool.end();
+    }
+    if (verification.verificationStatus !== 'passed') {
+      throw new Error('POST_RESTORE_VERIFICATION_FAILED');
+    }
     await settingsRepository.transitionRestoreOperation({
       operationId,
       requestedByUserId: ownerUserId,
@@ -794,9 +807,9 @@ async function executeDisposableRestore({
       ok: true,
       restored: true,
       databaseName: targetDatabase,
-      tablesRestored: result.application.tablesRestored,
-      rowsRestored: result.application.rowsRestored,
-      verification: result.verification,
+      tablesRestored: application.tablesRestored,
+      rowsRestored: application.rowsRestored,
+      verification,
       restartRequired: true,
       sessionInvalidationRequired: true,
     });
