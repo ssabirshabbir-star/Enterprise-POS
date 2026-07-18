@@ -1006,16 +1006,93 @@
     const panel = $id('restoreStartupRecoveryStatus');
     if (!panel) return;
     const recovery = result.startupRecovery || {};
-    panel.textContent = [
-      'Startup Recovery Status - Read Only',
-      `Startup Allowed: ${recovery.startupAllowed ? 'Yes' : 'No'}`,
-      `Maintenance Mode Required: ${recovery.maintenanceModeRequired ? 'Yes' : 'No'}`,
-      `Database Mutations Blocked: ${recovery.databaseMutationsBlocked ? 'Yes' : 'No'}`,
-      `Operation ID: ${text(recovery.operationId)}`,
-      `Current State: ${text(recovery.currentState)}`,
-      `Message: ${text(recovery.message)}`,
-      'Restore Execution: Unavailable',
-    ].join('\n');
+    const snapshot = result.startupRecoverySnapshot || {};
+    const safety = snapshot.safetyBackup || recovery.safetyBackupReference || {};
+    const rollback = snapshot.rollbackEvidence || {};
+    const target = snapshot.targetDatabase || {};
+    const source = snapshot.sourcePackage || {};
+    const blockers = recovery.blockingReasons || snapshot.blockingReasons || [];
+    const actions = recovery.allowedRecoveryActions || snapshot.allowedRecoveryActions || [];
+    const danger =
+      recovery.startupMode === 'MANUAL_RECOVERY_REQUIRED' ||
+      recovery.requiresManualRecovery === true;
+    panel.classList.toggle('border-red-300', danger);
+    panel.classList.toggle('bg-red-50', danger);
+    panel.classList.toggle('text-red-900', danger);
+    panel.classList.toggle('border-zinc-200', !danger);
+    panel.classList.toggle('bg-zinc-50', !danger);
+    panel.classList.toggle('text-zinc-700', !danger);
+    const rows = [
+      ['Startup Mode', recovery.startupMode || snapshot.startupMode || 'NORMAL'],
+      ['Current Recovery State', recovery.currentState],
+      ['Previous State', recovery.previousState || snapshot.previousState],
+      ['Operation ID', recovery.operationId || snapshot.operationId],
+      [
+        'Operation Active/Unresolved',
+        snapshot.unresolvedOperation || recovery.unresolvedOperation ? 'Yes' : 'No',
+      ],
+      ['Maintenance Lock', recovery.maintenanceModeRequired ? 'Required' : 'Not required'],
+      ['Mutation Guard', recovery.databaseMutationsBlocked ? 'Active' : 'Inactive'],
+      [
+        'Safety Backup',
+        safety.verified ? `Verified (${text(safety.safetyBackupId)})` : 'Not verified',
+      ],
+      [
+        'Restore Apply Evidence',
+        snapshot.restoreApplyEvidence?.present ? 'Present' : 'Not present',
+      ],
+      [
+        'Post-Restore Certification',
+        snapshot.postRestoreCertificationEvidence?.present ? 'Evidence present' : 'Not certified',
+      ],
+      [
+        'Rollback Status',
+        rollback.required ? 'Required' : rollback.present ? 'Evidence present' : 'Not required',
+      ],
+      [
+        'Target Database',
+        target.identity
+          ? `${text(target.identity.host)}:${text(target.identity.port)}/${text(target.identity.database)}`
+          : '-',
+      ],
+      ['Source Package', source.checksum ? `Checksum ${text(source.checksum)}` : '-'],
+      ['Last Assessed At', recovery.assessedAt || snapshot.assessedAt],
+    ];
+    panel.innerHTML = `
+      <div class="space-y-3">
+        <div>
+          <p class="font-semibold ${danger ? 'text-red-900' : 'text-zinc-900'}">Startup Recovery Snapshot - Read Only</p>
+          <p class="mt-1">${esc(recovery.message || 'No dangerous Restore recovery state blocks startup.')}</p>
+        </div>
+        <dl class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          ${rows
+            .map(
+              ([label, value]) => `
+                <div class="rounded border border-white/70 bg-white/70 px-2 py-1">
+                  <dt class="text-xs font-semibold uppercase tracking-wide text-zinc-500">${esc(label)}</dt>
+                  <dd class="mt-0.5 font-medium">${esc(value)}</dd>
+                </div>
+              `
+            )
+            .join('')}
+        </dl>
+        ${
+          blockers.length
+            ? `<div><p class="font-semibold">Blocking Reasons</p><ul class="mt-1 list-disc pl-5">${blockers
+                .map((item) => `<li>${esc(item)}</li>`)
+                .join('')}</ul></div>`
+            : ''
+        }
+        ${
+          actions.length
+            ? `<div><p class="font-semibold">Allowed Recovery Actions</p><p class="mt-1">${esc(
+                actions.join(', ')
+              )}</p></div>`
+            : ''
+        }
+        <p class="font-semibold">Restore Execution: Unavailable</p>
+      </div>
+    `;
   }
 
   function renderRestoreRetentionAssessment(result = {}) {
@@ -2493,6 +2570,29 @@
         .restoreExecutionPolicy()
         .then((policy) => {
           if (policy?.ok) renderRestoreExecutionPolicy(policy);
+        })
+        .catch(() => {});
+      A()
+        .restoreStartupRecovery()
+        .then((startupRecovery) => {
+          if (startupRecovery?.ok) renderRestoreStartupRecovery(startupRecovery);
+        })
+        .catch(() => {
+          renderRestoreStartupRecovery({
+            ok: false,
+            startupRecovery: {
+              startupMode: 'RECOVERY_REQUIRED',
+              message:
+                'Startup recovery status could not be loaded. Do not assume normal Restore state.',
+              maintenanceModeRequired: true,
+              databaseMutationsBlocked: true,
+            },
+          });
+        });
+      A()
+        .restoreRetentionAssessment()
+        .then((retention) => {
+          if (retention?.ok) renderRestoreRetentionAssessment(retention);
         })
         .catch(() => {});
       A()

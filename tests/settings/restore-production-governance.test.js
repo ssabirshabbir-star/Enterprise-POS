@@ -184,6 +184,50 @@ test('repository final confirmation refuses repeated evidence for one operation'
   assert.match(confirmationBody, /confirmationCreated:\s*false/);
 });
 
+test('repository startup assessment builds one snapshot and reconciles ambiguous rollback', () => {
+  const repository = read('src/main/features/settings/settings.repository.js');
+  const startupBody = repository.slice(
+    repository.indexOf('async function getRestoreStartupRecoveryAssessment'),
+    repository.indexOf('async function restoreOperationForSafetyArtifact')
+  );
+
+  assert.match(repository, /async function reconcileRestoreStartupOperation/);
+  assert.match(repository, /startup_rollback_outcome_ambiguous/);
+  assert.match(repository, /MANUAL_RECOVERY_REQUIRED/);
+  assert.match(repository, /function createRestoreStartupRecoverySnapshot/);
+  assert.match(startupBody, /reconcileRestoreStartupOperation/);
+  assert.match(startupBody, /latestRestoreOperation/);
+  assert.match(startupBody, /latestOperation\?\.state ===/);
+  assert.match(startupBody, /startupRecoverySnapshot/);
+  assert.match(repository, /operationLockExists/);
+  assert.match(repository, /mutationGuardActive/);
+  assert.match(repository, /allowedRecoveryActions/);
+  assert.match(repository, /blockingReasons/);
+});
+
+test('settings renderer auto-loads startup recovery and retention into structured panels', () => {
+  const renderer = read('src/main/features/settings/settings.renderer.js');
+  const loadBody = renderer.slice(
+    renderer.indexOf('async function loadReadOnlyData'),
+    renderer.indexOf('function renderUI')
+  );
+  const startupRenderer = renderer.slice(
+    renderer.indexOf('function renderRestoreStartupRecovery'),
+    renderer.indexOf('function renderRestoreRetentionAssessment')
+  );
+
+  assert.match(loadBody, /restoreStartupRecovery\(\)/);
+  assert.match(loadBody, /renderRestoreStartupRecovery/);
+  assert.match(loadBody, /restoreRetentionAssessment\(\)/);
+  assert.match(loadBody, /renderRestoreRetentionAssessment/);
+  assert.match(startupRenderer, /Startup Mode/);
+  assert.match(startupRenderer, /Current Recovery State/);
+  assert.match(startupRenderer, /Maintenance Lock/);
+  assert.match(startupRenderer, /Mutation Guard/);
+  assert.match(startupRenderer, /Blocking Reasons/);
+  assert.doesNotMatch(startupRenderer, /Startup recovery status has not been loaded/);
+});
+
 test('retention assessment requires artifact to match a restore operation journal entry', () => {
   const repository = read('src/main/features/settings/settings.repository.js');
   const retentionBody = repository.slice(

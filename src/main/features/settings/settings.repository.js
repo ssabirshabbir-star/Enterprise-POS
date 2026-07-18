@@ -1598,6 +1598,101 @@ async function getRestoreExecutionPolicy() {
   });
 }
 
+async function reconcileRestoreStartupOperation(operationRow) {
+  if (!operationRow) return null;
+  const state = operationRow.state;
+  if (state !== restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.ROLLBACK_IN_PROGRESS) {
+    return operationRow;
+  }
+
+  const evidence = await restoreOperationEvidence(operationRow.operation_id);
+  const hasRollbackTerminalEvidence = evidence.some(
+    (item) =>
+      item.status === 'terminal' &&
+      /ROLLED_BACK|MANUAL_RECOVERY_REQUIRED/.test(String(item.message || ''))
+  );
+  if (hasRollbackTerminalEvidence) return operationRow;
+
+  const transition = await transitionRestoreOperation({
+    operationId: operationRow.operation_id,
+    requestedByUserId: operationRow.owner_user_id,
+    nextState: restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED,
+    failureCategory: 'startup_rollback_outcome_ambiguous',
+    failureSummary:
+      'Application restarted while rollback was in progress and no durable rollback completion evidence was found.',
+    replayStatus: 'startup_reconciled',
+  });
+  if (!transition.ok) return operationRow;
+
+  const refreshed = await latestRestoreOperation();
+  return refreshed || operationRow;
+}
+
+function createRestoreStartupRecoverySnapshot({ recoveryState, startupRecovery }) {
+  const safety = recoveryState.safetyBackupReference || null;
+  const finalConfirmation = recoveryState.finalConfirmationReference || null;
+  const databaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
+  const applyEvidence = (recoveryState.transitionEvidence || []).filter((item) =>
+    /RESTORE_IN_PROGRESS|RESTORE_APPLIED|POST_RESTORE_VERIFYING|COMPLETED/.test(
+      String(item.message || '')
+    )
+  );
+  const rollbackEvidence = (recoveryState.transitionEvidence || []).filter((item) =>
+    /ROLLBACK|ROLLED_BACK|MANUAL_RECOVERY_REQUIRED/.test(String(item.message || ''))
+  );
+  return {
+    recoveryState,
+    previousState: recoveryState.previousState || null,
+    operationId: recoveryState.operationId || null,
+    unresolvedOperation: recoveryState.unresolvedRecoveryState === true,
+    operationLockExists: recoveryState.activeOperation === true,
+    sourcePackage: {
+      backupId: recoveryState.sourceBackupId || null,
+      checksum: recoveryState.sourcePackageChecksum || null,
+      fingerprint: recoveryState.sourcePackageFingerprint || null,
+      manifestVersion: recoveryState.sourceManifestVersion || null,
+    },
+    safetyBackup: safety
+      ? {
+          safetyBackupId: safety.safetyBackupId || null,
+          checksum: safety.checksum || null,
+          backupLogId: safety.backupLogId || null,
+          verified: Boolean(safety.checksum),
+        }
+      : { verified: false },
+    finalConfirmation,
+    restoreApplyEvidence: {
+      present: applyEvidence.length > 0,
+      entries: applyEvidence,
+    },
+    postRestoreCertificationEvidence: {
+      present: (recoveryState.transitionEvidence || []).some((item) =>
+        /POST_RESTORE_VERIFYING|COMPLETED/.test(String(item.message || ''))
+      ),
+    },
+    rollbackEvidence: {
+      present: rollbackEvidence.length > 0,
+      entries: rollbackEvidence,
+      required: recoveryState.rollbackRequired === true,
+    },
+    targetDatabase: {
+      identity: databaseIdentity,
+      productionDatabase: databaseIdentity.disposableCertificationDatabase !== true,
+      disposableCertificationDatabase: databaseIdentity.disposableCertificationDatabase === true,
+    },
+    startupMode: startupRecovery.startupMode,
+    maintenanceLockRequired: startupRecovery.maintenanceModeRequired === true,
+    mutationGuardActive: startupRecovery.databaseMutationsBlocked === true,
+    allowedRecoveryActions: startupRecovery.allowedRecoveryActions || [],
+    blockingReasons: startupRecovery.blockingReasons || [],
+    manualInterventionReason: startupRecovery.requiresManualRecovery
+      ? recoveryState.sanitizedFailureSummary ||
+        'Manual recovery is required before write-capable operation can resume.'
+      : null,
+    assessedAt: startupRecovery.assessedAt || new Date().toISOString(),
+  };
+}
+
 async function createRestoreFinalConfirmation({
   operationId,
   ownerUserId,
@@ -1733,17 +1828,31 @@ async function createRestoreFinalConfirmation({
 }
 
 async function getRestoreStartupRecoveryAssessment() {
-  const activeOperation = await activeRestoreOperation();
-  const recoveryState = activeOperation
+  let activeOperation = await activeRestoreOperation();
+  activeOperation = await reconcileRestoreStartupOperation(activeOperation);
+  const latestOperation = activeOperation ? null : await latestRestoreOperation();
+  const startupOperation =
+    activeOperation ||
+    (latestOperation?.state ===
+    restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED
+      ? latestOperation
+      : null);
+  const recoveryState = startupOperation
     ? operationRowToRecoveryState(
-        activeOperation,
-        await restoreOperationEvidence(activeOperation.operation_id)
+        startupOperation,
+        await restoreOperationEvidence(startupOperation.operation_id)
       )
     : restoreRecoveryStateModel.createIdleRecoveryState();
+  const startupRecovery = restoreProductionGovernanceModel.assessStartupRecovery(recoveryState);
+  const startupRecoverySnapshot = createRestoreStartupRecoverySnapshot({
+    recoveryState,
+    startupRecovery,
+  });
   return {
     ok: true,
     recoveryState,
-    startupRecovery: restoreProductionGovernanceModel.assessStartupRecovery(recoveryState),
+    startupRecovery,
+    startupRecoverySnapshot,
     noRestoreExecuted: true,
     restoreExecutionAvailable: false,
   };

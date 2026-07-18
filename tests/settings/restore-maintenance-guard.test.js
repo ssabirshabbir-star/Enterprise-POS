@@ -46,8 +46,10 @@ test('safety backup in progress blocks writes without forcing startup lockout', 
     currentState: recovery.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_IN_PROGRESS,
   });
   assert.equal(assessment.startupAllowed, true);
-  assert.equal(assessment.maintenanceModeRequired, false);
+  assert.equal(assessment.startupMode, 'MAINTENANCE_READ_ONLY');
+  assert.equal(assessment.maintenanceModeRequired, true);
   assert.equal(assessment.blocksMutations, true);
+  assert.equal(assessment.mutationGuardActive, true);
 });
 
 test('central guard rejects mutations before service execution and preserves read-only routes', async () => {
@@ -58,7 +60,10 @@ test('central guard rejects mutations before service execution and preserves rea
   assert.equal(blocked.allowed, false);
   assert.equal(blocked.response.code, guard.MAINTENANCE_ERROR_CODE);
   assert.equal(blocked.response.ok, false);
-  assert.equal(blocked.response.recovery.currentState, recovery.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS);
+  assert.equal(
+    blocked.response.recovery.currentState,
+    recovery.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS
+  );
   assert.doesNotMatch(JSON.stringify(blocked.response), /password|DATABASE_URL|PGPASSWORD/i);
 
   const ipcMain = {
@@ -78,8 +83,9 @@ test('central guard rejects mutations before service execution and preserves rea
   assert.equal(response.code, guard.MAINTENANCE_ERROR_CODE);
   assert.equal(serviceCalled, false);
 
-  const readOnly = await guard.assertMutationAllowed('/settings/backups/restore-execution-policy', () =>
-    statusFor(recovery.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS)
+  const readOnly = await guard.assertMutationAllowed(
+    '/settings/backups/restore-execution-policy',
+    () => statusFor(recovery.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS)
   );
   assert.equal(readOnly.allowed, true);
 });

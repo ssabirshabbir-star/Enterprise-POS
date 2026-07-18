@@ -39,7 +39,10 @@ function stableStringify(value) {
 }
 
 function sha256(value) {
-  return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(String(value || ''), 'utf8')
+    .digest('hex');
 }
 
 function resolveDatabaseIdentity(config = getDatabaseConfig()) {
@@ -163,35 +166,91 @@ function assessStartupRecovery(recoveryState = {}) {
   const state = recoveryModel.normalizeRecoveryState(recoveryState);
   const dangerous = DANGEROUS_STARTUP_STATES.includes(state.currentState);
   const blocksMutations = MUTATION_BLOCKING_STATES.includes(state.currentState);
+  const manualRecoveryRequired =
+    state.currentState === recoveryModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED;
   const preparationPending =
     state.currentState === recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED;
+  const startupMode = manualRecoveryRequired
+    ? 'MANUAL_RECOVERY_REQUIRED'
+    : dangerous
+      ? 'RECOVERY_REQUIRED'
+      : blocksMutations
+        ? 'MAINTENANCE_READ_ONLY'
+        : 'NORMAL';
+  const allowedRecoveryActions = [];
+  const blockingReasons = [];
+
+  if (startupMode === 'NORMAL') {
+    allowedRecoveryActions.push('refresh_startup_recovery', 'refresh_restore_policy');
+  }
+  if (startupMode === 'MAINTENANCE_READ_ONLY') {
+    allowedRecoveryActions.push(
+      'refresh_startup_recovery',
+      'refresh_restore_policy',
+      'view_operation_evidence'
+    );
+    blockingReasons.push('A Restore safety operation is in progress; writes are blocked.');
+  }
+  if (startupMode === 'RECOVERY_REQUIRED') {
+    allowedRecoveryActions.push(
+      'refresh_startup_recovery',
+      'refresh_restore_policy',
+      'view_operation_evidence',
+      'assess_retention'
+    );
+    blockingReasons.push('A Restore operation was interrupted or requires recovery evidence.');
+  }
+  if (startupMode === 'MANUAL_RECOVERY_REQUIRED') {
+    allowedRecoveryActions.push(
+      'refresh_startup_recovery',
+      'refresh_restore_policy',
+      'view_operation_evidence',
+      'assess_retention'
+    );
+    blockingReasons.push(
+      'Manual recovery is required. Normal writes remain blocked until certified recovery evidence exists.'
+    );
+  }
+
   return freeze({
+    startupMode,
     startupAllowed: !dangerous,
     maintenanceActive: blocksMutations,
-    maintenanceModeRequired: dangerous,
+    maintenanceModeRequired: dangerous || blocksMutations,
     recoveryScreenRequired: dangerous || preparationPending,
     blocksMutations,
     allowsRecoveryReads: true,
     databaseMutationsBlocked: blocksMutations,
     currentState: state.currentState,
+    previousState: state.previousState || null,
     operationId: state.operationId,
     reasonCode: blocksMutations ? 'RESTORE_MAINTENANCE_MODE_ACTIVE' : null,
     requiresRestart: state.restartRequired,
-    requiresManualRecovery:
-      state.currentState === recoveryModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED,
+    requiresManualRecovery: manualRecoveryRequired,
+    mutationGuardActive: blocksMutations,
+    operationActive: state.activeOperation,
+    unresolvedOperation: state.unresolvedRecoveryState,
+    safetyBackupReference: state.safetyBackupReference || null,
+    finalConfirmationReference: state.finalConfirmationReference || null,
+    rollbackRequired: state.rollbackRequired,
+    allowedRecoveryActions,
+    blockingReasons,
+    assessedAt: new Date().toISOString(),
     message: dangerous
       ? 'Restore recovery state requires maintenance lockout before normal POS startup.'
       : blocksMutations
         ? 'Restore safety backup is in progress; database mutations are temporarily blocked.'
-      : preparationPending
-        ? 'Restore safety preparation is pending; normal startup may continue with Restore execution unavailable.'
-        : 'No dangerous Restore recovery state blocks startup.',
+        : preparationPending
+          ? 'Restore safety preparation is pending; normal startup may continue with Restore execution unavailable.'
+          : 'No dangerous Restore recovery state blocks startup.',
   });
 }
 
 function classifyRetention({ recoveryState = {}, artifactPath = '', now = new Date() } = {}) {
   const state = recoveryModel.normalizeRecoveryState(recoveryState);
-  const normalizedPath = path.resolve(String(artifactPath || state.safetyBackupReference?.filePath || ''));
+  const normalizedPath = path.resolve(
+    String(artifactPath || state.safetyBackupReference?.filePath || '')
+  );
   const lowerPath = normalizedPath.toLowerCase();
   const testOnly =
     lowerPath.includes(`${path.sep.toLowerCase()}temp${path.sep.toLowerCase()}`) ||
@@ -211,9 +270,10 @@ function classifyRetention({ recoveryState = {}, artifactPath = '', now = new Da
     terminal &&
     testOnly &&
     !dangerous &&
-    [recoveryModel.RESTORE_RECOVERY_STATES.CANCELLED, recoveryModel.RESTORE_RECOVERY_STATES.ROLLED_BACK].includes(
-      state.currentState
-    );
+    [
+      recoveryModel.RESTORE_RECOVERY_STATES.CANCELLED,
+      recoveryModel.RESTORE_RECOVERY_STATES.ROLLED_BACK,
+    ].includes(state.currentState);
 
   return freeze({
     artifactPath: normalizedPath,
@@ -270,7 +330,9 @@ function createFinalCertificationAssessment({
     executionCertified: false,
     restoreExecutionAvailable: false,
     blockers,
-    warnings: ['Production Restore execution remains unavailable until all checks pass and activation is approved.'],
+    warnings: [
+      'Production Restore execution remains unavailable until all checks pass and activation is approved.',
+    ],
     requiredActions: blockers.map((code) => ({ code, message: `Satisfy ${code}.` })),
   });
 }

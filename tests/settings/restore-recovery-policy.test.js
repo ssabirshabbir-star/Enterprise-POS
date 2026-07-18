@@ -103,6 +103,41 @@ test('restore execution policy blocks unresolved recovery state and active opera
   assert.match(result.blockers.map((item) => item.code).join('\n'), /operation_lock\.active/);
 });
 
+test('startup recovery model classifies each restore state without unsafe normal writes', () => {
+  const states = recovery.RESTORE_RECOVERY_STATES;
+  const expectations = {
+    [states.IDLE]: ['NORMAL', false],
+    [states.PREFLIGHT_READY]: ['NORMAL', false],
+    [states.SAFETY_BACKUP_IN_PROGRESS]: ['MAINTENANCE_READ_ONLY', true],
+    [states.SAFETY_BACKUP_VERIFIED]: ['NORMAL', false],
+    [states.RESTORE_IN_PROGRESS]: ['RECOVERY_REQUIRED', true],
+    [states.RESTORE_APPLIED]: ['RECOVERY_REQUIRED', true],
+    [states.POST_RESTORE_VERIFYING]: ['RECOVERY_REQUIRED', true],
+    [states.FAILED_RECOVERABLE]: ['NORMAL', false],
+    [states.FAILED_ROLLBACK_REQUIRED]: ['RECOVERY_REQUIRED', true],
+    [states.ROLLBACK_IN_PROGRESS]: ['RECOVERY_REQUIRED', true],
+    [states.ROLLED_BACK]: ['NORMAL', false],
+    [states.COMPLETED]: ['NORMAL', false],
+    [states.CANCELLED]: ['NORMAL', false],
+    [states.MANUAL_RECOVERY_REQUIRED]: ['MANUAL_RECOVERY_REQUIRED', true],
+  };
+
+  for (const [state, [startupMode, guardActive]] of Object.entries(expectations)) {
+    const assessment =
+      require('../../src/main/features/restore-engine/restore-production-governance.model').assessStartupRecovery(
+        {
+          currentState: state,
+          previousState:
+            state === states.MANUAL_RECOVERY_REQUIRED ? states.ROLLBACK_IN_PROGRESS : null,
+        }
+      );
+    assert.equal(assessment.startupMode, startupMode, state);
+    assert.equal(assessment.databaseMutationsBlocked, guardActive, state);
+    assert.equal(assessment.mutationGuardActive, guardActive, state);
+    assert(Array.isArray(assessment.allowedRecoveryActions));
+  }
+});
+
 test('read-only settings route and renderer contract exposes policy but no execution', () => {
   const controller = read('src/main/features/settings/settings.controller.js');
   const preload = read('src/main/preload.js');
