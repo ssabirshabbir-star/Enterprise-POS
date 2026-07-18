@@ -991,10 +991,12 @@
     const button = $id('recordRestoreFinalConfirmationButton');
     const phrase = $id('restoreFinalConfirmationPhrase');
     const recovery = policy.recoveryState || {};
+    const phraseReady = String(phrase?.value || '').trim() === 'RESTORE DATABASE';
     const canRecord =
       recovery.currentState === 'SAFETY_BACKUP_VERIFIED' &&
       policy.safetyBackupVerified === true &&
-      policy.restoreExecutionAvailable !== true;
+      policy.restoreExecutionAvailable !== true &&
+      phraseReady;
     if (button) {
       button.disabled = restorePreparationBusy || !canRecord;
       button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
@@ -1120,9 +1122,15 @@
     panel.textContent = [
       'Final Restore Confirmation Evidence',
       `Recorded: ${result.confirmationCreated ? 'Yes' : 'No'}`,
+      `Status: ${text(result.confirmationStatus || confirmation.status)}`,
       `Confirmation ID: ${text(confirmation.confirmationId)}`,
+      `Digest: ${text(confirmation.bindingDigest || confirmation.confirmationHash)}`,
+      `Created: ${text(confirmation.createdAt || confirmation.issuedAt)}`,
       `Expires: ${text(confirmation.expiresAt)}`,
-      `Database Fingerprint: ${text(confirmation.databaseFingerprint)}`,
+      `Consumed: ${confirmation.consumedAt ? text(confirmation.consumedAt) : 'No'}`,
+      `Target Fingerprint: ${text(
+        confirmation.targetDatabaseFingerprint || confirmation.databaseFingerprint
+      )}`,
       `Execution Available: ${result.restoreExecutionAvailable === true ? 'Yes' : 'No'}`,
       `Message: ${text(result.message)}`,
       ...(blockers.length ? ['Blockers:', ...blockers.map((item) => `- ${text(item)}`)] : []),
@@ -2379,11 +2387,6 @@
       const result = await A().restoreFinalConfirmation({
         operationId,
         typedPhrase: phrase,
-        preflightDigest: lastRestorePolicy?.recoveryState?.sourcePackageChecksum || null,
-        executionPolicyDigest:
-          lastRestorePolicy?.productionGovernance?.finalCertificationAssessment?.blockers?.join(
-            '|'
-          ) || null,
       });
       renderRestoreFinalConfirmation(result || {});
       const policy = await A()
@@ -2681,6 +2684,9 @@
         $id('recordRestoreFinalConfirmationButton'),
         'click',
         handleRecordRestoreFinalConfirmation
+      );
+      addListener($id('restoreFinalConfirmationPhrase'), 'input', () =>
+        syncRestoreFinalConfirmationControls()
       );
       addListener(
         $id('refreshRestoreStartupRecoveryButton'),

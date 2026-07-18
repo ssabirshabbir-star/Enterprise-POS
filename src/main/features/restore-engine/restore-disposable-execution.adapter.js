@@ -695,6 +695,7 @@ function consumeExecutionToken(tokenId, expected = {}) {
 
 async function executeDisposableRestore({
   tokenId,
+  confirmationId,
   operationId,
   ownerUserId,
   sourcePackagePath,
@@ -731,6 +732,15 @@ async function executeDisposableRestore({
     preflightDigest,
     executionPolicyDigest,
   });
+  const confirmation = await settingsRepository.consumeRestoreFinalConfirmation({
+    operationId,
+    confirmationId,
+    ownerUserId,
+    targetDatabaseReference,
+  });
+  if (!confirmation.ok) {
+    throw new Error(confirmation.code || 'RESTORE_CONFIRMATION_REQUIRED');
+  }
 
   if (injectFailureStage === 'before_mutation') {
     await settingsRepository.transitionRestoreOperation({
@@ -871,6 +881,7 @@ module.exports = {
   assertDisposableDatabaseName,
   applyPackageAndVerify,
   consumeExecutionToken,
+  disposableTargetIdentity,
   executeDisposableRestore,
   issueDisposableExecutionToken,
   readCertifiedPackage,

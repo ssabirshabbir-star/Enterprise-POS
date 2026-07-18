@@ -165,6 +165,10 @@ test('settings UI exposes confirmation evidence and recovery assessment but no p
   assert.match(html, /restoreFinalConfirmationPhrase/);
   assert.match(main, /getRestoreStartupRecoveryAssessment/);
   assert.match(schema, /final_confirmation_id UUID UNIQUE/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS restore_final_confirmations/);
+  assert.match(schema, /binding_digest VARCHAR\(128\) NOT NULL/);
+  assert.match(schema, /status VARCHAR\(40\) NOT NULL/);
+  assert.match(schema, /idx_restore_final_confirmations_one_active/);
 
   assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
   assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
@@ -172,16 +176,44 @@ test('settings UI exposes confirmation evidence and recovery assessment but no p
   assert.doesNotMatch(renderer, /A\(\)\.restoreBackup|handleExecuteRestore|location\.reload/);
 });
 
-test('repository final confirmation refuses repeated evidence for one operation', () => {
+test('repository final confirmation is journal-backed, digest-bound, and single-use', () => {
   const repository = read('src/main/features/settings/settings.repository.js');
   const confirmationBody = repository.slice(
     repository.indexOf('async function createRestoreFinalConfirmation'),
     repository.indexOf('async function getRestoreStartupRecoveryAssessment')
   );
 
-  assert.match(confirmationBody, /row\.final_confirmation_id \|\| row\.final_confirmation_hash/);
-  assert.match(confirmationBody, /final_confirmation_already_recorded/);
-  assert.match(confirmationBody, /confirmationCreated:\s*false/);
+  assert.match(repository, /RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION/);
+  assert.match(repository, /function buildRestoreFinalConfirmationContext/);
+  assert.match(repository, /function confirmationDigest/);
+  assert.match(repository, /async function latestPassedDryRunEvidence/);
+  assert.match(confirmationBody, /INSERT INTO restore_final_confirmations/);
+  assert.match(confirmationBody, /superseded_by_new_confirmation/);
+  assert.match(confirmationBody, /RESTORE_CONFIRMATION_PHRASE_INVALID/);
+  assert.match(repository, /async function validateRestoreFinalConfirmation/);
+  assert.match(repository, /async function consumeRestoreFinalConfirmation/);
+  assert.match(repository, /FOR UPDATE/);
+  assert.match(repository, /RESTORE_CONFIRMATION_ALREADY_CONSUMED/);
+  assert.match(repository, /RESTORE_CONFIRMATION_EXPIRED/);
+  assert.match(repository, /RESTORE_CONFIRMATION_TARGET_MISMATCH/);
+  assert.match(repository, /RESTORE_CONFIRMATION_CONSUMED/);
+});
+
+test('disposable restore execution requires persisted final confirmation before mutation', () => {
+  const adapter = read('src/main/features/restore-engine/restore-disposable-execution.adapter.js');
+  const executeBody = adapter.slice(
+    adapter.indexOf('async function executeDisposableRestore'),
+    adapter.indexOf('module.exports')
+  );
+
+  assert.match(executeBody, /confirmationId/);
+  assert.match(executeBody, /consumeRestoreFinalConfirmation/);
+  assert.match(executeBody, /RESTORE_CONFIRMATION_REQUIRED/);
+  assert(
+    executeBody.indexOf('consumeRestoreFinalConfirmation') <
+      executeBody.indexOf('RESTORE_IN_PROGRESS')
+  );
+  assert.match(adapter, /disposableTargetIdentity/);
 });
 
 test('repository startup assessment builds one snapshot and reconciles ambiguous rollback', () => {
@@ -262,6 +294,25 @@ test('settings renderer auto-loads startup recovery and retention into structure
   assert.match(startupRenderer, /Mutation Guard/);
   assert.match(startupRenderer, /Blocking Reasons/);
   assert.doesNotMatch(startupRenderer, /Startup recovery status has not been loaded/);
+});
+
+test('settings renderer requires exact phrase before recording final confirmation', () => {
+  const renderer = read('src/main/features/settings/settings.renderer.js');
+  const syncBody = renderer.slice(
+    renderer.indexOf('function syncRestoreFinalConfirmationControls'),
+    renderer.indexOf('function renderRestoreStartupRecovery')
+  );
+  const handlerBody = renderer.slice(
+    renderer.indexOf('async function handleRecordRestoreFinalConfirmation'),
+    renderer.indexOf('async function handleRefreshRestoreStartupRecovery')
+  );
+
+  assert.match(syncBody, /RESTORE DATABASE/);
+  assert.match(syncBody, /phraseReady/);
+  assert.doesNotMatch(handlerBody, /preflightDigest/);
+  assert.doesNotMatch(handlerBody, /executionPolicyDigest/);
+  assert.match(renderer, /confirmationStatus/);
+  assert.match(renderer, /Consumed:/);
 });
 
 test('retention assessment requires artifact to match a restore operation journal entry', () => {

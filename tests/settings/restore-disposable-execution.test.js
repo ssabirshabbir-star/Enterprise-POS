@@ -149,6 +149,7 @@ async function withPool(databaseName, callback) {
 async function createPreparedOperation({ sourcePackagePath, safetyPackagePath, ownerUserId = 1 }) {
   await closeDatabase();
   process.env.PGDATABASE = primaryDatabase;
+  await initializeDatabase();
   const source = await adapter.readCertifiedPackage(sourcePackagePath);
   const safety = await adapter.readCertifiedPackage(safetyPackagePath);
   const lock = await settingsRepository.acquireRestoreOperationLock({
@@ -178,6 +179,43 @@ async function createPreparedOperation({ sourcePackagePath, safetyPackagePath, o
   return { operationId: lock.operationId, source, safety, ownerUserId };
 }
 
+async function recordDryRunEvidence({ operationId, source }) {
+  await getPool().query(
+    `
+      INSERT INTO activity_logs (user_id, action, status, message, metadata)
+      VALUES ($1, 'backup.restore.dry_run_certification_report', 'success', $2, $3::jsonb)
+    `,
+    [
+      1,
+      'Restore dry-run certification passed for disposable confirmation test.',
+      JSON.stringify({
+        reportCorrelationId: `dry-run:${operationId}`,
+        certificationStatus: 'dry_run_certification_passed',
+        packageSummary: {
+          backupId: source.backup.manifest.backupIdentity.backupId,
+          correlationId: source.backup.manifest.backupIdentity.correlationId,
+        },
+        noRestoreExecuted: true,
+        restoreUnavailable: true,
+        restoreEligible: false,
+      }),
+    ]
+  );
+}
+
+async function createConfirmation({ prepared, targetDatabase }) {
+  await recordDryRunEvidence({ operationId: prepared.operationId, source: prepared.source });
+  const targetDatabaseReference = adapter.disposableTargetIdentity(targetDatabase);
+  const result = await settingsRepository.createRestoreFinalConfirmation({
+    operationId: prepared.operationId,
+    ownerUserId: prepared.ownerUserId,
+    typedPhrase: 'RESTORE DATABASE',
+    targetDatabaseReference,
+  });
+  assert.equal(result.ok, true, result.message || JSON.stringify(result.blockers));
+  return result.confirmation;
+}
+
 function issueToken({ operationId, ownerUserId, source, safety, targetDatabase }) {
   return adapter.issueDisposableExecutionToken({
     operationId,
@@ -197,7 +235,10 @@ async function execute({
   safetyPackagePath,
   targetDatabase,
   injectFailureStage,
+  confirmationId = null,
 }) {
+  const confirmation =
+    confirmationId || (await createConfirmation({ prepared, targetDatabase })).confirmationId;
   const token = issueToken({
     operationId: prepared.operationId,
     ownerUserId: prepared.ownerUserId,
@@ -209,6 +250,7 @@ async function execute({
   const sessionCalls = [];
   const result = await adapter.executeDisposableRestore({
     tokenId: token.tokenId,
+    confirmationId: confirmation,
     operationId: prepared.operationId,
     ownerUserId: prepared.ownerUserId,
     sourcePackagePath,
@@ -281,6 +323,13 @@ test('successful disposable restore reaches completed and rejects replay', async
   assert.deepEqual(await categoryNames(targetDb), ['RESTORE_CERT_SOURCE_SUCCESS']);
   assert.equal(restartCalls.length, 1);
   assert.equal(sessionCalls.length, 1);
+  const confirmationRows = await getPool().query(
+    `SELECT status, consumed_at FROM restore_final_confirmations WHERE operation_id = $1`,
+    [prepared.operationId]
+  );
+  assert.equal(confirmationRows.rows.length, 1);
+  assert.equal(confirmationRows.rows[0].status, 'CONSUMED');
+  assert(confirmationRows.rows[0].consumed_at);
   await assert.rejects(
     () =>
       adapter.executeDisposableRestore({
@@ -295,6 +344,54 @@ test('successful disposable restore reaches completed and rejects replay', async
       }),
     /REPLAYED|Terminal|NOT_READY/
   );
+
+  await dropDatabase(sourceDb);
+  await dropDatabase(targetDb);
+});
+
+test('disposable execution rejects missing final confirmation before restore mutation', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'epos-restore-confirmation-required-'));
+  const sourceDb = uniqueDbName('source');
+  const targetDb = uniqueDbName('target');
+  const sourcePath = path.join(tmp, 'source.json');
+  const safetyPath = path.join(tmp, 'safety.json');
+  await setupDatabase(sourceDb, 'SOURCE_CONFIRMATION_REQUIRED');
+  await setupDatabase(targetDb, 'TARGET_CONFIRMATION_REQUIRED');
+  await createBackupPackage(sourceDb, sourcePath);
+  await createBackupPackage(targetDb, safetyPath);
+  const prepared = await createPreparedOperation({
+    sourcePackagePath: sourcePath,
+    safetyPackagePath: safetyPath,
+  });
+  const token = issueToken({
+    operationId: prepared.operationId,
+    ownerUserId: prepared.ownerUserId,
+    source: prepared.source,
+    safety: prepared.safety,
+    targetDatabase: targetDb,
+  });
+
+  await assert.rejects(
+    () =>
+      adapter.executeDisposableRestore({
+        tokenId: token.tokenId,
+        operationId: prepared.operationId,
+        ownerUserId: prepared.ownerUserId,
+        sourcePackagePath: sourcePath,
+        safetyBackupPath: safetyPath,
+        disposableDatabaseName: targetDb,
+        preflightDigest: `preflight:${prepared.operationId}`,
+        executionPolicyDigest: `policy:${prepared.operationId}`,
+      }),
+    /RESTORE_CONFIRMATION_REQUIRED/
+  );
+  const state = await settingsRepository.getRestoreRecoveryState();
+  assert.equal(state.operationId, prepared.operationId);
+  assert.equal(state.currentState, recovery.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED);
+  await settingsRepository.cancelRestorePreparation({
+    operationId: prepared.operationId,
+    ownerUserId: prepared.ownerUserId,
+  });
 
   await dropDatabase(sourceDb);
   await dropDatabase(targetDb);

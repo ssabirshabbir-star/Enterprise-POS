@@ -328,6 +328,11 @@ const BACKUP_TABLES = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name);
 const RESTORE_RECOVERY_ACTIVITY = 'backup.restore.recovery_state';
 const RESTORE_OPERATION_ACTIVITY = 'backup.restore.operation';
 const RESTORE_SAFETY_BACKUP_ACTIVITY = 'backup.restore.safety_backup';
+const RESTORE_FINAL_CONFIRMATION_ACTIVITY = 'backup.restore.final_confirmation';
+const RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION = 'restore-final-confirmation-v1';
+const RESTORE_FINAL_CONFIRMATION_TTL_MS = 10 * 60 * 1000;
+const RESTORE_FINAL_CONFIRMATION_PHRASE =
+  restoreProductionGovernanceModel.FINAL_CONFIRMATION_PHRASE || 'RESTORE DATABASE';
 const RESTORE_OPERATION_UNRESOLVED_STATES = Object.freeze([
   'PREFLIGHT_READY',
   'SAFETY_BACKUP_IN_PROGRESS',
@@ -377,6 +382,25 @@ function stableStringify(value) {
 
 function hashValue(value) {
   return crypto.createHash(INTEGRITY_ALGORITHM).update(stableStringify(value)).digest('hex');
+}
+
+function normalizeConfirmationValue(value) {
+  if (value === undefined) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(normalizeConfirmationValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, normalizeConfirmationValue(value[key])])
+    );
+  }
+  if (typeof value === 'string') return value.trim();
+  return value;
+}
+
+function confirmationDigest(payload) {
+  return hashValue(normalizeConfirmationValue(payload));
 }
 
 async function hashFile(filePath) {
@@ -1853,15 +1877,173 @@ function createRestoreStartupRecoverySnapshot({
   };
 }
 
+async function latestPassedDryRunEvidence(client = null) {
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT id, status, message, metadata, created_at
+      FROM activity_logs
+      WHERE action = 'backup.restore.dry_run_certification_report'
+        AND metadata->>'certificationStatus' = 'dry_run_certification_passed'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    reportId: row.id,
+    status: row.metadata?.certificationStatus || row.status,
+    createdAt: row.created_at,
+    digest: confirmationDigest({
+      id: row.id,
+      status: row.status,
+      message: row.message,
+      metadata: row.metadata || {},
+      createdAt: row.created_at,
+    }),
+  };
+}
+
+function targetDatabaseFromReference(reference = null) {
+  if (reference?.fingerprint) {
+    return {
+      host: reference.host || null,
+      port: reference.port || null,
+      database: reference.database || reference.databaseName || reference.normalizedDatabaseName,
+      disposableCertificationDatabase: reference.disposableCertificationDatabase === true,
+      ambiguous: reference.ambiguous === true,
+      fingerprint: reference.fingerprint,
+    };
+  }
+  return restoreProductionGovernanceModel.resolveDatabaseIdentity();
+}
+
+function buildRestoreFinalConfirmationContext({
+  operationRow,
+  ownerUserId,
+  dryRunEvidence,
+  targetDatabaseReference = null,
+  policyDigest = null,
+} = {}) {
+  const targetDatabase = targetDatabaseFromReference(targetDatabaseReference);
+  const operationState = operationRow?.state || null;
+  const safetyBackupVerified = Boolean(
+    operationRow?.safety_backup_id && operationRow?.safety_backup_checksum
+  );
+  const maintenanceLockActive =
+    operationRow?.terminal_at == null &&
+    operationState === restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED;
+  const blockers = [];
+  if (!operationRow) blockers.push('RESTORE_CONFIRMATION_OPERATION_MISSING');
+  if (!ownerUserId) blockers.push('RESTORE_CONFIRMATION_OPERATOR_REQUIRED');
+  if (operationRow && String(operationRow.owner_user_id || '') !== String(ownerUserId || '')) {
+    blockers.push('RESTORE_CONFIRMATION_OPERATOR_MISMATCH');
+  }
+  if (operationRow?.terminal_at) blockers.push('RESTORE_CONFIRMATION_OPERATION_TERMINAL');
+  if (operationState !== restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED) {
+    blockers.push('RESTORE_CONFIRMATION_STATE_NOT_ELIGIBLE');
+  }
+  if (!operationRow?.source_package_checksum)
+    blockers.push('RESTORE_CONFIRMATION_PACKAGE_REQUIRED');
+  if (!safetyBackupVerified) blockers.push('RESTORE_CONFIRMATION_SAFETY_BACKUP_REQUIRED');
+  if (!dryRunEvidence?.digest) blockers.push('RESTORE_CONFIRMATION_DRY_RUN_REQUIRED');
+  if (!maintenanceLockActive) blockers.push('RESTORE_CONFIRMATION_MAINTENANCE_LOCK_REQUIRED');
+  if (!targetDatabase?.fingerprint) blockers.push('RESTORE_CONFIRMATION_TARGET_REQUIRED');
+
+  const payload = normalizeConfirmationValue({
+    contractVersion: RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION,
+    operation: {
+      operationId: operationRow?.operation_id || null,
+      currentState: operationState,
+      updatedAt: operationRow?.updated_at || null,
+    },
+    package: {
+      backupId: operationRow?.source_backup_id || null,
+      digest: operationRow?.source_package_checksum || null,
+      fingerprint: operationRow?.source_package_fingerprint || null,
+      manifestVersion: operationRow?.source_manifest_version || null,
+    },
+    dryRun: dryRunEvidence || null,
+    safetyBackup: {
+      safetyBackupId: operationRow?.safety_backup_id || null,
+      digest: operationRow?.safety_backup_checksum || null,
+      verificationStatus: safetyBackupVerified ? 'verified' : 'missing',
+    },
+    targetDatabase,
+    recovery: {
+      startupMode: maintenanceLockActive ? 'MAINTENANCE_READ_ONLY' : 'NORMAL',
+      currentState: operationState,
+      maintenanceLockActive,
+      mutationGuardStatus: maintenanceLockActive ? 'restore_operation_lock_active' : 'inactive',
+    },
+    authorization: {
+      operatorId: ownerUserId || null,
+      result: ownerUserId ? 'authorized' : 'missing',
+    },
+    policyDigest: policyDigest || null,
+  });
+
+  return {
+    payload,
+    bindingDigest: confirmationDigest(payload),
+    blockers,
+    dryRunEvidence,
+    targetDatabase,
+    maintenanceLockActive,
+  };
+}
+
+function mapConfirmationRow(row = {}) {
+  if (!row) return null;
+  return {
+    confirmationId: row.confirmation_id,
+    operationId: row.operation_id,
+    contractVersion: row.contract_version,
+    bindingDigest: row.binding_digest,
+    nonce: row.nonce,
+    operatorId: row.operator_id,
+    packageId: row.package_id,
+    packageDigest: row.package_digest,
+    dryRunReportId: row.dry_run_report_id,
+    dryRunDigest: row.dry_run_digest,
+    safetyBackupId: row.safety_backup_id,
+    safetyBackupDigest: row.safety_backup_digest,
+    targetDatabaseIdentity: row.target_database_identity,
+    targetDatabaseFingerprint: row.target_database_fingerprint,
+    status: row.status,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    consumedAt: row.consumed_at,
+    invalidatedAt: row.invalidated_at,
+    invalidationReason: row.invalidation_reason,
+  };
+}
+
+async function latestRestoreFinalConfirmation(operationId, client = null) {
+  if (!operationId) return null;
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT *
+      FROM restore_final_confirmations
+      WHERE operation_id = $1
+      ORDER BY created_at DESC, confirmation_id DESC
+      LIMIT 1
+    `,
+    [operationId]
+  );
+  return mapConfirmationRow(result.rows[0]);
+}
+
 async function createRestoreFinalConfirmation({
   operationId,
   ownerUserId,
   typedPhrase,
   preflightDigest = null,
   executionPolicyDigest = null,
+  targetDatabaseReference = null,
 } = {}) {
-  const policy = await getRestoreExecutionPolicy();
-  const databaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
   return withTransaction(async (client) => {
     const result = await client.query(
       `
@@ -1873,116 +2055,382 @@ async function createRestoreFinalConfirmation({
       [operationId]
     );
     const row = result.rows[0];
-    if (!row) {
-      return {
-        ok: false,
-        confirmationCreated: false,
-        message: 'Restore operation was not found.',
-      };
-    }
-    if (String(row.owner_user_id || '') !== String(ownerUserId || '')) {
-      return {
-        ok: false,
-        confirmationCreated: false,
-        message: 'Restore final confirmation owner mismatch.',
-      };
-    }
-    if (row.terminal_at || row.final_confirmation_consumed_at) {
-      return {
-        ok: false,
-        confirmationCreated: false,
-        message:
-          'Restore final confirmation cannot be created for terminal or consumed operations.',
-      };
-    }
-    if (row.final_confirmation_id || row.final_confirmation_hash) {
-      return {
-        ok: false,
-        confirmationCreated: false,
-        blockers: ['final_confirmation_already_recorded'],
-        message: 'Restore final confirmation has already been recorded for this operation.',
-      };
-    }
-    const confirmation = restoreProductionGovernanceModel.createConfirmationRecord({
-      operationId,
+    const dryRunEvidence = await latestPassedDryRunEvidence(client);
+    const policyDigest =
+      executionPolicyDigest ||
+      confirmationDigest({
+        preflightDigest: preflightDigest || null,
+        operationId,
+        dryRunDigest: dryRunEvidence?.digest || null,
+      });
+    const context = buildRestoreFinalConfirmationContext({
+      operationRow: row,
       ownerUserId,
-      sourcePackageChecksum: row.source_package_checksum,
-      sourceManifestVersion: row.source_manifest_version,
-      safetyBackupChecksum: row.safety_backup_checksum,
-      databaseIdentity,
-      preflightDigest,
-      executionPolicyDigest:
-        executionPolicyDigest || restoreProductionGovernanceModel.createPolicyDigest(policy),
-      recoveryState: row.state,
-      typedPhrase,
+      dryRunEvidence,
+      targetDatabaseReference,
+      policyDigest,
     });
-    if (!confirmation.ok) {
+    const blockers = [...context.blockers];
+    if (String(typedPhrase || '').trim() !== RESTORE_FINAL_CONFIRMATION_PHRASE) {
+      blockers.push('RESTORE_CONFIRMATION_PHRASE_INVALID');
+    }
+
+    if (blockers.length) {
+      await recordRestoreOperationActivity({
+        client,
+        userId: ownerUserId,
+        operationId: operationId || row?.operation_id || null,
+        action: RESTORE_FINAL_CONFIRMATION_ACTIVITY,
+        status: 'blocked',
+        message: 'Restore final confirmation recording was blocked.',
+        metadata: { blockers, resultCode: 'RESTORE_CONFIRMATION_PREREQUISITES_NOT_MET' },
+      });
       return {
         ok: false,
         confirmationCreated: false,
-        blockers: confirmation.blockers,
-        databaseIdentity,
-        message: 'Restore final confirmation is blocked.',
+        blockers,
+        confirmationStatus: 'BLOCKED',
+        restoreExecutionAvailable: false,
+        message: 'Restore final confirmation prerequisites were not met.',
       };
     }
-    const updated = await client.query(
+
+    await client.query(
       `
-        UPDATE restore_operations
-        SET
-          final_confirmation_id = $2,
-          final_confirmation_hash = $3,
-          final_confirmation_issued_at = $4,
-          final_confirmation_expires_at = $5,
-          final_confirmation_database_fingerprint = $6,
-          final_confirmation_policy_digest = $7,
-          final_confirmation_preflight_digest = $8,
-          updated_at = NOW()
+        UPDATE restore_final_confirmations
+        SET status = 'INVALIDATED',
+            invalidated_at = NOW(),
+            invalidation_reason = 'superseded_by_new_confirmation'
         WHERE operation_id = $1
+          AND status IN ('RECORDED', 'VALID')
+      `,
+      [operationId]
+    );
+
+    const confirmationId = crypto.randomUUID();
+    const nonce = crypto.randomBytes(24).toString('hex');
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + RESTORE_FINAL_CONFIRMATION_TTL_MS);
+    const payload = normalizeConfirmationValue({
+      ...context.payload,
+      confirmation: {
+        confirmationId,
+        nonce,
+        phrase: RESTORE_FINAL_CONFIRMATION_PHRASE,
+        createdAt,
+        expiresAt,
+        operatorId: ownerUserId,
+      },
+    });
+    const bindingDigest = confirmationDigest(payload);
+    const insert = await client.query(
+      `
+        INSERT INTO restore_final_confirmations (
+          confirmation_id,
+          operation_id,
+          contract_version,
+          binding_digest,
+          nonce,
+          operator_id,
+          package_id,
+          package_digest,
+          dry_run_report_id,
+          dry_run_digest,
+          safety_backup_id,
+          safety_backup_digest,
+          target_database_identity,
+          target_database_fingerprint,
+          status,
+          created_at,
+          expires_at,
+          metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, 'VALID', $15, $16, $17::jsonb)
         RETURNING *
       `,
       [
+        confirmationId,
         operationId,
-        confirmation.confirmationId,
-        confirmation.confirmationHash,
-        confirmation.issuedAt,
-        confirmation.expiresAt,
-        databaseIdentity.fingerprint,
-        confirmation.binding.executionPolicyDigest,
-        confirmation.binding.preflightDigest,
+        RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION,
+        bindingDigest,
+        nonce,
+        ownerUserId,
+        row.source_backup_id || null,
+        row.source_package_checksum,
+        context.dryRunEvidence.reportId,
+        context.dryRunEvidence.digest,
+        row.safety_backup_id,
+        row.safety_backup_checksum,
+        JSON.stringify(context.targetDatabase),
+        context.targetDatabase.fingerprint,
+        createdAt.toISOString(),
+        expiresAt.toISOString(),
+        JSON.stringify({ canonicalPayload: payload, restoreExecutionAvailable: false }),
+      ]
+    );
+    await client.query(
+      `
+        UPDATE restore_operations
+        SET final_confirmation_id = $2,
+            final_confirmation_hash = $3,
+            final_confirmation_issued_at = $4,
+            final_confirmation_expires_at = $5,
+            final_confirmation_database_fingerprint = $6,
+            final_confirmation_policy_digest = $7,
+            final_confirmation_preflight_digest = $8,
+            updated_at = NOW()
+        WHERE operation_id = $1
+      `,
+      [
+        operationId,
+        confirmationId,
+        bindingDigest,
+        createdAt.toISOString(),
+        expiresAt.toISOString(),
+        context.targetDatabase.fingerprint,
+        policyDigest,
+        context.dryRunEvidence.digest,
       ]
     );
     await recordRestoreOperationActivity({
       client,
       userId: ownerUserId,
       operationId,
-      action: RESTORE_OPERATION_ACTIVITY,
-      status: 'confirmation_issued',
-      message:
-        'Durable Restore final confirmation was issued. Production execution remains unavailable.',
+      action: RESTORE_FINAL_CONFIRMATION_ACTIVITY,
+      status: 'recorded',
+      message: 'Digest-bound Restore final confirmation was recorded.',
       metadata: {
-        confirmationId: confirmation.confirmationId,
-        confirmationHash: confirmation.confirmationHash,
-        databaseFingerprint: databaseIdentity.fingerprint,
-        expiresAt: confirmation.expiresAt,
+        confirmationId,
+        bindingDigest,
+        contractVersion: RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION,
+        targetDatabase: context.targetDatabase.database,
+        resultCode: 'RESTORE_CONFIRMATION_RECORDED',
         restoreExecutionAvailable: false,
       },
     });
     return {
       ok: true,
       confirmationCreated: true,
-      confirmation: {
-        confirmationId: confirmation.confirmationId,
-        confirmationHash: confirmation.confirmationHash,
-        issuedAt: confirmation.issuedAt,
-        expiresAt: confirmation.expiresAt,
-        databaseFingerprint: databaseIdentity.fingerprint,
-      },
-      recoveryState: operationRowToRecoveryState(updated.rows[0]),
+      confirmationStatus: 'VALID',
+      confirmation: mapConfirmationRow(insert.rows[0]),
       executionEligible: false,
       executionCertified: false,
       restoreExecutionAvailable: false,
       message:
-        'Restore final confirmation was recorded, but production Restore execution remains unavailable.',
+        'Restore final confirmation was recorded and expires in 10 minutes. Production Restore execution remains unavailable.',
+    };
+  });
+}
+
+async function validateRestoreFinalConfirmation({
+  operationId,
+  confirmationId,
+  ownerUserId,
+  targetDatabaseReference = null,
+  client = null,
+} = {}) {
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT
+        c.*,
+        o.owner_user_id AS op_owner_user_id,
+        o.source_backup_id AS op_source_backup_id,
+        o.source_package_fingerprint AS op_source_package_fingerprint,
+        o.source_package_checksum AS op_source_package_checksum,
+        o.source_manifest_version AS op_source_manifest_version,
+        o.state AS op_state,
+        o.previous_state AS op_previous_state,
+        o.safety_backup_id AS op_safety_backup_id,
+        o.safety_backup_path AS op_safety_backup_path,
+        o.safety_backup_checksum AS op_safety_backup_checksum,
+        o.safety_backup_log_id AS op_safety_backup_log_id,
+        o.updated_at AS op_updated_at,
+        o.terminal_at AS op_terminal_at
+      FROM restore_final_confirmations c
+      JOIN restore_operations o ON o.operation_id = c.operation_id
+      WHERE c.confirmation_id = $1
+        AND c.operation_id = $2
+    `,
+    [confirmationId, operationId]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    return { ok: false, code: 'RESTORE_CONFIRMATION_REQUIRED', valid: false };
+  }
+  const confirmation = mapConfirmationRow(row);
+  if (row.status === 'CONSUMED' || row.consumed_at) {
+    return { ok: false, code: 'RESTORE_CONFIRMATION_ALREADY_CONSUMED', valid: false, confirmation };
+  }
+  if (row.status === 'INVALIDATED' || row.invalidated_at) {
+    return { ok: false, code: 'RESTORE_CONFIRMATION_INVALIDATED', valid: false, confirmation };
+  }
+  if (new Date(row.expires_at).getTime() <= Date.now()) {
+    await db.query(
+      `
+        UPDATE restore_final_confirmations
+        SET status = 'EXPIRED'
+        WHERE confirmation_id = $1
+          AND status IN ('RECORDED', 'VALID')
+      `,
+      [confirmationId]
+    );
+    return { ok: false, code: 'RESTORE_CONFIRMATION_EXPIRED', valid: false, confirmation };
+  }
+  if (String(row.operator_id || '') !== String(ownerUserId || '')) {
+    return {
+      ok: false,
+      code: 'RESTORE_CONFIRMATION_OPERATOR_MISMATCH',
+      valid: false,
+      confirmation,
+    };
+  }
+  const operationRow = {
+    operation_id: row.operation_id,
+    owner_user_id: row.op_owner_user_id,
+    source_backup_id: row.op_source_backup_id,
+    source_package_fingerprint: row.op_source_package_fingerprint,
+    source_package_checksum: row.op_source_package_checksum,
+    source_manifest_version: row.op_source_manifest_version,
+    state: row.op_state,
+    previous_state: row.op_previous_state,
+    safety_backup_id: row.op_safety_backup_id,
+    safety_backup_path: row.op_safety_backup_path,
+    safety_backup_checksum: row.op_safety_backup_checksum,
+    safety_backup_log_id: row.op_safety_backup_log_id,
+    updated_at: row.op_updated_at,
+    terminal_at: row.op_terminal_at,
+  };
+  const dryRunEvidence = row.dry_run_report_id
+    ? {
+        reportId: row.dry_run_report_id,
+        digest: row.dry_run_digest,
+        status: 'dry_run_certification_passed',
+      }
+    : await latestPassedDryRunEvidence(db);
+  const context = buildRestoreFinalConfirmationContext({
+    operationRow,
+    ownerUserId,
+    dryRunEvidence,
+    targetDatabaseReference: targetDatabaseReference || row.target_database_identity,
+    policyDigest: row.final_confirmation_policy_digest,
+  });
+  if (context.blockers.length) {
+    return {
+      ok: false,
+      code: 'RESTORE_CONFIRMATION_PREREQUISITES_NOT_MET',
+      valid: false,
+      blockers: context.blockers,
+      confirmation,
+    };
+  }
+  if (context.targetDatabase.fingerprint !== row.target_database_fingerprint) {
+    return { ok: false, code: 'RESTORE_CONFIRMATION_TARGET_MISMATCH', valid: false, confirmation };
+  }
+  const canonicalPayload = row.metadata?.canonicalPayload || null;
+  const digest = canonicalPayload ? confirmationDigest(canonicalPayload) : null;
+  if (digest !== row.binding_digest) {
+    return { ok: false, code: 'RESTORE_CONFIRMATION_MISMATCH', valid: false, confirmation };
+  }
+  return {
+    ok: true,
+    valid: true,
+    code: 'RESTORE_CONFIRMATION_VALID',
+    confirmation,
+    context,
+  };
+}
+
+async function consumeRestoreFinalConfirmation({
+  operationId,
+  confirmationId,
+  ownerUserId,
+  targetDatabaseReference = null,
+} = {}) {
+  return withTransaction(async (client) => {
+    const locked = await client.query(
+      `
+        SELECT *
+        FROM restore_final_confirmations
+        WHERE confirmation_id = $1
+          AND operation_id = $2
+        FOR UPDATE
+      `,
+      [confirmationId, operationId]
+    );
+    if (!locked.rows[0]) {
+      return { ok: false, consumed: false, code: 'RESTORE_CONFIRMATION_REQUIRED' };
+    }
+    const validation = await validateRestoreFinalConfirmation({
+      operationId,
+      confirmationId,
+      ownerUserId,
+      targetDatabaseReference,
+      client,
+    });
+    if (!validation.ok) {
+      await recordRestoreOperationActivity({
+        client,
+        userId: ownerUserId,
+        operationId,
+        action: RESTORE_FINAL_CONFIRMATION_ACTIVITY,
+        status:
+          validation.code === 'RESTORE_CONFIRMATION_ALREADY_CONSUMED'
+            ? 'replay_blocked'
+            : 'blocked',
+        message: 'Restore final confirmation consumption was rejected.',
+        metadata: { confirmationId, resultCode: validation.code },
+      });
+      return { ...validation, consumed: false };
+    }
+    const consumed = await client.query(
+      `
+        UPDATE restore_final_confirmations
+        SET status = 'CONSUMED',
+            consumed_at = NOW()
+        WHERE confirmation_id = $1
+          AND status = 'VALID'
+          AND consumed_at IS NULL
+        RETURNING *
+      `,
+      [confirmationId]
+    );
+    if (!consumed.rows[0]) {
+      return {
+        ok: false,
+        consumed: false,
+        code: 'RESTORE_CONFIRMATION_REPLAYED',
+        confirmation: validation.confirmation,
+      };
+    }
+    await client.query(
+      `
+        UPDATE restore_operations
+        SET final_confirmation_consumed_at = NOW(),
+            updated_at = NOW()
+        WHERE operation_id = $1
+      `,
+      [operationId]
+    );
+    await recordRestoreOperationActivity({
+      client,
+      userId: ownerUserId,
+      operationId,
+      action: RESTORE_FINAL_CONFIRMATION_ACTIVITY,
+      status: 'consumed',
+      message: 'Restore final confirmation was atomically consumed.',
+      metadata: {
+        confirmationId,
+        resultCode: 'RESTORE_CONFIRMATION_CONSUMED',
+        restoreExecutionAvailable: false,
+      },
+    });
+    return {
+      ok: true,
+      consumed: true,
+      code: 'RESTORE_CONFIRMATION_CONSUMED',
+      confirmation: mapConfirmationRow(consumed.rows[0]),
+      restoreExecutionAvailable: false,
     };
   });
 }
@@ -3159,6 +3607,7 @@ module.exports = {
   assessBackupPreflight,
   acquireRestoreOperationLock,
   cancelRestorePreparation,
+  consumeRestoreFinalConfirmation,
   createRestoreFinalConfirmation,
   exportBackup,
   getSettings,
@@ -3166,6 +3615,7 @@ module.exports = {
   getRestoreRecoveryState,
   getRestoreRetentionAssessment,
   getRestoreStartupRecoveryAssessment,
+  latestRestoreFinalConfirmation,
   inspectRestorePackage,
   getRestoreDryRunReport,
   getRestoreReadinessDashboardEvidence,

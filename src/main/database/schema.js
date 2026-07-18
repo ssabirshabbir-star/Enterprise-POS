@@ -1291,6 +1291,33 @@ async function initializeDatabase() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS restore_final_confirmations (
+        confirmation_id UUID PRIMARY KEY,
+        operation_id UUID NOT NULL REFERENCES restore_operations(operation_id) ON DELETE CASCADE,
+        contract_version VARCHAR(80) NOT NULL,
+        binding_digest VARCHAR(128) NOT NULL,
+        nonce VARCHAR(80) NOT NULL,
+        operator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        package_id VARCHAR(128),
+        package_digest VARCHAR(128),
+        dry_run_report_id BIGINT,
+        dry_run_digest VARCHAR(128),
+        safety_backup_id UUID,
+        safety_backup_digest VARCHAR(128),
+        target_database_identity JSONB NOT NULL DEFAULT '{}'::jsonb,
+        target_database_fingerprint VARCHAR(128),
+        status VARCHAR(40) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        consumed_at TIMESTAMPTZ,
+        invalidated_at TIMESTAMPTZ,
+        invalidation_reason TEXT,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        CHECK (status IN ('RECORDED', 'VALID', 'EXPIRED', 'INVALIDATED', 'CONSUMED'))
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS device_registrations (
         id BIGSERIAL PRIMARY KEY,
         machine_id VARCHAR(128) UNIQUE NOT NULL,
@@ -1621,6 +1648,15 @@ async function initializeDatabase() {
     );
     await client.query(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_restore_operations_final_confirmation_id ON restore_operations (final_confirmation_id) WHERE final_confirmation_id IS NOT NULL;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_restore_final_confirmations_operation ON restore_final_confirmations (operation_id, created_at DESC);'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_restore_final_confirmations_status_expiry ON restore_final_confirmations (status, expires_at);'
+    );
+    await client.query(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_restore_final_confirmations_one_active ON restore_final_confirmations (operation_id) WHERE status IN ('RECORDED', 'VALID');"
     );
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_restore_operations_one_unresolved
