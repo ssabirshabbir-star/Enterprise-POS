@@ -97,6 +97,24 @@ test('payload verifier requires checksum, notices, architecture, and file integr
   assert.equal(payloadVerifier.verifyPayloadManifest(badArchRoot).status, 'ARCHITECTURE_MISMATCH');
 });
 
+test('payload verifier resolves packaged resources beside the executable', () => {
+  const root = tempDir('epos-packaged-postgres-root-');
+  const installDir = path.join(root, 'Enterprise POS');
+  const payloadRoot = path.join(installDir, 'resources', 'postgres');
+  fs.mkdirSync(payloadRoot, { recursive: true });
+
+  const descriptor = Object.getOwnPropertyDescriptor(process, 'execPath');
+  Object.defineProperty(process, 'execPath', {
+    configurable: true,
+    value: path.join(installDir, 'Enterprise POS.exe'),
+  });
+  try {
+    assert.equal(payloadVerifier.defaultPayloadRoot({ resourcesPath: null }), payloadRoot);
+  } finally {
+    if (descriptor) Object.defineProperty(process, 'execPath', descriptor);
+  }
+});
+
 test('managed PostgreSQL credentials are high entropy and redacted', () => {
   const first = credentials.generateManagedPostgresPassword();
   const second = credentials.generateManagedPostgresPassword();

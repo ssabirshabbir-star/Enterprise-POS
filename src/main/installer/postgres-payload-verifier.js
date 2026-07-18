@@ -26,6 +26,14 @@ function defaultPayloadRoot({ app, resourcesPath = process.resourcesPath } = {})
   if (resourcesPath && fs.existsSync(path.join(resourcesPath, 'postgres'))) {
     return path.join(resourcesPath, 'postgres');
   }
+  if (process.execPath) {
+    const executableResourcesPath = path.join(
+      path.dirname(process.execPath),
+      'resources',
+      'postgres'
+    );
+    if (fs.existsSync(executableResourcesPath)) return executableResourcesPath;
+  }
   if (app && typeof app.getAppPath === 'function') {
     return path.join(app.getAppPath(), 'resources', 'postgres');
   }
