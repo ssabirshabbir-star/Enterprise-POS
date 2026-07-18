@@ -225,7 +225,7 @@ async function inspectPostgresArchive({ archivePath, manifestRoot = defaultPaylo
 async function stagePostgresArchive({
   archivePath,
   stagingRoot,
-  manifestRoot = path.join(process.cwd(), 'resources', 'postgres'),
+  manifestRoot = defaultPayloadRoot(),
   clean = true,
 } = {}) {
   if (!stagingRoot) {

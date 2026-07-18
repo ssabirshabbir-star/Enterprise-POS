@@ -160,6 +160,36 @@ test('archive inspection resolves packaged manifest from process.resourcesPath',
   }
 });
 
+test('archive staging resolves packaged manifest from process.resourcesPath', async () => {
+  const fixture = await writeFixture({ entries: validEntries() });
+  const resourcesRoot = path.join(fixture.root, 'packaged-stage-resources');
+  const packagedManifestRoot = path.join(resourcesRoot, 'postgres');
+  const stagingRoot = path.join(fixture.root, 'packaged-stage');
+  fs.mkdirSync(packagedManifestRoot, { recursive: true });
+  fs.copyFileSync(
+    path.join(fixture.manifestRoot, 'manifest.json'),
+    path.join(packagedManifestRoot, 'manifest.json')
+  );
+
+  const descriptor = Object.getOwnPropertyDescriptor(process, 'resourcesPath');
+  Object.defineProperty(process, 'resourcesPath', {
+    configurable: true,
+    value: resourcesRoot,
+  });
+  try {
+    const result = await stager.stagePostgresArchive({
+      archivePath: fixture.zipPath,
+      stagingRoot,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(fs.existsSync(path.join(stagingRoot, 'pgsql/bin/postgres.exe')), true);
+    assert.equal(fs.existsSync(path.join(stagingRoot, 'pgsql/pgAdmin 4')), false);
+  } finally {
+    if (descriptor) Object.defineProperty(process, 'resourcesPath', descriptor);
+    else delete process.resourcesPath;
+  }
+});
+
 test('archive validation rejects missing archive, wrong filename, wrong SHA, and corrupt ZIP', async () => {
   await assert.rejects(
     () =>
