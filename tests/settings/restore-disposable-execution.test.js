@@ -137,6 +137,15 @@ async function categoryNames(databaseName) {
   }
 }
 
+async function withPool(databaseName, callback) {
+  const pool = new Pool(configForDatabase(databaseName));
+  try {
+    return await callback(pool);
+  } finally {
+    await pool.end();
+  }
+}
+
 async function createPreparedOperation({ sourcePackagePath, safetyPackagePath, ownerUserId = 1 }) {
   await closeDatabase();
   process.env.PGDATABASE = primaryDatabase;
@@ -182,7 +191,13 @@ function issueToken({ operationId, ownerUserId, source, safety, targetDatabase }
   });
 }
 
-async function execute({ prepared, sourcePackagePath, safetyPackagePath, targetDatabase, injectFailureStage }) {
+async function execute({
+  prepared,
+  sourcePackagePath,
+  safetyPackagePath,
+  targetDatabase,
+  injectFailureStage,
+}) {
   const token = issueToken({
     operationId: prepared.operationId,
     ownerUserId: prepared.ownerUserId,
@@ -238,7 +253,10 @@ test('successful disposable restore reaches completed and rejects replay', async
   assert.deepEqual(await packageCategoryNames(sourcePath), ['RESTORE_CERT_SOURCE_SUCCESS']);
   assert.deepEqual(await packageCategoryNames(safetyPath), ['RESTORE_CERT_TARGET_SUCCESS']);
 
-  const prepared = await createPreparedOperation({ sourcePackagePath: sourcePath, safetyPackagePath: safetyPath });
+  const prepared = await createPreparedOperation({
+    sourcePackagePath: sourcePath,
+    safetyPackagePath: safetyPath,
+  });
   const { result, token, restartCalls, sessionCalls } = await execute({
     prepared,
     sourcePackagePath: sourcePath,
@@ -248,6 +266,18 @@ test('successful disposable restore reaches completed and rejects replay', async
 
   assert.equal(result.ok, true);
   assert.equal(result.verification.verificationStatus, 'passed');
+  const certificationCodes = result.verification.certificationChecks.map((check) => check.code);
+  assert(certificationCodes.includes('database.connectivity'));
+  assert(certificationCodes.includes('schema.required_tables'));
+  assert(certificationCodes.includes('foreign_keys.valid'));
+  assert(certificationCodes.includes('critical_queries.readable'));
+  assert(certificationCodes.includes('access_control.readable'));
+  assert(certificationCodes.includes('settings.readable'));
+  assert(certificationCodes.includes('identity_sequences.safe'));
+  assert.equal(
+    result.verification.certificationChecks.every((check) => check.status === 'passed'),
+    true
+  );
   assert.deepEqual(await categoryNames(targetDb), ['RESTORE_CERT_SOURCE_SUCCESS']);
   assert.equal(restartCalls.length, 1);
   assert.equal(sessionCalls.length, 1);
@@ -270,6 +300,41 @@ test('successful disposable restore reaches completed and rejects replay', async
   await dropDatabase(targetDb);
 });
 
+test('post-restore certification fails when restored row counts are tampered', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'epos-restore-certfail-'));
+  const sourceDb = uniqueDbName('source');
+  const targetDb = uniqueDbName('target');
+  const sourcePath = path.join(tmp, 'source.json');
+  await setupDatabase(sourceDb, 'SOURCE_CERTFAIL');
+  await setupDatabase(targetDb, 'TARGET_CERTFAIL');
+  await createBackupPackage(sourceDb, sourcePath);
+  const source = await adapter.readCertifiedPackage(sourcePath);
+
+  const applied = await adapter.applyPackageAndVerify({
+    databaseName: targetDb,
+    backup: source.backup,
+  });
+  assert.equal(applied.verification.verificationStatus, 'passed');
+
+  await withPool(targetDb, async (pool) => {
+    await pool.query(`DELETE FROM categories WHERE name = $1`, ['RESTORE_CERT_SOURCE_CERTFAIL']);
+    const verification = await adapter.verifyAppliedPackage(pool, source.backup);
+    assert.equal(verification.verificationStatus, 'failed');
+    assert(
+      verification.failedChecks.some((check) => check.name === 'row_count.categories'),
+      'tampered category row count should fail post-restore certification'
+    );
+    assert(
+      verification.certificationChecks.some(
+        (check) => check.code === 'row_count.categories' && check.status === 'failed'
+      )
+    );
+  });
+
+  await dropDatabase(sourceDb);
+  await dropDatabase(targetDb);
+});
+
 test('mid-application failure rolls back transaction and leaves target baseline', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'epos-restore-midfail-'));
   const sourceDb = uniqueDbName('source');
@@ -283,7 +348,10 @@ test('mid-application failure rolls back transaction and leaves target baseline'
   assert.deepEqual(await packageCategoryNames(sourcePath), ['RESTORE_CERT_SOURCE_MIDFAIL']);
   assert.deepEqual(await packageCategoryNames(safetyPath), ['RESTORE_CERT_TARGET_MIDFAIL']);
 
-  const prepared = await createPreparedOperation({ sourcePackagePath: sourcePath, safetyPackagePath: safetyPath });
+  const prepared = await createPreparedOperation({
+    sourcePackagePath: sourcePath,
+    safetyPackagePath: safetyPath,
+  });
   const { result } = await execute({
     prepared,
     sourcePackagePath: sourcePath,
@@ -317,7 +385,10 @@ test('post-application verification failure rolls back from safety backup', asyn
   assert.deepEqual(await packageCategoryNames(sourcePath), ['RESTORE_CERT_SOURCE_ROLLBACK']);
   assert.deepEqual(await packageCategoryNames(safetyPath), ['RESTORE_CERT_TARGET_ROLLBACK']);
 
-  const prepared = await createPreparedOperation({ sourcePackagePath: sourcePath, safetyPackagePath: safetyPath });
+  const prepared = await createPreparedOperation({
+    sourcePackagePath: sourcePath,
+    safetyPackagePath: safetyPath,
+  });
   const { result } = await execute({
     prepared,
     sourcePackagePath: sourcePath,
@@ -347,7 +418,10 @@ test('rollback failure enters manual recovery required', async () => {
   assert.deepEqual(await packageCategoryNames(sourcePath), ['RESTORE_CERT_SOURCE_MANUAL']);
   assert.deepEqual(await packageCategoryNames(safetyPath), ['RESTORE_CERT_TARGET_MANUAL']);
 
-  const prepared = await createPreparedOperation({ sourcePackagePath: sourcePath, safetyPackagePath: safetyPath });
+  const prepared = await createPreparedOperation({
+    sourcePackagePath: sourcePath,
+    safetyPackagePath: safetyPath,
+  });
   const { result } = await execute({
     prepared,
     sourcePackagePath: sourcePath,

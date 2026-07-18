@@ -8,6 +8,17 @@ const recoveryModel = require('./restore-recovery-state.model');
 const DISPOSABLE_DB_PREFIX = 'enterprise_pos_restore_cert_';
 const TOKEN_TTL_MS = 5 * 60 * 1000;
 const executionTokens = new Map();
+const CRITICAL_READ_TABLES = Object.freeze([
+  'users',
+  'roles',
+  'permissions',
+  'products',
+  'inventory',
+  'customers',
+  'sales',
+  'app_settings',
+  'backup_logs',
+]);
 
 function freeze(value) {
   if (!value || typeof value !== 'object') return value;
@@ -24,6 +35,13 @@ function quoteIdentifier(identifier) {
     throw new Error('Invalid database identifier.');
   }
   return `"${identifier}"`;
+}
+
+function quoteQualifiedIdentifier(identifier) {
+  return String(identifier || '')
+    .split('.')
+    .map(quoteIdentifier)
+    .join('.');
 }
 
 function stableStringify(value) {
@@ -47,7 +65,9 @@ function assertDisposableDatabaseName(databaseName) {
   const name = String(databaseName || '').trim();
   const current = String(getDatabaseConfig().database || '').trim();
   if (!new RegExp(`^${DISPOSABLE_DB_PREFIX}[a-z0-9_]{8,}$`).test(name)) {
-    throw new Error('Restore execution target must be an explicitly disposable certification database.');
+    throw new Error(
+      'Restore execution target must be an explicitly disposable certification database.'
+    );
   }
   if (name === current) {
     throw new Error('Restore execution target must not be the configured primary database.');
@@ -92,7 +112,9 @@ function packageTables(backup) {
   const tableNames = included.map((table) => String(table.name || '').trim());
   const unknownPayloadTables = Object.keys(data).filter((name) => !tableNames.includes(name));
   if (unknownPayloadTables.length) {
-    throw new Error(`Restore package contains unknown table(s): ${unknownPayloadTables.join(', ')}.`);
+    throw new Error(
+      `Restore package contains unknown table(s): ${unknownPayloadTables.join(', ')}.`
+    );
   }
   for (const name of tableNames) {
     quoteIdentifier(name);
@@ -106,7 +128,9 @@ function packageTables(backup) {
 async function deleteAndInsertTables(client, backup, { failDuringMutation = false } = {}) {
   const { tableNames, data } = packageTables(backup);
   const constraintsSuspended = await suspendForeignKeyChecks(client);
-  const insertOrder = constraintsSuspended ? tableNames : await orderedTablesForDatabase(client, tableNames);
+  const insertOrder = constraintsSuspended
+    ? tableNames
+    : await orderedTablesForDatabase(client, tableNames);
   const deleteOrder = [...insertOrder].reverse();
   let tablesRestored = 0;
   let rowsRestored = 0;
@@ -234,9 +258,180 @@ async function restoreTableSequence(client, tableName) {
 
 async function verifyAppliedPackage(pool, backup) {
   const { tableNames, data, included } = packageTables(backup);
-  const passedChecks = [];
-  const failedChecks = [];
+  const certificationChecks = [];
   const rowCounts = [];
+
+  function recordCheck(code, passed, evidence = {}, failureReason = null) {
+    const check = {
+      code,
+      status: passed ? 'passed' : 'failed',
+      passed: Boolean(passed),
+      evidence,
+      failureReason: passed ? null : failureReason || `${code} failed.`,
+      checkedAt: new Date().toISOString(),
+    };
+    certificationChecks.push(check);
+    return check;
+  }
+
+  async function tableExists(tableName) {
+    const result = await pool.query(
+      `
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = $1
+        LIMIT 1
+      `,
+      [tableName]
+    );
+    return result.rows.length > 0;
+  }
+
+  async function idColumnExists(tableName) {
+    const result = await pool.query(
+      `
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1
+          AND column_name = 'id'
+        LIMIT 1
+      `,
+      [tableName]
+    );
+    return result.rows.length > 0;
+  }
+
+  async function countPrimaryKeyDuplicates(tableName) {
+    if (!(await idColumnExists(tableName))) return 0;
+    const result = await pool.query(
+      `
+        SELECT COUNT(*)::int AS duplicate_count
+        FROM (
+          SELECT id
+          FROM ${quoteIdentifier(tableName)}
+          WHERE id IS NOT NULL
+          GROUP BY id
+          HAVING COUNT(*) > 1
+        ) duplicates
+      `
+    );
+    return Number(result.rows[0]?.duplicate_count || 0);
+  }
+
+  async function sequenceEvidence(tableName) {
+    if (!(await idColumnExists(tableName))) {
+      return {
+        tableName,
+        sequenceName: null,
+        maxId: null,
+        lastValue: null,
+        sequenceAtOrAboveMax: true,
+      };
+    }
+    const sequence = await pool.query('SELECT pg_get_serial_sequence($1, $2) AS seq', [
+      tableName,
+      'id',
+    ]);
+    const sequenceName = sequence.rows[0]?.seq || null;
+    if (!sequenceName) {
+      return {
+        tableName,
+        sequenceName: null,
+        maxId: null,
+        lastValue: null,
+        sequenceAtOrAboveMax: true,
+      };
+    }
+    const maxResult = await pool.query(
+      `SELECT COALESCE(MAX(id), 0)::bigint AS max_id FROM ${quoteIdentifier(tableName)}`
+    );
+    const seqResult = await pool.query(
+      `SELECT last_value::bigint AS last_value FROM ${quoteQualifiedIdentifier(sequenceName)}`
+    );
+    const maxId = Number(maxResult.rows[0]?.max_id || 0);
+    const lastValue = Number(seqResult.rows[0]?.last_value || 0);
+    return {
+      tableName,
+      sequenceName,
+      maxId,
+      lastValue,
+      sequenceAtOrAboveMax: lastValue >= maxId,
+    };
+  }
+
+  async function foreignKeyViolations() {
+    const constraints = await pool.query(
+      `
+        SELECT
+          constraint_info.conname AS constraint_name,
+          child.relname AS child_table,
+          parent.relname AS parent_table,
+          child_cols.column_name AS child_column,
+          parent_cols.column_name AS parent_column
+        FROM pg_constraint constraint_info
+        JOIN pg_class child ON child.oid = constraint_info.conrelid
+        JOIN pg_class parent ON parent.oid = constraint_info.confrelid
+        JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
+        JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace
+        JOIN unnest(constraint_info.conkey) WITH ORDINALITY child_key(attnum, ord) ON true
+        JOIN unnest(constraint_info.confkey) WITH ORDINALITY parent_key(attnum, ord)
+          ON parent_key.ord = child_key.ord
+        JOIN information_schema.columns child_cols
+          ON child_cols.table_schema = child_ns.nspname
+         AND child_cols.table_name = child.relname
+         AND child_cols.ordinal_position = child_key.attnum
+        JOIN information_schema.columns parent_cols
+          ON parent_cols.table_schema = parent_ns.nspname
+         AND parent_cols.table_name = parent.relname
+         AND parent_cols.ordinal_position = parent_key.attnum
+        WHERE constraint_info.contype = 'f'
+          AND child_ns.nspname = 'public'
+          AND parent_ns.nspname = 'public'
+      `
+    );
+    const violations = [];
+    for (const constraint of constraints.rows) {
+      const violation = await pool.query(
+        `
+          SELECT COUNT(*)::int AS violation_count
+          FROM ${quoteIdentifier(constraint.child_table)} child
+          LEFT JOIN ${quoteIdentifier(constraint.parent_table)} parent
+            ON child.${quoteIdentifier(constraint.child_column)}
+             = parent.${quoteIdentifier(constraint.parent_column)}
+          WHERE child.${quoteIdentifier(constraint.child_column)} IS NOT NULL
+            AND parent.${quoteIdentifier(constraint.parent_column)} IS NULL
+        `
+      );
+      const violationCount = Number(violation.rows[0]?.violation_count || 0);
+      if (violationCount > 0) {
+        violations.push({
+          constraintName: constraint.constraint_name,
+          childTable: constraint.child_table,
+          parentTable: constraint.parent_table,
+          childColumn: constraint.child_column,
+          parentColumn: constraint.parent_column,
+          violationCount,
+        });
+      }
+    }
+    return violations;
+  }
+
+  await pool.query('SELECT 1 AS ok');
+  recordCheck('database.connectivity', true, { query: 'SELECT 1' });
+
+  const tableExistence = [];
+  for (const tableName of tableNames) {
+    tableExistence.push({ tableName, exists: await tableExists(tableName) });
+  }
+  recordCheck(
+    'schema.required_tables',
+    tableExistence.every((table) => table.exists),
+    { tables: tableExistence },
+    'One or more manifest tables are missing from the target database.'
+  );
 
   for (const tableName of tableNames) {
     const countResult = await pool.query(
@@ -246,23 +441,113 @@ async function verifyAppliedPackage(pool, backup) {
     const expected = data[tableName].length;
     const passed = actual === expected;
     rowCounts.push({ tableName, expected, actual, passed });
-    (passed ? passedChecks : failedChecks).push({
-      name: `row_count.${tableName}`,
-      message: `${tableName} expected ${expected}, found ${actual}.`,
-    });
+    recordCheck(
+      `row_count.${tableName}`,
+      passed,
+      { tableName, expected, actual },
+      `${tableName} expected ${expected}, found ${actual}.`
+    );
   }
 
   const includedCountMatches =
     included.length === tableNames.length && tableNames.length === Object.keys(data).length;
-  (includedCountMatches ? passedChecks : failedChecks).push({
-    name: 'table_inventory.count',
-    message: 'Manifest table inventory matches payload table count.',
-  });
+  recordCheck(
+    'table_inventory.count',
+    includedCountMatches,
+    {
+      manifestIncludedTableCount: included.length,
+      payloadTableCount: Object.keys(data).length,
+      restoredTableCount: tableNames.length,
+    },
+    'Manifest table inventory does not match payload table count.'
+  );
+
+  const duplicateCounts = [];
+  for (const tableName of tableNames) {
+    duplicateCounts.push({ tableName, duplicateCount: await countPrimaryKeyDuplicates(tableName) });
+  }
+  recordCheck(
+    'primary_keys.unique',
+    duplicateCounts.every((table) => table.duplicateCount === 0),
+    { tables: duplicateCounts },
+    'One or more restored tables contain duplicate id values.'
+  );
+
+  const fkViolations = await foreignKeyViolations();
+  recordCheck(
+    'foreign_keys.valid',
+    fkViolations.length === 0,
+    { violations: fkViolations },
+    'One or more restored foreign-key relationships are invalid.'
+  );
+
+  const criticalTables = [];
+  for (const tableName of CRITICAL_READ_TABLES.filter((name) => tableNames.includes(name))) {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM ${quoteIdentifier(tableName)}`
+    );
+    criticalTables.push({ tableName, rowCount: Number(result.rows[0]?.count || 0) });
+  }
+  recordCheck(
+    'critical_queries.readable',
+    criticalTables.length > 0,
+    { tables: criticalTables },
+    'No application-critical tables were available for read-only certification.'
+  );
+
+  const accessTables = ['users', 'roles', 'permissions'].filter((name) =>
+    tableNames.includes(name)
+  );
+  const accessCounts = [];
+  for (const tableName of accessTables) {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM ${quoteIdentifier(tableName)}`
+    );
+    accessCounts.push({ tableName, rowCount: Number(result.rows[0]?.count || 0) });
+  }
+  recordCheck(
+    'access_control.readable',
+    accessTables.length === 3 && accessCounts.every((table) => Number.isInteger(table.rowCount)),
+    { tables: accessCounts },
+    'Access-control tables are not all readable after restore.'
+  );
+
+  if (tableNames.includes('app_settings')) {
+    const result = await pool.query('SELECT COUNT(*)::int AS count FROM app_settings');
+    recordCheck(
+      'settings.readable',
+      Number.isInteger(result.rows[0]?.count),
+      { tableName: 'app_settings', rowCount: Number(result.rows[0]?.count || 0) },
+      'Application settings table is not readable after restore.'
+    );
+  }
+
+  const sequences = [];
+  for (const tableName of tableNames) {
+    sequences.push(await sequenceEvidence(tableName));
+  }
+  recordCheck(
+    'identity_sequences.safe',
+    sequences.every((sequence) => sequence.sequenceAtOrAboveMax),
+    { sequences },
+    'One or more restored identity sequences are below the maximum restored id.'
+  );
+
+  const passedChecks = certificationChecks
+    .filter((check) => check.passed)
+    .map((check) => ({
+      name: check.code,
+      message: check.failureReason || `${check.code} passed.`,
+    }));
+  const failedChecks = certificationChecks
+    .filter((check) => !check.passed)
+    .map((check) => ({ name: check.code, message: check.failureReason }));
 
   return freeze({
     verificationStatus: failedChecks.length ? 'failed' : 'passed',
     passedChecks,
     failedChecks,
+    certificationChecks,
     rowCounts,
     dataHash: sha256(stableStringify(data)),
   });
@@ -291,11 +576,7 @@ async function applyPackageToDisposableDatabase({
   }
 }
 
-async function applyPackageAndVerify({
-  databaseName,
-  backup,
-  injectFailureStage = null,
-} = {}) {
+async function applyPackageAndVerify({ databaseName, backup, injectFailureStage = null } = {}) {
   const application = await applyPackageToDisposableDatabase({
     databaseName,
     backup,
@@ -492,7 +773,12 @@ async function executeDisposableRestore({
         failureSummary: error.message,
         replayStatus: 'token_consumed',
       });
-      return { ok: false, restored: false, rolledBackByTransaction: true, error: sanitizeError(error) };
+      return {
+        ok: false,
+        restored: false,
+        rolledBackByTransaction: true,
+        error: sanitizeError(error),
+      };
     }
 
     await settingsRepository.transitionRestoreOperation({
