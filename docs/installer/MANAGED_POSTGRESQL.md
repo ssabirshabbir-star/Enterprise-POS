@@ -77,3 +77,52 @@ The journal records state transitions without storing passwords or full connecti
 - Code-sign the Windows installer.
 - Run Windows Sandbox or VM certification for managed provisioning, repair, upgrade, and uninstall.
 - Physically certify a shop deployment before enabling managed provisioning in production.
+
+## Runtime Certification Harness
+
+The managed runtime certification harness exercises the selectively staged PostgreSQL runtime
+without installing a Windows service or touching the application database.
+
+Local diagnostic run:
+
+```powershell
+node scripts/certify-managed-postgres-runtime.js `
+  --certify-managed-postgres-runtime `
+  --archive D:\Enterprise-POS-release-inputs\postgres\postgresql-17.10-2-windows-x64-binaries.zip `
+  --output test-artifacts\managed-postgres-runtime-certification
+```
+
+Clean Windows Sandbox or disposable VM run:
+
+```powershell
+node scripts/certify-managed-postgres-runtime.js `
+  --certify-managed-postgres-runtime `
+  --clean-environment `
+  --archive D:\Enterprise-POS-release-inputs\postgres\postgresql-17.10-2-windows-x64-binaries.zip `
+  --output C:\EnterprisePOSPostgresRuntimeCertification
+```
+
+The harness:
+
+- verifies filename and SHA-256 through the committed manifest;
+- reuses the production archive stager;
+- extracts runtime files to a disposable directory under the system temp folder;
+- creates a disposable PostgreSQL data directory;
+- starts PostgreSQL with `pg_ctl.exe` bound to `127.0.0.1` on a dynamic port;
+- validates `psql.exe`, `createdb.exe`, server version, SQL write/read round trip, and clean
+  shutdown;
+- writes `managed-postgres-runtime-certification.json` and a concise text report;
+- removes temporary runtime files after success unless `--keep-on-success` is passed;
+- preserves runtime directories and logs after failure for diagnostics.
+
+The harness intentionally does not:
+
+- create or modify Windows services;
+- change the registry, firewall, global `PATH`, or global environment;
+- use or stop an existing PostgreSQL service;
+- connect to the Enterprise POS application database;
+- enable managed provisioning.
+
+PASS criteria require a successful report from a clean Windows Sandbox or clean disposable VM with
+`--clean-environment`. A successful local development-machine run is diagnostic only and should be
+reported as blocked for activation until clean-machine execution is reviewed.
