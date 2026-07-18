@@ -4,6 +4,13 @@ contextBridge.exposeInMainWorld('posApi', {
   app: {
     info: () => ipcRenderer.invoke('/app/info'),
   },
+  installer: {
+    status: () => ipcRenderer.invoke('/installer/status'),
+    saveConfiguration: (payload) => ipcRenderer.invoke('/installer/config/save', payload),
+    testDatabase: (payload) => ipcRenderer.invoke('/installer/database/test', payload),
+    createDatabase: (payload) => ipcRenderer.invoke('/installer/database/create', payload),
+    initializeDatabase: (payload) => ipcRenderer.invoke('/installer/database/initialize', payload),
+  },
   updates: {
     check: () => ipcRenderer.invoke('/updates/check'),
   },

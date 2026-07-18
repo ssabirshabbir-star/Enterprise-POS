@@ -28,6 +28,8 @@ const { initializeSessionStore } = require('./security/session-store');
 const { logError } = require('./utils/safe-logger');
 const settingsRepository = require('./features/settings/settings.repository');
 const { createGuardedIpcMain } = require('./features/restore-engine/restore-maintenance-guard');
+const installerConfigStore = require('./installer/installer-config.store');
+const { registerInstallerRoutes } = require('./installer/installer.controller');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -134,6 +136,11 @@ app.whenReady().then(async () => {
     process.env.ELECTRON_IS_PACKAGED = 'true';
   }
   loadEnvironment(app);
+  try {
+    installerConfigStore.loadAndApplyInstallationConfig(app.getPath('userData'));
+  } catch (error) {
+    logError('Installer configuration load failed:', error);
+  }
   initializeSessionStore(app);
 
   try {
@@ -164,6 +171,7 @@ app.whenReady().then(async () => {
     getMaintenanceStatus: () => settingsRepository.getRestoreStartupRecoveryAssessment(),
   });
 
+  registerInstallerRoutes(ipcMain, app);
   registerAuthRoutes(guardedIpcMain);
   registerProductRoutes(guardedIpcMain);
   registerInventoryRoutes(guardedIpcMain);

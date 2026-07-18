@@ -8,11 +8,11 @@
   </head>
   <body class="min-h-screen bg-zinc-100 text-zinc-950">
     <main class="grid min-h-screen place-items-center p-6">
-      <section class="w-full max-w-2xl rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+      <section class="w-full max-w-5xl rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Enterprise POS</p>
-        <h1 id="setupTitle" class="mt-2 text-2xl font-semibold">First-run setup required</h1>
+        <h1 id="setupTitle" class="mt-2 text-2xl font-semibold">Enterprise POS Installation</h1>
         <p id="setupLead" class="mt-3 text-sm text-zinc-600">
-          The desktop app opened successfully, but the local PostgreSQL database is not ready.
+          Configure PostgreSQL, initialize the database, and prepare this terminal for shop use.
         </p>
         <div id="setupError" class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700"></div>
         <div class="mt-4 grid gap-3 text-sm md:grid-cols-2">
@@ -20,6 +20,59 @@
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Database Status</p><strong id="setupDatabaseStatus">Not ready</strong></div>
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Migration Status</p><strong id="setupMigrationStatus">Pending</strong></div>
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Activation Status</p><strong id="setupActivationStatus">Unknown</strong></div>
+        </div>
+        <div id="installerWizard" class="mt-5 grid gap-4 lg:grid-cols-[220px_1fr]">
+          <ol class="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+            <li class="rounded px-3 py-2 font-semibold text-blue-700">1. Welcome</li>
+            <li class="rounded px-3 py-2">2. Database Detection</li>
+            <li class="rounded px-3 py-2">3. Connect or Install</li>
+            <li class="rounded px-3 py-2">4. Database Validation</li>
+            <li class="rounded px-3 py-2">5. Initialize Schema</li>
+            <li class="rounded px-3 py-2">6. Initial Administrator</li>
+            <li class="rounded px-3 py-2">7. Store Information</li>
+            <li class="rounded px-3 py-2">8. Finish</li>
+          </ol>
+          <div class="rounded-md border border-zinc-200 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-semibold">Database setup</h2>
+                <p class="mt-1 text-sm text-zinc-600">Use an existing PostgreSQL installation or prepare for guided PostgreSQL installation. Credentials are stored only through the desktop secure storage layer.</p>
+              </div>
+              <button id="installerRefreshButton" class="rounded-md border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700">Refresh diagnostics</button>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              <label class="text-sm font-semibold">Host<input id="installerHost" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="localhost" autocomplete="off" /></label>
+              <label class="text-sm font-semibold">Port<input id="installerPort" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="5432" inputmode="numeric" autocomplete="off" /></label>
+              <label class="text-sm font-semibold">Database<input id="installerDatabase" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="enterprise_pos" autocomplete="off" /></label>
+              <label class="text-sm font-semibold">Username<input id="installerUsername" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="postgres" autocomplete="username" /></label>
+              <label class="text-sm font-semibold">Password<input id="installerPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="current-password" /></label>
+              <label class="text-sm font-semibold">SSL Mode<select id="installerSslMode" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"><option value="disable">Disable</option><option value="prefer">Prefer</option><option value="require">Require</option></select></label>
+            </div>
+            <div class="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+              <h3 class="text-sm font-semibold">Initial administrator</h3>
+              <div class="mt-3 grid gap-3 md:grid-cols-2">
+                <label class="text-sm font-semibold">Admin username<input id="installerAdminUsername" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" autocomplete="username" /></label>
+                <label class="text-sm font-semibold">Admin email<input id="installerAdminEmail" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="email" autocomplete="email" /></label>
+                <label class="text-sm font-semibold">Full name<input id="installerAdminName" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="System Administrator" autocomplete="name" /></label>
+                <label class="text-sm font-semibold">Admin password<input id="installerAdminPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="new-password" /></label>
+              </div>
+            </div>
+            <div class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+              <h3 class="text-sm font-semibold">Store information</h3>
+              <div class="mt-3 grid gap-3 md:grid-cols-2">
+                <label class="text-sm font-semibold">Store ID placeholder<input id="installerStoreId" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" placeholder="Assigned later" autocomplete="off" /></label>
+                <label class="text-sm font-semibold">Installer version<input id="installerVersion" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="1.0.0" autocomplete="off" /></label>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button id="installerTestButton" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Test PostgreSQL</button>
+              <button id="installerSaveButton" class="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white">Save configuration</button>
+              <button id="installerCreateButton" class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700">Create database if needed</button>
+              <button id="installerInitializeButton" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">Run initialization</button>
+            </div>
+            <div id="installerStatus" class="mt-4 rounded-md bg-zinc-50 p-3 text-sm text-zinc-700">Diagnostics not loaded yet.</div>
+            <p class="mt-3 text-xs text-zinc-500">Licensing and auto-update are intentionally not part of this installer foundation phase.</p>
+          </div>
         </div>
         <div id="restoreRecoveryDetails" class="mt-5 hidden rounded-md border border-red-100 bg-red-50 p-4 text-sm text-red-900">
           <p class="font-semibold text-red-950">Restore Recovery Lockout</p>
@@ -69,6 +122,7 @@
           'Enterprise POS detected an unresolved Restore or rollback operation. Normal POS access is locked to protect the database.'
         );
         document.querySelector('#restoreRecoveryDetails')?.classList.remove('hidden');
+        document.querySelector('#installerWizard')?.classList.add('hidden');
         text('#setupStartupMode', params.get('startupMode'));
         text('#setupCurrentState', params.get('currentState'));
         text('#setupPreviousState', params.get('previousState'));
@@ -87,6 +141,47 @@
             <li>Exit the application until recovery is certified.</li>
           `;
         }
+      }
+      const installerPayload = () => ({
+        host: document.querySelector('#installerHost')?.value || 'localhost',
+        port: Number(document.querySelector('#installerPort')?.value || 5432),
+        database: document.querySelector('#installerDatabase')?.value || 'enterprise_pos',
+        username: document.querySelector('#installerUsername')?.value || 'postgres',
+        password: document.querySelector('#installerPassword')?.value || '',
+        sslMode: document.querySelector('#installerSslMode')?.value || 'disable',
+        storeId: document.querySelector('#installerStoreId')?.value || null,
+        installerVersion: document.querySelector('#installerVersion')?.value || '1.0.0',
+      });
+      const adminPayload = () => ({
+        username: document.querySelector('#installerAdminUsername')?.value || '',
+        email: document.querySelector('#installerAdminEmail')?.value || '',
+        fullName: document.querySelector('#installerAdminName')?.value || 'System Administrator',
+        password: document.querySelector('#installerAdminPassword')?.value || '',
+      });
+      const showInstallerStatus = (result) => {
+        const node = document.querySelector('#installerStatus');
+        if (!node) return;
+        const safe = result || {};
+        node.textContent = safe.message || JSON.stringify({
+          ok: safe.ok,
+          mode: safe.mode,
+          postgres: safe.postgres?.ok ?? safe.serviceDetected,
+          database: safe.database?.exists ?? safe.exists,
+          supported: safe.postgres?.supported ?? safe.supported,
+          code: safe.code || null,
+        });
+      };
+      const callInstaller = (method, payload) => {
+        if (!window.posApi?.installer?.[method]) return Promise.resolve({ ok: false, message: 'Installer API unavailable.' });
+        return window.posApi.installer[method](payload);
+      };
+      document.querySelector('#installerRefreshButton')?.addEventListener('click', () => callInstaller('status').then(showInstallerStatus));
+      document.querySelector('#installerTestButton')?.addEventListener('click', () => callInstaller('testDatabase', installerPayload()).then(showInstallerStatus));
+      document.querySelector('#installerSaveButton')?.addEventListener('click', () => callInstaller('saveConfiguration', installerPayload()).then(showInstallerStatus));
+      document.querySelector('#installerCreateButton')?.addEventListener('click', () => callInstaller('createDatabase', installerPayload()).then(showInstallerStatus));
+      document.querySelector('#installerInitializeButton')?.addEventListener('click', () => callInstaller('initializeDatabase', { config: installerPayload(), admin: adminPayload() }).then(showInstallerStatus));
+      if (code !== 'RESTORE_MAINTENANCE_LOCKOUT') {
+        callInstaller('status').then(showInstallerStatus).catch(() => showInstallerStatus({ ok: false, message: 'Installer diagnostics could not be loaded.' }));
       }
       if (window.posApi?.app?.info) {
         window.posApi.app.info().then((result) => {
