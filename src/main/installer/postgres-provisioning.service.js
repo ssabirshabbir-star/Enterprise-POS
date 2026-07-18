@@ -26,6 +26,10 @@ const { stagePostgresArchive } = require('./postgres-archive-stager');
 const { buildManagedServicePlan } = require('./postgres-service-manager');
 const { getManagedPostgresPolicy } = require('./postgres-version-policy');
 const payloadVerifier = require('./postgres-payload-verifier');
+const {
+  buildInitdbLaunchDiagnostics,
+  postgresCommandOptions,
+} = require('./postgres-runtime-diagnostics');
 
 const CERTIFICATION_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION';
 const CERTIFICATION_TOKEN_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION_TOKEN';
@@ -169,12 +173,15 @@ function runCommand(command, args, options = {}) {
   const timeoutMs = options.timeoutMs || COMMAND_TIMEOUT_MS;
   return new Promise((resolve) => {
     let settled = false;
+    let pid = null;
+    let processCreated = false;
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: { ...process.env, PGCONNECT_TIMEOUT: '5', ...(options.env || {}) },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
+    pid = child.pid || null;
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => {
@@ -194,6 +201,8 @@ function runCommand(command, args, options = {}) {
         signal: 'SIGKILL',
         stdout,
         stderr,
+        pid,
+        processCreated,
         elapsedMs: Date.now() - started,
         error: { code: 'INSTALLER_POSTGRES_COMMAND_TIMEOUT', message: 'Command timed out.' },
       });
@@ -209,15 +218,31 @@ function runCommand(command, args, options = {}) {
         signal: null,
         stdout,
         stderr,
+        pid,
+        processCreated,
         elapsedMs: Date.now() - started,
         error: { code: error.code || 'INSTALLER_POSTGRES_COMMAND_FAILED', message: error.message },
       });
+    });
+    child.on('spawn', () => {
+      processCreated = true;
+      pid = child.pid || pid;
     });
     child.on('close', (exitCode, signal) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve({ command, args, exitCode, signal, stdout, stderr, elapsedMs: Date.now() - started });
+      resolve({
+        command,
+        args,
+        exitCode,
+        signal,
+        stdout,
+        stderr,
+        pid,
+        processCreated,
+        elapsedMs: Date.now() - started,
+      });
     });
   });
 }
@@ -228,8 +253,11 @@ function commandOk(result) {
 
 function startServerProcess(command, args) {
   const started = Date.now();
+  const commandOptions = postgresCommandOptions(command);
   return new Promise((resolve) => {
     const child = spawn(command, args, {
+      cwd: commandOptions.cwd,
+      env: commandOptions.env,
       stdio: 'ignore',
       windowsHide: true,
       detached: true,
@@ -307,7 +335,7 @@ async function waitForServer(paths, port, password, timeoutMs, logCommand) {
         '-Atc',
         'SELECT 1',
       ],
-      { env: { PGPASSWORD: password } }
+      postgresCommandOptions(paths.psql, { env: { PGPASSWORD: password } })
     );
     await logCommand('READINESS_PROBE', last, commandOk(last) ? 'success' : 'retry');
     if (commandOk(last) && String(last.stdout).trim() === '1') return true;
@@ -341,16 +369,11 @@ async function queryPostgres(config, sql, database = 'postgres') {
 }
 
 async function stopServer(paths, dataDir, logCommand) {
-  const result = await runCommand(paths.pgCtl, [
-    '-D',
-    dataDir,
-    '-m',
-    'fast',
-    '-w',
-    '-t',
-    '30',
-    'stop',
-  ]);
+  const result = await runCommand(
+    paths.pgCtl,
+    ['-D', dataDir, '-m', 'fast', '-w', '-t', '30', 'stop'],
+    postgresCommandOptions(paths.pgCtl)
+  );
   await logCommand('STOP_SERVER', result, commandOk(result) ? 'success' : 'failed');
   return result;
 }
@@ -510,7 +533,7 @@ async function executeCertificationProvisioning(options = {}) {
     const appPassword = generateManagedPostgresPassword();
     const passwordFile = createPasswordFile(certificationRoot, adminPassword);
     ensureDirectory(dataDir);
-    const initdb = await runCommand(paths.initdb, [
+    const initdbArgs = [
       '-D',
       dataDir,
       '-U',
@@ -521,7 +544,49 @@ async function executeCertificationProvisioning(options = {}) {
       passwordFile,
       '-E',
       'UTF8',
-    ]);
+    ];
+    const initdbOptions = postgresCommandOptions(paths.initdb);
+    const beforeInitdbDiagnostics = buildInitdbLaunchDiagnostics({
+      command: paths.initdb,
+      args: initdbArgs,
+      cwd: initdbOptions.cwd,
+      env: initdbOptions.env,
+      dataDir,
+      passwordFile,
+      runtimeRoot,
+    });
+    const initdbDiagnosticsPath = path.join(logsDir, 'initdb-launch-diagnostics.json');
+    fs.writeFileSync(
+      initdbDiagnosticsPath,
+      `${JSON.stringify({ before: beforeInitdbDiagnostics }, null, 2)}\n`,
+      { mode: 0o600 }
+    );
+    recordInstallerLog(userDataPath, {
+      operationId: operation.operationId,
+      step: 'INITDB_LAUNCH_DIAGNOSTIC',
+      status: 'recorded',
+      message: `initdb launch diagnostics recorded at ${initdbDiagnosticsPath}`,
+      command: {
+        executable: paths.initdb,
+        args: beforeInitdbDiagnostics.args,
+      },
+    });
+    const initdb = await runCommand(paths.initdb, initdbArgs, initdbOptions);
+    const afterInitdbDiagnostics = buildInitdbLaunchDiagnostics({
+      command: paths.initdb,
+      args: initdbArgs,
+      cwd: initdbOptions.cwd,
+      env: initdbOptions.env,
+      dataDir,
+      passwordFile,
+      runtimeRoot,
+      result: initdb,
+    });
+    fs.writeFileSync(
+      initdbDiagnosticsPath,
+      `${JSON.stringify({ before: beforeInitdbDiagnostics, after: afterInitdbDiagnostics }, null, 2)}\n`,
+      { mode: 0o600 }
+    );
     await logCommand('INITDB', initdb);
     fs.rmSync(passwordFile, { force: true });
     if (!commandOk(initdb)) {
