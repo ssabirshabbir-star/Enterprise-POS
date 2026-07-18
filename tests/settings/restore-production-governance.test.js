@@ -205,6 +205,42 @@ test('repository startup assessment builds one snapshot and reconciles ambiguous
   assert.match(repository, /blockingReasons/);
 });
 
+test('startup recovery selection is scoped to the current database identity', () => {
+  const repository = read('src/main/features/settings/settings.repository.js');
+  const schema = read('src/main/database/schema.js');
+  const disposableAdapter = read(
+    'src/main/features/restore-engine/restore-disposable-execution.adapter.js'
+  );
+
+  assert.match(schema, /target_database_fingerprint VARCHAR\(128\)/);
+  assert.match(schema, /target_database_name VARCHAR\(180\)/);
+  assert.match(schema, /idx_restore_operations_target_database/);
+  assert.match(repository, /function classifyRestoreStartupOperation/);
+  assert.match(repository, /restoreOperationTargetsCurrentDatabase/);
+  assert.match(repository, /target_identity_missing_conservative_lockout/);
+  assert.match(repository, /legacy_controlled_disposable_certification_evidence/);
+  assert.match(repository, /CONTROLLED_ROLLBACK_FAILURE/);
+  assert.match(repository, /ignoredRestoreOperation/);
+  assert.match(repository, /blocksCurrentDatabase/);
+  assert.match(disposableAdapter, /function disposableTargetIdentity/);
+  assert.match(disposableAdapter, /targetDatabaseReference/);
+});
+
+test('startup setup page distinguishes restore maintenance from database setup', () => {
+  const setup = read('src/renderer/setup.html');
+  const main = read('src/main/main.js');
+
+  assert.match(main, /RESTORE_MAINTENANCE_LOCKOUT/);
+  assert.match(main, /databaseStatus:\s*'Connected'/);
+  assert.match(main, /migrationStatus:\s*'Current'/);
+  assert.match(setup, /Restore recovery required/);
+  assert.match(setup, /Restore Recovery Lockout/);
+  assert.match(setup, /Current Restore State/);
+  assert.match(setup, /Mutation Guard/);
+  assert.match(setup, /code === 'RESTORE_MAINTENANCE_LOCKOUT'/);
+  assert.doesNotMatch(setup, /Continue anyway|Ignore|Clear state|Force normal startup/);
+});
+
 test('settings renderer auto-loads startup recovery and retention into structured panels', () => {
   const renderer = read('src/main/features/settings/settings.renderer.js');
   const loadBody = renderer.slice(

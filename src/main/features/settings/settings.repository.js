@@ -896,6 +896,23 @@ function recoveryStateFromActivity(row) {
 
 function operationRowToRecoveryState(row, transitionEvidence = []) {
   if (!row) return restoreRecoveryStateModel.createIdleRecoveryState();
+  const hasTargetDatabaseReference =
+    row.target_database_fingerprint ||
+    row.target_database_name ||
+    row.target_database_host ||
+    row.target_database_port != null ||
+    row.target_database_disposable != null ||
+    row.target_database_ambiguous != null;
+  const targetDatabaseReference = hasTargetDatabaseReference
+    ? {
+        fingerprint: row.target_database_fingerprint || null,
+        database: row.target_database_name || null,
+        host: row.target_database_host || null,
+        port: row.target_database_port || null,
+        disposableCertificationDatabase: row.target_database_disposable === true,
+        ambiguous: row.target_database_ambiguous === true,
+      }
+    : null;
   return restoreRecoveryStateModel.normalizeRecoveryState({
     operationId: row.operation_id,
     ownerUserId: row.owner_user_id,
@@ -903,6 +920,7 @@ function operationRowToRecoveryState(row, transitionEvidence = []) {
     sourcePackageFingerprint: row.source_package_fingerprint,
     sourcePackageChecksum: row.source_package_checksum,
     sourceManifestVersion: row.source_manifest_version,
+    targetDatabaseReference,
     currentState: row.state,
     previousState: row.previous_state,
     createdAt: row.created_at,
@@ -1140,6 +1158,7 @@ async function transitionRestoreOperation({
   requestedByUserId,
   nextState,
   safetyBackupReference = null,
+  targetDatabaseReference = null,
   failureCategory = null,
   failureSummary = null,
   replayStatus = 'not_replayed',
@@ -1181,6 +1200,7 @@ async function transitionRestoreOperation({
       restoreRecoveryStateModel.sanitizeFailureSummary(failureSummary);
     const terminal = isTerminalRestoreState(nextState);
     const safety = safetyBackupReference || {};
+    const target = targetDatabaseReference || {};
     const updated = await client.query(
       `
         UPDATE restore_operations
@@ -1191,12 +1211,18 @@ async function transitionRestoreOperation({
           safety_backup_path = COALESCE($4, safety_backup_path),
           safety_backup_checksum = COALESCE($5, safety_backup_checksum),
           safety_backup_log_id = COALESCE($6, safety_backup_log_id),
-          failure_category = $7,
-          sanitized_failure_summary = $8,
-          requires_restart = requires_restart OR $9,
-          requires_rollback = requires_rollback OR $10,
+          target_database_fingerprint = COALESCE($7, target_database_fingerprint),
+          target_database_name = COALESCE($8, target_database_name),
+          target_database_host = COALESCE($9, target_database_host),
+          target_database_port = COALESCE($10, target_database_port),
+          target_database_disposable = COALESCE($11, target_database_disposable),
+          target_database_ambiguous = COALESCE($12, target_database_ambiguous),
+          failure_category = $13,
+          sanitized_failure_summary = $14,
+          requires_restart = requires_restart OR $15,
+          requires_rollback = requires_rollback OR $16,
           updated_at = NOW(),
-          terminal_at = CASE WHEN $11 THEN NOW() ELSE terminal_at END
+          terminal_at = CASE WHEN $17 THEN NOW() ELSE terminal_at END
         WHERE operation_id = $1
         RETURNING *
       `,
@@ -1207,6 +1233,14 @@ async function transitionRestoreOperation({
         safety.filePath || null,
         safety.checksum || null,
         safety.backupLogId || null,
+        target.fingerprint || null,
+        target.database || target.databaseName || target.normalizedDatabaseName || null,
+        target.host || null,
+        target.port || null,
+        typeof target.disposableCertificationDatabase === 'boolean'
+          ? target.disposableCertificationDatabase
+          : null,
+        typeof target.ambiguous === 'boolean' ? target.ambiguous : null,
         failureCategory || null,
         sanitizedFailureSummary || null,
         nextState === 'RESTORE_APPLIED' || nextState === 'POST_RESTORE_VERIFYING',
@@ -1225,6 +1259,7 @@ async function transitionRestoreOperation({
         previousState: currentRow.state,
         currentState: nextState,
         safetyBackupReference,
+        targetDatabaseReference,
         failureCategory,
         sanitizedFailureSummary,
         replayStatus,
@@ -1598,6 +1633,117 @@ async function getRestoreExecutionPolicy() {
   });
 }
 
+const CONTROLLED_RESTORE_CERTIFICATION_MARKERS = Object.freeze([
+  'CONTROLLED_POST_RESTORE_VERIFICATION_FAILURE',
+  'CONTROLLED_ROLLBACK_FAILURE',
+  'CONTROLLED_MID_APPLICATION_FAILURE',
+]);
+
+function restoreOperationTargetsCurrentDatabase(operationRow, currentDatabaseIdentity) {
+  if (!operationRow) {
+    return { known: false, matches: false, reason: 'operation_missing' };
+  }
+  if (operationRow.target_database_fingerprint) {
+    return {
+      known: true,
+      matches: operationRow.target_database_fingerprint === currentDatabaseIdentity?.fingerprint,
+      reason: 'fingerprint_recorded',
+    };
+  }
+  if (operationRow.target_database_name) {
+    const targetName = String(operationRow.target_database_name || '').toLowerCase();
+    const currentName = String(currentDatabaseIdentity?.database || '').toLowerCase();
+    return {
+      known: true,
+      matches: targetName === currentName,
+      reason: 'database_name_recorded',
+    };
+  }
+  return { known: false, matches: false, reason: 'target_identity_missing' };
+}
+
+function isDisposableCertificationOperation(
+  operationRow,
+  evidence = [],
+  currentDatabaseIdentity = {}
+) {
+  if (!operationRow) return false;
+  if (operationRow.target_database_disposable === true) {
+    return currentDatabaseIdentity.disposableCertificationDatabase !== true;
+  }
+  const targetName = String(operationRow.target_database_name || '').toLowerCase();
+  if (/^enterprise_pos_restore_cert_/.test(targetName)) {
+    return currentDatabaseIdentity.disposableCertificationDatabase !== true;
+  }
+  return false;
+}
+
+function isLegacyControlledCertificationEvidence(
+  operationRow,
+  evidence = [],
+  currentDatabaseIdentity = {}
+) {
+  if (!operationRow || currentDatabaseIdentity.disposableCertificationDatabase === true)
+    return false;
+  if (operationRow.terminal_at == null) return false;
+  if (operationRow.target_database_fingerprint || operationRow.target_database_name) return false;
+  const summary = String(operationRow.sanitized_failure_summary || '');
+  const evidenceText = evidence
+    .map((item) => `${item.status || ''} ${item.message || ''}`)
+    .join('\n');
+  const controlledFailure = CONTROLLED_RESTORE_CERTIFICATION_MARKERS.some(
+    (marker) => summary.includes(marker) || evidenceText.includes(marker)
+  );
+  const safetyPath = String(operationRow.safety_backup_path || '').toLowerCase();
+  const tempCertificationPath =
+    safetyPath.includes(`${path.sep.toLowerCase()}temp${path.sep.toLowerCase()}`) &&
+    safetyPath.includes('epos-restore-');
+  return controlledFailure && tempCertificationPath;
+}
+
+function classifyRestoreStartupOperation(
+  operationRow,
+  evidence = [],
+  currentDatabaseIdentity = {}
+) {
+  if (!operationRow) {
+    return {
+      blocksCurrentDatabase: false,
+      reason: 'operation_missing',
+      targetMatchesCurrentDatabase: false,
+      reconciledAsHistoricalCertification: false,
+    };
+  }
+  const targetMatch = restoreOperationTargetsCurrentDatabase(operationRow, currentDatabaseIdentity);
+  if (targetMatch.known) {
+    const disposableOnly = isDisposableCertificationOperation(
+      operationRow,
+      evidence,
+      currentDatabaseIdentity
+    );
+    return {
+      blocksCurrentDatabase: targetMatch.matches && !disposableOnly,
+      reason: disposableOnly ? 'disposable_target_not_current_database' : targetMatch.reason,
+      targetMatchesCurrentDatabase: targetMatch.matches,
+      reconciledAsHistoricalCertification: disposableOnly,
+    };
+  }
+  if (isLegacyControlledCertificationEvidence(operationRow, evidence, currentDatabaseIdentity)) {
+    return {
+      blocksCurrentDatabase: false,
+      reason: 'legacy_controlled_disposable_certification_evidence',
+      targetMatchesCurrentDatabase: false,
+      reconciledAsHistoricalCertification: true,
+    };
+  }
+  return {
+    blocksCurrentDatabase: true,
+    reason: 'target_identity_missing_conservative_lockout',
+    targetMatchesCurrentDatabase: null,
+    reconciledAsHistoricalCertification: false,
+  };
+}
+
 async function reconcileRestoreStartupOperation(operationRow) {
   if (!operationRow) return null;
   const state = operationRow.state;
@@ -1628,10 +1774,15 @@ async function reconcileRestoreStartupOperation(operationRow) {
   return refreshed || operationRow;
 }
 
-function createRestoreStartupRecoverySnapshot({ recoveryState, startupRecovery }) {
+function createRestoreStartupRecoverySnapshot({
+  recoveryState,
+  startupRecovery,
+  startupOperationClassification = null,
+}) {
   const safety = recoveryState.safetyBackupReference || null;
   const finalConfirmation = recoveryState.finalConfirmationReference || null;
   const databaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
+  const operationTarget = recoveryState.targetDatabaseReference || null;
   const applyEvidence = (recoveryState.transitionEvidence || []).filter((item) =>
     /RESTORE_IN_PROGRESS|RESTORE_APPLIED|POST_RESTORE_VERIFYING|COMPLETED/.test(
       String(item.message || '')
@@ -1676,9 +1827,18 @@ function createRestoreStartupRecoverySnapshot({ recoveryState, startupRecovery }
       required: recoveryState.rollbackRequired === true,
     },
     targetDatabase: {
-      identity: databaseIdentity,
-      productionDatabase: databaseIdentity.disposableCertificationDatabase !== true,
-      disposableCertificationDatabase: databaseIdentity.disposableCertificationDatabase === true,
+      identity: operationTarget || databaseIdentity,
+      currentDatabaseIdentity: databaseIdentity,
+      operationTargetKnown: Boolean(operationTarget),
+      targetMatchesCurrentDatabase:
+        startupOperationClassification?.targetMatchesCurrentDatabase ?? null,
+      startupSelectionReason: startupOperationClassification?.reason || null,
+      reconciledAsHistoricalCertification:
+        startupOperationClassification?.reconciledAsHistoricalCertification === true,
+      productionDatabase:
+        (operationTarget || databaseIdentity).disposableCertificationDatabase !== true,
+      disposableCertificationDatabase:
+        (operationTarget || databaseIdentity).disposableCertificationDatabase === true,
     },
     startupMode: startupRecovery.startupMode,
     maintenanceLockRequired: startupRecovery.maintenanceModeRequired === true,
@@ -1831,12 +1991,38 @@ async function getRestoreStartupRecoveryAssessment() {
   let activeOperation = await activeRestoreOperation();
   activeOperation = await reconcileRestoreStartupOperation(activeOperation);
   const latestOperation = activeOperation ? null : await latestRestoreOperation();
-  const startupOperation =
-    activeOperation ||
-    (latestOperation?.state ===
+  const currentDatabaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
+  let startupOperation = null;
+  let startupOperationClassification = null;
+  let ignoredRestoreOperation = null;
+  if (activeOperation) {
+    const evidence = await restoreOperationEvidence(activeOperation.operation_id);
+    startupOperationClassification = classifyRestoreStartupOperation(
+      activeOperation,
+      evidence,
+      currentDatabaseIdentity
+    );
+    if (startupOperationClassification.blocksCurrentDatabase) {
+      startupOperation = activeOperation;
+    } else {
+      ignoredRestoreOperation = operationRowToRecoveryState(activeOperation, evidence);
+    }
+  } else if (
+    latestOperation?.state ===
     restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED
-      ? latestOperation
-      : null);
+  ) {
+    const evidence = await restoreOperationEvidence(latestOperation.operation_id);
+    startupOperationClassification = classifyRestoreStartupOperation(
+      latestOperation,
+      evidence,
+      currentDatabaseIdentity
+    );
+    if (startupOperationClassification.blocksCurrentDatabase) {
+      startupOperation = latestOperation;
+    } else {
+      ignoredRestoreOperation = operationRowToRecoveryState(latestOperation, evidence);
+    }
+  }
   const recoveryState = startupOperation
     ? operationRowToRecoveryState(
         startupOperation,
@@ -1847,12 +2033,14 @@ async function getRestoreStartupRecoveryAssessment() {
   const startupRecoverySnapshot = createRestoreStartupRecoverySnapshot({
     recoveryState,
     startupRecovery,
+    startupOperationClassification,
   });
   return {
     ok: true,
     recoveryState,
     startupRecovery,
     startupRecoverySnapshot,
+    ignoredRestoreOperation,
     noRestoreExecuted: true,
     restoreExecutionAvailable: false,
   };

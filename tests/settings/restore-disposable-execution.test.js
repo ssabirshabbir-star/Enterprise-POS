@@ -436,6 +436,16 @@ test('rollback failure enters manual recovery required', async () => {
   process.env.PGDATABASE = primaryDatabase;
   const state = await settingsRepository.getRestoreRecoveryState();
   assert.equal(state.currentState, recovery.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED);
+  assert.equal(state.targetDatabaseReference.database, targetDb);
+  assert.equal(state.targetDatabaseReference.disposableCertificationDatabase, true);
+  const startup = await settingsRepository.getRestoreStartupRecoveryAssessment();
+  assert.equal(startup.startupRecovery.startupMode, 'NORMAL');
+  assert.equal(startup.startupRecovery.maintenanceModeRequired, false);
+  assert.equal(startup.ignoredRestoreOperation.operationId, prepared.operationId);
+  assert.equal(
+    startup.startupRecoverySnapshot.targetDatabase.startupSelectionReason,
+    'disposable_target_not_current_database'
+  );
 
   await dropDatabase(sourceDb);
   await dropDatabase(targetDb);

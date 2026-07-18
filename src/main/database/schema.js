@@ -1244,6 +1244,12 @@ async function initializeDatabase() {
         source_package_fingerprint VARCHAR(128),
         source_package_checksum VARCHAR(128),
         source_manifest_version VARCHAR(40),
+        target_database_fingerprint VARCHAR(128),
+        target_database_name VARCHAR(180),
+        target_database_host VARCHAR(180),
+        target_database_port INTEGER,
+        target_database_disposable BOOLEAN,
+        target_database_ambiguous BOOLEAN,
         state VARCHAR(60) NOT NULL,
         previous_state VARCHAR(60),
         safety_backup_id UUID,
@@ -1567,6 +1573,27 @@ async function initializeDatabase() {
     );
     await client.query(
       'CREATE INDEX IF NOT EXISTS idx_restore_operations_owner_state ON restore_operations (owner_user_id, state, updated_at DESC);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS target_database_fingerprint VARCHAR(128);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS target_database_name VARCHAR(180);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS target_database_host VARCHAR(180);'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS target_database_port INTEGER;'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS target_database_disposable BOOLEAN;'
+    );
+    await client.query(
+      'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS target_database_ambiguous BOOLEAN;'
+    );
+    await client.query(
+      'CREATE INDEX IF NOT EXISTS idx_restore_operations_target_database ON restore_operations (target_database_fingerprint, updated_at DESC);'
     );
     await client.query(
       'ALTER TABLE restore_operations ADD COLUMN IF NOT EXISTS final_confirmation_id UUID UNIQUE;'

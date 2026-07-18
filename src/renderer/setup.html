@@ -10,8 +10,8 @@
     <main class="grid min-h-screen place-items-center p-6">
       <section class="w-full max-w-2xl rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Enterprise POS</p>
-        <h1 class="mt-2 text-2xl font-semibold">First-run setup required</h1>
-        <p class="mt-3 text-sm text-zinc-600">
+        <h1 id="setupTitle" class="mt-2 text-2xl font-semibold">First-run setup required</h1>
+        <p id="setupLead" class="mt-3 text-sm text-zinc-600">
           The desktop app opened successfully, but the local PostgreSQL database is not ready.
         </p>
         <div id="setupError" class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700"></div>
@@ -21,9 +21,25 @@
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Migration Status</p><strong id="setupMigrationStatus">Pending</strong></div>
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Activation Status</p><strong id="setupActivationStatus">Unknown</strong></div>
         </div>
-        <div class="mt-5 rounded-md bg-zinc-50 p-4 text-sm text-zinc-700">
-          <p class="font-semibold text-zinc-950">Checklist</p>
-          <ul class="mt-2 list-disc space-y-1 pl-5">
+        <div id="restoreRecoveryDetails" class="mt-5 hidden rounded-md border border-red-100 bg-red-50 p-4 text-sm text-red-900">
+          <p class="font-semibold text-red-950">Restore Recovery Lockout</p>
+          <dl class="mt-3 grid gap-2 md:grid-cols-2">
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Startup Mode</dt><dd id="setupStartupMode" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Current Restore State</dt><dd id="setupCurrentState" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Previous State</dt><dd id="setupPreviousState" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Operation ID</dt><dd id="setupOperationId" class="break-all font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Target Database</dt><dd id="setupTargetDatabase" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Safety Backup</dt><dd id="setupSafetyBackup" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Mutation Guard</dt><dd id="setupMutationGuard" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-red-700">Rollback Status</dt><dd id="setupRollbackStatus" class="font-semibold">-</dd></div>
+          </dl>
+          <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-red-700">Blocking Reason</p>
+          <p id="setupBlockingReasons" class="mt-1">-</p>
+          <p class="mt-3 text-xs text-red-700">Normal POS access remains locked. Safe actions are limited to retrying assessment, reading recovery diagnostics, or exiting the application.</p>
+        </div>
+        <div id="setupChecklist" class="mt-5 rounded-md bg-zinc-50 p-4 text-sm text-zinc-700">
+          <p id="setupChecklistTitle" class="font-semibold text-zinc-950">Checklist</p>
+          <ul id="setupChecklistItems" class="mt-2 list-disc space-y-1 pl-5">
             <li>Install and start PostgreSQL.</li>
             <li>Create the production database.</li>
             <li>Create the production env file in the app data directory or run with environment variables.</li>
@@ -37,7 +53,41 @@
     </main>
     <script>
       const params = new URLSearchParams(window.location.search);
+      const code = params.get('code') || 'DATABASE_STARTUP_FAILED';
+      const text = (id, value) => {
+        const node = document.querySelector(id);
+        if (node) node.textContent = value || '-';
+      };
       document.querySelector('#setupError').textContent = params.get('error') || 'Database connection failed.';
+      text('#setupDatabaseStatus', params.get('databaseStatus') || 'Not ready');
+      text('#setupMigrationStatus', params.get('migrationStatus') || 'Pending');
+      text('#setupActivationStatus', params.get('activationStatus') || 'Unknown');
+      if (code === 'RESTORE_MAINTENANCE_LOCKOUT') {
+        text('#setupTitle', 'Restore recovery required');
+        text(
+          '#setupLead',
+          'Enterprise POS detected an unresolved Restore or rollback operation. Normal POS access is locked to protect the database.'
+        );
+        document.querySelector('#restoreRecoveryDetails')?.classList.remove('hidden');
+        text('#setupStartupMode', params.get('startupMode'));
+        text('#setupCurrentState', params.get('currentState'));
+        text('#setupPreviousState', params.get('previousState'));
+        text('#setupOperationId', params.get('operationId'));
+        text('#setupTargetDatabase', params.get('targetDatabase'));
+        text('#setupSafetyBackup', params.get('safetyBackup'));
+        text('#setupMutationGuard', params.get('mutationGuard'));
+        text('#setupRollbackStatus', params.get('rollbackStatus'));
+        text('#setupBlockingReasons', params.get('blockingReasons') || params.get('error'));
+        text('#setupChecklistTitle', 'Safe actions');
+        const list = document.querySelector('#setupChecklistItems');
+        if (list) {
+          list.innerHTML = `
+            <li>Retry startup recovery assessment after verified recovery evidence is available.</li>
+            <li>Open read-only recovery diagnostics from a governed maintenance build or support workflow.</li>
+            <li>Exit the application until recovery is certified.</li>
+          `;
+        }
+      }
       if (window.posApi?.app?.info) {
         window.posApi.app.info().then((result) => {
           if (result.ok) document.querySelector('#setupVersion').textContent = `${result.info.version} (${result.info.environment})`;

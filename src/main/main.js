@@ -32,8 +32,40 @@ const { createGuardedIpcMain } = require('./features/restore-engine/restore-main
 let startupStatus = { ok: true, message: 'Ready' };
 
 function setupUrl() {
-  const error = encodeURIComponent(startupStatus.message || 'Startup failed.');
-  return `file://${path.join(__dirname, '..', 'renderer', 'setup.html').replace(/\\/g, '/')}?error=${error}`;
+  const params = new URLSearchParams({
+    error: startupStatus.message || 'Startup failed.',
+    code: startupStatus.code || 'DATABASE_STARTUP_FAILED',
+    databaseStatus: startupStatus.databaseStatus || 'Not ready',
+    migrationStatus: startupStatus.migrationStatus || 'Pending',
+    activationStatus: startupStatus.activationStatus || 'Unknown',
+  });
+  const recovery = startupStatus.recoverySnapshot || null;
+  if (recovery) {
+    params.set('startupMode', recovery.startupMode || '');
+    params.set('currentState', recovery.recoveryState?.currentState || '');
+    params.set('previousState', recovery.previousState || '');
+    params.set('operationId', recovery.operationId || '');
+    params.set(
+      'targetDatabase',
+      recovery.targetDatabase?.identity?.database ||
+        recovery.targetDatabase?.currentDatabaseIdentity?.database ||
+        ''
+    );
+    params.set('maintenanceLock', recovery.maintenanceLockRequired ? 'Required' : 'Not required');
+    params.set('mutationGuard', recovery.mutationGuardActive ? 'Active' : 'Inactive');
+    params.set('safetyBackup', recovery.safetyBackup?.verified ? 'Verified' : 'Missing');
+    params.set(
+      'rollbackStatus',
+      recovery.rollbackEvidence?.required
+        ? recovery.rollbackEvidence?.present
+          ? 'Required, evidence present'
+          : 'Required, evidence missing'
+        : 'Not required'
+    );
+    params.set('blockingReasons', (recovery.blockingReasons || []).join(' | '));
+    params.set('assessedAt', recovery.assessedAt || '');
+  }
+  return `file://${path.join(__dirname, '..', 'renderer', 'setup.html').replace(/\\/g, '/')}?${params.toString()}`;
 }
 
 function createWindow() {
@@ -110,9 +142,14 @@ app.whenReady().then(async () => {
     if (recoveryAssessment.startupRecovery?.maintenanceModeRequired) {
       startupStatus = {
         ok: false,
+        code: 'RESTORE_MAINTENANCE_LOCKOUT',
+        databaseStatus: 'Connected',
+        migrationStatus: 'Current',
+        activationStatus: 'Unavailable during Restore recovery',
         message:
           recoveryAssessment.startupRecovery.message ||
           'Restore recovery maintenance mode is active. Resolve recovery state before normal POS startup.',
+        recoverySnapshot: recoveryAssessment.startupRecoverySnapshot,
       };
     }
   } catch (error) {

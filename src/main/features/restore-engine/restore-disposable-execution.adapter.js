@@ -75,6 +75,26 @@ function assertDisposableDatabaseName(databaseName) {
   return name;
 }
 
+function disposableTargetIdentity(databaseName) {
+  const config = getDatabaseConfig();
+  return {
+    host: String(config.host || 'localhost').toLowerCase(),
+    port: Number(config.port || 5432),
+    database: assertDisposableDatabaseName(databaseName),
+    disposableCertificationDatabase: true,
+    ambiguous: true,
+    fingerprint: sha256(
+      stableStringify({
+        host: String(config.host || 'localhost').toLowerCase(),
+        port: Number(config.port || 5432),
+        database: assertDisposableDatabaseName(databaseName),
+        schema: 'public',
+        disposableCertificationDatabase: true,
+      })
+    ),
+  };
+}
+
 function poolForDatabase(databaseName) {
   const config = getDatabaseConfig();
   const database = assertDisposableDatabaseName(databaseName);
@@ -613,6 +633,7 @@ function issueDisposableExecutionToken({
   ttlMs = TOKEN_TTL_MS,
 } = {}) {
   const targetDatabase = assertDisposableDatabaseName(disposableDatabaseName);
+  const targetDatabaseReference = disposableTargetIdentity(targetDatabase);
   const tokenId = crypto.randomUUID();
   const issuedAt = new Date();
   const expiresAt = new Date(issuedAt.getTime() + ttlMs);
@@ -686,6 +707,7 @@ async function executeDisposableRestore({
   sessionAdapter = null,
 } = {}) {
   const targetDatabase = assertDisposableDatabaseName(disposableDatabaseName);
+  const targetDatabaseReference = disposableTargetIdentity(targetDatabase);
   const recoveryState = await settingsRepository.getRestoreRecoveryState();
   if (recoveryState.operationId !== operationId) throw new Error('RESTORE_OPERATION_MISMATCH');
   if (String(recoveryState.ownerUserId || '') !== String(ownerUserId || '')) {
@@ -715,6 +737,7 @@ async function executeDisposableRestore({
       operationId,
       requestedByUserId: ownerUserId,
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.FAILED_RECOVERABLE,
+      targetDatabaseReference,
       failureCategory: 'pre_mutation_failure',
       failureSummary: 'Controlled failure before mutation.',
       replayStatus: 'token_consumed',
@@ -726,6 +749,7 @@ async function executeDisposableRestore({
     operationId,
     requestedByUserId: ownerUserId,
     nextState: recoveryModel.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS,
+    targetDatabaseReference,
   });
 
   try {
@@ -738,16 +762,19 @@ async function executeDisposableRestore({
       operationId,
       requestedByUserId: ownerUserId,
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.RESTORE_APPLIED,
+      targetDatabaseReference,
     });
     await settingsRepository.transitionRestoreOperation({
       operationId,
       requestedByUserId: ownerUserId,
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.POST_RESTORE_VERIFYING,
+      targetDatabaseReference,
     });
     await settingsRepository.transitionRestoreOperation({
       operationId,
       requestedByUserId: ownerUserId,
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.COMPLETED,
+      targetDatabaseReference,
       replayStatus: 'token_consumed',
       completionMarker: `completed:${operationId}`,
     });
@@ -769,6 +796,7 @@ async function executeDisposableRestore({
         operationId,
         requestedByUserId: ownerUserId,
         nextState: recoveryModel.RESTORE_RECOVERY_STATES.FAILED_RECOVERABLE,
+        targetDatabaseReference,
         failureCategory: 'transaction_rolled_back',
         failureSummary: error.message,
         replayStatus: 'token_consumed',
@@ -785,6 +813,7 @@ async function executeDisposableRestore({
       operationId,
       requestedByUserId: ownerUserId,
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.FAILED_ROLLBACK_REQUIRED,
+      targetDatabaseReference,
       failureCategory: 'post_restore_verification_failed',
       failureSummary: error.message,
       replayStatus: 'token_consumed',
@@ -793,6 +822,7 @@ async function executeDisposableRestore({
       operationId,
       requestedByUserId: ownerUserId,
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.ROLLBACK_IN_PROGRESS,
+      targetDatabaseReference,
     });
     try {
       if (injectFailureStage === 'rollback_failure') {
@@ -806,6 +836,7 @@ async function executeDisposableRestore({
         operationId,
         requestedByUserId: ownerUserId,
         nextState: recoveryModel.RESTORE_RECOVERY_STATES.ROLLED_BACK,
+        targetDatabaseReference,
         replayStatus: 'token_consumed',
         completionMarker: `rolled_back:${operationId}`,
       });
@@ -821,6 +852,7 @@ async function executeDisposableRestore({
         operationId,
         requestedByUserId: ownerUserId,
         nextState: recoveryModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED,
+        targetDatabaseReference,
         failureCategory: 'rollback_failed',
         failureSummary: rollbackError.message,
         replayStatus: 'token_consumed',
