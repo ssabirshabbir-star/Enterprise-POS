@@ -98,7 +98,7 @@ function getManagedPostgresPolicy() {
     defaultPort: 55432,
     dataDirectoryName: 'postgres-data',
     installDirectoryName: 'postgres-runtime',
-    payloadFileName: `postgresql-${MANAGED_POSTGRES_VERSION}-server-windows-x64.zip`,
+    payloadFileName: `postgresql-${MANAGED_POSTGRES_VERSION}-2-windows-x64-binaries.zip`,
     payloadManifest: 'postgres/manifest.json',
     productionReady: false,
     productionBlocker:

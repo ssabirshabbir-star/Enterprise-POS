@@ -10,6 +10,8 @@ verified server payload.
 
 - Managed PostgreSQL version: `17.10`
 - Architecture: `win32-x64`
+- Official archive filename: `postgresql-17.10-2-windows-x64-binaries.zip`
+- Official archive SHA-256: `ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106`
 - Service name: `EnterprisePOSPostgreSQL`
 - Default managed port: `55432`
 - Policy version: `managed-postgres-policy-v1`
@@ -32,6 +34,23 @@ Managed provisioning is blocked unless all of these are true:
 - required license and third-party notices are present.
 
 No PostgreSQL binary is committed in this repository.
+
+The official EnterpriseDB binary archive contains more than the Enterprise POS runtime needs. The
+staging layer must extract only:
+
+- `pgsql/bin/`
+- `pgsql/lib/`
+- `pgsql/share/`
+- `pgsql/server_license.txt`
+- `pgsql/commandlinetools_3rd_party_licenses.txt`
+
+The staging layer must not extract:
+
+- `pgsql/pgAdmin 4/`
+- `pgsql/StackBuilder/`
+
+The original archive remains outside Git and must not be renamed, modified, or extracted into the
+repository.
 
 ## Provisioning Journal
 
