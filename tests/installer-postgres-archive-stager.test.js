@@ -133,6 +133,33 @@ test('filtered staging extracts only required PostgreSQL runtime components', as
   assert.equal(fs.existsSync(path.join(stagingRoot, 'pgsql/StackBuilder')), false);
 });
 
+test('archive inspection resolves packaged manifest from process.resourcesPath', async () => {
+  const fixture = await writeFixture({ entries: validEntries() });
+  const resourcesRoot = path.join(fixture.root, 'packaged-resources');
+  const packagedManifestRoot = path.join(resourcesRoot, 'postgres');
+  fs.mkdirSync(packagedManifestRoot, { recursive: true });
+  fs.copyFileSync(
+    path.join(fixture.manifestRoot, 'manifest.json'),
+    path.join(packagedManifestRoot, 'manifest.json')
+  );
+
+  const descriptor = Object.getOwnPropertyDescriptor(process, 'resourcesPath');
+  Object.defineProperty(process, 'resourcesPath', {
+    configurable: true,
+    value: resourcesRoot,
+  });
+  try {
+    const inspection = await stager.inspectPostgresArchive({
+      archivePath: fixture.zipPath,
+    });
+    assert.equal(inspection.ok, true);
+    assert.equal(inspection.manifest.fileName, path.basename(fixture.zipPath));
+  } finally {
+    if (descriptor) Object.defineProperty(process, 'resourcesPath', descriptor);
+    else delete process.resourcesPath;
+  }
+});
+
 test('archive validation rejects missing archive, wrong filename, wrong SHA, and corrupt ZIP', async () => {
   await assert.rejects(
     () =>

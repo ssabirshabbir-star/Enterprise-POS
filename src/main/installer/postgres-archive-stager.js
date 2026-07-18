@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const yauzl = require('yauzl');
 
-const { readManifest, sha256File } = require('./postgres-payload-verifier');
+const { defaultPayloadRoot, readManifest, sha256File } = require('./postgres-payload-verifier');
 const { getManagedPostgresPolicy } = require('./postgres-version-policy');
 
 const REQUIRED_EXECUTABLES = Object.freeze([
@@ -90,10 +90,7 @@ function openZip(archivePath) {
   });
 }
 
-async function inspectPostgresArchive({
-  archivePath,
-  manifestRoot = path.join(process.cwd(), 'resources', 'postgres'),
-} = {}) {
+async function inspectPostgresArchive({ archivePath, manifestRoot = defaultPayloadRoot() } = {}) {
   const manifestResult = readManifest(manifestRoot);
   if (!manifestResult.ok)
     throw codeError(manifestResult.code, 'PostgreSQL payload manifest is missing or invalid.');
