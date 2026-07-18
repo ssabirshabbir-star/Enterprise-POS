@@ -1,4 +1,9 @@
+const fs = require('fs');
+const net = require('net');
+const os = require('os');
 const path = require('path');
+const { spawn } = require('child_process');
+const { Pool } = require('pg');
 
 const { generateManagedPostgresPassword } = require('./postgres-credential.service');
 const {
@@ -14,12 +19,717 @@ const {
   transitionProvisioningOperation,
 } = require('./postgres-provisioning.model');
 const repository = require('./postgres-provisioning.repository');
+const configStore = require('./installer-config.store');
+const { closeDatabase } = require('../database/connection');
+const { initializeDatabase } = require('../database/schema');
+const { stagePostgresArchive } = require('./postgres-archive-stager');
 const { buildManagedServicePlan } = require('./postgres-service-manager');
 const { getManagedPostgresPolicy } = require('./postgres-version-policy');
 const payloadVerifier = require('./postgres-payload-verifier');
 
+const CERTIFICATION_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION';
+const CERTIFICATION_TOKEN_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION_TOKEN';
+const CERTIFICATION_TOKEN = 'managed-postgres-certification';
+const CERTIFICATION_DB_PREFIX = 'epos_cert_';
+const CERTIFICATION_ROOT_FRAGMENT = 'managed-postgres-cert';
+const SERVER_READY_TIMEOUT_MS = 30000;
+const COMMAND_TIMEOUT_MS = 60000;
+
 function managedInstallRoot(userDataPath) {
   return path.join(userDataPath, 'managed-postgres');
+}
+
+function codeError(code, message, metadata = {}) {
+  const error = new Error(message);
+  error.code = code;
+  Object.assign(error, metadata);
+  return error;
+}
+
+function isInside(parentPath, candidatePath) {
+  const parent = path.resolve(parentPath);
+  const candidate = path.resolve(candidatePath);
+  const relative = path.relative(parent, candidate);
+  return Boolean(relative) && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function assertCertificationExecutionGate(options = {}) {
+  const certification = options.certification || {};
+  if (
+    process.env[CERTIFICATION_ENV] !== '1' ||
+    process.env[CERTIFICATION_TOKEN_ENV] !== CERTIFICATION_TOKEN ||
+    certification.enabled !== true ||
+    certification.token !== CERTIFICATION_TOKEN
+  ) {
+    throw codeError(
+      'INSTALLER_POSTGRES_CERTIFICATION_GATE_REQUIRED',
+      'Managed PostgreSQL provisioning execution is available only in guarded certification mode.'
+    );
+  }
+
+  const certificationRoot = path.resolve(String(certification.root || ''));
+  if (
+    !certificationRoot ||
+    !certificationRoot.toLowerCase().includes(CERTIFICATION_ROOT_FRAGMENT)
+  ) {
+    throw codeError(
+      'INSTALLER_POSTGRES_CERTIFICATION_ROOT_REJECTED',
+      'Certification root must be an explicit managed PostgreSQL certification directory.'
+    );
+  }
+  const repoRoot = path.resolve(process.cwd());
+  for (const name of ['src', 'resources', 'tests', 'docs', 'release']) {
+    if (
+      certificationRoot === path.join(repoRoot, name) ||
+      isInside(path.join(repoRoot, name), certificationRoot)
+    ) {
+      throw codeError(
+        'INSTALLER_POSTGRES_CERTIFICATION_ROOT_REJECTED',
+        'Certification root must not target tracked source or packaged output directories.'
+      );
+    }
+  }
+
+  const database = String(certification.database || `${CERTIFICATION_DB_PREFIX}${Date.now()}`);
+  if (
+    !database.startsWith(CERTIFICATION_DB_PREFIX) ||
+    !/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/.test(database)
+  ) {
+    throw codeError(
+      'INSTALLER_POSTGRES_CERTIFICATION_DATABASE_REJECTED',
+      'Certification database name must use the approved disposable prefix.'
+    );
+  }
+
+  const archivePath = path.resolve(String(certification.archivePath || ''));
+  const policy = getManagedPostgresPolicy();
+  if (path.basename(archivePath) !== policy.payloadFileName) {
+    throw codeError(
+      'INSTALLER_POSTGRES_CERTIFICATION_ARCHIVE_REJECTED',
+      'Certification archive filename does not match the pinned policy.',
+      { expected: policy.payloadFileName, actual: path.basename(archivePath) }
+    );
+  }
+
+  return {
+    archivePath,
+    certificationRoot,
+    database,
+    port: certification.port || 0,
+    safeStorage: certification.safeStorage,
+  };
+}
+
+function assertNoActiveProvisioningOperation(userDataPath) {
+  const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
+  if (!latest) return null;
+  if (latest.state === PROVISIONING_STATES.COMPLETED) return latest;
+  if (requiresProvisioningRecovery(latest.state)) {
+    throw codeError(
+      'INSTALLER_POSTGRES_PROVISIONING_RECOVERY_REQUIRED',
+      'A previous managed PostgreSQL operation requires recovery before certification execution.',
+      { operationId: latest.operationId, state: latest.state }
+    );
+  }
+  if (
+    ![
+      PROVISIONING_STATES.CANCELLED_BEFORE_MUTATION,
+      PROVISIONING_STATES.FAILED,
+      PROVISIONING_STATES.ROLLED_BACK,
+    ].includes(latest.state)
+  ) {
+    throw codeError(
+      'INSTALLER_POSTGRES_PROVISIONING_OPERATION_ACTIVE',
+      'A managed PostgreSQL operation already exists and is not safe to replace.',
+      { operationId: latest.operationId, state: latest.state }
+    );
+  }
+  return null;
+}
+
+function ensureDirectory(targetPath) {
+  fs.mkdirSync(targetPath, { recursive: true });
+  return targetPath;
+}
+
+function assertManagedCertificationPaths(root, paths) {
+  for (const candidate of Object.values(paths)) {
+    if (candidate && path.resolve(candidate) !== path.resolve(root) && !isInside(root, candidate)) {
+      throw codeError(
+        'INSTALLER_POSTGRES_CERTIFICATION_PATH_REJECTED',
+        'Managed PostgreSQL certification path escapes the approved root.',
+        { candidate }
+      );
+    }
+  }
+}
+
+function runCommand(command, args, options = {}) {
+  const started = Date.now();
+  const timeoutMs = options.timeoutMs || COMMAND_TIMEOUT_MS;
+  return new Promise((resolve) => {
+    let settled = false;
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      env: { ...process.env, PGCONNECT_TIMEOUT: '5', ...(options.env || {}) },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      resolve({
+        command,
+        args,
+        exitCode: null,
+        signal: 'SIGKILL',
+        stdout,
+        stderr,
+        elapsedMs: Date.now() - started,
+        error: { code: 'INSTALLER_POSTGRES_COMMAND_TIMEOUT', message: 'Command timed out.' },
+      });
+    }, timeoutMs);
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        command,
+        args,
+        exitCode: null,
+        signal: null,
+        stdout,
+        stderr,
+        elapsedMs: Date.now() - started,
+        error: { code: error.code || 'INSTALLER_POSTGRES_COMMAND_FAILED', message: error.message },
+      });
+    });
+    child.on('close', (exitCode, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ command, args, exitCode, signal, stdout, stderr, elapsedMs: Date.now() - started });
+    });
+  });
+}
+
+function commandOk(result) {
+  return result && result.exitCode === 0 && !result.error;
+}
+
+function startServerProcess(command, args) {
+  const started = Date.now();
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      stdio: 'ignore',
+      windowsHide: true,
+      detached: true,
+    });
+    child.on('error', (error) => {
+      resolve({
+        command,
+        args,
+        exitCode: null,
+        signal: null,
+        stdout: '',
+        stderr: '',
+        elapsedMs: Date.now() - started,
+        error: { code: error.code || 'INSTALLER_POSTGRES_COMMAND_FAILED', message: error.message },
+      });
+    });
+    child.on('spawn', () => {
+      child.unref();
+      resolve({
+        command,
+        args,
+        exitCode: 0,
+        signal: null,
+        stdout: '',
+        stderr: '',
+        elapsedMs: Date.now() - started,
+      });
+    });
+  });
+}
+
+function executablePaths(runtimeRoot) {
+  const bin = path.join(runtimeRoot, 'pgsql', 'bin');
+  return {
+    postgres: path.join(bin, 'postgres.exe'),
+    initdb: path.join(bin, 'initdb.exe'),
+    pgCtl: path.join(bin, 'pg_ctl.exe'),
+    psql: path.join(bin, 'psql.exe'),
+    createdb: path.join(bin, 'createdb.exe'),
+  };
+}
+
+function getFreeLocalPort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      server.close(() => resolve(address.port));
+    });
+    server.on('error', reject);
+  });
+}
+
+function createPasswordFile(root, password) {
+  const passwordFile = path.join(root, 'postgres-password.txt');
+  fs.writeFileSync(passwordFile, `${password}\n`, { mode: 0o600 });
+  return passwordFile;
+}
+
+async function waitForServer(paths, port, password, timeoutMs, logCommand) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = await runCommand(
+      paths.psql,
+      [
+        '-h',
+        '127.0.0.1',
+        '-p',
+        String(port),
+        '-U',
+        'postgres',
+        '-d',
+        'postgres',
+        '-Atc',
+        'SELECT 1',
+      ],
+      { env: { PGPASSWORD: password } }
+    );
+    await logCommand('READINESS_PROBE', last, commandOk(last) ? 'success' : 'retry');
+    if (commandOk(last) && String(last.stdout).trim() === '1') return true;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw codeError(
+    'INSTALLER_POSTGRES_SERVER_START_TIMEOUT',
+    'Managed PostgreSQL did not become ready.',
+    {
+      lastExitCode: last?.exitCode,
+    }
+  );
+}
+
+async function queryPostgres(config, sql, database = 'postgres') {
+  const pool = new Pool({
+    host: '127.0.0.1',
+    port: config.port,
+    database,
+    user: config.user,
+    password: config.password,
+    ssl: false,
+    max: 1,
+    connectionTimeoutMillis: 5000,
+  });
+  try {
+    return await pool.query(sql);
+  } finally {
+    await pool.end().catch(() => {});
+  }
+}
+
+async function stopServer(paths, dataDir, logCommand) {
+  const result = await runCommand(paths.pgCtl, [
+    '-D',
+    dataDir,
+    '-m',
+    'fast',
+    '-w',
+    '-t',
+    '30',
+    'stop',
+  ]);
+  await logCommand('STOP_SERVER', result, commandOk(result) ? 'success' : 'failed');
+  return result;
+}
+
+function writePostgresConfig(dataDir, port) {
+  fs.appendFileSync(
+    path.join(dataDir, 'postgresql.conf'),
+    [
+      '',
+      '# Enterprise POS managed PostgreSQL certification configuration',
+      "listen_addresses = '127.0.0.1'",
+      `port = ${port}`,
+      "timezone = 'UTC'",
+      "log_min_messages = 'warning'",
+      '',
+    ].join('\n')
+  );
+  fs.writeFileSync(
+    path.join(dataDir, 'pg_hba.conf'),
+    [
+      '# Enterprise POS managed PostgreSQL certification authentication',
+      'local all all scram-sha-256',
+      'host all all 127.0.0.1/32 scram-sha-256',
+      'host all all ::1/128 reject',
+      '',
+    ].join('\n')
+  );
+}
+
+async function transitionAndSave(userDataPath, operation, nextState, metadata = {}) {
+  const next = transitionProvisioningOperation(operation, nextState, metadata);
+  repository.saveProvisioningOperation(userDataPath, next);
+  return next;
+}
+
+async function executeCertificationProvisioning(options = {}) {
+  const gate = assertCertificationExecutionGate(options);
+  const { userDataPath } = options;
+  if (!userDataPath) {
+    throw codeError('INSTALLER_POSTGRES_USER_DATA_REQUIRED', 'User data path is required.');
+  }
+  const existing = assertNoActiveProvisioningOperation(userDataPath);
+  if (existing?.state === PROVISIONING_STATES.COMPLETED) {
+    return {
+      ok: true,
+      code: 'INSTALLER_POSTGRES_PROVISIONING_ALREADY_COMPLETED',
+      operation: redactProvisioningOperation(existing),
+      resumed: true,
+    };
+  }
+
+  const policy = getManagedPostgresPolicy();
+  const certificationRoot = ensureDirectory(gate.certificationRoot);
+  const pendingRoot = path.join(certificationRoot, 'pending');
+  const runtimeRoot = path.join(certificationRoot, policy.installDirectoryName);
+  const dataDir = path.join(certificationRoot, policy.dataDirectoryName);
+  const logsDir = ensureDirectory(path.join(certificationRoot, 'logs'));
+  assertManagedCertificationPaths(certificationRoot, {
+    pendingRoot,
+    runtimeRoot,
+    dataDir,
+    logsDir,
+  });
+  if (fs.existsSync(dataDir) && fs.readdirSync(dataDir).length > 0) {
+    throw codeError(
+      'INSTALLER_POSTGRES_DATA_DIRECTORY_NOT_DISPOSABLE',
+      'Certification data directory already contains data.'
+    );
+  }
+
+  const port = gate.port || (await getFreeLocalPort());
+  const target = {
+    host: '127.0.0.1',
+    port,
+    database: gate.database,
+    username: 'enterprise_pos_app',
+    managed: true,
+    certificationOnly: true,
+  };
+  let operation = createProvisioningOperation({
+    target,
+    port,
+    dataDirectory: dataDir,
+    service: { runtimeModel: 'certification-child-process', serviceName: null },
+  });
+  repository.saveProvisioningOperation(userDataPath, operation);
+
+  const logCommand = async (step, result, status = null) => {
+    recordInstallerLog(userDataPath, {
+      operationId: operation.operationId,
+      step,
+      status: status || (commandOk(result) ? 'success' : 'failed'),
+      durationMs: result?.elapsedMs,
+      exitCode: result?.exitCode,
+      command: result ? { executable: result.command, args: result.args } : null,
+      message: `${step} ${commandOk(result) ? 'completed' : 'did not complete successfully'}.`,
+      error: result?.error?.message || result?.stderr || null,
+    });
+  };
+
+  let paths = null;
+  try {
+    const staged = await stagePostgresArchive({
+      archivePath: gate.archivePath,
+      stagingRoot: pendingRoot,
+    });
+    operation = {
+      ...operation,
+      payload: {
+        version: policy.managedVersion,
+        fileName: policy.payloadFileName,
+        digest: staged.digest,
+      },
+    };
+    repository.saveProvisioningOperation(userDataPath, operation);
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.ARCHIVE_VERIFIED,
+      {
+        reason: 'archive_identity_and_structure_verified',
+      }
+    );
+    fs.rmSync(runtimeRoot, { recursive: true, force: true });
+    fs.renameSync(pendingRoot, runtimeRoot);
+    paths = executablePaths(runtimeRoot);
+    for (const exe of Object.values(paths)) {
+      if (!fs.existsSync(exe)) {
+        throw codeError(
+          'INSTALLER_POSTGRES_STAGED_EXECUTABLE_MISSING',
+          'Staged executable is missing.',
+          {
+            executable: exe,
+          }
+        );
+      }
+    }
+    if (
+      fs.existsSync(path.join(runtimeRoot, 'pgsql', 'pgAdmin 4')) ||
+      fs.existsSync(path.join(runtimeRoot, 'pgsql', 'StackBuilder'))
+    ) {
+      throw codeError(
+        'INSTALLER_POSTGRES_FORBIDDEN_COMPONENT_STAGED',
+        'Forbidden PostgreSQL tooling was staged.'
+      );
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.PAYLOAD_STAGED,
+      {
+        reason: 'payload_promoted_to_certification_runtime',
+      }
+    );
+
+    const adminPassword = generateManagedPostgresPassword();
+    const appPassword = generateManagedPostgresPassword();
+    const passwordFile = createPasswordFile(certificationRoot, adminPassword);
+    ensureDirectory(dataDir);
+    const initdb = await runCommand(paths.initdb, [
+      '-D',
+      dataDir,
+      '-U',
+      'postgres',
+      '-A',
+      'scram-sha-256',
+      '--pwfile',
+      passwordFile,
+      '-E',
+      'UTF8',
+    ]);
+    await logCommand('INITDB', initdb);
+    fs.rmSync(passwordFile, { force: true });
+    if (!commandOk(initdb)) {
+      throw codeError('INSTALLER_POSTGRES_INITDB_FAILED', 'initdb failed.', {
+        exitCode: initdb.exitCode,
+      });
+    }
+    writePostgresConfig(dataDir, port);
+    if (!fs.existsSync(path.join(dataDir, 'PG_VERSION'))) {
+      throw codeError('INSTALLER_POSTGRES_DATA_DIRECTORY_INVALID', 'PG_VERSION was not created.');
+    }
+    const pgVersion = fs.readFileSync(path.join(dataDir, 'PG_VERSION'), 'utf8').trim();
+    if (pgVersion !== String(policy.managedMajor)) {
+      throw codeError(
+        'INSTALLER_POSTGRES_PG_VERSION_MISMATCH',
+        'Initialized cluster version is not certified.',
+        {
+          pgVersion,
+        }
+      );
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.DATA_DIRECTORY_INITIALIZED,
+      {
+        reason: 'cluster_initialized_and_verified',
+      }
+    );
+
+    const serverLog = path.join(logsDir, 'postgres-server.log');
+    const startArgs = [
+      '-D',
+      dataDir,
+      '-l',
+      serverLog,
+      '-o',
+      `-h 127.0.0.1 -p ${port}`,
+      '-w',
+      '-t',
+      '30',
+      'start',
+    ];
+    const start = await startServerProcess(paths.pgCtl, startArgs);
+    await logCommand('START_SERVER', start);
+    if (!commandOk(start)) {
+      throw codeError(
+        'INSTALLER_POSTGRES_SERVER_START_FAILED',
+        'Managed PostgreSQL server failed to start.',
+        {
+          exitCode: start.exitCode,
+        }
+      );
+    }
+    await waitForServer(paths, port, adminPassword, SERVER_READY_TIMEOUT_MS, logCommand);
+    const serverVersion = await queryPostgres(
+      { port, user: 'postgres', password: adminPassword },
+      'SELECT version() AS version'
+    );
+    if (!String(serverVersion.rows[0]?.version || '').includes('PostgreSQL 17.10')) {
+      throw codeError(
+        'INSTALLER_POSTGRES_SERVER_VERSION_MISMATCH',
+        'Managed server version is not PostgreSQL 17.10.'
+      );
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.SERVER_STARTED,
+      {
+        reason: 'server_started_and_version_verified',
+      }
+    );
+
+    await queryPostgres(
+      { port, user: 'postgres', password: adminPassword },
+      `DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'enterprise_pos_app') THEN
+          CREATE ROLE enterprise_pos_app LOGIN PASSWORD '${appPassword.replace(/'/g, "''")}';
+        ELSE
+          ALTER ROLE enterprise_pos_app WITH LOGIN PASSWORD '${appPassword.replace(/'/g, "''")}';
+        END IF;
+      END $$;`
+    );
+    const quotedDb = `"${gate.database.replace(/"/g, '""')}"`;
+    const exists = await queryPostgres(
+      { port, user: 'postgres', password: adminPassword },
+      `SELECT 1 FROM pg_database WHERE datname = '${gate.database.replace(/'/g, "''")}' LIMIT 1`
+    );
+    if (exists.rowCount === 0) {
+      await queryPostgres(
+        { port, user: 'postgres', password: adminPassword },
+        `CREATE DATABASE ${quotedDb} OWNER enterprise_pos_app ENCODING 'UTF8' TEMPLATE template0`
+      );
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.DATABASE_CREATED,
+      {
+        reason: 'application_database_and_role_verified',
+      }
+    );
+
+    const saved = configStore.saveInstallationConfig(
+      userDataPath,
+      {
+        host: '127.0.0.1',
+        port,
+        database: gate.database,
+        username: 'enterprise_pos_app',
+        password: appPassword,
+        sslMode: 'disable',
+        installerVersion: '1.0.0',
+      },
+      { safeStorage: gate.safeStorage }
+    );
+    if (!saved.ok) {
+      throw codeError(
+        'INSTALLER_POSTGRES_CONFIG_SAVE_FAILED',
+        'Managed database configuration was not saved.'
+      );
+    }
+    configStore.applyInstallationConfigToEnv({
+      host: '127.0.0.1',
+      port,
+      database: gate.database,
+      username: 'enterprise_pos_app',
+      password: appPassword,
+      sslMode: 'disable',
+    });
+    await closeDatabase();
+    await initializeDatabase();
+    const schemaCheck = await queryPostgres(
+      { port, user: 'enterprise_pos_app', password: appPassword },
+      "SELECT to_regclass('public.users') AS users_table, to_regclass('public.products') AS products_table",
+      gate.database
+    );
+    if (!schemaCheck.rows[0]?.users_table || !schemaCheck.rows[0]?.products_table) {
+      throw codeError(
+        'INSTALLER_POSTGRES_SCHEMA_NOT_READY',
+        'Application schema readiness check failed.'
+      );
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.APPLICATION_SCHEMA_READY,
+      {
+        reason: 'application_schema_initialized_and_verified',
+      }
+    );
+
+    operation = await transitionAndSave(userDataPath, operation, PROVISIONING_STATES.COMPLETED, {
+      reason: 'certification_provisioning_completed',
+    });
+    await closeDatabase();
+    await stopServer(paths, dataDir, logCommand);
+    return {
+      ok: true,
+      code: 'INSTALLER_POSTGRES_CERTIFICATION_PROVISIONING_COMPLETED',
+      operation: redactProvisioningOperation(operation),
+      runtime: {
+        runtimeRoot,
+        dataDir,
+        logsDir,
+        port,
+        database: gate.database,
+      },
+      serverVersion: serverVersion.rows[0]?.version,
+    };
+  } catch (error) {
+    await closeDatabase().catch(() => {});
+    if (paths && fs.existsSync(dataDir)) {
+      await stopServer(paths, dataDir, logCommand).catch(() => {});
+    }
+    let failed = operation;
+    if (operation && operation.state !== PROVISIONING_STATES.COMPLETED) {
+      const nextState = [
+        PROVISIONING_STATES.DATA_DIRECTORY_INITIALIZED,
+        PROVISIONING_STATES.SERVER_STARTED,
+        PROVISIONING_STATES.DATABASE_CREATED,
+        PROVISIONING_STATES.APPLICATION_SCHEMA_READY,
+      ].includes(operation.state)
+        ? PROVISIONING_STATES.ROLLBACK_REQUIRED
+        : PROVISIONING_STATES.FAILED;
+      failed = transitionProvisioningOperation(operation, nextState, {
+        reason: 'certification_provisioning_failed',
+        failureCode: error.code || 'INSTALLER_POSTGRES_CERTIFICATION_FAILED',
+        failureStage: operation.state,
+      });
+      repository.saveProvisioningOperation(userDataPath, failed);
+    }
+    recordInstallerLog(userDataPath, {
+      operationId: failed?.operationId || operation?.operationId,
+      step: 'CERTIFICATION_FAILED',
+      status: 'failed',
+      message: 'Managed PostgreSQL certification provisioning failed.',
+      error: error.message,
+    });
+    return {
+      ok: false,
+      code: error.code || 'INSTALLER_POSTGRES_CERTIFICATION_FAILED',
+      message: error.message,
+      operation: redactProvisioningOperation(failed),
+    };
+  }
 }
 
 async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null } = {}) {
@@ -69,7 +779,20 @@ function recordInstallerLog(userDataPath, input = {}) {
   return repository.appendProvisioningLog(userDataPath, entry);
 }
 
-async function startManagedPostgresProvisioning({ userDataPath, payloadRoot = null } = {}) {
+async function startManagedPostgresProvisioning(options = {}) {
+  const { userDataPath, payloadRoot = null } = options;
+  if (options.certification?.enabled === true || process.env[CERTIFICATION_ENV] === '1') {
+    try {
+      return await executeCertificationProvisioning(options);
+    } catch (error) {
+      return {
+        ok: false,
+        code: error.code || 'INSTALLER_POSTGRES_CERTIFICATION_GATE_FAILED',
+        message: error.message,
+      };
+    }
+  }
+
   const preflight = await assessManagedPostgresPreflight({ userDataPath, payloadRoot });
   const policy = getManagedPostgresPolicy();
   const target = {
@@ -180,9 +903,17 @@ function getManagedPostgresProvisioningStatus({ userDataPath } = {}) {
 }
 
 module.exports = {
+  CERTIFICATION_DB_PREFIX,
+  CERTIFICATION_ENV,
+  CERTIFICATION_TOKEN,
+  CERTIFICATION_TOKEN_ENV,
   assessManagedPostgresPreflight,
+  assertCertificationExecutionGate,
+  executeCertificationProvisioning,
   getManagedPostgresProvisioningStatus,
+  getFreeLocalPort,
   managedInstallRoot,
   recordInstallerLog,
+  runCommand,
   startManagedPostgresProvisioning,
 };
