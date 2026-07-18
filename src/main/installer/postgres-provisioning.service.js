@@ -3,7 +3,12 @@ const path = require('path');
 const { generateManagedPostgresPassword } = require('./postgres-credential.service');
 const {
   PROVISIONING_STATES,
+  assessProvisioningReadiness,
+  classifyProvisioningRecovery,
+  createProvisioningLogEntry,
   createProvisioningOperation,
+  getProvisioningProgressContract,
+  getProvisioningRollbackPlan,
   redactProvisioningOperation,
   requiresProvisioningRecovery,
   transitionProvisioningOperation,
@@ -22,6 +27,7 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
   const payload = payloadVerifier.verifyBundledPayload({ payloadRoot });
   const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
   const pendingRecovery = latest ? requiresProvisioningRecovery(latest.state) : false;
+  const recovery = classifyProvisioningRecovery(latest);
   const plan = userDataPath
     ? buildManagedServicePlan({ installRoot: managedInstallRoot(userDataPath) })
     : null;
@@ -32,6 +38,16 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     payload,
     latestOperation: redactProvisioningOperation(latest),
     pendingRecovery,
+    recovery,
+    rollbackPlan: getProvisioningRollbackPlan(latest),
+    progressContract: getProvisioningProgressContract(),
+    readiness: assessProvisioningReadiness({
+      archivePolicyPinned: true,
+      archiveStagingCertified: true,
+      runtimeHarnessReady: true,
+      cleanEnvironmentCertified: false,
+      releaseApproved: false,
+    }),
     servicePlan: plan
       ? {
           serviceName: plan.serviceName,
@@ -45,6 +61,12 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
       ...(pendingRecovery ? ['INSTALLER_POSTGRES_PROVISIONING_RECOVERY_REQUIRED'] : []),
     ],
   };
+}
+
+function recordInstallerLog(userDataPath, input = {}) {
+  if (!userDataPath) return { ok: false, code: 'INSTALLER_LOG_PATH_MISSING' };
+  const entry = createProvisioningLogEntry(input);
+  return repository.appendProvisioningLog(userDataPath, entry);
 }
 
 async function startManagedPostgresProvisioning({ userDataPath, payloadRoot = null } = {}) {
@@ -71,6 +93,12 @@ async function startManagedPostgresProvisioning({ userDataPath, payloadRoot = nu
       : null,
   });
   repository.saveProvisioningOperation(userDataPath, operation);
+  recordInstallerLog(userDataPath, {
+    operationId: operation.operationId,
+    step: 'PROVISIONING_REQUESTED',
+    status: 'started',
+    message: 'Managed PostgreSQL provisioning was requested through the setup controller.',
+  });
 
   if (!preflight.ok) {
     const failed = transitionProvisioningOperation(
@@ -83,6 +111,14 @@ async function startManagedPostgresProvisioning({ userDataPath, payloadRoot = nu
       }
     );
     repository.saveProvisioningOperation(userDataPath, failed);
+    recordInstallerLog(userDataPath, {
+      operationId: failed.operationId,
+      step: 'PREFLIGHT',
+      status: 'blocked',
+      exitCode: 0,
+      message: 'Provisioning stopped before mutation because preflight blockers are present.',
+      error: failed.failureCode,
+    });
     return {
       ok: false,
       code: failed.failureCode,
@@ -104,6 +140,14 @@ async function startManagedPostgresProvisioning({ userDataPath, payloadRoot = nu
     }
   );
   repository.saveProvisioningOperation(userDataPath, credentialed);
+  recordInstallerLog(userDataPath, {
+    operationId: credentialed.operationId,
+    step: 'CREDENTIALS_GENERATED',
+    status: 'blocked',
+    exitCode: 0,
+    message:
+      'Managed PostgreSQL execution remains disabled pending clean-machine certification and release approval.',
+  });
 
   return {
     ok: false,
@@ -122,6 +166,16 @@ function getManagedPostgresProvisioningStatus({ userDataPath } = {}) {
     ok: true,
     operation: redactProvisioningOperation(latest),
     recoveryRequired: latest ? requiresProvisioningRecovery(latest.state) : false,
+    recovery: classifyProvisioningRecovery(latest),
+    rollbackPlan: getProvisioningRollbackPlan(latest),
+    progressContract: getProvisioningProgressContract(),
+    readiness: assessProvisioningReadiness({
+      archivePolicyPinned: true,
+      archiveStagingCertified: true,
+      runtimeHarnessReady: true,
+      cleanEnvironmentCertified: false,
+      releaseApproved: false,
+    }),
   };
 }
 
@@ -129,5 +183,6 @@ module.exports = {
   assessManagedPostgresPreflight,
   getManagedPostgresProvisioningStatus,
   managedInstallRoot,
+  recordInstallerLog,
   startManagedPostgresProvisioning,
 };

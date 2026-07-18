@@ -3,8 +3,8 @@
 This phase defines the Enterprise POS Windows installer architecture for a future bundled PostgreSQL
 runtime.
 
-Production managed provisioning is intentionally blocked until release engineering supplies a
-verified server payload.
+Production managed provisioning is intentionally blocked until clean-machine runtime certification
+and release approval are both complete.
 
 ## Version Policy
 
@@ -60,6 +60,90 @@ database exists.
 
 The journal records state transitions without storing passwords or full connection strings.
 
+## Provisioning State Machine
+
+The production provisioning architecture is serializable and resumable, but still disabled. The
+authoritative staged lifecycle is:
+
+1. `NOT_STARTED`
+2. `ARCHIVE_VERIFIED`
+3. `PAYLOAD_STAGED`
+4. `DATA_DIRECTORY_INITIALIZED`
+5. `SERVER_STARTED`
+6. `DATABASE_CREATED`
+7. `APPLICATION_SCHEMA_READY`
+8. `COMPLETED`
+
+Failure states are:
+
+- `FAILED`
+- `ROLLBACK_REQUIRED`
+- `ROLLBACK_IN_PROGRESS`
+- `ROLLED_BACK`
+- `MANUAL_RECOVERY_REQUIRED`
+- `CANCELLED_BEFORE_MUTATION`
+
+Interrupted states are reconciled from the provisioning journal. The installer may resume only when
+the previous stage can be verified deterministically. Ambiguous failures and interrupted rollbacks
+remain blocked for manual recovery.
+
+## Recovery and Rollback Policy
+
+Recovery decisions are deterministic:
+
+- verified archive state may restage the payload;
+- staged payload state must re-check the staged runtime before `initdb`;
+- initialized data directories must be ownership-checked before server start;
+- started server state must be health-checked before database creation;
+- created databases must be inspected before schema initialization;
+- schema-ready state must pass health checks before completion;
+- interrupted rollback and unknown states require manual review.
+
+Rollback may remove only Enterprise POS-owned temporary staging directories, incomplete managed
+runtime directories, incomplete managed data directories, and transient service registration created
+by the same operation. Rollback preserves:
+
+- the provisioning journal;
+- stage logs and PostgreSQL server logs;
+- the source PostgreSQL archive;
+- license and notice evidence;
+- user databases;
+- unrelated PostgreSQL installations and services.
+
+The installer never deletes user databases or unrelated PostgreSQL services.
+
+## Installer Logs and Progress Contract
+
+Provisioning events are append-only JSON Lines records in Electron `userData`. Each entry contains
+timestamp, operation ID, step, duration, status, exit code, redacted command evidence, a human
+message, and sanitized error details.
+
+Installer-facing progress labels are prepared but inactive:
+
+- Verifying PostgreSQL package
+- Checking integrity
+- Preparing runtime
+- Initializing database
+- Starting database
+- Creating application database
+- Preparing Enterprise POS
+- Completed
+- Failed
+
+Renderer code can display these labels in the future, but it cannot choose service commands,
+filesystem paths, credentials, or activation state.
+
+## Production Readiness Report
+
+The installer readiness assessment reports:
+
+- `completed`: archive policy, manifest pinning, safe staging, and runtime harness;
+- `pending`: clean Windows Sandbox/VM runtime certification;
+- `pending`: release approval;
+- `blocked`: production activation until both pending gates pass.
+
+`provisioningActivationEnabled` remains `false`, and `certifiedForActivation` remains `false`.
+
 ## Safety Boundaries
 
 - Renderer code cannot choose service commands or filesystem paths.
@@ -72,8 +156,6 @@ The journal records state transitions without storing passwords or full connecti
 
 ## Remaining Certification Work
 
-- Supply and checksum-pin the PostgreSQL server payload.
-- Complete redistribution and notice review for the selected payload.
 - Code-sign the Windows installer.
 - Run Windows Sandbox or VM certification for managed provisioning, repair, upgrade, and uninstall.
 - Physically certify a shop deployment before enabling managed provisioning in production.

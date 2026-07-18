@@ -4,6 +4,7 @@ const path = require('path');
 const { redactProvisioningOperation } = require('./postgres-provisioning.model');
 
 const JOURNAL_FILE = 'postgres-provisioning-journal.json';
+const LOG_FILE = 'postgres-provisioning-events.jsonl';
 
 function journalPath(userDataPath) {
   return path.join(userDataPath, JOURNAL_FILE);
@@ -26,6 +27,10 @@ function writeJournal(userDataPath, journal) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, `${JSON.stringify(journal, null, 2)}\n`, { mode: 0o600 });
   return target;
+}
+
+function logPath(userDataPath) {
+  return path.join(userDataPath, LOG_FILE);
 }
 
 function saveProvisioningOperation(userDataPath, operation) {
@@ -53,11 +58,32 @@ function getLatestProvisioningOperation(userDataPath) {
   );
 }
 
+function appendProvisioningLog(userDataPath, entry) {
+  const target = logPath(userDataPath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.appendFileSync(target, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+  return { ok: true, path: target };
+}
+
+function readProvisioningLogs(userDataPath) {
+  const target = logPath(userDataPath);
+  if (!fs.existsSync(target)) return [];
+  return fs
+    .readFileSync(target, 'utf8')
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
 module.exports = {
   JOURNAL_FILE,
+  LOG_FILE,
+  appendProvisioningLog,
   getLatestProvisioningOperation,
   getProvisioningOperation,
   journalPath,
+  logPath,
   readJournal,
+  readProvisioningLogs,
   saveProvisioningOperation,
 };

@@ -147,6 +147,115 @@ test('provisioning journal persists state transitions without secrets', () => {
   );
 });
 
+test('managed provisioning state model describes resumable production stages', () => {
+  const states = provisioningModel.PROVISIONING_STATES;
+  for (const state of [
+    'NOT_STARTED',
+    'ARCHIVE_VERIFIED',
+    'PAYLOAD_STAGED',
+    'DATA_DIRECTORY_INITIALIZED',
+    'SERVER_STARTED',
+    'DATABASE_CREATED',
+    'APPLICATION_SCHEMA_READY',
+    'COMPLETED',
+    'FAILED',
+    'ROLLBACK_REQUIRED',
+  ]) {
+    assert.equal(states[state], state);
+  }
+
+  const operation = provisioningModel.createProvisioningOperation({
+    state: states.PAYLOAD_STAGED,
+  });
+  const recovery = provisioningModel.classifyProvisioningRecovery(operation);
+  assert.equal(recovery.resumable, true);
+  assert.equal(recovery.action, 'VERIFY_STAGED_PAYLOAD_THEN_INITDB');
+  assert.equal(provisioningModel.requiresProvisioningRecovery(states.ROLLBACK_REQUIRED), true);
+  assert.throws(
+    () =>
+      provisioningModel.assertProvisioningTransitionAllowed(
+        { ...operation, state: states.PAYLOAD_STAGED },
+        states.COMPLETED
+      ),
+    /not allowed/
+  );
+});
+
+test('managed provisioning recovery decisions are conservative for interrupted rollback', () => {
+  const operation = provisioningModel.createProvisioningOperation({
+    state: provisioningModel.PROVISIONING_STATES.ROLLBACK_IN_PROGRESS,
+  });
+  const recovery = provisioningModel.classifyProvisioningRecovery(operation);
+  assert.equal(recovery.blocked, true);
+  assert.equal(recovery.action, 'MANUAL_REVIEW');
+  assert.match(recovery.message, /cannot be assumed successful/i);
+});
+
+test('managed PostgreSQL rollback policy preserves user databases and diagnostics', () => {
+  const plan = provisioningModel.getProvisioningRollbackPlan({
+    operationId: 'op-rollback-plan',
+  });
+  assert.equal(plan.operationId, 'op-rollback-plan');
+  assert.ok(plan.removes.some((item) => /temporary staging/i.test(item)));
+  assert.ok(plan.preserves.some((item) => /user databases/i.test(item)));
+  assert.ok(plan.preserves.some((item) => /logs/i.test(item)));
+  assert.ok(
+    plan.manualInterventionRequiredWhen.some((item) => /unrelated PostgreSQL service/i.test(item))
+  );
+});
+
+test('managed provisioning log entries redact secrets and persist as JSONL', () => {
+  const root = tempDir('epos-postgres-log-');
+  const entry = provisioningModel.createProvisioningLogEntry(
+    {
+      operationId: 'op-log',
+      step: 'STARTING_DATABASE',
+      status: 'failed',
+      durationMs: 250,
+      exitCode: 1,
+      command: {
+        executable: 'pg_ctl.exe',
+        args: ['start', 'password=super-secret'],
+      },
+      error: 'PGPASSWORD=super-secret connection failed',
+    },
+    { now: '2026-07-18T00:00:00.000Z' }
+  );
+  provisioningRepository.appendProvisioningLog(root, entry);
+  const raw = fs.readFileSync(provisioningRepository.logPath(root), 'utf8');
+  assert.doesNotMatch(raw, /super-secret/);
+  const logs = provisioningRepository.readProvisioningLogs(root);
+  assert.equal(logs[0].step, 'STARTING_DATABASE');
+  assert.equal(logs[0].command.args[1], 'password=[redacted]');
+});
+
+test('managed provisioning progress contract is installer-facing and inactive', () => {
+  const progress = provisioningModel.getProvisioningProgressContract();
+  assert.deepEqual(
+    progress.map((event) => event.label),
+    [
+      'Verifying PostgreSQL package',
+      'Checking integrity',
+      'Preparing runtime',
+      'Initializing database',
+      'Starting database',
+      'Creating application database',
+      'Preparing Enterprise POS',
+      'Completed',
+      'Failed',
+    ]
+  );
+  const readiness = provisioningModel.assessProvisioningReadiness({
+    cleanEnvironmentCertified: false,
+    releaseApproved: false,
+  });
+  assert.equal(readiness.provisioningActivationEnabled, false);
+  assert.equal(readiness.certifiedForActivation, false);
+  assert.equal(readiness.ok, false);
+  assert.ok(readiness.blockers.includes('CLEAN_ENVIRONMENT_CERTIFICATION'));
+  assert.ok(readiness.blockers.includes('RELEASE_APPROVAL'));
+});
+
 test('managed provisioning is blocked safely when packaged payload is not certified', async () => {
   const userDataPath = tempDir('epos-postgres-provision-');
   const result = await provisioningService.startManagedPostgresProvisioning({ userDataPath });
