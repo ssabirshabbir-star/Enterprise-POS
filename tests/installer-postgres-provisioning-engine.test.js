@@ -201,6 +201,78 @@ test('initdb launch diagnostics redact password file path and report staged layo
   assert.equal(diagnostics.environment.pathStartsWithPostgresBin, true);
 });
 
+test('certification provisioning blocks before initdb when Visual C++ Runtime evidence is unresolved', async () => {
+  await withCertificationEnv(async () => {
+    const userDataPath = tempDir('epos-pg-vc-block-userdata-');
+    const root = tempDir('managed-postgres-cert-vc-block-');
+    const vcRoot = tempDir('epos-vc-runtime-unresolved-');
+    const result = await provisioningService.startManagedPostgresProvisioning({
+      userDataPath,
+      certification: {
+        enabled: true,
+        token: provisioningService.CERTIFICATION_TOKEN,
+        root,
+        archivePath: ARCHIVE_PATH,
+        database: `epos_cert_vc_block_${Date.now()}`,
+        vcRuntimeRoot: vcRoot,
+        safeStorage: fakeSafeStorage(),
+      },
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'VC_RUNTIME_MANIFEST_MISSING');
+    const logs = provisioningRepository.readProvisioningLogs(userDataPath);
+    assert.ok(logs.some((entry) => entry.step === 'VC_RUNTIME_CHECK'));
+    assert.equal(
+      logs.some((entry) => entry.step === 'INITDB'),
+      false
+    );
+  });
+});
+
+test('certification Visual C++ Runtime install option still requires verified payload', async () => {
+  await withCertificationEnv(async () => {
+    const userDataPath = tempDir('epos-pg-vc-install-userdata-');
+    const root = tempDir('managed-postgres-cert-vc-install-');
+    const vcRoot = tempDir('epos-vc-runtime-install-missing-');
+    const manifestSource = path.join(
+      __dirname,
+      '..',
+      'resources',
+      'prerequisites',
+      'microsoft-vc-runtime',
+      'manifest.json'
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestSource, 'utf8'));
+    fs.writeFileSync(
+      path.join(vcRoot, 'manifest.json'),
+      `${JSON.stringify({ ...manifest, minimumVersion: '99.0.0.0' }, null, 2)}\n`
+    );
+    const result = await provisioningService.startManagedPostgresProvisioning({
+      userDataPath,
+      certification: {
+        enabled: true,
+        token: provisioningService.CERTIFICATION_TOKEN,
+        root,
+        archivePath: ARCHIVE_PATH,
+        database: `epos_cert_vc_install_${Date.now()}`,
+        vcRuntimeRoot: vcRoot,
+        installVcRuntime: true,
+        safeStorage: fakeSafeStorage(),
+      },
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'VC_RUNTIME_PAYLOAD_MISSING');
+    const logs = provisioningRepository.readProvisioningLogs(userDataPath);
+    assert.ok(logs.some((entry) => entry.step === 'VC_RUNTIME_INSTALL'));
+    assert.equal(
+      logs.some((entry) => entry.step === 'INITDB'),
+      false
+    );
+  });
+});
+
 test('certification provisioning engine runs full local disposable state machine', async (t) => {
   if (!fs.existsSync(ARCHIVE_PATH)) {
     t.skip('Official PostgreSQL archive is not available on this machine.');

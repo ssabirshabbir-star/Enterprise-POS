@@ -1,6 +1,7 @@
 const installerConfigStore = require('./installer-config.store');
 const installerDiagnostics = require('./installer-diagnostics.service');
 const postgresProvisioning = require('./postgres-provisioning.service');
+const vcRuntimePrerequisite = require('./vc-runtime-prerequisite.service');
 
 function safeError(error) {
   return {
@@ -84,6 +85,14 @@ function registerInstallerRoutes(ipcMain, app) {
       return postgresProvisioning.getManagedPostgresProvisioningStatus({
         userDataPath: app.getPath('userData'),
       });
+    } catch (error) {
+      return safeError(error);
+    }
+  });
+
+  ipcMain.handle('/installer/prerequisites/vc-runtime/status', async () => {
+    try {
+      return vcRuntimePrerequisite.assessVcRuntimePrerequisite();
     } catch (error) {
       return safeError(error);
     }

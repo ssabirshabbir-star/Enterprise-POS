@@ -30,6 +30,7 @@ const {
   buildInitdbLaunchDiagnostics,
   postgresCommandOptions,
 } = require('./postgres-runtime-diagnostics');
+const vcRuntimePrerequisite = require('./vc-runtime-prerequisite.service');
 
 const CERTIFICATION_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION';
 const CERTIFICATION_TOKEN_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION_TOKEN';
@@ -476,6 +477,59 @@ async function executeCertificationProvisioning(options = {}) {
 
   let paths = null;
   try {
+    const prerequisiteRoot =
+      options.certification?.vcRuntimeRoot || vcRuntimePrerequisite.defaultPrerequisiteRoot();
+    const prerequisiteStatus = vcRuntimePrerequisite.assessVcRuntimePrerequisite({
+      root: prerequisiteRoot,
+    });
+    recordInstallerLog(userDataPath, {
+      operationId: operation.operationId,
+      step: 'VC_RUNTIME_CHECK',
+      status: prerequisiteStatus.detection.compatible ? 'success' : 'blocked',
+      message: prerequisiteStatus.detection.compatible
+        ? 'Microsoft Visual C++ Runtime prerequisite is available.'
+        : 'Microsoft Visual C++ Runtime prerequisite is not available.',
+      error: prerequisiteStatus.detection.compatible ? null : prerequisiteStatus.code,
+    });
+    if (!prerequisiteStatus.detection.compatible) {
+      if (options.certification?.installVcRuntime === true) {
+        const installResult = await vcRuntimePrerequisite.installVcRuntimePrerequisite({
+          root: prerequisiteRoot,
+          logPath: path.join(logsDir, 'vc-redist-install.log'),
+        });
+        recordInstallerLog(userDataPath, {
+          operationId: operation.operationId,
+          step: 'VC_RUNTIME_INSTALL',
+          status: installResult.ok ? 'success' : 'blocked',
+          durationMs: installResult.install?.elapsedMs,
+          exitCode: installResult.install?.exitCode,
+          command: installResult.install
+            ? {
+                executable: installResult.install.command,
+                args: installResult.install.args,
+              }
+            : null,
+          message: installResult.ok
+            ? 'Microsoft Visual C++ Runtime prerequisite was installed and verified.'
+            : 'Microsoft Visual C++ Runtime prerequisite installation did not produce verified readiness.',
+          error: installResult.ok ? null : installResult.code,
+        });
+        if (!installResult.ok) {
+          throw codeError(
+            installResult.code || 'VC_RUNTIME_INSTALL_FAILED',
+            'Microsoft Visual C++ Runtime prerequisite is required before PostgreSQL initialization.',
+            { prerequisite: installResult }
+          );
+        }
+      } else {
+        throw codeError(
+          prerequisiteStatus.code || 'VC_RUNTIME_NOT_INSTALLED',
+          'Microsoft Visual C++ Runtime prerequisite is required before PostgreSQL initialization.',
+          { prerequisite: prerequisiteStatus }
+        );
+      }
+    }
+
     const staged = await stagePostgresArchive({
       archivePath: gate.archivePath,
       stagingRoot: pendingRoot,
@@ -800,6 +854,7 @@ async function executeCertificationProvisioning(options = {}) {
 async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null } = {}) {
   const policy = getManagedPostgresPolicy();
   const payload = payloadVerifier.verifyBundledPayload({ payloadRoot });
+  const vcRuntime = vcRuntimePrerequisite.assessVcRuntimePrerequisite();
   const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
   const pendingRecovery = latest ? requiresProvisioningRecovery(latest.state) : false;
   const recovery = classifyProvisioningRecovery(latest);
@@ -811,6 +866,9 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     ok: payload.ok && !pendingRecovery,
     policy,
     payload,
+    prerequisites: {
+      visualCppRuntime: vcRuntime,
+    },
     latestOperation: redactProvisioningOperation(latest),
     pendingRecovery,
     recovery,
@@ -832,6 +890,7 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
         }
       : null,
     blockers: [
+      ...(vcRuntime.ok ? [] : [vcRuntime.code || 'VC_RUNTIME_NOT_INSTALLED']),
       ...(payload.ok ? [] : [payload.code]),
       ...(pendingRecovery ? ['INSTALLER_POSTGRES_PROVISIONING_RECOVERY_REQUIRED'] : []),
     ],
@@ -950,6 +1009,7 @@ async function startManagedPostgresProvisioning(options = {}) {
 
 function getManagedPostgresProvisioningStatus({ userDataPath } = {}) {
   const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
+  const vcRuntime = vcRuntimePrerequisite.assessVcRuntimePrerequisite();
   return {
     ok: true,
     operation: redactProvisioningOperation(latest),
@@ -957,6 +1017,9 @@ function getManagedPostgresProvisioningStatus({ userDataPath } = {}) {
     recovery: classifyProvisioningRecovery(latest),
     rollbackPlan: getProvisioningRollbackPlan(latest),
     progressContract: getProvisioningProgressContract(),
+    prerequisites: {
+      visualCppRuntime: vcRuntime,
+    },
     readiness: assessProvisioningReadiness({
       archivePolicyPinned: true,
       archiveStagingCertified: true,

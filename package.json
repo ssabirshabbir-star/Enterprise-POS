@@ -75,6 +75,16 @@
           "*.txt",
           "!*.zip"
         ]
+      },
+      {
+        "from": "resources/prerequisites",
+        "to": "prerequisites",
+        "filter": [
+          "**/manifest.json",
+          "**/*.md",
+          "**/*.txt",
+          "!**/*.exe"
+        ]
       }
     ],
     "win": {

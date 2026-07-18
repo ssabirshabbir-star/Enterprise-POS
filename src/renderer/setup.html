@@ -48,6 +48,21 @@
               <label class="text-sm font-semibold">Password<input id="installerPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="current-password" /></label>
               <label class="text-sm font-semibold">SSL Mode<select id="installerSslMode" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"><option value="disable">Disable</option><option value="prefer">Prefer</option><option value="require">Require</option></select></label>
             </div>
+            <div class="mt-5 rounded-md border border-sky-200 bg-sky-50 p-3">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-sky-950">Microsoft Visual C++ Runtime</h3>
+                  <p class="mt-1 text-xs text-sky-800">Required by the local PostgreSQL database engine. Enterprise POS verifies this prerequisite before initializing managed PostgreSQL.</p>
+                </div>
+                <button id="installerVcRuntimeRefreshButton" class="rounded-md border border-sky-300 bg-white px-3 py-2 text-sm font-semibold text-sky-800">Check runtime</button>
+              </div>
+              <div id="installerVcRuntimeStatus" class="mt-3 grid gap-2 rounded-md bg-white p-3 text-xs text-sky-950 md:grid-cols-2">
+                <div><span class="text-sky-700">Status</span><strong class="block" id="installerVcRuntimeState">Not checked</strong></div>
+                <div><span class="text-sky-700">Version</span><strong class="block" id="installerVcRuntimeVersion">-</strong></div>
+                <div><span class="text-sky-700">Payload</span><strong class="block" id="installerVcRuntimePayload">Not verified</strong></div>
+                <div><span class="text-sky-700">Action</span><strong class="block" id="installerVcRuntimeAction">Check required</strong></div>
+              </div>
+            </div>
             <div class="mt-5 rounded-md border border-amber-200 bg-amber-50 p-3">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -200,11 +215,22 @@
           blockers,
         });
       };
+      const showVcRuntimeStatus = (result) => {
+        const safe = result || {};
+        text('#installerVcRuntimeState', safe.detection?.compatible ? 'Installed / Compatible' : (safe.state || safe.code || 'Required'));
+        text('#installerVcRuntimeVersion', safe.detection?.detectedVersion || '-');
+        text('#installerVcRuntimePayload', safe.payload?.ok ? 'Verified Microsoft payload' : (safe.payload?.code || 'Not verified'));
+        const action = safe.detection?.compatible
+          ? 'No action required'
+          : 'Required before managed PostgreSQL initialization';
+        text('#installerVcRuntimeAction', action);
+      };
       const callInstaller = (method, payload) => {
         if (!window.posApi?.installer?.[method]) return Promise.resolve({ ok: false, message: 'Installer API unavailable.' });
         return window.posApi.installer[method](payload);
       };
       document.querySelector('#installerRefreshButton')?.addEventListener('click', () => callInstaller('status').then(showInstallerStatus));
+      document.querySelector('#installerVcRuntimeRefreshButton')?.addEventListener('click', () => callInstaller('vcRuntimeStatus').then(showVcRuntimeStatus));
       document.querySelector('#installerPostgresPreflightButton')?.addEventListener('click', () => callInstaller('postgresPreflight').then(showManagedPostgresStatus));
       document.querySelector('#installerPostgresProvisionButton')?.addEventListener('click', () => callInstaller('provisionManagedPostgres').then(showManagedPostgresStatus));
       document.querySelector('#installerTestButton')?.addEventListener('click', () => callInstaller('testDatabase', installerPayload()).then(showInstallerStatus));
@@ -213,6 +239,7 @@
       document.querySelector('#installerInitializeButton')?.addEventListener('click', () => callInstaller('initializeDatabase', { config: installerPayload(), admin: adminPayload() }).then(showInstallerStatus));
       if (code !== 'RESTORE_MAINTENANCE_LOCKOUT') {
         callInstaller('status').then(showInstallerStatus).catch(() => showInstallerStatus({ ok: false, message: 'Installer diagnostics could not be loaded.' }));
+        callInstaller('vcRuntimeStatus').then(showVcRuntimeStatus).catch(() => showVcRuntimeStatus({ ok: false, code: 'VC_RUNTIME_STATUS_UNAVAILABLE' }));
         callInstaller('postgresPreflight').then(showManagedPostgresStatus).catch(() => showManagedPostgresStatus({ ok: false, code: 'INSTALLER_POSTGRES_PREFLIGHT_UNAVAILABLE' }));
       }
       if (window.posApi?.app?.info) {

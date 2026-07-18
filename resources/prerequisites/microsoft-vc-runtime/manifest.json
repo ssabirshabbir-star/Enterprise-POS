@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "microsoft-vc-runtime-x64-14",
+  "displayName": "Microsoft Visual C++ Redistributable 2015-2022 x64",
+  "architecture": "x64",
+  "filename": "vc_redist.x64.exe",
+  "minimumVersion": "14.0.0.0",
+  "pinnedVersion": "14.51.36247.0",
+  "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+  "expectedSigner": "Microsoft Corporation",
+  "officialSourceReference": "https://aka.ms/vc14/vc_redist.x64.exe",
+  "documentationReference": "https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist",
+  "silentArguments": ["/install", "/passive", "/norestart"],
+  "successExitCodes": [0],
+  "restartRequiredExitCodes": [3010, 1641],
+  "knownFailureExitCodes": {
+    "1602": "VC_RUNTIME_INSTALL_CANCELLED",
+    "1603": "VC_RUNTIME_INSTALL_FAILED",
+    "1618": "VC_RUNTIME_INSTALL_IN_PROGRESS"
+  },
+  "redistributionStatus": "not-certified",
+  "certificationStatus": "technical-certification-required",
+  "payloadPolicy": "external-build-input"
+}

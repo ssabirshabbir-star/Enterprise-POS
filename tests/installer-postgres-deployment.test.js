@@ -289,9 +289,12 @@ test('setup IPC exposes managed PostgreSQL status without renderer-controlled sy
   const setup = read('src/renderer/setup.html');
 
   assert.match(preload, /postgresPreflight/);
+  assert.match(preload, /vcRuntimeStatus/);
   assert.match(preload, /provisionManagedPostgres/);
   assert.match(controller, /\/installer\/postgres\/preflight/);
   assert.match(controller, /\/installer\/postgres\/provision/);
+  assert.match(controller, /\/installer\/prerequisites\/vc-runtime\/status/);
+  assert.match(setup, /Microsoft Visual C\+\+ Runtime/);
   assert.match(setup, /Managed PostgreSQL runtime/);
   assert.match(setup, /blocked until a checksum-pinned, license-audited Windows server payload/);
   assert.match(setup, /installerPostgresProvisionButton"[^>]*disabled/);
@@ -306,6 +309,14 @@ test('Windows package is NSIS-oriented and preserves data on uninstall', () => {
   assert.ok(
     pkg.build.extraResources.some(
       (entry) => entry.from === 'resources/postgres' && entry.to === 'postgres'
+    )
+  );
+  assert.ok(
+    pkg.build.extraResources.some(
+      (entry) =>
+        entry.from === 'resources/prerequisites' &&
+        entry.to === 'prerequisites' &&
+        entry.filter.includes('!**/*.exe')
     )
   );
   assert.equal(pkg.build.win.signAndEditExecutable, false);

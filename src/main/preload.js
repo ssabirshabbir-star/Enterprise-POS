@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('posApi', {
     postgresPreflight: () => ipcRenderer.invoke('/installer/postgres/preflight'),
     provisionManagedPostgres: () => ipcRenderer.invoke('/installer/postgres/provision'),
     managedPostgresStatus: () => ipcRenderer.invoke('/installer/postgres/provision/status'),
+    vcRuntimeStatus: () => ipcRenderer.invoke('/installer/prerequisites/vc-runtime/status'),
   },
   updates: {
     check: () => ipcRenderer.invoke('/updates/check'),
