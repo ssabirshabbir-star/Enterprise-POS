@@ -180,12 +180,25 @@
     const row = ui('cartTableBody')?.querySelector(UI.selectors.cartRow(index));
     if (!container || !row) return;
     const containerRect = container.getBoundingClientRect();
+    const header = container.querySelector('thead th');
+    const headerRect = header?.getBoundingClientRect();
     const rowRect = row.getBoundingClientRect();
-    if (rowRect.top < containerRect.top) {
-      container.scrollTop -= containerRect.top - rowRect.top;
-    } else if (rowRect.bottom > containerRect.bottom) {
-      container.scrollTop += rowRect.bottom - containerRect.bottom;
+    const visibilityMargin = 3;
+    const effectiveTop =
+      headerRect &&
+      headerRect.bottom > containerRect.top &&
+      headerRect.bottom < containerRect.bottom
+        ? Math.max(containerRect.top, headerRect.bottom)
+        : containerRect.top;
+    const effectiveBottom = containerRect.bottom;
+    let nextScrollTop = container.scrollTop;
+    if (rowRect.top < effectiveTop + visibilityMargin) {
+      nextScrollTop -= effectiveTop + visibilityMargin - rowRect.top;
+    } else if (rowRect.bottom > effectiveBottom - visibilityMargin) {
+      nextScrollTop += rowRect.bottom - (effectiveBottom - visibilityMargin);
     }
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    container.scrollTop = Math.max(0, Math.min(maxScrollTop, nextScrollTop));
   }
   function setActiveCartRow(index, options = {}) {
     const items = getCart().items;
@@ -421,6 +434,30 @@
 
   // ── Cart rendering ────────────────────────────────────────────────────────
 
+  function renderLockIcon(shacklePath) {
+    return `<svg class="epos-cart-lock-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path class="epos-cart-lock-body" d="M3.25 7h9.5c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-5c0-.69.56-1.25 1.25-1.25Z"></path>
+                      <path class="epos-cart-lock-shackle" d="${shacklePath}"></path>
+                      <path class="epos-cart-lock-keyhole" d="M8 9.35a1.05 1.05 0 0 0-.38 2.03v1.1h.76v-1.1A1.05 1.05 0 0 0 8 9.35Z"></path>
+                    </svg>`;
+  }
+
+  function renderPriceLockControl(item, index) {
+    if (item.priceUnlocked) {
+      return `<span class="epos-cart-price-lock epos-cart-price-lock-open" title="Price editable — authorized override active" aria-label="Price editable — authorized override active">
+                    ${renderLockIcon('M5 7V5.15A3.15 3.15 0 0 1 10.7 3.3')}
+                  </span>`;
+    }
+    if (item.allowSalePriceOverride === true) {
+      return `<button type="button" class="epos-cart-price-lock epos-cart-price-lock-action" data-unlock-price="${index}" title="Price locked — authorized override available&#10;Click or press Ctrl+L to request price override." aria-label="Price locked — authorized override available. Click or press Ctrl+L to request price override.">
+                    ${renderLockIcon('M4.75 7V5.25a3.25 3.25 0 0 1 6.5 0V7')}
+                  </button>`;
+    }
+    return `<span class="epos-cart-price-lock epos-cart-price-lock-policy" title="Price locked by product policy&#10;Price override is not allowed for this product." aria-label="Price locked by product policy. Price override is not allowed for this product.">
+                    ${renderLockIcon('M4.75 7V5.25a3.25 3.25 0 0 1 6.5 0V7')}
+                  </span>`;
+  }
+
   function renderCart() {
     const tbody = ui('cartTableBody');
     const emptyEl = ui('cartEmptyState');
@@ -479,23 +516,7 @@
           <div class="epos-cart-price-control">
             <input type="number" min="0" step="0.01" value="${item.unitPrice}"
               data-cart-price="${i}" class="epos-cart-discount ${item.priceUnlocked ? 'epos-cart-price-editable' : 'epos-cart-price-locked'}" style="text-align:right" ${item.priceUnlocked ? '' : `readonly title="${item.allowSalePriceOverride ? 'Unlock price before editing.' : 'Sale price is locked by product policy.'}"`} />
-            ${
-              item.priceUnlocked
-                ? `<span class="epos-cart-price-lock epos-cart-price-lock-open" title="Price editable&#10;Unit price override active." aria-label="Price editable. Unit price override active.">
-                    <svg class="epos-cart-lock-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                      <path class="epos-cart-lock-body" d="M3.25 7h9.5c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-5c0-.69.56-1.25 1.25-1.25Z"></path>
-                      <path class="epos-cart-lock-shackle" d="M5 7V5.15A3.15 3.15 0 0 1 10.7 3.3"></path>
-                      <path class="epos-cart-lock-keyhole" d="M8 9.35a1.05 1.05 0 0 0-.38 2.03v1.1h.76v-1.1A1.05 1.05 0 0 0 8 9.35Z"></path>
-                    </svg>
-                  </span>`
-                : `<button type="button" class="epos-cart-price-lock epos-cart-price-lock-closed" data-unlock-price="${i}" title="Price locked&#10;Unit price cannot be changed." aria-label="Price locked. Unit price cannot be changed.">
-                    <svg class="epos-cart-lock-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                      <path class="epos-cart-lock-body" d="M3.25 7h9.5c.69 0 1.25.56 1.25 1.25v5c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-5c0-.69.56-1.25 1.25-1.25Z"></path>
-                      <path class="epos-cart-lock-shackle" d="M4.75 7V5.25a3.25 3.25 0 0 1 6.5 0V7"></path>
-                      <path class="epos-cart-lock-keyhole" d="M8 9.35a1.05 1.05 0 0 0-.38 2.03v1.1h.76v-1.1A1.05 1.05 0 0 0 8 9.35Z"></path>
-                    </svg>
-                  </button>`
-            }
+            ${renderPriceLockControl(item, i)}
           </div>
         </td>
         <td>

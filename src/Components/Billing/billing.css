@@ -1062,28 +1062,35 @@
   }
   .epos-billing-shell.epos-invoice-ui .epos-cart-price-control {
     display: inline-grid !important;
-    grid-template-columns: var(--epos-cart-qty-input-width) 14px !important;
+    grid-template-columns: var(--epos-cart-qty-input-width) 22px !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 4px !important;
-    width: calc(var(--epos-cart-qty-input-width) + 18px) !important;
+    width: calc(var(--epos-cart-qty-input-width) + 26px) !important;
     margin-inline: auto !important;
   }
   .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock {
-    width: 14px !important;
-    height: 14px !important;
-    min-width: 14px !important;
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
     display: inline-grid !important;
     place-items: center !important;
-    padding: 0 !important;
+    padding: 4px !important;
     border: 0 !important;
     background: transparent !important;
     line-height: 1 !important;
+    border-radius: 5px;
+    box-sizing: border-box !important;
   }
-  .epos-billing-shell.epos-invoice-ui button.epos-cart-price-lock {
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-action {
     cursor: pointer;
   }
-  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock:hover {
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-policy,
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-open {
+    cursor: default;
+  }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-action:hover {
+    background: #dbeafe !important;
     filter: brightness(0.92);
   }
   .epos-billing-shell.epos-invoice-ui .epos-cart-lock-icon {
@@ -1105,7 +1112,8 @@
   .epos-billing-shell.epos-invoice-ui .epos-cart-lock-keyhole {
     fill: var(--epos-white);
   }
-  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-closed { color: #374151; }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-policy { color: #9ca3af; }
+  .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-action { color: #2563eb; }
   .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock-open { color: #16a34a; }
   .epos-billing-shell.epos-invoice-ui .epos-cart-price-lock:focus-visible {
     outline: 2px solid #2563eb;

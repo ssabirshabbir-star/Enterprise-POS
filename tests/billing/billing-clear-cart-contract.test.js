@@ -146,33 +146,57 @@ test('Billing cart uses compact lock indicators beside Unit Price instead of pri
   assert.doesNotMatch(cart, />Unlock Price<\/button>/);
   assert.match(cart, /class="epos-cart-price-control"/);
   assert.match(cart, /data-cart-price="\$\{i\}"[\s\S]*class="epos-cart-discount/);
-  assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-closed"/);
+  assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-policy"/);
+  assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-action"/);
   assert.match(cart, /class="epos-cart-price-lock epos-cart-price-lock-open"/);
   assert.match(cart, /class="epos-cart-lock-icon" viewBox="0 0 16 16"/);
   assert.match(cart, /class="epos-cart-lock-body"/);
   assert.match(cart, /class="epos-cart-lock-shackle"/);
   assert.match(cart, /class="epos-cart-lock-keyhole"/);
-  assert.match(cart, /d="M4\.75 7V5\.25a3\.25 3\.25 0 0 1 6\.5 0V7"/);
-  assert.match(cart, /d="M5 7V5\.15A3\.15 3\.15 0 0 1 10\.7 3\.3"/);
-  assert.match(cart, /title="Price locked&#10;Unit price cannot be changed\."/);
-  assert.match(cart, /title="Price editable&#10;Unit price override active\."/);
+  assert.match(cart, /function renderLockIcon\(shacklePath\)/);
+  assert.match(cart, /renderLockIcon\('M4\.75 7V5\.25a3\.25 3\.25 0 0 1 6\.5 0V7'\)/);
+  assert.match(cart, /renderLockIcon\('M5 7V5\.15A3\.15 3\.15 0 0 1 10\.7 3\.3'\)/);
+  assert.match(
+    cart,
+    /title="Price locked by product policy&#10;Price override is not allowed for this product\."/
+  );
+  assert.match(
+    cart,
+    /title="Price locked — authorized override available&#10;Click or press Ctrl\+L to request price override\."/
+  );
+  assert.match(cart, /title="Price editable — authorized override active"/);
+  assert.match(
+    cart,
+    /if \(item\.allowSalePriceOverride === true\) \{[\s\S]*data-unlock-price="\$\{index\}"/
+  );
+  assert.match(
+    cart,
+    /return `<span class="epos-cart-price-lock epos-cart-price-lock-policy"[\s\S]*Price override is not allowed for this product\./
+  );
   assert.match(
     css,
-    /\.epos-cart-price-control\s*\{[\s\S]*?grid-template-columns:\s*var\(--epos-cart-qty-input-width\) 14px/
+    /\.epos-cart-price-control\s*\{[\s\S]*?grid-template-columns:\s*var\(--epos-cart-qty-input-width\) 22px/
   );
   assert.match(css, /\.epos-cart-price-control\s*\{[\s\S]*?gap:\s*4px/);
-  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?width:\s*14px/);
-  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?height:\s*14px/);
+  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?width:\s*22px/);
+  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?height:\s*22px/);
+  assert.match(css, /\.epos-cart-price-lock\s*\{[\s\S]*?padding:\s*4px/);
   assert.match(css, /\.epos-cart-lock-icon\s*\{[\s\S]*?width:\s*14px/);
   assert.match(css, /\.epos-cart-lock-icon\s*\{[\s\S]*?height:\s*14px/);
   assert.match(css, /\.epos-cart-lock-body\s*\{\s*fill:\s*currentColor;/);
   assert.match(css, /\.epos-cart-lock-shackle\s*\{[\s\S]*?stroke:\s*currentColor/);
-  assert.match(css, /\.epos-cart-price-lock-closed\s*\{\s*color:\s*#374151;/);
+  assert.match(css, /\.epos-cart-price-lock-policy\s*\{\s*color:\s*#9ca3af;/);
+  assert.match(css, /\.epos-cart-price-lock-action\s*\{\s*color:\s*#2563eb;/);
   assert.match(css, /\.epos-cart-price-lock-open\s*\{\s*color:\s*#16a34a;/);
+  assert.match(css, /\.epos-cart-price-lock-action\s*\{[\s\S]*?cursor:\s*pointer;/);
+  assert.match(
+    css,
+    /\.epos-cart-price-lock-policy,[\s\S]*?\.epos-cart-price-lock-open\s*\{[\s\S]*?cursor:\s*default;/
+  );
   assert.doesNotMatch(cart, /🔒|🔓/);
   assert.doesNotMatch(
     css,
-    /\.epos-cart-price-lock-closed\s*\{[^}]*#dc2626|\.epos-cart-price-lock-closed\s*\{[^}]*#b91c1c/
+    /\.epos-cart-price-lock-policy\s*\{[^}]*#dc2626|\.epos-cart-price-lock-action\s*\{[^}]*#16a34a/
   );
 });
 
@@ -231,8 +255,20 @@ test('Billing cart maintains one authoritative active row for mouse and keyboard
     /if \(e\.key === 'ArrowUp' \|\| e\.key === 'ArrowDown'\) \{[\s\S]*C\(\)\.moveActiveCartRow\(e\.key === 'ArrowDown' \? 1 : -1\);/
   );
   assert.match(cart, /setActiveCartRow\(base \+ delta, \{ scroll: true \}\)/);
-  assert.match(cart, /rowRect\.top < containerRect\.top[\s\S]*container\.scrollTop -=/);
-  assert.match(cart, /rowRect\.bottom > containerRect\.bottom[\s\S]*container\.scrollTop \+=/);
+  assert.match(cart, /const header = container\.querySelector\('thead th'\);/);
+  assert.match(
+    cart,
+    /const effectiveTop =[\s\S]*Math\.max\(containerRect\.top, headerRect\.bottom\)/
+  );
+  assert.match(cart, /rowRect\.top < effectiveTop \+ visibilityMargin[\s\S]*nextScrollTop -=/);
+  assert.match(
+    cart,
+    /rowRect\.bottom > effectiveBottom - visibilityMargin[\s\S]*nextScrollTop \+=/
+  );
+  assert.match(
+    cart,
+    /container\.scrollTop = Math\.max\(0, Math\.min\(maxScrollTop, nextScrollTop\)\);/
+  );
   assert.match(cart, /row\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(renderer, /if \(!inInput && !e\.ctrlKey && !e\.altKey && !e\.metaKey\)/);
   assert.match(css, /tr\.epos-cart-row-active td\s*\{[\s\S]*background:\s*#eff6ff/);
@@ -242,6 +278,10 @@ test('Billing cart maintains one authoritative active row for mouse and keyboard
 test('Billing Ctrl+L unlock shortcut reuses the existing price authorization flow', () => {
   const renderer = readRenderer();
 
+  assert.match(
+    renderer,
+    /if \(!item \|\| item\.allowSalePriceOverride !== true\) \{[\s\S]*This product price is locked by product policy\.[\s\S]*return;\s*\}[\s\S]*const profile = await currentProfile\(\);/
+  );
   assert.match(
     renderer,
     /if \(k === 'l'\) \{[\s\S]*const index = C\(\)\.getActiveCartRowIndex\?\.\(\);[\s\S]*unlockPriceFromUI\(index\);/
