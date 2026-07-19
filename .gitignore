@@ -31,6 +31,11 @@ test-results/
 # Archive (excluded from git tracking)
 _archive/
 
+# Offline installer release inputs are copied into clean build exports only.
+resources/postgres/*.zip
+resources/prerequisites/**/vc_redist*.exe
+resources/release/*.generated.json
+
 # OS / editor
 .DS_Store
 Thumbs.db

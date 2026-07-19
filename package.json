@@ -23,6 +23,7 @@
     "dev": "concurrently \"npm:watch:css\" \"wait-on ./src/renderer/styles/output.css && electron .\"",
     "build:desktop": "npm run build && electron-builder --dir",
     "package:win": "npm run build && electron-builder --win nsis",
+    "package:win:offline-certification": "node scripts/prepare-offline-installer-payloads.js --mode offline-certification && npm run build && electron-builder --win nsis --config electron-builder.offline-certification.cjs",
     "package:win:portable": "npm run build && electron-builder --win portable",
     "predist": "npm run build",
     "dist": "electron-builder --win nsis",

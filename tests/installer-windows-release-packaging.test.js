@@ -24,6 +24,11 @@ function filterIncludes(entry, value) {
 test('Windows installer command uses NSIS and does not build from release output directly', () => {
   const pkg = readJson('package.json');
   assert.equal(pkg.scripts['package:win'], 'npm run build && electron-builder --win nsis');
+  assert.match(
+    pkg.scripts['package:win:offline-certification'],
+    /prepare-offline-installer-payloads/
+  );
+  assert.match(pkg.scripts['package:win:offline-certification'], /offline-certification/);
   assert.equal(pkg.scripts.dist, 'electron-builder --win nsis');
   assert.deepEqual(pkg.build.win.target, ['nsis']);
   assert.equal(pkg.build.directories.output, 'release');

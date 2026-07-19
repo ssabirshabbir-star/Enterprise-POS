@@ -132,6 +132,10 @@ Recommended model:
 This matches the current architecture best because the installer already supports external release
 inputs for certification and excludes unapproved binaries from Git.
 
+The offline certification packaging path now copies exact verified external inputs into a clean
+build export immediately before packaging. The normal development installer continues to exclude the
+PostgreSQL ZIP and VC Runtime EXE payloads.
+
 ## Required Notices
 
 Production packaging must preserve:

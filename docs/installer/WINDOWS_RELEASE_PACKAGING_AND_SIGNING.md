@@ -174,6 +174,41 @@ Production-looking artifact names are allowed only after signing, final hash cap
 inspection, release authorization, and explicit owner approval. Unsigned certification builds must
 not be presented as production releases.
 
+Current artifact classifications:
+
+- `npm.cmd run package:win` creates `Enterprise POS Setup <version> unsigned-development.exe`.
+- `npm.cmd run package:win:offline-certification` creates
+  `Enterprise POS Setup <version> offline-certification-unsigned.exe`.
+
+Both are non-production classifications until signing and release authorization are complete.
+
+## Offline Certification Packaging
+
+The offline certification build path is:
+
+```powershell
+npm.cmd run package:win:offline-certification
+```
+
+The command runs `scripts/prepare-offline-installer-payloads.js` before packaging. The preparer
+accepts local, pinned release inputs only and does not download payloads from the network. It
+verifies and copies:
+
+- `D:\Enterprise-POS-release-inputs\postgres\postgresql-17.10-2-windows-x64-binaries.zip`
+- `D:\Enterprise-POS-release-inputs\prerequisites\microsoft-vc-runtime\vc_redist.x64.exe`
+
+into the clean build source resource tree. The PostgreSQL archive is verified against
+`resources/postgres/manifest.json`, inspected for the expected `pgsql/` layout, and packaged beside
+the manifest and notices. The Visual C++ Runtime executable is verified against
+`resources/prerequisites/microsoft-vc-runtime/manifest.json`, including hash and Authenticode signer
+checks where Windows supports them.
+
+The generated `resources/release/offline-packaging-evidence.generated.json` is build evidence only.
+It does not authorize production provisioning, redistribution, or release publication.
+
+Normal production packaging remains blocked until an approved authorization record replaces the
+pending record and the release is signed.
+
 ## Hashing Point
 
 Authoritative SHA-256 hashes must be recorded after the final artifact mutation:
