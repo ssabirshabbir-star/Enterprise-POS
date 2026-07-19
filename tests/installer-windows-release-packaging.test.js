@@ -87,6 +87,7 @@ test('packaging file globs exclude local artifacts, secrets, maps, logs, and tes
 test('release governance files are present and remain non-authorizing', () => {
   const redistribution = readJson('resources/postgres/redistribution-manifest.json');
   const authorization = readJson('resources/postgres/release-authorization.pending.json');
+  const authorizationTemplate = readJson('resources/postgres/release-authorization.template.json');
   const evidence = readJson('resources/release/windows-release-evidence.pending.json');
 
   assert.equal(redistribution.manifestStatus, 'pending-release-authorization');
@@ -103,6 +104,17 @@ test('release governance files are present and remain non-authorizing', () => {
   assert.equal(authorization.authorizationStatus, 'pending');
   assert.equal(authorization.redistributionStatus, 'pending');
   assert.equal(authorization.approver, 'UNRESOLVED');
+  assert.equal(authorizationTemplate.authorizationStatus, 'pending');
+  assert.equal(authorizationTemplate.authorizesProductionProvisioning, false);
+  assert.equal(authorizationTemplate.authorizesProductionRestore, false);
+  assert.equal(authorizationTemplate.redistributionStatus, 'pending');
+  assert.equal(authorizationTemplate.legalReviewStatus, 'pending');
+  assert.equal(authorizationTemplate.securityReviewStatus, 'pending');
+  assert.equal(authorizationTemplate.releaseApprovalStatus, 'pending');
+  assert.equal(authorizationTemplate.approver, 'UNRESOLVED');
+  assert.equal(authorizationTemplate.approvedPayloadManifestSha256, null);
+  assert.equal(authorizationTemplate.approvedProvisioningStrategy, null);
+  assert.equal(authorizationTemplate.approvedInstallerVersionRange, null);
   assert.equal(evidence.authorizesProductionRelease, false);
   assert.equal(evidence.signing.productionSigningRequired, true);
   assert.equal(evidence.signing.status, 'unsigned');
@@ -114,6 +126,46 @@ test('release governance files are present and remain non-authorizing', () => {
     now: new Date('2026-07-19T00:00:00.000Z'),
   });
   assert.equal(validation.ok, false);
+});
+
+test('release authorization template cannot authorize customer production deployment', () => {
+  const templatePath = path.join(
+    __dirname,
+    '..',
+    'resources',
+    'postgres',
+    'release-authorization.template.json'
+  );
+  const validation = releaseAuthorization.validateReleaseAuthorization({
+    authorizationPath: templatePath,
+    payloadRoot: path.join(__dirname, '..', 'resources', 'postgres'),
+    postgresManifest: readJson('resources/postgres/manifest.json'),
+    vcRuntimeManifest: readJson('resources/prerequisites/microsoft-vc-runtime/manifest.json'),
+    now: new Date('2026-07-19T00:00:00.000Z'),
+    production: true,
+  });
+
+  assert.equal(validation.ok, false);
+  assert.equal(validation.code, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INCOMPLETE');
+  assert.ok(validation.missing.includes('approvedPayloadManifestSha256'));
+  assert.ok(validation.missing.includes('approvedProvisioningStrategy'));
+  assert.ok(validation.missing.includes('approvedInstallerVersionRange'));
+  assert.ok(validation.missing.includes('approvalTimestamp'));
+  assert.ok(validation.missing.includes('technicalCertification.evidenceHash'));
+});
+
+test('authorization packet documents blocked decisions and exact review options', () => {
+  const packet = read(
+    'docs/installer/authorization/MANAGED_POSTGRESQL_PRODUCTION_AUTHORIZATION_PACKET.md'
+  );
+
+  assert.match(packet, /Current overall assessment: NOT AUTHORIZED/);
+  assert.match(packet, /redistributionStatus`, which remains `not-certified`/);
+  assert.match(packet, /Production Restore/);
+  assert.match(packet, /Option A - Remain Blocked/);
+  assert.match(packet, /Option B - Authorization for Controlled Certification Only/);
+  assert.match(packet, /Option C - Production Release Authorization/);
+  assert.doesNotMatch(packet, /legally approved|counsel approved|redistribution certified/i);
 });
 
 test('documentation defines signing readiness without treating unsigned artifacts as production', () => {

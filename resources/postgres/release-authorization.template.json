@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "authorizationId": "PENDING-REPLACE-WITH-APPROVAL-ID",
+  "status": "pending",
+  "authorizationStatus": "pending",
+  "releaseScope": "enterprise-pos-managed-postgres-production",
+  "product": "Enterprise POS",
+  "installerVersionRange": {
+    "minVersion": "PENDING",
+    "maxVersion": "PENDING"
+  },
+  "approvedInstallerVersionRange": null,
+  "postgresVersion": "17.10",
+  "platform": "windows",
+  "architecture": "win32-x64",
+  "archiveFilename": "postgresql-17.10-2-windows-x64-binaries.zip",
+  "archiveSha256": "ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106",
+  "payloadManifestSha256": "PENDING",
+  "approvedPayloadManifestSha256": null,
+  "technicalEvidenceSha256": "PENDING",
+  "provisioningStrategy": "extract-and-provision-dedicated-cluster",
+  "approvedProvisioningStrategy": null,
+  "redistributionStatus": "pending",
+  "legalReviewStatus": "pending",
+  "securityReviewStatus": "pending",
+  "releaseApprovalStatus": "pending",
+  "legalReview": {
+    "status": "pending",
+    "reviewer": "PENDING",
+    "reviewedAt": null,
+    "notes": []
+  },
+  "securityApproval": {
+    "status": "pending",
+    "reviewer": "PENDING",
+    "approvedAt": null,
+    "notes": []
+  },
+  "releaseApproval": {
+    "status": "pending",
+    "approver": "PENDING",
+    "approvedAt": null,
+    "notes": []
+  },
+  "productOwnerApproval": {
+    "status": "pending",
+    "approver": "PENDING",
+    "approvedAt": null,
+    "notes": []
+  },
+  "technicalCertification": {
+    "managedPostgresHappyPath": "passed",
+    "managedPostgresFailureMatrix": "passed",
+    "vcRuntimePrerequisite": "passed",
+    "evidenceHash": null,
+    "evidenceReferences": [
+      "test-artifacts/vc-runtime-prerequisite",
+      "test-artifacts/managed-postgres-production-activation"
+    ]
+  },
+  "postgresql": {
+    "component": "PostgreSQL",
+    "version": "17.10",
+    "architecture": "win32-x64",
+    "fileName": "postgresql-17.10-2-windows-x64-binaries.zip",
+    "sha256": "ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106",
+    "installMethod": "extract-and-provision-dedicated-cluster",
+    "licenseIdentifier": "PostgreSQL",
+    "licenseNoticeFiles": ["POSTGRESQL-LICENSE.txt", "THIRD-PARTY-NOTICES.md"]
+  },
+  "microsoftVcRuntime": {
+    "component": "Microsoft Visual C++ Redistributable 2015-2022 x64",
+    "architecture": "x64",
+    "filename": "vc_redist.x64.exe",
+    "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+    "expectedSigner": "Microsoft Corporation"
+  },
+  "approvedAt": null,
+  "approvalTimestamp": null,
+  "expiresAt": "PENDING",
+  "revoked": false,
+  "revokedAt": null,
+  "conditions": [
+    "This template is not an approval.",
+    "Replace every PENDING/null approval field with authentic reviewer evidence before use."
+  ],
+  "residualRisks": [],
+  "approver": "UNRESOLVED",
+  "approvalAuthority": "UNRESOLVED",
+  "approverIdentities": {
+    "productOwner": "PENDING",
+    "legalReviewer": "PENDING",
+    "securityReviewer": "PENDING",
+    "releaseApprover": "PENDING"
+  },
+  "evidenceReferences": [],
+  "testOnly": false,
+  "authorizesProductionProvisioning": false,
+  "authorizesProductionRestore": false
+}
