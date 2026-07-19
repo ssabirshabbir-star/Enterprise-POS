@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "evidenceStatus": "pending",
+  "authorizesProductionRelease": false,
+  "application": {
+    "name": "Enterprise POS",
+    "version": "1.0.0"
+  },
+  "source": {
+    "branch": "feat/final-enterprise-pos-consolidation",
+    "gitCommit": "TO_BE_RECORDED_AT_BUILD_TIME",
+    "buildSourceMethod": "clean-git-archive-export-required"
+  },
+  "toolchain": {
+    "nodeVersion": "TO_BE_RECORDED_AT_BUILD_TIME",
+    "npmVersion": "TO_BE_RECORDED_AT_BUILD_TIME",
+    "electronVersion": "TO_BE_RECORDED_AT_BUILD_TIME",
+    "electronBuilderVersion": "TO_BE_RECORDED_AT_BUILD_TIME"
+  },
+  "artifacts": [],
+  "signing": {
+    "status": "unsigned",
+    "productionSigningRequired": true,
+    "timestampRequired": true,
+    "publisherSubject": "UNRESOLVED",
+    "certificateThumbprint": "UNRESOLVED"
+  },
+  "licenseNoticeInclusion": {
+    "status": "pending-build-inspection",
+    "requiredPaths": [
+      "resources/postgres/POSTGRESQL-LICENSE.txt",
+      "resources/postgres/THIRD-PARTY-NOTICES.md",
+      "resources/postgres/redistribution-manifest.json",
+      "resources/postgres/release-authorization.pending.json",
+      "resources/prerequisites/microsoft-vc-runtime/manifest.json",
+      "docs/installer/MICROSOFT_VC_RUNTIME_PREREQUISITE.md"
+    ]
+  },
+  "payloads": {
+    "postgresql": {
+      "includedInProductionArtifact": false,
+      "externalHashRequired": true,
+      "authorizationRequired": true
+    },
+    "microsoftVcRuntime": {
+      "includedInProductionArtifact": false,
+      "externalHashRequired": true,
+      "authorizationRequired": true
+    }
+  },
+  "productionProvisioning": {
+    "enabled": false,
+    "releaseAuthorizationRequired": true
+  },
+  "tests": {
+    "status": "pending-build-validation"
+  },
+  "secretScan": {
+    "status": "pending"
+  },
+  "approval": {
+    "status": "not-approved",
+    "approver": "UNRESOLVED",
+    "approvedAt": null
+  }
+}

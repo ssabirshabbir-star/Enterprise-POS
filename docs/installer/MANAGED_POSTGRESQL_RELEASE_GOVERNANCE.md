@@ -3,6 +3,9 @@
 This report covers release authorization and redistribution governance for the Enterprise POS
 managed PostgreSQL installer path. It does not enable production provisioning.
 
+Windows package signing, artifact classification, and post-signing hash capture are defined in
+`docs/installer/WINDOWS_RELEASE_PACKAGING_AND_SIGNING.md`.
+
 ## Current Decision
 
 - Technical provisioning certification: complete for the current evidence set.
@@ -205,6 +208,8 @@ No approval record has been provided in this phase.
 - PostgreSQL redistribution approval is unresolved.
 - Microsoft VC Runtime redistribution approval is unresolved.
 - Code signing remains outside this report.
+- Code signing remains unresolved and is governed by
+  `docs/installer/WINDOWS_RELEASE_PACKAGING_AND_SIGNING.md`.
 - Production feature enablement remains intentionally absent.
 - A consolidated in-app About/legal notice surface is still a release-readiness item.
 

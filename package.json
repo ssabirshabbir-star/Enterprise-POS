@@ -46,6 +46,7 @@
   "build": {
     "appId": "com.enterprisepos.desktop",
     "productName": "Enterprise POS",
+    "artifactName": "${productName} Setup ${version} unsigned-development.${ext}",
     "directories": {
       "output": "release"
     },
@@ -70,10 +71,24 @@
         "from": "resources/postgres",
         "to": "postgres",
         "filter": [
-          "manifest.json",
+          "*.json",
           "*.md",
           "*.txt",
           "!*.zip"
+        ]
+      },
+      {
+        "from": "resources/release",
+        "to": "release-governance",
+        "filter": [
+          "*.json",
+          "*.md",
+          "*.txt",
+          "!*.exe",
+          "!*.pfx",
+          "!*.p12",
+          "!*.pem",
+          "!*.key"
         ]
       },
       {
