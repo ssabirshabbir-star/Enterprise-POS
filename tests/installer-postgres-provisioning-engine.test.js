@@ -2,10 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pipeline } = require('node:stream/promises');
 const test = require('node:test');
+const yazl = require('yazl');
 
 const provisioningRepository = require('../src/main/installer/postgres-provisioning.repository');
 const provisioningService = require('../src/main/installer/postgres-provisioning.service');
+const { sha256File } = require('../src/main/installer/postgres-payload-verifier');
 const runtimeDiagnostics = require('../src/main/installer/postgres-runtime-diagnostics');
 const vcRuntimePrerequisite = require('../src/main/installer/vc-runtime-prerequisite.service');
 
@@ -39,6 +42,27 @@ function fakeSafeStorage() {
     encryptString: (value) => Buffer.from(String(value), 'utf8'),
     decryptString: (buffer) => Buffer.from(buffer).toString('utf8'),
   };
+}
+
+async function createMinimalPostgresArchive(zipPath) {
+  const zip = new yazl.ZipFile();
+  const mtime = new Date('2026-07-18T00:00:00.000Z');
+  for (const name of [
+    'pgsql/bin/postgres.exe',
+    'pgsql/bin/initdb.exe',
+    'pgsql/bin/pg_ctl.exe',
+    'pgsql/bin/psql.exe',
+    'pgsql/bin/createdb.exe',
+    'pgsql/bin/libpq.dll',
+    'pgsql/lib/server.dll',
+    'pgsql/share/postgresql.conf.sample',
+    'pgsql/server_license.txt',
+    'pgsql/commandlinetools_3rd_party_licenses.txt',
+  ]) {
+    zip.addBuffer(Buffer.from(`${name}\n`, 'utf8'), name, { mtime, mode: 0o644 });
+  }
+  zip.end();
+  await pipeline(zip.outputStream, fs.createWriteStream(zipPath));
 }
 
 function withoutDatabaseEnv(callback) {
@@ -274,7 +298,7 @@ test('certification Visual C++ Runtime install option still requires verified pa
   });
 });
 
-test('certification provisioning verifies PostgreSQL manifest beside explicit archive path', async () => {
+test('certification provisioning stages PostgreSQL archive with explicit manifest root', async () => {
   const previousCwd = process.cwd();
   const previousAssess = vcRuntimePrerequisite.assessVcRuntimePrerequisite;
   const wrongCwd = tempDir('epos-pg-wrong-cwd-');
@@ -282,9 +306,10 @@ test('certification provisioning verifies PostgreSQL manifest beside explicit ar
   const manifestSource = path.join(__dirname, '..', 'resources', 'postgres', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestSource, 'utf8'));
   const archivePath = path.join(payloadRoot, manifest.fileName);
+  await createMinimalPostgresArchive(archivePath);
   fs.writeFileSync(
     path.join(payloadRoot, 'manifest.json'),
-    `${JSON.stringify(manifest, null, 2)}\n`
+    `${JSON.stringify({ ...manifest, sha256: sha256File(archivePath) }, null, 2)}\n`
   );
   fs.writeFileSync(path.join(payloadRoot, 'POSTGRESQL-LICENSE.txt'), 'PostgreSQL License\n');
   fs.writeFileSync(path.join(payloadRoot, 'THIRD-PARTY-NOTICES.md'), 'Third-party notices\n');
@@ -311,8 +336,10 @@ test('certification provisioning verifies PostgreSQL manifest beside explicit ar
       });
 
       assert.equal(result.ok, false);
-      assert.equal(result.code, 'INSTALLER_POSTGRES_PAYLOAD_MISSING');
       assert.notEqual(result.code, 'INSTALLER_POSTGRES_PAYLOAD_MANIFEST_MISSING');
+      assert.ok(
+        result.operation?.transitions?.some((transition) => transition.to === 'PAYLOAD_STAGED')
+      );
     } finally {
       process.chdir(previousCwd);
       vcRuntimePrerequisite.assessVcRuntimePrerequisite = previousAssess;

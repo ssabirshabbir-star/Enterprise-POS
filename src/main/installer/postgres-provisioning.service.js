@@ -560,6 +560,7 @@ async function executeCertificationProvisioning(options = {}) {
     const staged = await stagePostgresArchive({
       archivePath: gate.archivePath,
       stagingRoot: pendingRoot,
+      manifestRoot: payloadRoot,
     });
     operation = {
       ...operation,
