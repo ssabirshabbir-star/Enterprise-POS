@@ -11,24 +11,50 @@ if (externalNodeModules) {
     throw new Error(`External dependency root does not exist: ${dependencyRoot}`);
   }
 
-  process.env.NODE_PATH = [dependencyRoot, process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
+  process.env.NODE_PATH = [dependencyRoot, process.env.NODE_PATH]
+    .filter(Boolean)
+    .join(path.delimiter);
   Module._initPaths();
 
+  const originalResolveFilename = Module._resolveFilename;
   const originalResolveLookupPaths = Module._resolveLookupPaths;
+
+  Module._resolveFilename = function resolveFilename(request, parent, isMain, options) {
+    const isBareModule =
+      typeof request === 'string' &&
+      !request.startsWith('.') &&
+      !path.isAbsolute(request) &&
+      !Module.builtinModules.includes(request) &&
+      !Module.builtinModules.includes(request.replace(/^node:/, ''));
+
+    if (isBareModule) {
+      try {
+        return originalResolveFilename.call(this, request, parent, isMain, {
+          ...(options || {}),
+          paths: [dependencyRoot, ...((options && options.paths) || [])],
+        });
+      } catch (error) {
+        if (error?.code !== 'MODULE_NOT_FOUND') {
+          throw error;
+        }
+      }
+    }
+
+    return originalResolveFilename.call(this, request, parent, isMain, options);
+  };
 
   Module._resolveLookupPaths = function resolveLookupPaths(request, parent, newReturn) {
     const lookupPaths = originalResolveLookupPaths.call(this, request, parent, newReturn);
 
     if (Array.isArray(lookupPaths)) {
       if (newReturn || lookupPaths.every((entry) => typeof entry === 'string')) {
-        return lookupPaths.includes(dependencyRoot) ? lookupPaths : [...lookupPaths, dependencyRoot];
+        return lookupPaths.includes(dependencyRoot)
+          ? lookupPaths
+          : [dependencyRoot, ...lookupPaths];
       }
 
       const paths = Array.isArray(lookupPaths[1]) ? lookupPaths[1] : [];
-      return [
-        lookupPaths[0],
-        paths.includes(dependencyRoot) ? paths : [...paths, dependencyRoot],
-      ];
+      return [lookupPaths[0], paths.includes(dependencyRoot) ? paths : [dependencyRoot, ...paths]];
     }
 
     return lookupPaths;
@@ -40,7 +66,14 @@ function printLaunchProvenance(app) {
   const packageJsonPath = path.join(appPath, 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const mainEntryPath = path.resolve(appPath, packageJson.main || 'index.js');
-  const inventoryHtmlPath = path.join(appPath, 'src', 'main', 'features', 'inventory', 'index.html');
+  const inventoryHtmlPath = path.join(
+    appPath,
+    'src',
+    'main',
+    'features',
+    'inventory',
+    'index.html'
+  );
 
   console.log(`[enterprise-pos-launch] process.cwd=${process.cwd()}`);
   console.log(`[enterprise-pos-launch] app.getAppPath=${appPath}`);

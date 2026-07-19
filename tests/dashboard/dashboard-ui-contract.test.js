@@ -65,7 +65,7 @@ test('Dashboard stylesheet no longer carries removed section selectors', () => {
 
   assert.doesNotMatch(css, /epos-dashboard-mini-kpis|epos-dashboard-bottom-kpis/);
   assert.doesNotMatch(css, /epos-dashboard-bars|epos-dashboard-bar\b/);
-  assert.match(css, /grid-template-rows:\s*auto auto minmax\(190px, 1fr\) minmax\(190px, 1fr\)/);
+  assert.match(css, /grid-template-rows:\s*auto auto minmax\(0, 1\.08fr\) minmax\(0, 0\.92fr\)/);
 });
 
 test('Dashboard renderer does not query or write removed dashboard IDs', () => {

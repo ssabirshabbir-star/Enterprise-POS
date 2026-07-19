@@ -66,7 +66,10 @@ test('Purchases pagination footer no longer reserves the oversized control band'
   );
   assert.match(css, /\.epos-purchases-table-card\s*{[\s\S]*?min-height:\s*0;/);
   assert.doesNotMatch(footer, /min-height:\s*44px;|padding:\s*6px 14px;/);
-  assert.doesNotMatch(css, /\.epos-purchases-footer\s*{[\s\S]*?padding:\s*6px 10px;/);
+  assert.match(
+    css,
+    /@media \(max-width: 1366px\)[\s\S]*?\.epos-purchases-footer\s*{[\s\S]*?padding:\s*2px 10px;/
+  );
 });
 
 test('Customers and Products status footers stay compact while preserving labels', () => {
@@ -77,11 +80,13 @@ test('Customers and Products status footers stay compact while preserving labels
 
   assert.match(customersFooter, /align-items:\s*center;/);
   assert.match(customersFooter, /padding:\s*4px 12px;/);
-  assert.match(customersFooter, /font-size:\s*11px;/);
-  assert.match(customersFooter, /font-weight:\s*850;/);
+  assert.match(customersFooter, /font-size:\s*10px;/);
+  assert.match(customersFooter, /font-weight:\s*800;/);
   assert.doesNotMatch(customersFooter, /padding:\s*(?:10px 14px|7px 12px);/);
 
   assert.match(productsFooter, /align-items:\s*center;/);
   assert.match(productsFooter, /padding:\s*4px 10px;/);
+  assert.match(productsFooter, /font-size:\s*10px;/);
+  assert.match(productsFooter, /font-weight:\s*800;/);
   assert.doesNotMatch(productsFooter, /padding:\s*5px 10px;/);
 });

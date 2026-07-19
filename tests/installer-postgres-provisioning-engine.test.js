@@ -192,6 +192,15 @@ test('PostgreSQL child command options use staged bin cwd and process-local PATH
   assert.equal(options.env.PGCONNECT_TIMEOUT, '5');
 });
 
+test('initdb uses an extended bounded timeout for slow clean-machine disk sync', () => {
+  assert.equal(provisioningService.COMMAND_TIMEOUT_MS, 60000);
+  assert.equal(provisioningService.INITDB_COMMAND_TIMEOUT_MS, 180000);
+  assert.equal(
+    provisioningService.INITDB_COMMAND_TIMEOUT_MS > provisioningService.COMMAND_TIMEOUT_MS,
+    true
+  );
+});
+
 test('initdb launch diagnostics redact password file path and report staged layout', () => {
   const root = tempDir('managed-postgres-cert-diagnostics-');
   const bin = path.join(root, 'postgres-runtime', 'pgsql', 'bin');

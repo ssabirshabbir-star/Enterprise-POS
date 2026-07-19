@@ -40,6 +40,7 @@ const CERTIFICATION_DB_PREFIX = 'epos_cert_';
 const CERTIFICATION_ROOT_FRAGMENT = 'managed-postgres-cert';
 const SERVER_READY_TIMEOUT_MS = 30000;
 const COMMAND_TIMEOUT_MS = 60000;
+const INITDB_COMMAND_TIMEOUT_MS = 180000;
 
 function managedInstallRoot(userDataPath) {
   return path.join(userDataPath, 'managed-postgres');
@@ -620,7 +621,10 @@ async function executeCertificationProvisioning(options = {}) {
       '-E',
       'UTF8',
     ];
-    const initdbOptions = postgresCommandOptions(paths.initdb);
+    const initdbOptions = {
+      ...postgresCommandOptions(paths.initdb),
+      timeoutMs: INITDB_COMMAND_TIMEOUT_MS,
+    };
     const beforeInitdbDiagnostics = buildInitdbLaunchDiagnostics({
       command: paths.initdb,
       args: initdbArgs,
@@ -1095,6 +1099,8 @@ function getManagedPostgresProvisioningStatus({ userDataPath } = {}) {
 module.exports = {
   CERTIFICATION_DB_PREFIX,
   CERTIFICATION_ENV,
+  COMMAND_TIMEOUT_MS,
+  INITDB_COMMAND_TIMEOUT_MS,
   CERTIFICATION_TOKEN,
   CERTIFICATION_TOKEN_ENV,
   assessManagedPostgresPreflight,
