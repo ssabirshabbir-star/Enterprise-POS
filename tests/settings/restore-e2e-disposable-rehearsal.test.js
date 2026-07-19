@@ -25,6 +25,9 @@ function currentPrimaryDatabaseName() {
 const primaryDatabase = currentPrimaryDatabaseName();
 const createdDatabases = new Set();
 const artifactRoot = process.env.RESTORE_E2E_ARTIFACT_DIR || null;
+const CONNECTION_TIMEOUT_MS = Number(process.env.RESTORE_CERT_CONNECTION_TIMEOUT_MS || 5000);
+const QUERY_TIMEOUT_MS = Number(process.env.RESTORE_CERT_QUERY_TIMEOUT_MS || 30000);
+const CLEANUP_QUERY_TIMEOUT_MS = Number(process.env.RESTORE_CERT_CLEANUP_TIMEOUT_MS || 60000);
 
 function uniqueDbName(label) {
   return `${adapter.DISPOSABLE_DB_PREFIX}e2e_${label}_${Date.now().toString(36)}_${Math.random()
@@ -37,18 +40,28 @@ function quoteIdentifier(identifier) {
   return `"${identifier}"`;
 }
 
-function configForDatabase(databaseName) {
+function configForDatabase(databaseName, options = {}) {
   const config = getDatabaseConfig();
+  const bounded = {
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+    idleTimeoutMillis: 1000,
+    query_timeout: options.cleanup ? CLEANUP_QUERY_TIMEOUT_MS : QUERY_TIMEOUT_MS,
+    statement_timeout: options.cleanup ? CLEANUP_QUERY_TIMEOUT_MS : QUERY_TIMEOUT_MS,
+  };
   if (config.connectionString) {
     const url = new URL(config.connectionString);
     url.pathname = `/${databaseName}`;
-    return { ...config, connectionString: url.toString() };
+    return { ...config, ...bounded, connectionString: url.toString() };
   }
-  return { ...config, database: databaseName };
+  return { ...config, ...bounded, database: databaseName };
 }
 
 async function adminPool() {
   return new Pool(configForDatabase('postgres'));
+}
+
+async function cleanupAdminPool() {
+  return new Pool(configForDatabase('postgres', { cleanup: true }));
 }
 
 async function createDatabase(databaseName) {
@@ -65,19 +78,56 @@ async function createDatabase(databaseName) {
 async function dropDatabase(databaseName) {
   if (!databaseName) return;
   adapter.assertDisposableDatabaseName(databaseName);
-  const pool = await adminPool();
+  const pool = await cleanupAdminPool();
+  const started = Date.now();
+  let cleanupStatus = 'passed';
+  let cleanupError = null;
   try {
-    await pool.query(
-      `
-        SELECT pg_terminate_backend(pid)
-        FROM pg_stat_activity
-        WHERE datname = $1
-          AND pid <> pg_backend_pid()
-      `,
-      [databaseName]
-    );
-    await pool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
-    createdDatabases.delete(databaseName);
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await pool
+          .query(`ALTER DATABASE ${quoteIdentifier(databaseName)} WITH ALLOW_CONNECTIONS false`)
+          .catch((error) => {
+            if (error.code !== '55000') throw error;
+          });
+        await pool.query(
+          `
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = $1
+              AND pid <> pg_backend_pid()
+          `,
+          [databaseName]
+        );
+        try {
+          await pool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)} WITH (FORCE)`);
+        } catch (error) {
+          if (error.code !== '42601') throw error;
+          await pool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
+        }
+        cleanupStatus = 'passed';
+        cleanupError = null;
+        break;
+      } catch (error) {
+        cleanupStatus = 'failed';
+        cleanupError = error;
+        if (attempt === 2) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+    const remaining = await pool
+      .query('SELECT datname FROM pg_database WHERE datname = $1', [databaseName])
+      .catch(() => ({ rows: [{ datname: databaseName }] }));
+    if (remaining.rows.length) cleanupStatus = 'retained_for_manual_cleanup';
+    else createdDatabases.delete(databaseName);
+    await writeArtifact(`cleanup-${databaseName}.json`, {
+      databaseName,
+      cleanupStatus,
+      elapsedMs: Date.now() - started,
+      manualCleanupRequired: remaining.rows.length > 0,
+      code: cleanupError?.code || null,
+      message: cleanupError ? String(cleanupError.message || cleanupError).slice(0, 500) : null,
+    });
   } finally {
     await pool.end();
   }
