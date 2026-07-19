@@ -14,6 +14,7 @@ src/renderer/styles/output.css
 npm-debug.log*
 
 # Environment files
+.env
 .env.production
 .env.local
 
