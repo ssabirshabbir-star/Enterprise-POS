@@ -160,7 +160,8 @@ test('Store Settings exposes a narrow save route without activating restore', ()
   assert.match(storeSave, /INSERT INTO app_settings \(key, value, updated_by, updated_at\)/);
   assert.match(storeSave, /VALUES \('store', \$1::jsonb, \$2, NOW\(\)\)/);
   assert.doesNotMatch(storeSave, /printer_settings|SETTING_KEYS|payload\.tax|payload\.system/);
-  assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(controller, /settingsService\.executeProductionRestore/);
 });
 
 test('Settings API wrapper calls only the Store Settings preload method', async () => {

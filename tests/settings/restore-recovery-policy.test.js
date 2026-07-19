@@ -138,7 +138,7 @@ test('startup recovery model classifies each restore state without unsafe normal
   }
 });
 
-test('read-only settings route and renderer contract exposes policy but no execution', () => {
+test('settings route and renderer contract exposes policy plus guarded execution boundary', () => {
   const controller = read('src/main/features/settings/settings.controller.js');
   const preload = read('src/main/preload.js');
   const api = read('src/main/features/settings/settings.api.js');
@@ -151,8 +151,9 @@ test('read-only settings route and renderer contract exposes policy but no execu
   assert.match(renderer, /renderRestoreExecutionPolicy/);
   assert.match(html, /refreshRestoreExecutionPolicyButton/);
 
-  assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
-  assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
-  assert.doesNotMatch(api, /restoreBackup/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore|A\(\)\.restoreBackup/);
+  assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
+  assert.match(api, /restoreBackup/);
+  assert.doesNotMatch(renderer, /handleExecuteRestore/);
+  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
 });

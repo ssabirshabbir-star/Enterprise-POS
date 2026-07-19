@@ -65,10 +65,7 @@ test('restore execution policy distinguishes safety-backup verified from executi
   assert.equal(result.executionEligible, false);
   assert.equal(result.executionCertified, false);
   assert.equal(result.restoreExecutionAvailable, false);
-  assert.match(
-    result.warnings.map((item) => item.code).join('\n'),
-    /safety_backup\.verified/
-  );
+  assert.match(result.warnings.map((item) => item.code).join('\n'), /safety_backup\.verified/);
   assert.doesNotMatch(
     result.blockers.map((item) => item.code).join('\n'),
     /safety_backup\.required/
@@ -106,10 +103,13 @@ test('repository preparation reuses certified backup writer and avoids restore e
   assert.match(preparationBody, /acquireRestoreOperationLock/);
   assert.match(preparationBody, /exportBackup\(targetPath, ownerUserId\)/);
   assert.match(preparationBody, /SAFETY_BACKUP_VERIFIED/);
-  assert.doesNotMatch(preparationBody, /executeRestoreBackup|pg_restore|psql|RESTORE_EXECUTION_ACKNOWLEDGEMENT/);
+  assert.doesNotMatch(
+    preparationBody,
+    /executeRestoreBackup|pg_restore|psql|RESTORE_EXECUTION_ACKNOWLEDGEMENT/
+  );
 });
 
-test('controller and preload expose preparation only, not restore execution', () => {
+test('controller and preload expose preparation plus guarded restore boundary', () => {
   const controller = read('src/main/features/settings/settings.controller.js');
   const preload = read('src/main/preload.js');
 
@@ -118,8 +118,8 @@ test('controller and preload expose preparation only, not restore execution', ()
   assert.match(controller, /Prepare Restore Safety Backup/);
   assert.match(preload, /prepareRestoreSafetyBackup:\s*\(\)\s*=>/);
   assert.match(preload, /cancelRestorePreparation:\s*\(payload\)\s*=>/);
-  assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
-  assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
+  assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
 });
 
 test('Settings API exposes preparation wrappers without DOM side effects', () => {
@@ -148,6 +148,7 @@ test('Settings API exposes preparation wrappers without DOM side effects', () =>
           calls.push(['prepareRestoreSafetyBackup']) || { ok: true },
         cancelRestorePreparation: (payload) =>
           calls.push(['cancelRestorePreparation', payload]) || { ok: true },
+        restoreBackup: (payload) => calls.push(['restoreBackup', payload]) || { ok: false },
         restoreEngineFoundationAssessment: () => ({ ok: true }),
         restoreTransactionFoundationAssessment: () => ({ ok: true }),
       },
@@ -157,7 +158,7 @@ test('Settings API exposes preparation wrappers without DOM side effects', () =>
   vm.runInNewContext(source, { window });
   assert.equal(typeof window.SettingsApi.prepareRestoreSafetyBackup, 'function');
   assert.equal(typeof window.SettingsApi.cancelRestorePreparation, 'function');
-  assert.equal(typeof window.SettingsApi.restoreBackup, 'undefined');
+  assert.equal(typeof window.SettingsApi.restoreBackup, 'function');
 
   window.SettingsApi.prepareRestoreSafetyBackup();
   window.SettingsApi.cancelRestorePreparation('op-1');
@@ -166,7 +167,7 @@ test('Settings API exposes preparation wrappers without DOM side effects', () =>
     ['prepareRestoreSafetyBackup'],
     ['cancelRestorePreparation', { operationId: 'op-1' }],
   ]);
-  assert.doesNotMatch(source, /alert\(|document\.|innerHTML|restoreBackup:\s*\(/);
+  assert.doesNotMatch(source, /alert\(|document\.|innerHTML/);
 });
 
 test('renderer labels preparation as non-destructive and keeps execute restore disabled', () => {
@@ -180,7 +181,7 @@ test('renderer labels preparation as non-destructive and keeps execute restore d
   assert.match(renderer, /handleCancelRestorePreparation/);
   assert.match(renderer, /A\(\)\.prepareRestoreSafetyBackup/);
   assert.match(renderer, /A\(\)\.cancelRestorePreparation/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore|A\(\)\.restoreBackup/);
+  assert.doesNotMatch(renderer, /handleExecuteRestore/);
   assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
   assert.doesNotMatch(renderer, /location\.reload/);
 });

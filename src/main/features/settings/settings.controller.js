@@ -342,6 +342,40 @@ function registerSettingsRoutes(ipcMain) {
     }
   });
 
+  ipcMain.handle('/settings/backups/restore', async (event, payload = {}) => {
+    try {
+      const selectedPath = payload.sourcePackagePath || payload.filePath || null;
+      let sourcePackagePath = selectedPath;
+      if (!sourcePackagePath) {
+        const result = await dialog.showOpenDialog(windowFromEvent(event), {
+          title: 'Execute Production Restore',
+          properties: ['openFile'],
+          filters: [{ name: 'Enterprise POS Backup', extensions: ['json'] }],
+        });
+        if (result.canceled || !result.filePaths[0]) {
+          return {
+            ok: false,
+            code: 'RESTORE_PACKAGE_REQUIRED',
+            restoreExecuted: false,
+            noDataCommitted: true,
+            restoreExecutionAvailable: false,
+            message: 'Restore cancelled. No backup package was selected.',
+          };
+        }
+        sourcePackagePath = result.filePaths[0];
+      }
+      return await settingsService.executeProductionRestore({
+        sourcePackagePath,
+        operationId: payload.operationId || null,
+        confirmationId: payload.confirmationId || null,
+        preflightDigest: payload.preflightDigest || null,
+        executionPolicyDigest: payload.executionPolicyDigest || null,
+      });
+    } catch (error) {
+      return safeError(error, 'Production Restore execution route error:');
+    }
+  });
+
   ipcMain.handle('/settings/backups/restore-engine-foundation-assessment', async () => {
     try {
       return await settingsService.assessControlledRestoreEngineFoundation();

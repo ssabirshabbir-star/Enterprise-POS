@@ -10,7 +10,7 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('Settings API exposes certified backup and restore assessment methods without restore execution', () => {
+test('Settings API exposes certified backup and guarded production restore boundary', () => {
   const source = read('src/main/features/settings/settings.api.js');
   const calls = [];
   const window = {
@@ -25,8 +25,7 @@ test('Settings API exposes certified backup and restore assessment methods witho
         createBackup: () => calls.push(['createBackup']) || { ok: true },
         inspectRestorePackage: () => calls.push(['inspectRestorePackage']) || { ok: true },
         verifyRestorePackage: () => calls.push(['verifyRestorePackage']) || { ok: true },
-        assessRestoreEligibility: () =>
-          calls.push(['assessRestoreEligibility']) || { ok: true },
+        assessRestoreEligibility: () => calls.push(['assessRestoreEligibility']) || { ok: true },
         assessRestoreAuthorization: (payload) =>
           calls.push(['assessRestoreAuthorization', payload]) || { ok: true },
         dryRunCertificationReport: (payload) =>
@@ -35,17 +34,14 @@ test('Settings API exposes certified backup and restore assessment methods witho
           calls.push(['listDryRunCertificationReports', filters]) || { ok: true },
         getDryRunCertificationReport: (id) =>
           calls.push(['getDryRunCertificationReport', id]) || { ok: true },
-        restoreReadinessDashboard: () =>
-          calls.push(['restoreReadinessDashboard']) || { ok: true },
+        restoreReadinessDashboard: () => calls.push(['restoreReadinessDashboard']) || { ok: true },
         restoreGovernanceAssessment: () =>
           calls.push(['restoreGovernanceAssessment']) || { ok: true },
         restoreEngineFoundationAssessment: () =>
           calls.push(['restoreEngineFoundationAssessment']) || { ok: true },
         restoreTransactionFoundationAssessment: () =>
           calls.push(['restoreTransactionFoundationAssessment']) || { ok: true },
-        restoreBackup: () => {
-          throw new Error('restoreBackup must not be called');
-        },
+        restoreBackup: (payload) => calls.push(['restoreBackup', payload]) || { ok: false },
       },
     },
   };
@@ -57,26 +53,41 @@ test('Settings API exposes certified backup and restore assessment methods witho
   assert.equal(typeof window.SettingsApi.verifyRestorePackage, 'function');
   assert.equal(typeof window.SettingsApi.assessRestoreEligibility, 'function');
   assert.equal(typeof window.SettingsApi.restoreReadinessDashboard, 'function');
-  assert.equal(typeof window.SettingsApi.restoreBackup, 'undefined');
+  assert.equal(typeof window.SettingsApi.restoreBackup, 'function');
 
   window.SettingsApi.createBackup();
   window.SettingsApi.assessRestoreEligibility();
+  window.SettingsApi.restoreBackup({ operationId: 'op-1' });
 
-  assert.deepEqual(calls.map((call) => call[0]), ['createBackup', 'assessRestoreEligibility']);
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['createBackup', 'assessRestoreEligibility', 'restoreBackup']
+  );
 });
 
-test('preload settings bridge omits restore execution while preserving backup and assessments', () => {
+test('preload settings bridge exposes guarded restore execution route', () => {
   const source = read('src/main/preload.js');
 
-  assert.match(source, /createBackup:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/create'\)/);
-  assert.match(source, /assessBackupPreflight:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/preflight'\)/);
-  assert.match(source, /verifyRestorePackage:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/verify-restore-package'\)/);
+  assert.match(
+    source,
+    /createBackup:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/create'\)/
+  );
+  assert.match(
+    source,
+    /assessBackupPreflight:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/preflight'\)/
+  );
+  assert.match(
+    source,
+    /verifyRestorePackage:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/verify-restore-package'\)/
+  );
   assert.match(source, /restoreReadinessDashboard:\s*\(\)\s*=>/);
-  assert.doesNotMatch(source, /restoreBackup:\s*\(/);
-  assert.doesNotMatch(source, /\/settings\/backups\/restore'/);
+  assert.match(
+    source,
+    /restoreBackup:\s*\(payload\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/restore', payload\)/
+  );
 });
 
-test('main-process settings routes do not expose restore execution', () => {
+test('main-process settings route exposes guarded production restore and keeps repository execution internal', () => {
   const controller = read('src/main/features/settings/settings.controller.js');
   const service = read('src/main/features/settings/settings.service.js');
   const repository = read('src/main/features/settings/settings.repository.js');
@@ -84,14 +95,14 @@ test('main-process settings routes do not expose restore execution', () => {
   assert.match(controller, /\/settings\/backups\/create/);
   assert.match(controller, /\/settings\/backups\/restore-readiness-dashboard/);
   assert.match(controller, /\/settings\/backups\/restore-transaction-foundation-assessment/);
-  assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
-  assert.doesNotMatch(controller, /settingsService\.restoreBackup/);
+  assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(controller, /settingsService\.executeProductionRestore/);
 
   const serviceExports = service.slice(service.lastIndexOf('module.exports'));
   assert.match(serviceExports, /createBackup/);
   assert.match(serviceExports, /verifyRestorePackage/);
   assert.match(serviceExports, /assessRestoreEligibility/);
-  assert.doesNotMatch(serviceExports, /restoreBackup/);
+  assert.match(serviceExports, /executeProductionRestore/);
 
   const repositoryExports = repository.slice(repository.lastIndexOf('module.exports'));
   assert.match(repositoryExports, /exportBackup/);
@@ -107,7 +118,6 @@ test('renderer keeps restore button governance-only and has no execution listene
   assert.match(html, /id="restoreBackupButton"[^>]*disabled/);
   assert.match(html, /Restore remains unavailable/);
   assert.doesNotMatch(renderer, /handleExecuteRestore/);
-  assert.doesNotMatch(renderer, /A\(\)\.restoreBackup/);
   assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
   assert.match(renderer, /restoreEligible === true/);
 });

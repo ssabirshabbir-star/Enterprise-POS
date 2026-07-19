@@ -180,7 +180,7 @@ function createRestoreExecutionPolicy({
       operationLock,
       databaseIdentity: productionGovernance?.databaseIdentity || null,
       productionFeatureFlagEnabled: false,
-      productionExecutionRoutePresent: false,
+      productionExecutionRoutePresent: true,
     });
   activationAssessment.blockers.forEach((item) => {
     blockers.push(blocker(`production_activation.${item.code}`, item.message, item.details || {}));

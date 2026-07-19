@@ -106,6 +106,10 @@
     return api().settings.cancelRestorePreparation({ operationId: operationId || null });
   }
 
+  async function restoreBackup(payload) {
+    return api().settings.restoreBackup(payload || {});
+  }
+
   async function restoreEngineFoundationAssessment() {
     return api().settings.restoreEngineFoundationAssessment();
   }
@@ -130,6 +134,7 @@
     listDryRunCertificationReports,
     listBackups,
     prepareRestoreSafetyBackup,
+    restoreBackup,
     restoreFinalConfirmation,
     restoreExecutionPolicy,
     restoreRetentionAssessment,

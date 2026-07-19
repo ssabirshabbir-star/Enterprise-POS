@@ -4,6 +4,7 @@ const path = require('path');
 const authService = require('../auth/auth.service');
 const activityRepository = require('../activity/activity.repository');
 const restoreEngineService = require('../restore-engine/restore-engine.service');
+const restoreProductionExecutionService = require('../restore-engine/restore-production-execution.service');
 const settingsRepository = require('./settings.repository');
 
 const SETTINGS_ROLES = new Set(['Admin']);
@@ -885,6 +886,21 @@ async function cancelRestorePreparation(operationId = null) {
       result.message ||
       'Restore safety preparation cancellation completed. Restore execution remains unavailable.',
   };
+}
+
+async function executeProductionRestore(payload = {}) {
+  const access = await requireSettingsAccess('backup.restore', true);
+  if (!access.ok) {
+    return {
+      ok: false,
+      code: 'RESTORE_ACCESS_DENIED',
+      restoreExecuted: false,
+      noDataCommitted: true,
+      restoreExecutionAvailable: false,
+      message: access.message || 'Restore access denied.',
+    };
+  }
+  return restoreProductionExecutionService.executeProductionRestore(payload || {});
 }
 
 function governanceItem(name, status, evidence) {
@@ -3240,6 +3256,7 @@ module.exports = {
   assessRestoreAuthorization,
   cancelRestorePreparation,
   createBackup,
+  executeProductionRestore,
   generateRestoreDryRunCertificationReport,
   getSettings,
   inspectRestorePackage,

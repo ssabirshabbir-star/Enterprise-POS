@@ -102,7 +102,7 @@ test('concurrent mutation checks reject consistently during maintenance mode', a
   assert(checks.every((item) => item.response.code === guard.MAINTENANCE_ERROR_CODE));
 });
 
-test('main process uses guarded IPC registration and production restore execution remains absent', () => {
+test('main process uses guarded IPC registration and production restore execution is guarded', () => {
   const main = read('src/main/main.js');
   const preload = read('src/main/preload.js');
   const controller = read('src/main/features/settings/settings.controller.js');
@@ -120,10 +120,12 @@ test('main process uses guarded IPC registration and production restore executio
   assert.match(guardSource, /\/license\/status/);
   assert.match(guardSource, /\/license\/refresh/);
   assert.match(guardSource, /\/settings\/save/);
+  assert.match(guardSource, /\/settings\/backups\/restore/);
 
-  assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
-  assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
-  assert.doesNotMatch(renderer, /A\(\)\.restoreBackup|handleExecuteRestore|location\.reload/);
+  assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
+  assert.doesNotMatch(renderer, /handleExecuteRestore|location\.reload/);
+  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
 });
 
 test('write-like deployment and barcode routes are guarded during recovery mode', async () => {
@@ -133,6 +135,7 @@ test('write-like deployment and barcode routes are guarded during recovery mode'
     '/updates/check',
     '/license/status',
     '/license/refresh',
+    '/settings/backups/restore',
   ]) {
     const decision = await guard.assertMutationAllowed(channel, () =>
       statusFor(recovery.RESTORE_RECOVERY_STATES.FAILED_ROLLBACK_REQUIRED)

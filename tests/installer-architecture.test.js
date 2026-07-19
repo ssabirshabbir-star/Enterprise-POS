@@ -83,7 +83,7 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.doesNotMatch(html, /activateLicense|checkForUpdates|autoUpdate/);
 });
 
-test('preload and main expose installer foundation without production restore execution', () => {
+test('preload and main expose installer foundation with disabled restore UI', () => {
   const preload = read('src/main/preload.js');
   const main = read('src/main/main.js');
   const settingsHtml = read('src/main/features/settings/index.html');
@@ -94,7 +94,10 @@ test('preload and main expose installer foundation without production restore ex
   assert.match(main, /registerInstallerRoutes\(ipcMain, app\)/);
   assert.match(main, /loadAndApplyInstallationConfig/);
   assert.match(settingsHtml, /id="restoreBackupButton"[^>]*disabled/);
-  assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
+  assert.match(
+    preload,
+    /restoreBackup:\s*\(payload\)\s*=>\s*ipcRenderer\.invoke\('\/settings\/backups\/restore', payload\)/
+  );
 });
 
 test('installer controller provides setup-only IPC routes', () => {

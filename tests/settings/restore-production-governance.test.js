@@ -148,7 +148,7 @@ test('execution policy reports production governance blockers without activating
   assert.equal(result.databaseIdentity.credentialsExcluded, true);
 });
 
-test('settings UI exposes confirmation evidence and recovery assessment but no production execution route', () => {
+test('settings UI exposes confirmation evidence and guarded production execution route', () => {
   const controller = read('src/main/features/settings/settings.controller.js');
   const preload = read('src/main/preload.js');
   const api = read('src/main/features/settings/settings.api.js');
@@ -170,10 +170,11 @@ test('settings UI exposes confirmation evidence and recovery assessment but no p
   assert.match(schema, /status VARCHAR\(40\) NOT NULL/);
   assert.match(schema, /idx_restore_final_confirmations_one_active/);
 
-  assert.doesNotMatch(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
-  assert.doesNotMatch(preload, /restoreBackup:\s*\(/);
-  assert.doesNotMatch(api, /restoreBackup/);
-  assert.doesNotMatch(renderer, /A\(\)\.restoreBackup|handleExecuteRestore|location\.reload/);
+  assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
+  assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
+  assert.match(api, /restoreBackup/);
+  assert.doesNotMatch(renderer, /handleExecuteRestore|location\.reload/);
+  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
 });
 
 test('repository final confirmation is journal-backed, digest-bound, and single-use', () => {

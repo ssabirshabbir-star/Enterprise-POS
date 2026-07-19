@@ -22,6 +22,7 @@ const artifactRoot =
   path.join(repoRootForArtifacts(), 'test-artifacts', 'restore-disposable-certification', RUN_ID);
 const CONNECTION_TIMEOUT_MS = Number(process.env.RESTORE_CERT_CONNECTION_TIMEOUT_MS || 5000);
 const QUERY_TIMEOUT_MS = Number(process.env.RESTORE_CERT_QUERY_TIMEOUT_MS || 30000);
+const CLEANUP_QUERY_TIMEOUT_MS = Number(process.env.RESTORE_CERT_CLEANUP_TIMEOUT_MS || 60000);
 
 function repoRootForArtifacts() {
   return path.resolve(__dirname, '..', '..');
@@ -93,13 +94,13 @@ function quoteIdentifier(identifier) {
   return `"${identifier}"`;
 }
 
-function configForDatabase(databaseName) {
+function configForDatabase(databaseName, options = {}) {
   const config = getDatabaseConfig();
   const bounded = {
     connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
     idleTimeoutMillis: 1000,
-    query_timeout: QUERY_TIMEOUT_MS,
-    statement_timeout: QUERY_TIMEOUT_MS,
+    query_timeout: options.cleanup ? CLEANUP_QUERY_TIMEOUT_MS : QUERY_TIMEOUT_MS,
+    statement_timeout: options.cleanup ? CLEANUP_QUERY_TIMEOUT_MS : QUERY_TIMEOUT_MS,
   };
   if (config.connectionString) {
     const url = new URL(config.connectionString);
@@ -111,6 +112,10 @@ function configForDatabase(databaseName) {
 
 async function adminPool() {
   return new Pool(configForDatabase('postgres'));
+}
+
+async function cleanupAdminPool() {
+  return new Pool(configForDatabase('postgres', { cleanup: true }));
 }
 
 async function createDatabase(databaseName) {
@@ -129,35 +134,70 @@ async function createDatabase(databaseName) {
 async function dropDatabase(databaseName) {
   if (!databaseName) return;
   adapter.assertDisposableDatabaseName(databaseName);
-  const pool = await adminPool();
+  const pool = await cleanupAdminPool();
+  const started = Date.now();
+  let cleanupStatus = 'passed';
+  let cleanupError = null;
   try {
-    await stage('cleanup-disable-connections', databaseName, () =>
-      pool
-        .query(`ALTER DATABASE ${quoteIdentifier(databaseName)} WITH ALLOW_CONNECTIONS false`)
-        .catch((error) => {
-          if (error.code !== '55000') throw error;
-        })
-    );
-    await stage('cleanup-terminate-sessions', databaseName, () =>
-      pool.query(
-        `
-          SELECT pg_terminate_backend(pid)
-          FROM pg_stat_activity
-          WHERE datname = $1
-            AND pid <> pg_backend_pid()
-        `,
-        [databaseName]
-      )
-    );
-    await stage('cleanup-drop-database', databaseName, async () => {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        await pool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)} WITH (FORCE)`);
+        await stage('cleanup-disable-connections', databaseName, () =>
+          pool
+            .query(`ALTER DATABASE ${quoteIdentifier(databaseName)} WITH ALLOW_CONNECTIONS false`)
+            .catch((error) => {
+              if (error.code !== '55000') throw error;
+            })
+        );
+        await stage('cleanup-terminate-sessions', databaseName, () =>
+          pool.query(
+            `
+              SELECT pg_terminate_backend(pid)
+              FROM pg_stat_activity
+              WHERE datname = $1
+                AND pid <> pg_backend_pid()
+            `,
+            [databaseName]
+          )
+        );
+        await stage('cleanup-drop-database', databaseName, async () => {
+          try {
+            await pool.query(
+              `DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)} WITH (FORCE)`
+            );
+          } catch (error) {
+            if (error.code !== '42601') throw error;
+            await pool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
+          }
+        });
+        cleanupStatus = 'passed';
+        cleanupError = null;
+        break;
       } catch (error) {
-        if (error.code !== '42601') throw error;
-        await pool.query(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)}`);
+        cleanupStatus = 'failed';
+        cleanupError = error;
+        if (attempt === 2) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
+    }
+    const remaining = await pool
+      .query('SELECT datname FROM pg_database WHERE datname = $1', [databaseName])
+      .catch(() => ({ rows: [{ datname: databaseName }] }));
+    if (remaining.rows.length) {
+      cleanupStatus = 'retained_for_manual_cleanup';
+    } else {
+      cleanupStatus = 'passed';
+      cleanupError = null;
+      createdDatabases.delete(databaseName);
+    }
+    await writeArtifact(`cleanup-${databaseName}.json`, {
+      databaseName,
+      cleanupStatus,
+      elapsedMs: Date.now() - started,
+      manualCleanupRequired: remaining.rows.length > 0,
+      code: cleanupError?.code || null,
+      message: cleanupError ? String(cleanupError.message || cleanupError).slice(0, 500) : null,
     });
-    createdDatabases.delete(databaseName);
+    if (remaining.rows.length) throw cleanupError || new Error('RESTORE_CERT_CLEANUP_RETAINED');
   } finally {
     await pool.end();
   }
