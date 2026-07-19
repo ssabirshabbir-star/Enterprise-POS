@@ -33,6 +33,19 @@ const { registerInstallerRoutes } = require('./installer/installer.controller');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
+function applyE2eUserDataOverride() {
+  const requestedPath = process.env.ENTERPRISE_POS_E2E_USER_DATA_DIR;
+  if (process.env.NODE_ENV !== 'test' || !requestedPath || app.isPackaged) return;
+
+  const resolvedPath = path.resolve(requestedPath);
+  if (!/enterprise-pos-e2e/i.test(resolvedPath)) {
+    throw new Error('ENTERPRISE_POS_E2E_USER_DATA_DIR must be an isolated e2e path.');
+  }
+  app.setPath('userData', resolvedPath);
+}
+
+applyE2eUserDataOverride();
+
 function setupUrl() {
   const params = new URLSearchParams({
     error: startupStatus.message || 'Startup failed.',

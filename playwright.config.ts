@@ -1,31 +1,28 @@
-// playwright.config.ts — End-to-end test configuration
-//
-// Runs Electron app via playwright-electron for integration testing.
-// Tests live in tests/e2e/**
-
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: false, // Electron tests must run serially
-  retries: process.env['CI'] ? 2 : 0,
+  testMatch: '**/*.spec.js',
+  fullyParallel: false,
+  retries: 0,
   workers: 1,
+  timeout: 90000,
+  globalTimeout: 10 * 60 * 1000,
   reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
+    ['json', { outputFile: 'test-artifacts/electron-e2e/playwright-results.json' }],
+    ['junit', { outputFile: 'test-artifacts/electron-e2e/playwright-results.xml' }],
+    ['html', { outputFolder: 'test-artifacts/electron-e2e/playwright-report', open: 'never' }],
     ['list'],
   ],
   use: {
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
   },
   projects: [
     {
       name: 'electron',
-      use: {
-        ...devices['Desktop Chrome'],
-      },
+      use: {},
     },
   ],
-  outputDir: 'test-results/',
+  outputDir: 'test-artifacts/electron-e2e/test-results',
 });
