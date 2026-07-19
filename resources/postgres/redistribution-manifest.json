@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "manifestStatus": "pending-release-authorization",
+  "recommendedPackagingModel": "hybrid-offline-payload-with-external-build-inputs",
+  "networkDownloadPermitted": false,
+  "offlineInstallationSupported": true,
+  "components": [
+    {
+      "name": "PostgreSQL",
+      "version": "17.10",
+      "architecture": "win32-x64",
+      "officialFilename": "postgresql-17.10-2-windows-x64-binaries.zip",
+      "officialSourceVendor": "EnterpriseDB / PostgreSQL Global Development Group",
+      "officialSourceReference": "https://www.enterprisedb.com/download-postgresql-binaries",
+      "acquisitionMethod": "external-release-input",
+      "expectedSha256": "ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106",
+      "licenseIdentifier": "PostgreSQL",
+      "includedLicenseNoticeFiles": [
+        "POSTGRESQL-LICENSE.txt",
+        "THIRD-PARTY-NOTICES.md",
+        "pgsql/server_license.txt",
+        "pgsql/commandlinetools_3rd_party_licenses.txt"
+      ],
+      "redistributionApprovalState": "pending",
+      "approvalAuthority": "UNRESOLVED",
+      "approvalDate": null,
+      "securityReviewState": "pending-release-review",
+      "packagingState": "not-embedded-in-production-installer",
+      "runtimeInstallationBehavior": "selectively staged and initialized only after production authorization",
+      "upgradePolicy": "pinned; each replacement payload requires hash pinning, technical certification, legal/security review, and release approval",
+      "reviewBy": null,
+      "mayCommitToGit": false,
+      "mayEmbedInReleaseArtifacts": false,
+      "networkDownloadPermitted": false,
+      "offlineInstallationSupported": true
+    },
+    {
+      "name": "Microsoft Visual C++ Redistributable 2015-2022 x64",
+      "version": "14.51.36247.0",
+      "architecture": "x64",
+      "officialFilename": "vc_redist.x64.exe",
+      "officialSourceVendor": "Microsoft",
+      "officialSourceReference": "https://aka.ms/vc14/vc_redist.x64.exe",
+      "acquisitionMethod": "external-release-input",
+      "expectedSha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "licenseIdentifier": "Microsoft Visual Studio / Visual C++ Redistributable license terms",
+      "includedLicenseNoticeFiles": [
+        "resources/prerequisites/microsoft-vc-runtime/manifest.json",
+        "docs/installer/MICROSOFT_VC_RUNTIME_PREREQUISITE.md"
+      ],
+      "redistributionApprovalState": "pending",
+      "approvalAuthority": "UNRESOLVED",
+      "approvalDate": null,
+      "securityReviewState": "pending-release-review",
+      "packagingState": "excluded-from-normal-production-package-until-approved",
+      "runtimeInstallationBehavior": "verified prerequisite installer, then post-install registry and DLL verification",
+      "upgradePolicy": "pinned; each replacement executable requires Microsoft provenance, signer verification, hash pinning, technical certification, legal/security review, and release approval",
+      "reviewBy": null,
+      "mayCommitToGit": false,
+      "mayEmbedInReleaseArtifacts": false,
+      "networkDownloadPermitted": false,
+      "offlineInstallationSupported": true
+    }
+  ]
+}

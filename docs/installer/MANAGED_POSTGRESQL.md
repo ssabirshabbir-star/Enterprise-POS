@@ -6,6 +6,10 @@ runtime.
 Production managed provisioning is intentionally blocked until clean-machine runtime certification
 and release approval are both complete.
 
+Release authorization is now represented separately from technical certification. See
+`docs/installer/MANAGED_POSTGRESQL_RELEASE_GOVERNANCE.md` and the non-authorizing template at
+`resources/postgres/release-authorization.pending.json`.
+
 ## Version Policy
 
 - Managed PostgreSQL version: `17.10`
@@ -32,6 +36,9 @@ Managed provisioning is blocked unless all of these are true:
 - SHA-256 digest is configured and matches the payload;
 - redistribution status is marked `certified`;
 - required license and third-party notices are present.
+- a production release authorization record is present, approved, unexpired, not revoked, scoped to
+  Enterprise POS managed PostgreSQL production, and matches the pinned PostgreSQL and VC Runtime
+  payload identities.
 
 No PostgreSQL binary is committed in this repository.
 
@@ -141,6 +148,9 @@ The installer readiness assessment reports:
 - `pending`: clean Windows Sandbox/VM runtime certification;
 - `pending`: release approval;
 - `blocked`: production activation until both pending gates pass.
+
+An approved PostgreSQL manifest alone is not sufficient for production execution. Production
+preflight also requires the release authorization record described in the release-governance report.
 
 `provisioningActivationEnabled` remains `false`, and `certifiedForActivation` remains `false`.
 

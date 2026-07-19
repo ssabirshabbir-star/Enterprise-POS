@@ -7,6 +7,7 @@ const test = require('node:test');
 
 const credentials = require('../src/main/installer/postgres-credential.service');
 const payloadVerifier = require('../src/main/installer/postgres-payload-verifier');
+const releaseAuthorization = require('../src/main/installer/postgres-release-authorization');
 const provisioningModel = require('../src/main/installer/postgres-provisioning.model');
 const provisioningRepository = require('../src/main/installer/postgres-provisioning.repository');
 const provisioningService = require('../src/main/installer/postgres-provisioning.service');
@@ -42,6 +43,48 @@ function writePayloadFixture(root, overrides = {}) {
   return manifest;
 }
 
+function vcRuntimeManifestFixture(overrides = {}) {
+  return {
+    architecture: 'x64',
+    filename: 'vc_redist.x64.exe',
+    sha256: '843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c',
+    ...overrides,
+  };
+}
+
+function writeAuthorizationFixture(root, postgresManifest, overrides = {}) {
+  const record = {
+    schemaVersion: 1,
+    releaseScope: releaseAuthorization.PRODUCTION_RELEASE_SCOPE,
+    authorizationStatus: 'approved',
+    redistributionStatus: 'approved',
+    legalReviewStatus: 'approved',
+    securityReviewStatus: 'approved',
+    packagingModel: 'hybrid-offline-payload-with-external-build-inputs',
+    postgresql: {
+      version: postgresManifest.version,
+      architecture: postgresManifest.architecture,
+      fileName: postgresManifest.fileName,
+      sha256: postgresManifest.sha256,
+    },
+    microsoftVcRuntime: vcRuntimeManifestFixture(),
+    technicalCertification: {
+      managedPostgresFailureMatrix: 'passed',
+    },
+    approver: 'release-authority-fixture',
+    approvalTimestamp: '2026-07-19T00:00:00.000Z',
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    revoked: false,
+    testOnly: false,
+    ...overrides,
+  };
+  fs.writeFileSync(
+    path.join(root, 'release-authorization.pending.json'),
+    `${JSON.stringify(record, null, 2)}\n`
+  );
+  return record;
+}
+
 test('managed PostgreSQL policy pins an exact Windows server version', () => {
   const policy = versionPolicy.getManagedPostgresPolicy();
   assert.equal(policy.policyVersion, 'managed-postgres-policy-v1');
@@ -73,6 +116,111 @@ test('payload verifier rejects the repository placeholder payload before mutatio
   assert.equal(result.ok, false);
   assert.equal(result.status, 'REDISTRIBUTION_NOT_CERTIFIED');
   assert.equal(result.code, 'INSTALLER_POSTGRES_REDISTRIBUTION_NOT_CERTIFIED');
+});
+
+test('release authorization template is pending and non-authorizing', () => {
+  const payloadRoot = path.join(__dirname, '..', 'resources', 'postgres');
+  const manifest = JSON.parse(fs.readFileSync(path.join(payloadRoot, 'manifest.json'), 'utf8'));
+  const result = releaseAuthorization.validateReleaseAuthorization({
+    payloadRoot,
+    postgresManifest: manifest,
+    vcRuntimeManifest: vcRuntimeManifestFixture(),
+    now: new Date('2026-07-19T00:00:00.000Z'),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INCOMPLETE');
+  assert.ok(result.missing.includes('approvalTimestamp'));
+});
+
+test('release authorization rejects missing, incomplete, revoked, expired, test-only, and mismatched records', () => {
+  const missingRoot = tempDir('epos-postgres-auth-missing-');
+  assert.equal(
+    releaseAuthorization.validateReleaseAuthorization({ payloadRoot: missingRoot }).code,
+    'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MISSING'
+  );
+
+  const root = tempDir('epos-postgres-auth-');
+  const manifest = writePayloadFixture(root);
+  writeAuthorizationFixture(root, manifest);
+  assert.equal(
+    releaseAuthorization.validateReleaseAuthorization({
+      payloadRoot: root,
+      postgresManifest: manifest,
+      vcRuntimeManifest: vcRuntimeManifestFixture(),
+      now: new Date('2026-07-19T00:00:00.000Z'),
+    }).ok,
+    true
+  );
+
+  const cases = [
+    ['incomplete', { approver: undefined }, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INCOMPLETE'],
+    ['revoked', { revoked: true }, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_REVOKED'],
+    [
+      'expired',
+      { expiresAt: '2026-01-01T00:00:00.000Z' },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_EXPIRED',
+    ],
+    ['test-only', { testOnly: true }, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_TEST_ONLY'],
+    [
+      'wrong-version',
+      { postgresql: { ...manifest, version: '17.9', fileName: manifest.fileName } },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_PAYLOAD_MISMATCH',
+    ],
+    [
+      'wrong-filename',
+      { postgresql: { ...manifest, fileName: 'postgresql-other.zip' } },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_PAYLOAD_MISMATCH',
+    ],
+    [
+      'wrong-architecture',
+      { postgresql: { ...manifest, architecture: 'linux-x64' } },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_PAYLOAD_MISMATCH',
+    ],
+    [
+      'wrong-sha',
+      { postgresql: { ...manifest, sha256: '0'.repeat(64) } },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_PAYLOAD_MISMATCH',
+    ],
+    [
+      'wrong-vc-sha',
+      { microsoftVcRuntime: vcRuntimeManifestFixture({ sha256: '1'.repeat(64) }) },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_PAYLOAD_MISMATCH',
+    ],
+  ];
+
+  for (const [name, overrides, expectedCode] of cases) {
+    const caseRoot = tempDir(`epos-postgres-auth-${name}-`);
+    const caseManifest = writePayloadFixture(caseRoot);
+    writeAuthorizationFixture(caseRoot, caseManifest, overrides);
+    const result = releaseAuthorization.validateReleaseAuthorization({
+      payloadRoot: caseRoot,
+      postgresManifest: caseManifest,
+      vcRuntimeManifest: vcRuntimeManifestFixture(),
+      now: new Date('2026-07-19T00:00:00.000Z'),
+    });
+    assert.equal(result.ok, false, name);
+    assert.equal(result.code, expectedCode, name);
+  }
+});
+
+test('approved payload manifest alone does not bypass release authorization or production guards', async () => {
+  const payloadRoot = tempDir('epos-postgres-auth-preflight-');
+  writePayloadFixture(payloadRoot);
+  const userDataPath = tempDir('epos-postgres-auth-userdata-');
+  const preflight = await provisioningService.assessManagedPostgresPreflight({
+    userDataPath,
+    payloadRoot,
+  });
+  assert.equal(preflight.ok, false);
+  assert.ok(preflight.blockers.includes('INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MISSING'));
+
+  const result = await provisioningService.startManagedPostgresProvisioning({
+    userDataPath,
+    payloadRoot,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.operation.state, 'CANCELLED_BEFORE_MUTATION');
+  assert.ok(result.preflight.blockers.includes('INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MISSING'));
 });
 
 test('payload verifier requires checksum, notices, architecture, and file integrity', () => {

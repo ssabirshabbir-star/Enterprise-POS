@@ -6,6 +6,11 @@ a prerequisite for the PostgreSQL 17.10 Windows runtime.
 Production managed PostgreSQL provisioning remains disabled until the full clean Windows Sandbox
 certification matrix is reviewed and approved.
 
+Technical prerequisite certification does not authorize redistribution. The production release gate
+also requires the pending governance record in
+`resources/postgres/release-authorization.pending.json` to be replaced by an authentic legal,
+security, and release approval.
+
 ## Official Payload
 
 - Product: Microsoft Visual C++ Redistributable 2015-2022 x64
@@ -27,6 +32,10 @@ D:\Enterprise-POS-release-inputs\prerequisites\microsoft-vc-runtime\vc_redist.x6
 The normal production package includes only prerequisite manifest/documentation resources and
 excludes `.exe` files. Certification builds may include the exact pinned Microsoft executable as an
 explicit external resource after hash and signature verification.
+
+Production release artifacts may embed `vc_redist.x64.exe` only after Microsoft redistribution
+terms, security review, and release approval are recorded in the managed PostgreSQL release
+authorization record.
 
 ## Install Policy
 

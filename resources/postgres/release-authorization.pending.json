@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "releaseScope": "enterprise-pos-managed-postgres-production",
+  "authorizationStatus": "pending",
+  "redistributionStatus": "pending",
+  "legalReviewStatus": "pending",
+  "securityReviewStatus": "pending",
+  "packagingModel": "hybrid-offline-payload-with-external-build-inputs",
+  "postgresql": {
+    "component": "PostgreSQL",
+    "version": "17.10",
+    "architecture": "win32-x64",
+    "fileName": "postgresql-17.10-2-windows-x64-binaries.zip",
+    "sha256": "ef9b1e5e23d2e8a83914ba13d9dc536a72210fba53fd1808ff1f7e06bb22b106",
+    "licenseIdentifier": "PostgreSQL",
+    "licenseNoticeFiles": ["POSTGRESQL-LICENSE.txt", "THIRD-PARTY-NOTICES.md"]
+  },
+  "microsoftVcRuntime": {
+    "component": "Microsoft Visual C++ Redistributable 2015-2022 x64",
+    "architecture": "x64",
+    "filename": "vc_redist.x64.exe",
+    "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+    "expectedSigner": "Microsoft Corporation"
+  },
+  "technicalCertification": {
+    "managedPostgresHappyPath": "passed",
+    "managedPostgresFailureMatrix": "passed",
+    "vcRuntimePrerequisite": "passed",
+    "evidenceRoot": "test-artifacts/vc-runtime-prerequisite"
+  },
+  "approver": "UNRESOLVED",
+  "approvalAuthority": "UNRESOLVED",
+  "approvalTimestamp": null,
+  "expiresAt": "1970-01-01T00:00:00.000Z",
+  "revoked": false,
+  "testOnly": false,
+  "notes": [
+    "This pending record is intentionally non-authorizing.",
+    "Do not change production provisioning or redistribution status based on this template.",
+    "A real approval must replace pending fields with documented legal, security, and release decisions."
+  ]
+}

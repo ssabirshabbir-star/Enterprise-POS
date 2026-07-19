@@ -26,6 +26,7 @@ const { stagePostgresArchive } = require('./postgres-archive-stager');
 const { buildManagedServicePlan } = require('./postgres-service-manager');
 const { getManagedPostgresPolicy } = require('./postgres-version-policy');
 const payloadVerifier = require('./postgres-payload-verifier');
+const releaseAuthorization = require('./postgres-release-authorization');
 const {
   buildInitdbLaunchDiagnostics,
   postgresCommandOptions,
@@ -875,6 +876,13 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
   const policy = getManagedPostgresPolicy();
   const payload = payloadVerifier.verifyBundledPayload({ payloadRoot });
   const vcRuntime = vcRuntimePrerequisite.assessVcRuntimePrerequisite();
+  const resolvedPayloadRoot =
+    payloadRoot || (payload.manifestPath ? path.dirname(payload.manifestPath) : null);
+  const authorization = releaseAuthorization.validateReleaseAuthorization({
+    payloadRoot: resolvedPayloadRoot,
+    postgresManifest: payload.manifest,
+    vcRuntimeManifest: vcRuntime.manifest,
+  });
   const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
   const pendingRecovery = latest ? requiresProvisioningRecovery(latest.state) : false;
   const recovery = classifyProvisioningRecovery(latest);
@@ -883,9 +891,22 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     : null;
 
   return {
-    ok: payload.ok && !pendingRecovery,
+    ok: payload.ok && authorization.ok && !pendingRecovery,
     policy,
     payload,
+    releaseAuthorization: authorization.ok
+      ? {
+          ok: true,
+          code: authorization.code,
+          authorizationPath: authorization.authorizationPath,
+        }
+      : {
+          ok: false,
+          code: authorization.code,
+          authorizationPath: authorization.authorizationPath,
+          field: authorization.field,
+          missing: authorization.missing,
+        },
     prerequisites: {
       visualCppRuntime: vcRuntime,
     },
@@ -912,6 +933,7 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     blockers: [
       ...(vcRuntime.ok ? [] : [vcRuntime.code || 'VC_RUNTIME_NOT_INSTALLED']),
       ...(payload.ok ? [] : [payload.code]),
+      ...(authorization.ok ? [] : [authorization.code]),
       ...(pendingRecovery ? ['INSTALLER_POSTGRES_PROVISIONING_RECOVERY_REQUIRED'] : []),
     ],
   };
