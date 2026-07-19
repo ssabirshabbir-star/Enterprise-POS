@@ -1,68 +1,55 @@
 # Enterprise POS Installation
 
-## 1. Install PostgreSQL
+## 1. Install Enterprise POS
 
-Install PostgreSQL for Windows and create a database, for example:
+Run the offline Windows installer from `release/`.
 
-```sql
-CREATE DATABASE star;
-```
+For the managed local database flow, the installer package carries the approved PostgreSQL payload
+and prerequisite metadata. The application stores its database configuration under the installed
+application's user data directory after provisioning succeeds.
 
-Create or choose a PostgreSQL user with permission to connect and create tables in that database.
+Shop operators should not create a `.env` file, choose PostgreSQL binaries, create PostgreSQL roles,
+or enter the internal database password.
 
-## 2. Configure Production Env
+## 2. First Launch
 
-Create:
+Launch Enterprise POS from the Desktop or Start menu.
 
-```text
-%APPDATA%\Enterprise POS\.env.production
-```
+If the local managed database is not ready, the guided setup screen reports the current database
+state and the blocked prerequisites. Normal login remains unavailable until database setup and
+schema readiness complete.
 
-Use `.env.production.example` as the template. Prefer `DATABASE_URL`:
+## 3. First Administrator
 
-```text
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/star
-JWT_ACCESS_SECRET=long-random-secret
-JWT_REFRESH_SECRET=another-long-random-secret
-BACKUP_DIR=C:\EnterprisePOSBackups
-PRINTER_MODE=windows
-UPDATE_PROVIDER=manual
-LICENSE_PROVIDER=local-foundation
-```
+Create the first business administrator only through the guided first-run application setup.
 
-Do not use development passwords in production.
+The business administrator account is separate from the internal PostgreSQL service account.
+Enterprise POS must not display or ask for the internal PostgreSQL password.
 
-## 3. Run Database Setup
+## 4. Updates and Repair
 
-From the project folder or an admin maintenance shell:
+Application updates and repair installs must preserve the managed database configuration, encrypted
+credential, PostgreSQL data directory, users, settings, backups, and Restore governance state. They
+must not silently create a new blank database.
 
-```powershell
-npm run db:health
-npm run db:migrate
-npm run db:first-run
-```
+## External PostgreSQL or Development
 
-Set these before `db:first-run` if no users exist:
+Developer checkouts and deliberately external PostgreSQL deployments may still use
+`.env.production.example` as a shape reference. Do not put production database passwords in packaged
+application resources, logs, screenshots, or support bundles.
 
-```text
-SEED_ADMIN_USERNAME=admin
-SEED_ADMIN_EMAIL=admin@example.local
-SEED_ADMIN_PASSWORD=strong-password-here
-SEED_ADMIN_NAME=System Administrator
-```
-
-## 4. Install the App
-
-Run the installer from `release/`.
-
-The app should open after install. If PostgreSQL is not ready, a first-run setup screen shows the exact database problem.
+Production Restore remains disabled unless a separate activation record and release approval
+explicitly authorize it.
 
 ## Troubleshooting
 
-- Blank screen: run `npm run build:css`, reinstall, and check the production env file.
-- PostgreSQL not running: start the PostgreSQL service.
-- Login failed after install: verify `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` are set and restart the app.
-- Database missing: create the database and run `npm run db:migrate`.
+- Blank screen: reinstall or repair the application and check the installer diagnostics.
+- Local database setup incomplete: use the guided setup or recovery flow.
+- PostgreSQL not running: use the managed database recovery flow; do not edit database secrets.
+- Login failed after install: verify the business user account and activation state.
+- Database missing or configuration damaged: use the guided database recovery flow.
 - Backup errors: set `BACKUP_DIR` to a writable directory.
-- Update checks: set `UPDATE_LATEST_VERSION` and `UPDATE_DOWNLOAD_URL` when an update server is ready.
-- Activation: use Settings > License to register the machine; connect `LICENSE_SERVER_URL` when the SaaS license server is available.
+- Update checks: set `UPDATE_LATEST_VERSION` and `UPDATE_DOWNLOAD_URL` when an update server is
+  ready.
+- Activation: use Settings > License to register the machine; connect `LICENSE_SERVER_URL` when the
+  SaaS license server is available.
