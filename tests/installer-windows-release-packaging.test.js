@@ -179,3 +179,14 @@ test('documentation defines signing readiness without treating unsigned artifact
   assert.match(doc, /release authorization/i);
   assert.match(doc, /must not be used as release approval/i);
 });
+
+test('documentation distinguishes strict installer reproducibility from payload reproducibility', () => {
+  const doc = read('docs/installer/WINDOWS_RELEASE_PACKAGING_AND_SIGNING.md');
+
+  assert.match(doc, /Strict reproducibility passes only when/i);
+  assert.match(doc, /Payload reproducibility passes only when/i);
+  assert.match(doc, /complete packaged application payload is\s+byte-identical/i);
+  assert.match(doc, /unsigned NSIS wrapper/i);
+  assert.match(doc, /final signed installer hash/i);
+  assert.match(doc, /must not claim that unsigned NSIS wrappers are byte-reproducible/i);
+});

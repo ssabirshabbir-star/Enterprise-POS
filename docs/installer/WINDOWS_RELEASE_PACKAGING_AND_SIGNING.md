@@ -234,6 +234,34 @@ Required hash evidence:
 - redistribution manifest;
 - consolidated notices/evidence file.
 
+## Reproducibility Policy
+
+Phase 1 build verification supports two explicit outcomes:
+
+- Strict reproducibility passes only when two independent clean builds produce byte-identical NSIS
+  installer files with the same SHA-256 hash.
+- Payload reproducibility passes only when the complete packaged application payload is
+  byte-identical, including `release/win-unpacked`, `resources/app.asar`, packaged manifests,
+  notices, PostgreSQL resources, and Visual C++ Runtime resources, and the only identified
+  differences are in the unsigned NSIS wrapper or its derived blockmap metadata.
+
+Payload reproducibility must not be used when any packaged application file differs, when the first
+differing layer is unexplained, or when required payload, notice, security, or release metadata has
+been removed to make hashes match.
+
+Unsigned NSIS installer hashes are diagnostic before code signing. Release provenance must bind:
+
+- the approved Git commit;
+- dependency and tool versions;
+- the reproducible packaged application payload manifest;
+- the final signed installer hash;
+- the signing certificate, timestamp, and signature verification result.
+
+The project must not claim that unsigned NSIS wrappers are byte-reproducible unless the complete
+installer files actually match. A payload reproducibility pass keeps later certification phases
+blocked until Phase 1 records the payload manifest, explains the wrapper-only difference, and the
+final signed artifact provenance is available for release.
+
 ## Release Evidence Manifest
 
 The pending evidence template is:
