@@ -530,6 +530,33 @@ async function executeCertificationProvisioning(options = {}) {
       }
     }
 
+    const payloadRoot = options.certification?.payloadRoot
+      ? path.resolve(String(options.certification.payloadRoot))
+      : path.dirname(gate.archivePath);
+    const payloadStatus = payloadVerifier.verifyBundledPayload({
+      payloadRoot,
+      archivePath: gate.archivePath,
+      allowRedistributionNotCertified: true,
+    });
+    if (!payloadStatus.ok) {
+      throw codeError(
+        payloadStatus.code || 'INSTALLER_POSTGRES_PAYLOAD_NOT_READY',
+        'PostgreSQL payload is not ready for managed provisioning.',
+        { payload: payloadStatus }
+      );
+    }
+
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.ARCHIVE_VERIFIED,
+      {
+        archivePath: gate.archivePath,
+        payloadRoot,
+        payloadDigest: payloadStatus.digest,
+      }
+    );
+
     const staged = await stagePostgresArchive({
       archivePath: gate.archivePath,
       stagingRoot: pendingRoot,
@@ -543,14 +570,6 @@ async function executeCertificationProvisioning(options = {}) {
       },
     };
     repository.saveProvisioningOperation(userDataPath, operation);
-    operation = await transitionAndSave(
-      userDataPath,
-      operation,
-      PROVISIONING_STATES.ARCHIVE_VERIFIED,
-      {
-        reason: 'archive_identity_and_structure_verified',
-      }
-    );
     fs.rmSync(runtimeRoot, { recursive: true, force: true });
     fs.renameSync(pendingRoot, runtimeRoot);
     paths = executablePaths(runtimeRoot);

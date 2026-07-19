@@ -7,6 +7,7 @@ const test = require('node:test');
 const provisioningRepository = require('../src/main/installer/postgres-provisioning.repository');
 const provisioningService = require('../src/main/installer/postgres-provisioning.service');
 const runtimeDiagnostics = require('../src/main/installer/postgres-runtime-diagnostics');
+const vcRuntimePrerequisite = require('../src/main/installer/vc-runtime-prerequisite.service');
 
 const ARCHIVE_PATH =
   'D:\\Enterprise-POS-release-inputs\\postgres\\postgresql-17.10-2-windows-x64-binaries.zip';
@@ -273,6 +274,52 @@ test('certification Visual C++ Runtime install option still requires verified pa
   });
 });
 
+test('certification provisioning verifies PostgreSQL manifest beside explicit archive path', async () => {
+  const previousCwd = process.cwd();
+  const previousAssess = vcRuntimePrerequisite.assessVcRuntimePrerequisite;
+  const wrongCwd = tempDir('epos-pg-wrong-cwd-');
+  const payloadRoot = tempDir('epos-pg-explicit-payload-root-');
+  const manifestSource = path.join(__dirname, '..', 'resources', 'postgres', 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestSource, 'utf8'));
+  const archivePath = path.join(payloadRoot, manifest.fileName);
+  fs.writeFileSync(
+    path.join(payloadRoot, 'manifest.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`
+  );
+  fs.writeFileSync(path.join(payloadRoot, 'POSTGRESQL-LICENSE.txt'), 'PostgreSQL License\n');
+  fs.writeFileSync(path.join(payloadRoot, 'THIRD-PARTY-NOTICES.md'), 'Third-party notices\n');
+
+  vcRuntimePrerequisite.assessVcRuntimePrerequisite = () => ({
+    detection: { compatible: true },
+    code: 'VC_RUNTIME_AVAILABLE',
+  });
+
+  await withCertificationEnv(async () => {
+    try {
+      process.chdir(wrongCwd);
+      const result = await provisioningService.startManagedPostgresProvisioning({
+        userDataPath: tempDir('epos-pg-explicit-payload-userdata-'),
+        certification: {
+          enabled: true,
+          token: provisioningService.CERTIFICATION_TOKEN,
+          root: tempDir('managed-postgres-cert-explicit-payload-'),
+          archivePath,
+          payloadRoot,
+          database: `epos_cert_explicit_payload_${Date.now()}`,
+          safeStorage: fakeSafeStorage(),
+        },
+      });
+
+      assert.equal(result.ok, false);
+      assert.equal(result.code, 'INSTALLER_POSTGRES_PAYLOAD_MISSING');
+      assert.notEqual(result.code, 'INSTALLER_POSTGRES_PAYLOAD_MANIFEST_MISSING');
+    } finally {
+      process.chdir(previousCwd);
+      vcRuntimePrerequisite.assessVcRuntimePrerequisite = previousAssess;
+    }
+  });
+});
+
 test('certification provisioning engine runs full local disposable state machine', async (t) => {
   if (!fs.existsSync(ARCHIVE_PATH)) {
     t.skip('Official PostgreSQL archive is not available on this machine.');
@@ -289,6 +336,7 @@ test('certification provisioning engine runs full local disposable state machine
         token: provisioningService.CERTIFICATION_TOKEN,
         root,
         archivePath: ARCHIVE_PATH,
+        payloadRoot: path.join(__dirname, '..', 'resources', 'postgres'),
         database: `epos_cert_${Date.now()}`,
         safeStorage: fakeSafeStorage(),
       },
@@ -334,6 +382,7 @@ test('certification provisioning engine runs full local disposable state machine
         token: provisioningService.CERTIFICATION_TOKEN,
         root,
         archivePath: ARCHIVE_PATH,
+        payloadRoot: path.join(__dirname, '..', 'resources', 'postgres'),
         database: `epos_cert_${Date.now()}`,
         safeStorage: fakeSafeStorage(),
       },

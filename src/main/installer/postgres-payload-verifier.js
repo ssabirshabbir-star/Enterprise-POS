@@ -67,7 +67,7 @@ function readManifest(payloadRoot) {
   }
 }
 
-function verifyPayloadManifest(payloadRoot, manifest = null) {
+function verifyPayloadManifest(payloadRoot, manifest = null, options = {}) {
   const policy = getManagedPostgresPolicy();
   const loaded = manifest
     ? { ok: true, manifestPath: path.join(payloadRoot, 'manifest.json'), manifest }
@@ -105,7 +105,8 @@ function verifyPayloadManifest(payloadRoot, manifest = null) {
     };
   }
 
-  if (record.redistributionStatus !== 'certified') {
+  const redistributionNotCertified = record.redistributionStatus !== 'certified';
+  if (redistributionNotCertified && options.allowRedistributionNotCertified !== true) {
     return {
       ok: false,
       status: PAYLOAD_STATUS.REDISTRIBUTION_NOT_CERTIFIED,
@@ -140,7 +141,20 @@ function verifyPayloadManifest(payloadRoot, manifest = null) {
     };
   }
 
-  const payloadPath = path.join(payloadRoot, record.fileName);
+  const payloadPath = options.archivePath
+    ? path.resolve(String(options.archivePath))
+    : path.join(payloadRoot, record.fileName);
+  if (path.basename(payloadPath) !== record.fileName) {
+    return {
+      ok: false,
+      status: PAYLOAD_STATUS.MISSING,
+      code: 'INSTALLER_POSTGRES_PAYLOAD_FILENAME_MISMATCH',
+      expected: record.fileName,
+      actual: path.basename(payloadPath),
+      manifest: record,
+      policy,
+    };
+  }
   if (!fs.existsSync(payloadPath)) {
     return {
       ok: false,
@@ -173,12 +187,14 @@ function verifyPayloadManifest(payloadRoot, manifest = null) {
     digest,
     manifest: record,
     policy,
+    redistributionStatus: record.redistributionStatus,
+    redistributionCertified: !redistributionNotCertified,
   };
 }
 
 function verifyBundledPayload(options = {}) {
   const payloadRoot = options.payloadRoot || defaultPayloadRoot(options);
-  return verifyPayloadManifest(payloadRoot, options.manifest || null);
+  return verifyPayloadManifest(payloadRoot, options.manifest || null, options);
 }
 
 module.exports = {
