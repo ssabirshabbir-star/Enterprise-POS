@@ -32,6 +32,7 @@ function writePayloadFixture(root, overrides = {}) {
     fileName: 'postgresql-fixture.zip',
     sha256: digest,
     redistributionStatus: 'certified',
+    installMethod: releaseAuthorization.APPROVED_PROVISIONING_STRATEGY,
     licenseNoticeFiles: ['POSTGRESQL-LICENSE.txt', 'THIRD-PARTY-NOTICES.md'],
     ...overrides,
   };
@@ -60,17 +61,27 @@ function writeAuthorizationFixture(root, postgresManifest, overrides = {}) {
     redistributionStatus: 'approved',
     legalReviewStatus: 'approved',
     securityReviewStatus: 'approved',
+    releaseApprovalStatus: 'approved',
     packagingModel: 'hybrid-offline-payload-with-external-build-inputs',
     postgresql: {
       version: postgresManifest.version,
       architecture: postgresManifest.architecture,
       fileName: postgresManifest.fileName,
       sha256: postgresManifest.sha256,
+      installMethod: postgresManifest.installMethod,
     },
     microsoftVcRuntime: vcRuntimeManifestFixture(),
     technicalCertification: {
       managedPostgresFailureMatrix: 'passed',
+      evidenceHash: 'a'.repeat(64),
     },
+    approvedPayloadManifestSha256: releaseAuthorization.createPayloadManifestHash(postgresManifest),
+    approvedProvisioningStrategy: releaseAuthorization.APPROVED_PROVISIONING_STRATEGY,
+    approvedInstallerVersionRange: {
+      minVersion: '1.0.0',
+      maxVersion: '1.0.0',
+    },
+    installerVersion: '1.0.0',
     approver: 'release-authority-fixture',
     approvalTimestamp: '2026-07-19T00:00:00.000Z',
     expiresAt: '2099-01-01T00:00:00.000Z',
@@ -154,6 +165,11 @@ test('release authorization rejects missing, incomplete, revoked, expired, test-
 
   const cases = [
     ['incomplete', { approver: undefined }, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INCOMPLETE'],
+    [
+      'disabled',
+      { authorizationStatus: 'disabled' },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_DISABLED',
+    ],
     ['revoked', { revoked: true }, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_REVOKED'],
     [
       'expired',
@@ -161,6 +177,38 @@ test('release authorization rejects missing, incomplete, revoked, expired, test-
       'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_EXPIRED',
     ],
     ['test-only', { testOnly: true }, 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_TEST_ONLY'],
+    [
+      'missing-release-approval',
+      { releaseApprovalStatus: 'pending' },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_NOT_APPROVED',
+    ],
+    [
+      'missing-technical-evidence',
+      { technicalCertification: { managedPostgresFailureMatrix: 'passed' } },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INCOMPLETE',
+    ],
+    [
+      'invalid-technical-evidence',
+      {
+        technicalCertification: { managedPostgresFailureMatrix: 'passed', evidenceHash: 'pending' },
+      },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_TECHNICAL_EVIDENCE_INVALID',
+    ],
+    [
+      'wrong-manifest-hash',
+      { approvedPayloadManifestSha256: '2'.repeat(64) },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MANIFEST_MISMATCH',
+    ],
+    [
+      'wrong-strategy',
+      { approvedProvisioningStrategy: 'download-at-install-time' },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_STRATEGY_MISMATCH',
+    ],
+    [
+      'installer-version-out-of-range',
+      { installerVersion: '2.0.0' },
+      'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INSTALLER_VERSION_MISMATCH',
+    ],
     [
       'wrong-version',
       { postgresql: { ...manifest, version: '17.9', fileName: manifest.fileName } },

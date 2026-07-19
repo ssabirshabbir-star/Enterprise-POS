@@ -5,6 +5,7 @@
   "redistributionStatus": "pending",
   "legalReviewStatus": "pending",
   "securityReviewStatus": "pending",
+  "releaseApprovalStatus": "pending",
   "packagingModel": "hybrid-offline-payload-with-external-build-inputs",
   "postgresql": {
     "component": "PostgreSQL",
@@ -26,8 +27,12 @@
     "managedPostgresHappyPath": "passed",
     "managedPostgresFailureMatrix": "passed",
     "vcRuntimePrerequisite": "passed",
+    "evidenceHash": null,
     "evidenceRoot": "test-artifacts/vc-runtime-prerequisite"
   },
+  "approvedPayloadManifestSha256": null,
+  "approvedProvisioningStrategy": null,
+  "approvedInstallerVersionRange": null,
   "approver": "UNRESOLVED",
   "approvalAuthority": "UNRESOLVED",
   "approvalTimestamp": null,

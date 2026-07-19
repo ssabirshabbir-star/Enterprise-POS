@@ -1,8 +1,10 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 
 const AUTHORIZATION_STATUS = Object.freeze({
   APPROVED: 'approved',
+  DISABLED: 'disabled',
   PENDING: 'pending',
   REVOKED: 'revoked',
   EXPIRED: 'expired',
@@ -10,6 +12,61 @@ const AUTHORIZATION_STATUS = Object.freeze({
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 const PRODUCTION_RELEASE_SCOPE = 'enterprise-pos-managed-postgres-production';
+const APPROVED_PROVISIONING_STRATEGY = 'extract-and-provision-dedicated-cluster';
+
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sha256Hex(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function createPayloadManifestHash(manifest = {}) {
+  return sha256Hex(stableStringify(manifest || {}));
+}
+
+function isSha256(value) {
+  return /^[a-f0-9]{64}$/i.test(String(value || ''));
+}
+
+function parseDottedVersion(version) {
+  const parts = String(version || '')
+    .split('.')
+    .map((part) => Number(part));
+  if (parts.length === 0 || parts.some((part) => !Number.isInteger(part) || part < 0)) {
+    return null;
+  }
+  return parts;
+}
+
+function compareDottedVersions(left, right) {
+  const a = parseDottedVersion(left);
+  const b = parseDottedVersion(right);
+  if (!a || !b) return null;
+  const length = Math.max(a.length, b.length);
+  for (let index = 0; index < length; index += 1) {
+    const delta = (a[index] || 0) - (b[index] || 0);
+    if (delta !== 0) return delta > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+function isVersionInRange(version, range) {
+  if (!version || !range || typeof range !== 'object') return false;
+  const min = compareDottedVersions(version, range.minVersion);
+  const max = compareDottedVersions(version, range.maxVersion);
+  return min !== null && max !== null && min >= 0 && max <= 0;
+}
 
 function defaultAuthorizationPath({ payloadRoot = null } = {}) {
   const root = payloadRoot || path.join(process.cwd(), 'resources', 'postgres');
@@ -61,16 +118,23 @@ function validateReleaseAuthorization({
     'redistributionStatus',
     'legalReviewStatus',
     'securityReviewStatus',
+    'releaseApprovalStatus',
     'packagingModel',
     'postgresql',
     'microsoftVcRuntime',
     'technicalCertification',
+    'approvedPayloadManifestSha256',
+    'approvedProvisioningStrategy',
+    'approvedInstallerVersionRange',
     'approver',
     'approvalTimestamp',
     'expiresAt',
     'revoked',
   ];
   const missing = required.filter((field) => record[field] === undefined || record[field] === null);
+  if (!record.technicalCertification?.evidenceHash) {
+    missing.push('technicalCertification.evidenceHash');
+  }
   if (missing.length > 0) {
     return {
       ok: false,
@@ -109,6 +173,14 @@ function validateReleaseAuthorization({
     };
   }
 
+  if (record.authorizationStatus === AUTHORIZATION_STATUS.DISABLED) {
+    return {
+      ok: false,
+      code: 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_DISABLED',
+      authorizationPath: loaded.authorizationPath,
+    };
+  }
+
   if (record.revoked === true || record.authorizationStatus === AUTHORIZATION_STATUS.REVOKED) {
     return {
       ok: false,
@@ -139,6 +211,7 @@ function validateReleaseAuthorization({
     ['redistributionStatus', 'approved'],
     ['legalReviewStatus', 'approved'],
     ['securityReviewStatus', 'approved'],
+    ['releaseApprovalStatus', 'approved'],
   ];
   for (const [field, expected] of blockingStatuses) {
     if (record[field] !== expected) {
@@ -161,13 +234,67 @@ function validateReleaseAuthorization({
     };
   }
 
+  if (!isSha256(record.technicalCertification?.evidenceHash)) {
+    return {
+      ok: false,
+      code: 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_TECHNICAL_EVIDENCE_INVALID',
+      authorizationPath: loaded.authorizationPath,
+    };
+  }
+
+  if (record.approvedProvisioningStrategy !== APPROVED_PROVISIONING_STRATEGY) {
+    return {
+      ok: false,
+      code: 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_STRATEGY_MISMATCH',
+      expected: APPROVED_PROVISIONING_STRATEGY,
+      actual: record.approvedProvisioningStrategy,
+      authorizationPath: loaded.authorizationPath,
+    };
+  }
+
+  const approvedInstallerVersionRange = record.approvedInstallerVersionRange || {};
+  if (!approvedInstallerVersionRange.minVersion || !approvedInstallerVersionRange.maxVersion) {
+    return {
+      ok: false,
+      code: 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INSTALLER_RANGE_INVALID',
+      authorizationPath: loaded.authorizationPath,
+    };
+  }
+  if (
+    record.installerVersion &&
+    !isVersionInRange(record.installerVersion, approvedInstallerVersionRange)
+  ) {
+    return {
+      ok: false,
+      code: 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_INSTALLER_VERSION_MISMATCH',
+      installerVersion: record.installerVersion,
+      approvedInstallerVersionRange,
+      authorizationPath: loaded.authorizationPath,
+    };
+  }
+
   const pg = record.postgresql || {};
   if (postgresManifest) {
+    const expectedManifestHash = createPayloadManifestHash(postgresManifest);
+    const actualManifestHash = String(record.approvedPayloadManifestSha256 || '').toLowerCase();
+    if (actualManifestHash !== expectedManifestHash) {
+      return {
+        ok: false,
+        code: 'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MANIFEST_MISMATCH',
+        component: 'postgresql',
+        field: 'approvedPayloadManifestSha256',
+        expected: expectedManifestHash,
+        actual: actualManifestHash,
+        authorizationPath: loaded.authorizationPath,
+      };
+    }
+
     const comparisons = [
       ['version', postgresManifest.version],
       ['architecture', postgresManifest.architecture],
       ['fileName', postgresManifest.fileName],
       ['sha256', String(postgresManifest.sha256 || '').toLowerCase()],
+      ['installMethod', postgresManifest.installMethod || APPROVED_PROVISIONING_STRATEGY],
     ];
     for (const [field, expected] of comparisons) {
       const actual = field === 'sha256' ? String(pg[field] || '').toLowerCase() : pg[field];
@@ -217,9 +344,11 @@ function validateReleaseAuthorization({
 }
 
 module.exports = {
+  APPROVED_PROVISIONING_STRATEGY,
   AUTHORIZATION_STATUS,
   PRODUCTION_RELEASE_SCOPE,
   SUPPORTED_SCHEMA_VERSION,
+  createPayloadManifestHash,
   defaultAuthorizationPath,
   readAuthorizationRecord,
   validateReleaseAuthorization,

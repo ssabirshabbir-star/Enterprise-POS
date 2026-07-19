@@ -161,9 +161,14 @@ Production managed PostgreSQL provisioning must require all of the following:
 - Release authorization record is present, approved, unexpired, not revoked, and scoped to
   `enterprise-pos-managed-postgres-production`.
 - Authorization record matches the PostgreSQL and VC Runtime hashes and filenames.
+- Authorization record matches the canonical PostgreSQL payload manifest hash.
+- Authorization record includes immutable technical certification evidence identity.
 - Legal review status is approved.
 - Security review status is approved.
+- Release approval status is approved.
 - Packaging model is explicitly selected.
+- Provisioning strategy is explicitly approved as `extract-and-provision-dedicated-cluster`.
+- Installer version scope is explicit and includes the current installer version.
 - VC Runtime policy is approved and verified.
 - Production feature flag is enabled by a future authorized change.
 - No certification blockers, stale provisioning operations, recovery-required states, unsafe roots,
@@ -186,7 +191,12 @@ legal, security, and release decisions. The validator rejects:
 - pending, expired, revoked, or test-only approvals;
 - wrong release scope;
 - mismatched PostgreSQL version, architecture, filename, or SHA-256;
+- mismatched PostgreSQL payload manifest hash;
 - mismatched VC Runtime filename, architecture, or SHA-256;
+- missing or malformed technical certification evidence hash;
+- missing release approval;
+- mismatched provisioning strategy;
+- installer versions outside the approved release scope;
 - unresolved approver identity;
 - expired approval timestamps.
 
