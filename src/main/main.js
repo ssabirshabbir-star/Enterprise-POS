@@ -137,8 +137,33 @@ app.whenReady().then(async () => {
   }
   loadEnvironment(app);
   try {
-    installerConfigStore.loadAndApplyInstallationConfig(app.getPath('userData'));
+    let installationConfig = installerConfigStore.loadAndApplyInstallationConfig(
+      app.getPath('userData')
+    );
+    if (
+      app.isPackaged &&
+      installationConfig.code === 'INSTALLER_CONFIG_MISSING' &&
+      installerConfigStore.hasDatabaseEnvironment(process.env)
+    ) {
+      installerConfigStore.saveInstallationConfig(
+        app.getPath('userData'),
+        installerConfigStore.createConfigFromEnvironment(process.env, {
+          installerVersion: app.getVersion(),
+          legacyMigratedAt: new Date().toISOString(),
+        })
+      );
+      installationConfig = installerConfigStore.loadAndApplyInstallationConfig(
+        app.getPath('userData')
+      );
+    }
+    if (installationConfig.ok) {
+      delete process.env.ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE;
+    } else {
+      process.env.ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE = installationConfig.code;
+    }
   } catch (error) {
+    process.env.ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE =
+      error.code || 'MANAGED_DATABASE_CONFIG_CORRUPT';
     logError('Installer configuration load failed:', error);
   }
   initializeSessionStore(app);
@@ -243,13 +268,37 @@ app.whenReady().then(async () => {
 function userFriendlyStartupError(error) {
   const message = String(error?.message || '');
   if (message.includes('Database is not configured')) return message;
+  if (
+    [
+      'MANAGED_DATABASE_CONFIG_MISSING',
+      'INSTALLER_CONFIG_MISSING',
+      'MANAGED_DATABASE_PROVISIONING_INCOMPLETE',
+    ].includes(error?.code)
+  ) {
+    return 'The local Enterprise POS database setup is incomplete. Complete the guided database setup before signing in.';
+  }
+  if (
+    [
+      'MANAGED_DATABASE_CONFIG_CORRUPT',
+      'MANAGED_DATABASE_CONFIG_VERSION_UNSUPPORTED',
+      'MANAGED_DATABASE_CONFIG_INTEGRITY_UNSUPPORTED',
+      'MANAGED_DATABASE_CREDENTIAL_UNAVAILABLE',
+      'MANAGED_DATABASE_CREDENTIAL_DECRYPT_FAILED',
+      'MANAGED_DATABASE_CREDENTIAL_UNSUPPORTED',
+    ].includes(error?.code)
+  ) {
+    return 'The local Enterprise POS database configuration needs controlled recovery. Use the guided database recovery flow; do not create a new blank database.';
+  }
+  if (error?.code === 'MANAGED_DATABASE_IDENTITY_UNSAFE') {
+    return 'The configured database identity is not safe for normal Enterprise POS startup. Use a valid managed application database.';
+  }
   if (error?.code === 'ECONNREFUSED')
-    return 'PostgreSQL is not running or cannot be reached. Start PostgreSQL and verify your production env file.';
+    return 'The local Enterprise POS database service is not running or cannot be reached. Start the managed database recovery flow.';
   if (error?.code === '28P01')
-    return 'PostgreSQL login failed. Check DATABASE_URL or PGUSER/PGPASSWORD.';
+    return 'The local Enterprise POS database credential was rejected. Use the controlled credential recovery flow.';
   if (error?.code === '3D000')
-    return 'PostgreSQL database does not exist. Create the database, then restart Enterprise POS.';
-  return 'Database startup failed. Check PostgreSQL configuration and run npm run db:health for details.';
+    return 'The configured Enterprise POS database does not exist. Use the guided database recovery flow.';
+  return 'Database startup failed. Use the guided database setup or recovery flow for details.';
 }
 
 app.on('window-all-closed', () => {

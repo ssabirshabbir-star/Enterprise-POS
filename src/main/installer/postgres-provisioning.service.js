@@ -776,7 +776,17 @@ async function executeCertificationProvisioning(options = {}) {
         username: 'enterprise_pos_app',
         password: appPassword,
         sslMode: 'disable',
+        mode: 'certification-managed-postgres',
+        certificationOnly: true,
         installerVersion: '1.0.0',
+        managedPostgres: {
+          runtimeRoot,
+          dataDir,
+          port,
+          operationId: operation.operationId,
+          payloadFileName: policy.payloadFileName,
+          payloadDigest: staged.digest,
+        },
       },
       { safeStorage: gate.safeStorage }
     );
@@ -786,14 +796,24 @@ async function executeCertificationProvisioning(options = {}) {
         'Managed database configuration was not saved.'
       );
     }
-    configStore.applyInstallationConfigToEnv({
-      host: '127.0.0.1',
-      port,
-      database: gate.database,
-      username: 'enterprise_pos_app',
-      password: appPassword,
-      sslMode: 'disable',
+    const applied = configStore.loadAndApplyInstallationConfig(userDataPath, {
+      safeStorage: gate.safeStorage,
     });
+    if (!applied.ok) {
+      throw codeError(
+        applied.code || 'INSTALLER_POSTGRES_CONFIG_READBACK_FAILED',
+        'Managed database configuration could not be read back after it was saved.'
+      );
+    }
+    await queryPostgres(
+      {
+        port: Number(process.env.PGPORT),
+        user: process.env.PGUSER,
+        password: process.env.PGPASSWORD,
+      },
+      'SELECT 1',
+      process.env.PGDATABASE
+    );
     await closeDatabase();
     await initializeDatabase();
     const schemaCheck = await queryPostgres(

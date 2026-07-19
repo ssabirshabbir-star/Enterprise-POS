@@ -2,8 +2,15 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
 const CONFIG_FILE = 'enterprise-pos-installation.json';
+const CONFIG_MODES = Object.freeze({
+  EXTERNALLY_MANAGED: 'externally-managed-postgres',
+  INSTALLER_MANAGED: 'installer-managed-postgres',
+  CERTIFICATION: 'certification-managed-postgres',
+});
+const SUPPORTED_CONFIG_VERSIONS = new Set([1, CONFIG_VERSION]);
+const SYSTEM_DATABASES = new Set(['postgres', 'template0', 'template1']);
 
 function safeStorageProvider() {
   try {
@@ -17,12 +24,85 @@ function installationConfigPath(userDataPath) {
   return path.join(userDataPath, CONFIG_FILE);
 }
 
+function parseDatabaseUrl(connectionString) {
+  const url = new URL(connectionString);
+  const sslMode =
+    url.searchParams.get('sslmode') ||
+    (url.searchParams.get('ssl') === 'true' ? 'require' : 'disable');
+  return {
+    host: url.hostname || 'localhost',
+    port: Number(url.port || 5432),
+    database: decodeURIComponent((url.pathname || '').replace(/^\//, '')),
+    username: decodeURIComponent(url.username || ''),
+    password: decodeURIComponent(url.password || ''),
+    sslMode,
+  };
+}
+
+function hasDatabaseEnvironment(env = process.env) {
+  return Boolean(
+    env.DATABASE_URL ||
+    (env.PGDATABASE && env.PGUSER && Object.prototype.hasOwnProperty.call(env, 'PGPASSWORD'))
+  );
+}
+
+function createConfigFromEnvironment(env = process.env, overrides = {}) {
+  const base = env.DATABASE_URL
+    ? parseDatabaseUrl(env.DATABASE_URL)
+    : {
+        host: env.PGHOST,
+        port: env.PGPORT,
+        database: env.PGDATABASE,
+        username: env.PGUSER,
+        password: env.PGPASSWORD,
+        sslMode: env.PGSSLMODE || 'disable',
+      };
+  return {
+    ...base,
+    mode: CONFIG_MODES.EXTERNALLY_MANAGED,
+    ...overrides,
+  };
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sha256(value) {
+  return crypto
+    .createHash('sha256')
+    .update(String(value || ''), 'utf8')
+    .digest('hex');
+}
+
+function codeError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function classifyMode(input = {}) {
+  const requested = String(input.mode || '').trim();
+  if (Object.values(CONFIG_MODES).includes(requested)) return requested;
+  if (input.certificationOnly === true) return CONFIG_MODES.CERTIFICATION;
+  if (input.managed === true) return CONFIG_MODES.INSTALLER_MANAGED;
+  return CONFIG_MODES.EXTERNALLY_MANAGED;
+}
+
 function normalizeDatabaseConfig(input = {}) {
   const host = String(input.host || 'localhost').trim();
   const port = Number(input.port || 5432);
   const database = String(input.database || 'enterprise_pos').trim();
   const username = String(input.username || input.user || 'postgres').trim();
   const sslMode = String(input.sslMode || 'disable').trim();
+  const mode = classifyMode(input);
 
   if (!host) throw new Error('Database host is required.');
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
@@ -35,8 +115,23 @@ function normalizeDatabaseConfig(input = {}) {
   if (!['disable', 'prefer', 'require'].includes(sslMode)) {
     throw new Error('Database SSL mode is invalid.');
   }
+  if (SYSTEM_DATABASES.has(database.toLowerCase())) {
+    throw codeError(
+      'MANAGED_DATABASE_IDENTITY_UNSAFE',
+      'System PostgreSQL databases cannot be used as the Enterprise POS application database.'
+    );
+  }
+  if (
+    mode === CONFIG_MODES.INSTALLER_MANAGED &&
+    /^enterprise_pos_restore_cert_|^epos_cert_/i.test(database)
+  ) {
+    throw codeError(
+      'MANAGED_DATABASE_IDENTITY_UNSAFE',
+      'Disposable certification databases cannot be used for installer-managed production startup.'
+    );
+  }
 
-  return { host, port, database, username, sslMode };
+  return { host, port, database, username, sslMode, mode };
 }
 
 function encryptPassword(password, provider = safeStorageProvider()) {
@@ -70,33 +165,91 @@ function decryptPassword(encryptedPassword, provider = safeStorageProvider()) {
 function redactConfig(record = {}) {
   return {
     version: record.version,
+    mode: record.mode || CONFIG_MODES.EXTERNALLY_MANAGED,
     host: record.host,
     port: record.port,
     database: record.database,
     username: record.username,
     sslMode: record.sslMode,
     installationId: record.installationId,
+    managedPostgres: record.managedPostgres || null,
     storeId: record.storeId || null,
     installerVersion: record.installerVersion,
+    legacyMigratedAt: record.legacyMigratedAt || null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    lastSuccessfulConnectionAt: record.lastSuccessfulConnectionAt || null,
+    integrity: record.integrity
+      ? {
+          algorithm: record.integrity.algorithm,
+          present: Boolean(record.integrity.digest),
+        }
+      : null,
     passwordStored: Boolean(record.encryptedPassword),
   };
+}
+
+function integrityPayload(record = {}) {
+  return {
+    version: record.version,
+    mode: record.mode,
+    host: record.host,
+    port: record.port,
+    database: record.database,
+    username: record.username,
+    sslMode: record.sslMode,
+    installationId: record.installationId,
+    managedPostgres: record.managedPostgres || null,
+    storeId: record.storeId || null,
+    installerVersion: record.installerVersion,
+    legacyMigratedAt: record.legacyMigratedAt || null,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    lastSuccessfulConnectionAt: record.lastSuccessfulConnectionAt || null,
+    encryptedPassword: record.encryptedPassword || null,
+  };
+}
+
+function attachIntegrity(record = {}) {
+  return {
+    ...record,
+    integrity: {
+      algorithm: 'sha256-config-record-v1',
+      digest: sha256(stableStringify(integrityPayload(record))),
+    },
+  };
+}
+
+function verifyIntegrity(record = {}) {
+  if (!record.integrity) {
+    return { ok: true, legacy: true, code: 'MANAGED_DATABASE_CONFIG_LEGACY_INTEGRITY_MISSING' };
+  }
+  if (record.integrity.algorithm !== 'sha256-config-record-v1') {
+    return { ok: false, code: 'MANAGED_DATABASE_CONFIG_INTEGRITY_UNSUPPORTED' };
+  }
+  const expected = sha256(stableStringify(integrityPayload(record)));
+  if (expected !== record.integrity.digest) {
+    return { ok: false, code: 'MANAGED_DATABASE_CONFIG_CORRUPT' };
+  }
+  return { ok: true, legacy: false };
 }
 
 function createInstallationRecord(payload = {}, options = {}) {
   const databaseConfig = normalizeDatabaseConfig(payload);
   const now = options.now || new Date().toISOString();
-  return {
+  return attachIntegrity({
     version: CONFIG_VERSION,
     ...databaseConfig,
     encryptedPassword: encryptPassword(payload.password, options.safeStorage),
     installationId: payload.installationId || crypto.randomUUID(),
+    managedPostgres: payload.managedPostgres || null,
     storeId: payload.storeId || null,
     installerVersion: payload.installerVersion || '1.0.0',
+    legacyMigratedAt: payload.legacyMigratedAt || null,
     createdAt: payload.createdAt || now,
     updatedAt: now,
-  };
+    lastSuccessfulConnectionAt: payload.lastSuccessfulConnectionAt || null,
+  });
 }
 
 function saveInstallationConfig(userDataPath, payload = {}, options = {}) {
@@ -110,22 +263,65 @@ function saveInstallationConfig(userDataPath, payload = {}, options = {}) {
 function loadInstallationConfig(userDataPath, options = {}) {
   const target = installationConfigPath(userDataPath);
   if (!fs.existsSync(target)) return { ok: false, code: 'INSTALLER_CONFIG_MISSING', path: target };
-  const record = JSON.parse(fs.readFileSync(target, 'utf8'));
-  const normalized = normalizeDatabaseConfig(record);
+  let record;
+  try {
+    record = JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch {
+    return { ok: false, code: 'MANAGED_DATABASE_CONFIG_CORRUPT', path: target };
+  }
+  if (!SUPPORTED_CONFIG_VERSIONS.has(Number(record.version))) {
+    return { ok: false, code: 'MANAGED_DATABASE_CONFIG_VERSION_UNSUPPORTED', path: target };
+  }
+  const integrity = verifyIntegrity(record);
+  if (!integrity.ok) return { ok: false, code: integrity.code, path: target };
+  let normalized;
+  try {
+    normalized = normalizeDatabaseConfig(record);
+  } catch (error) {
+    return {
+      ok: false,
+      code: error.code || 'MANAGED_DATABASE_CONFIG_CORRUPT',
+      path: target,
+    };
+  }
+  let password;
+  try {
+    password = options.includePassword
+      ? decryptPassword(record.encryptedPassword, options.safeStorage)
+      : undefined;
+  } catch (error) {
+    return {
+      ok: false,
+      code:
+        error.message === 'Unsupported credential encryption scheme.'
+          ? 'MANAGED_DATABASE_CREDENTIAL_UNSUPPORTED'
+          : 'MANAGED_DATABASE_CREDENTIAL_DECRYPT_FAILED',
+      path: target,
+    };
+  }
+  if (options.includePassword && !password) {
+    return { ok: false, code: 'MANAGED_DATABASE_CREDENTIAL_UNAVAILABLE', path: target };
+  }
   return {
     ok: true,
     path: target,
+    legacyIntegrity: integrity.legacy === true,
     config: {
       ...redactConfig(record),
       ...normalized,
-      password: options.includePassword
-        ? decryptPassword(record.encryptedPassword, options.safeStorage)
-        : undefined,
+      password,
     },
   };
 }
 
 function applyInstallationConfigToEnv(config = {}) {
+  process.env.ENTERPRISE_POS_DB_CONFIG_SOURCE = 'installer-config';
+  process.env.ENTERPRISE_POS_DB_CONFIG_MODE = String(
+    config.mode || CONFIG_MODES.EXTERNALLY_MANAGED
+  );
+  if (config.installationId) {
+    process.env.ENTERPRISE_POS_INSTALLATION_ID = String(config.installationId);
+  }
   process.env.PGHOST = String(config.host || 'localhost');
   process.env.PGPORT = String(config.port || 5432);
   process.env.PGDATABASE = String(config.database || '');
@@ -146,12 +342,15 @@ function loadAndApplyInstallationConfig(userDataPath, options = {}) {
 }
 
 module.exports = {
+  CONFIG_MODES,
   CONFIG_FILE,
   CONFIG_VERSION,
   applyInstallationConfigToEnv,
   createInstallationRecord,
+  createConfigFromEnvironment,
   decryptPassword,
   encryptPassword,
+  hasDatabaseEnvironment,
   installationConfigPath,
   loadAndApplyInstallationConfig,
   loadInstallationConfig,

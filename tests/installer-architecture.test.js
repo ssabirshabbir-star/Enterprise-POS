@@ -57,6 +57,7 @@ test('installer configuration validates production database identity fields', ()
     database: 'shop_01',
     username: 'postgres',
     sslMode: 'disable',
+    mode: configStore.CONFIG_MODES.EXTERNALLY_MANAGED,
   });
   assert.throws(() => configStore.normalizeDatabaseConfig({ database: 'bad name' }), /invalid/i);
   assert.throws(() => configStore.normalizeDatabaseConfig({ port: 99999 }), /port/i);
@@ -93,6 +94,8 @@ test('preload and main expose installer foundation with disabled restore UI', ()
   assert.match(preload, /\/installer\/database\/initialize/);
   assert.match(main, /registerInstallerRoutes\(ipcMain, app\)/);
   assert.match(main, /loadAndApplyInstallationConfig/);
+  assert.match(main, /createConfigFromEnvironment/);
+  assert.match(main, /ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE/);
   assert.match(settingsHtml, /id="restoreBackupButton"[^>]*disabled/);
   assert.match(
     preload,
