@@ -1,4 +1,5 @@
 const recoveryStateModel = require('./restore-recovery-state.model');
+const activationModel = require('./restore-production-activation.model');
 
 function freeze(value) {
   if (!value || typeof value !== 'object') return value;
@@ -26,6 +27,7 @@ function createRestoreExecutionPolicy({
   databaseHealth = null,
   operationLock = null,
   productionGovernance = null,
+  productionActivation = null,
 } = {}) {
   const state = recoveryStateModel.normalizeRecoveryState(recoveryState);
   const blockers = [];
@@ -41,7 +43,10 @@ function createRestoreExecutionPolicy({
       )
     );
     requiredActions.push(
-      action('resolve_recovery_state', 'Resolve or formally review the active Restore recovery state.')
+      action(
+        'resolve_recovery_state',
+        'Resolve or formally review the active Restore recovery state.'
+      )
     );
   }
 
@@ -83,12 +88,18 @@ function createRestoreExecutionPolicy({
     );
   }
 
-  if (!packageEligibility || packageEligibility.eligibilityStatus !== 'eligible_for_authorization') {
+  if (
+    !packageEligibility ||
+    packageEligibility.eligibilityStatus !== 'eligible_for_authorization'
+  ) {
     blockers.push(
       blocker('package.eligibility_required', 'Backup package eligibility has not passed.')
     );
     requiredActions.push(
-      action('assess_package_eligibility', 'Run Restore eligibility assessment for the selected package.')
+      action(
+        'assess_package_eligibility',
+        'Run Restore eligibility assessment for the selected package.'
+      )
     );
   }
 
@@ -100,13 +111,19 @@ function createRestoreExecutionPolicy({
       )
     );
     requiredActions.push(
-      action('complete_authorization', 'Complete Restore authorization assessment and governance approval.')
+      action(
+        'complete_authorization',
+        'Complete Restore authorization assessment and governance approval.'
+      )
     );
   }
 
   if (!databaseHealth || databaseHealth.status !== 'healthy') {
     blockers.push(
-      blocker('database.health_required', 'Database health has not been verified for Restore execution.')
+      blocker(
+        'database.health_required',
+        'Database health has not been verified for Restore execution.'
+      )
     );
     requiredActions.push(
       action('verify_database_health', 'Run database health verification before Restore execution.')
@@ -156,6 +173,18 @@ function createRestoreExecutionPolicy({
       )
     );
   }
+  const activationAssessment =
+    productionActivation ||
+    activationModel.assessRestoreProductionActivation({
+      recoveryState: state,
+      operationLock,
+      databaseIdentity: productionGovernance?.databaseIdentity || null,
+      productionFeatureFlagEnabled: false,
+      productionExecutionRoutePresent: false,
+    });
+  activationAssessment.blockers.forEach((item) => {
+    blockers.push(blocker(`production_activation.${item.code}`, item.message, item.details || {}));
+  });
   if (state.currentState !== recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED) {
     blockers.push(
       blocker(
@@ -204,6 +233,7 @@ function createRestoreExecutionPolicy({
     operationLockStatus: operationLock?.locked ? 'locked' : 'available_for_assessment_only',
     operationLock: operationLock || { locked: false },
     productionGovernance: productionGovernance || null,
+    productionActivation: activationAssessment,
     databaseIdentity: productionGovernance?.databaseIdentity || null,
     startupRecovery: productionGovernance?.startupRecovery || null,
     finalCertificationAssessment: productionGovernance?.finalCertificationAssessment || null,

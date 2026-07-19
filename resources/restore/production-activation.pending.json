@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "product": "Enterprise POS",
+  "component": "restore",
+  "releaseScope": "enterprise-pos-restore-production",
+  "applicationVersion": "1.0.0",
+  "databaseSchemaVersion": "UNRESOLVED",
+  "backupFormatVersion": "1.0",
+  "activationStatus": "pending",
+  "restoreStrategy": null,
+  "safetyBackupPolicy": "mandatory_verified_pre_restore_backup",
+  "technicalCertification": {
+    "backup_format_compatibility": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "package_verification": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "authorization_and_confirmation": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "safety_backup": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "maintenance_mutation_lock": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "disposable_database_success": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "failure_matrix": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "rollback": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "startup_recovery": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "post_restore_validation": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "sequence_identity_recovery": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "restart_reconnect": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "native_file_dialog": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "restore_history_audit": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    },
+    "secret_redaction": {
+      "status": "pending",
+      "evidenceReference": null,
+      "evidenceHash": null
+    }
+  },
+  "authorization": {
+    "governanceReviewStatus": "pending",
+    "securityReviewStatus": "pending",
+    "releaseApprovalStatus": "pending",
+    "approverIdentity": "UNRESOLVED",
+    "approvalAuthority": "UNRESOLVED",
+    "approvalTimestamp": null,
+    "expiresAt": "1970-01-01T00:00:00.000Z",
+    "revoked": false,
+    "testOnly": false
+  },
+  "notes": [
+    "This pending record is intentionally non-authorizing.",
+    "Do not expose production Restore execution from this file.",
+    "A real approval must replace pending fields with documented technical, security, and release decisions."
+  ]
+}
