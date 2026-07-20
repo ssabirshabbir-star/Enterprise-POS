@@ -165,6 +165,7 @@ test('offline certification packaging copies exact verified payloads into determ
     assert.equal(fs.existsSync(path.join(fixture.vcRoot, 'vc_redist.x64.exe')), true);
     assert.equal(result.postgresql.sha256, sha256File(fixture.postgresInput));
     assert.equal(result.microsoftVcRuntime.sha256, sha256File(fixture.vcInput));
+    assert.equal(result.generatedAt, offlinePackaging.DETERMINISTIC_PACKAGING_EVIDENCE_TIMESTAMP);
     assert.equal(
       fs.existsSync(
         path.join(
@@ -176,6 +177,33 @@ test('offline certification packaging copies exact verified payloads into determ
       ),
       true
     );
+
+    const firstEvidence = fs.readFileSync(
+      path.join(
+        fixture.sourceRoot,
+        'resources',
+        'release',
+        'offline-packaging-evidence.generated.json'
+      ),
+      'utf8'
+    );
+    const repeat = await offlinePackaging.prepareOfflineInstallerPayloads({
+      mode: 'offline-certification',
+      sourceRoot: fixture.sourceRoot,
+      postgresArchive: fixture.postgresInput,
+      vcRuntimeExe: fixture.vcInput,
+    });
+    const secondEvidence = fs.readFileSync(
+      path.join(
+        fixture.sourceRoot,
+        'resources',
+        'release',
+        'offline-packaging-evidence.generated.json'
+      ),
+      'utf8'
+    );
+    assert.deepEqual(repeat, result);
+    assert.equal(secondEvidence, firstEvidence);
   } finally {
     vcRuntime.verifyVcRuntimePayload = originalVerifier;
   }

@@ -13,6 +13,7 @@ const DEFAULT_POSTGRES_INPUT =
 const DEFAULT_VC_INPUT =
   'D:\\Enterprise-POS-release-inputs\\prerequisites\\microsoft-vc-runtime\\vc_redist.x64.exe';
 const ALLOWED_MODES = new Set(['offline-certification', 'production']);
+const DETERMINISTIC_PACKAGING_EVIDENCE_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 
 function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {
@@ -230,7 +231,7 @@ async function prepareOfflineInstallerPayloads(options = {}) {
 
   const evidence = {
     schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
+    generatedAt: DETERMINISTIC_PACKAGING_EVIDENCE_TIMESTAMP,
     buildMode: mode,
     classification:
       mode === 'offline-certification' ? 'offline-certification-unsigned' : 'production',
@@ -285,5 +286,6 @@ if (require.main === module) {
 module.exports = {
   DEFAULT_POSTGRES_INPUT,
   DEFAULT_VC_INPUT,
+  DETERMINISTIC_PACKAGING_EVIDENCE_TIMESTAMP,
   prepareOfflineInstallerPayloads,
 };
