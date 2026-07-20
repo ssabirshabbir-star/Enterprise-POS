@@ -84,6 +84,15 @@ test('packaging file globs exclude local artifacts, secrets, maps, logs, and tes
   }
 });
 
+test('bundled production env example contains no usable default credentials', () => {
+  const example = read('.env.production.example');
+
+  assert.doesNotMatch(example, /postgres(?:ql)?:\/\/[^:\s/@]+:[^@\s]+@/i);
+  assert.doesNotMatch(example, /^PGPASSWORD=.+$/im);
+  assert.doesNotMatch(example, /^SEED_ADMIN_PASSWORD=.+$/im);
+  assert.doesNotMatch(example, /admin123|hunter2|password123/i);
+});
+
 test('release governance files are present and remain non-authorizing', () => {
   const redistribution = readJson('resources/postgres/redistribution-manifest.json');
   const authorization = readJson('resources/postgres/release-authorization.pending.json');
