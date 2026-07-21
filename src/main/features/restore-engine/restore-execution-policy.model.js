@@ -38,7 +38,7 @@ function createRestoreExecutionPolicy({
     state.currentState === recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED &&
     String(operationLock.operationId || '') === String(state.operationId || '');
 
-  if (state.unresolvedRecoveryState) {
+  if (state.unresolvedRecoveryState && !sameVerifiedSafetyOperationLock) {
     blockers.push(
       blocker(
         'recovery_state.unresolved',

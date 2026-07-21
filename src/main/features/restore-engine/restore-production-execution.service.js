@@ -175,6 +175,48 @@ async function executeProductionRestore(payload = {}, options = {}) {
   }
   const request = normalized.request || {};
 
+  if (
+    request.operationId &&
+    request.confirmationId &&
+    deps.repository.validateRestoreFinalConfirmation
+  ) {
+    const earlyConfirmation = await deps.repository.validateRestoreFinalConfirmation({
+      operationId: request.operationId,
+      confirmationId: request.confirmationId,
+      ownerUserId: options.ownerUserId || null,
+    });
+    if (
+      earlyConfirmation?.ok === false &&
+      [
+        'RESTORE_CONFIRMATION_ALREADY_CONSUMED',
+        'RESTORE_CONFIRMATION_INVALIDATED',
+        'RESTORE_CONFIRMATION_EXPIRED',
+      ].includes(earlyConfirmation.code)
+    ) {
+      record('final_confirmation', 'blocked', earlyConfirmation.code);
+      return freeze({
+        ok: false,
+        code: earlyConfirmation.code,
+        restoreExecuted: false,
+        noDataCommitted: true,
+        productionRestoreRoutePresent: true,
+        productionFeatureFlagEnabled:
+          options.productionFeatureFlagEnabled ?? PRODUCTION_RESTORE_FEATURE_ENABLED,
+        restoreExecutionAvailable: false,
+        auditCorrelationId,
+        blockers: [
+          block(
+            earlyConfirmation.code,
+            'Restore final confirmation cannot be reused for production execution.'
+          ),
+        ],
+        blockerCodes: [earlyConfirmation.code],
+        steps: summarizeSteps(steps),
+        message: 'Restore final confirmation cannot be reused.',
+      });
+    }
+  }
+
   let packageVerification = null;
   let packageEligibility = null;
   if (request.sourcePackagePath) {

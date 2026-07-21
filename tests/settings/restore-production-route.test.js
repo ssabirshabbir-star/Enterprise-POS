@@ -265,6 +265,44 @@ test('production route rejects managed database identity mismatch before engine 
   assert(result.blockerCodes.includes('MANAGED_DATABASE_IDENTITY_MISMATCH'));
 });
 
+test('production route rejects consumed confirmation replay before package verification', async () => {
+  const repository = fakeRepository({
+    validateRestoreFinalConfirmation: async () => {
+      repository.calls.push('final_confirmation_replay_check');
+      return {
+        ok: false,
+        code: 'RESTORE_CONFIRMATION_ALREADY_CONSUMED',
+        valid: false,
+      };
+    },
+  });
+  let engineCalled = false;
+  const result = await execution.executeProductionRestore(
+    {
+      sourcePackagePath: 'D:\\backups\\certified-backup.json',
+      operationId: '00000000-0000-4000-8000-000000000001',
+      confirmationId: '00000000-0000-4000-8000-000000000003',
+    },
+    {
+      repository,
+      activityRepository: fakeActivity(),
+      readActivationRecord: async () => approvedActivationRecord(),
+      productionFeatureFlagEnabled: true,
+      restoreEngine: async () => {
+        engineCalled = true;
+        return { ok: true };
+      },
+      now: () => new Date('2026-07-19T00:00:00.000Z'),
+    }
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'RESTORE_CONFIRMATION_ALREADY_CONSUMED');
+  assert.equal(result.restoreExecuted, false);
+  assert.equal(engineCalled, false);
+  assert.deepEqual(repository.calls, ['final_confirmation_replay_check']);
+});
+
 test('approved production route invokes engine after package, identity, safety, and confirmation gates', async () => {
   const repository = fakeRepository();
   const calls = [];

@@ -4005,6 +4005,7 @@ module.exports = {
   getRestoreRecoveryState,
   getRestoreRetentionAssessment,
   getRestoreStartupRecoveryAssessment,
+  validateRestoreFinalConfirmation,
   validateManagedDatabaseIdentity,
   latestRestoreFinalConfirmation,
   inspectRestorePackage,

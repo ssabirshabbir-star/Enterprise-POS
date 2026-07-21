@@ -131,9 +131,19 @@ test('first-run administrator creation is validated and transactionally replay-s
   assert.match(diagnostics, /LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE/);
   assert.match(diagnostics, /SELECT COUNT\(\*\)::int AS count FROM users/);
   assert.match(diagnostics, /bcrypt\.hash\(password, 12\)/);
+  assert.match(diagnostics, /useExistingInstallerManagedConfig/);
+  assert.match(diagnostics, /CONFIG_MODES\.INSTALLER_MANAGED/);
   assert.match(
     diagnostics,
     /INSERT INTO users \(username, email, full_name, password_hash, role_id, is_active\)/
   );
   assert.match(diagnostics, /\[username, email, fullName, passwordHash, role\.rows\[0\]\.id\]/);
+});
+
+test('first-run administrator success enters the login shell', () => {
+  const setup = read('src/renderer/setup.html');
+
+  assert.match(setup, /safe\.ok && safe\.adminCreated/);
+  assert.match(setup, /window\.location\.href = 'index\.html'/);
+  assert.doesNotMatch(setup, /safe\.ok && safe\.adminCreated[\s\S]{0,220}window\.location\.reload/);
 });

@@ -134,9 +134,17 @@ async function assessInstallerHealth({ userDataPath, config = null } = {}) {
 }
 
 async function initializeConfiguredDatabase({ userDataPath, config, admin = null } = {}) {
-  const saved = config
-    ? configStore.saveInstallationConfig(userDataPath, config)
-    : configStore.loadAndApplyInstallationConfig(userDataPath);
+  const existingConfig = userDataPath ? configStore.loadInstallationConfig(userDataPath) : null;
+  const useExistingInstallerManagedConfig =
+    admin &&
+    existingConfig?.ok &&
+    existingConfig.config?.mode === configStore.CONFIG_MODES.INSTALLER_MANAGED &&
+    existingConfig.config?.managedPostgres;
+  const saved = useExistingInstallerManagedConfig
+    ? configStore.loadAndApplyInstallationConfig(userDataPath)
+    : config
+      ? configStore.saveInstallationConfig(userDataPath, config)
+      : configStore.loadAndApplyInstallationConfig(userDataPath);
   if (!saved.ok) return saved;
   const applied = configStore.loadAndApplyInstallationConfig(userDataPath);
   if (!applied.ok) return applied;

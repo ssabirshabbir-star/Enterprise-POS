@@ -173,6 +173,10 @@ test('Settings API exposes preparation wrappers without DOM side effects', () =>
 test('renderer labels preparation as non-destructive and wires guarded execute restore', () => {
   const html = read('src/main/features/settings/index.html');
   const renderer = read('src/main/features/settings/settings.renderer.js');
+  const prepareBody = renderer.slice(
+    renderer.indexOf('async function handlePrepareRestoreSafetyBackup'),
+    renderer.indexOf('async function handleCancelRestorePreparation')
+  );
 
   assert.match(html, /id="restoreBackupButton"[^>]*disabled/);
   assert.match(html, /id="prepareRestoreSafetyBackupButton"[^>]*>Prepare Safety Backup<\/button>/);
@@ -187,5 +191,9 @@ test('renderer labels preparation as non-destructive and wires guarded execute r
     /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
   );
   assert.match(renderer, /policy\.restoreExecutionAvailable === true/);
+  assert.match(
+    prepareBody,
+    /finally\s*\{[\s\S]*restorePreparationBusy = false;[\s\S]*syncRestoreFinalConfirmationControls\(\);[\s\S]*syncRestoreExecutionControls\(\);[\s\S]*\}/
+  );
   assert.doesNotMatch(renderer, /location\.reload/);
 });

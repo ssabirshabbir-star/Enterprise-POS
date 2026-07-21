@@ -213,7 +213,9 @@
         const safe = result || {};
         if (safe.ok && safe.adminCreated) {
           node.textContent = `${safe.message || 'Initial administrator created.'} Restarting login...`;
-          setTimeout(() => window.location.reload(), 1000);
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 1000);
           return;
         }
         node.textContent = safe.message || JSON.stringify({

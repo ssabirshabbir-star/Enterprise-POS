@@ -171,6 +171,20 @@ function packageTables(backup, { managedDatabaseIdentity = null, preservedRows =
   return { tableNames, data: restoredData, included };
 }
 
+function preservedRowKeySets(preservedRows = null) {
+  const result = new Map();
+  if (!preservedRows || typeof preservedRows !== 'object' || Array.isArray(preservedRows)) {
+    return result;
+  }
+  for (const [tableName, rows] of Object.entries(preservedRows)) {
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+    const keyName = tableName === 'backup_logs' || tableName === 'activity_logs' ? 'id' : null;
+    if (!keyName) continue;
+    result.set(tableName, new Set(rows.map((row) => String(row?.[keyName] || '')).filter(Boolean)));
+  }
+  return result;
+}
+
 async function deleteAndInsertTables(
   client,
   backup,
@@ -182,25 +196,43 @@ async function deleteAndInsertTables(
   } = {}
 ) {
   const { tableNames, data } = packageTables(backup, { managedDatabaseIdentity, preservedRows });
+  const preservedKeys = preservedRowKeySets(preservedRows);
   const constraintsSuspended = await suspendForeignKeyChecks(client);
-  const insertOrder = constraintsSuspended
+  const constraintsDeferred = constraintsSuspended
+    ? false
+    : await deferManifestForeignKeyChecks(client, tableNames);
+  const constraintsRelaxed = constraintsSuspended || constraintsDeferred;
+  const insertOrder = constraintsRelaxed
     ? tableNames
     : await orderedTablesForDatabase(client, tableNames);
-  const deleteOrder = constraintsSuspended ? [...tableNames].reverse() : [...insertOrder].reverse();
+  const deleteOrder = constraintsRelaxed ? [...tableNames].reverse() : [...insertOrder].reverse();
   let tablesRestored = 0;
   let rowsRestored = 0;
 
-  if (constraintsSuspended && useTruncate) {
+  if (useTruncate) {
     const truncatedTables = tableNames.map(quoteIdentifier).join(', ');
     await client.query(`TRUNCATE ${truncatedTables} RESTART IDENTITY CASCADE`);
   } else {
     for (const tableName of deleteOrder) {
-      await client.query(`DELETE FROM ${quoteIdentifier(tableName)}`);
+      const tablePreservedKeys = preservedKeys.get(tableName);
+      if (tablePreservedKeys?.size) {
+        await client.query(
+          `DELETE FROM ${quoteIdentifier(tableName)} WHERE NOT (${quoteIdentifier(
+            'id'
+          )}::text = ANY($1::text[]))`,
+          [[...tablePreservedKeys]]
+        );
+      } else {
+        await client.query(`DELETE FROM ${quoteIdentifier(tableName)}`);
+      }
     }
   }
 
   for (const tableName of insertOrder) {
-    const rows = data[tableName];
+    const tablePreservedKeys = preservedKeys.get(tableName);
+    const rows = tablePreservedKeys?.size
+      ? data[tableName].filter((row) => !tablePreservedKeys.has(String(row?.id || '')))
+      : data[tableName];
     if (failDuringMutation && tablesRestored === 0) {
       throw new Error('CONTROLLED_MID_APPLICATION_FAILURE');
     }
@@ -229,7 +261,48 @@ async function deleteAndInsertTables(
 
 async function suspendForeignKeyChecks(client) {
   try {
+    await client.query('SAVEPOINT restore_session_replication_role_probe');
     await client.query('SET LOCAL session_replication_role = replica');
+    await client.query('RELEASE SAVEPOINT restore_session_replication_role_probe');
+    return true;
+  } catch {
+    await client
+      .query('ROLLBACK TO SAVEPOINT restore_session_replication_role_probe')
+      .catch(() => {});
+    await client.query('RELEASE SAVEPOINT restore_session_replication_role_probe').catch(() => {});
+    return false;
+  }
+}
+
+async function deferManifestForeignKeyChecks(client, tableNames = []) {
+  if (!Array.isArray(tableNames) || !tableNames.length) return false;
+  try {
+    const result = await client.query(
+      `
+        SELECT
+          child.relname AS child_table,
+          constraint_info.conname AS constraint_name,
+          constraint_info.condeferrable AS is_deferrable
+        FROM pg_constraint constraint_info
+        JOIN pg_class child ON child.oid = constraint_info.conrelid
+        JOIN pg_class parent ON parent.oid = constraint_info.confrelid
+        JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
+        JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace
+        WHERE constraint_info.contype = 'f'
+          AND child_ns.nspname = 'public'
+          AND parent_ns.nspname = 'public'
+          AND child.relname = ANY($1::text[])
+          AND parent.relname = ANY($1::text[])
+      `,
+      [tableNames]
+    );
+    for (const row of result.rows) {
+      if (row.is_deferrable === true) continue;
+      await client.query(
+        `ALTER TABLE ${quoteIdentifier(row.child_table)} ALTER CONSTRAINT ${quoteIdentifier(row.constraint_name)} DEFERRABLE INITIALLY IMMEDIATE`
+      );
+    }
+    await client.query('SET CONSTRAINTS ALL DEFERRED');
     return true;
   } catch {
     return false;

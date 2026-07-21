@@ -2052,7 +2052,7 @@
         'success'
       );
       renderBackupVerificationSummary(result);
-      await handleRefreshBackups(1);
+      await handleRefreshBackups(1, { silent: true });
     } catch {
       renderBackupVerificationSummary({});
       showMessage('Certified backup failed. Review audit logs before retrying.', 'error');
@@ -2061,13 +2061,13 @@
     }
   }
 
-  async function handleRefreshBackups(page = backupHistoryState.page) {
+  async function handleRefreshBackups(page = backupHistoryState.page, options = {}) {
     setBackupHistoryBusy(true);
     try {
       const backups = await A().listBackups(collectBackupHistoryFilters(page));
       if (backups?.ok) {
         renderBackups(backups);
-        showMessage('Backup history refreshed.', 'success');
+        if (!options.silent) showMessage('Backup history refreshed.', 'success');
         return;
       }
       const errMsg = backups?.message || 'Unable to refresh backup history.';
@@ -2380,6 +2380,8 @@
     } finally {
       restorePreparationBusy = false;
       syncRestorePreparationControls();
+      syncRestoreFinalConfirmationControls();
+      syncRestoreExecutionControls();
     }
   }
 

@@ -197,3 +197,46 @@ test('restore execution policy includes production activation blockers and stays
     /production_activation\.activation_record\.missing/
   );
 });
+
+test('restore execution policy permits verified safety-backed operation after final confirmation', () => {
+  const operationId = '00000000-0000-4000-8000-000000000001';
+  const result = policy.createRestoreExecutionPolicy({
+    recoveryState: {
+      operationId,
+      currentState: recovery.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+      unresolvedRecoveryState: true,
+      safetyBackupReference: { checksum: validHash, filePath: 'D:\\backups\\safety.json' },
+      finalConfirmationReference: { confirmationId: '00000000-0000-4000-8000-000000000002' },
+    },
+    packageVerification: { verificationStatus: 'passed' },
+    packageEligibility: { eligibilityStatus: 'eligible_for_authorization' },
+    authorization: { authorizationStatus: 'authorization_assessment_passed' },
+    databaseHealth: { status: 'healthy' },
+    operationLock: {
+      locked: true,
+      operationId,
+      currentState: recovery.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+    },
+    productionActivation: {
+      activationAuthorized: true,
+      blockers: [],
+    },
+    productionGovernance: {
+      databaseIdentity: governance.resolveDatabaseIdentity({
+        host: 'localhost',
+        port: 5432,
+        database: 'enterprise_pos',
+      }),
+      finalConfirmationRequired: true,
+      finalConfirmationPresent: true,
+    },
+  });
+
+  assert.equal(result.restoreExecutionAvailable, true);
+  assert.equal(result.safetyBackupVerified, true);
+  assert.equal(result.operationLockStatus, 'locked_for_verified_restore_operation');
+  assert.doesNotMatch(
+    result.blockers.map((item) => item.code).join('\n'),
+    /recovery_state\.unresolved|operation_lock\.active|final_confirmation\.required/
+  );
+});

@@ -129,6 +129,20 @@ test('payload verifier rejects the repository placeholder payload before mutatio
   assert.equal(result.code, 'INSTALLER_POSTGRES_REDISTRIBUTION_NOT_CERTIFIED');
 });
 
+test('payload verifier returns manifest path required for deployable staging', () => {
+  const payloadRoot = tempDir('epos-pg-payload-contract-');
+  const manifest = writePayloadFixture(payloadRoot);
+  const result = payloadVerifier.verifyBundledPayload({
+    payloadRoot,
+    allowRedistributionNotCertified: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.code, 'INSTALLER_POSTGRES_PAYLOAD_READY');
+  assert.equal(result.payloadPath, path.join(payloadRoot, manifest.fileName));
+  assert.equal(result.manifestPath, path.join(payloadRoot, 'manifest.json'));
+});
+
 test('release authorization template is pending and non-authorizing', () => {
   const payloadRoot = path.join(__dirname, '..', 'resources', 'postgres');
   const manifest = JSON.parse(fs.readFileSync(path.join(payloadRoot, 'manifest.json'), 'utf8'));

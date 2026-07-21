@@ -125,3 +125,14 @@ test('renderer wires guarded restore execution and keeps the button initially di
   assert.match(renderer, /lastRestoreConfirmation\?\.confirmationId/);
   assert.doesNotMatch(renderer, /location\.reload/);
 });
+
+test('renderer preserves certified backup success while refreshing history', () => {
+  const renderer = read('src/main/features/settings/settings.renderer.js');
+
+  assert.match(renderer, /Certified backup created and verified successfully/);
+  assert.match(renderer, /await handleRefreshBackups\(1, \{ silent: true \}\)/);
+  assert.match(
+    renderer,
+    /if \(!options\.silent\) showMessage\('Backup history refreshed\.', 'success'\)/
+  );
+});

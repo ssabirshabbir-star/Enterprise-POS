@@ -184,6 +184,7 @@ function verifyPayloadManifest(payloadRoot, manifest = null, options = {}) {
     status: PAYLOAD_STATUS.READY,
     code: 'INSTALLER_POSTGRES_PAYLOAD_READY',
     payloadPath,
+    manifestPath: loaded.manifestPath,
     digest,
     manifest: record,
     policy,
