@@ -73,13 +73,23 @@ test('PostgreSQL diagnostics classify supported versions and writable folders', 
 test('setup page is a guided first-run wizard and keeps restore recovery separate', () => {
   const html = read('src/renderer/setup.html');
   assert.match(html, /Enterprise POS Installation/);
+  assert.match(html, /h-screen overflow-hidden/);
+  assert.match(html, /\.setup-scroll/);
   assert.match(html, /Database Detection/);
   assert.match(html, /Connect or Install/);
-  assert.match(html, /Run initialization/);
+  assert.match(html, /Create administrator/);
+  assert.match(html, /data-step="6"/);
+  assert.match(html, /id="installerSaveButton" data-step-action="3"/);
+  assert.match(html, /id="installerInitializeButton" data-step-action="6"/);
+  assert.match(html, /installerAdvancedToggle/);
+  assert.match(html, /userMessageForCode/);
+  assert.match(html, /MANAGED_DATABASE_CREDENTIAL_UNAVAILABLE/);
+  assert.match(html, /INSTALLER_MANAGED_CONFIG_REPLACEMENT_BLOCKED/);
   assert.match(html, /Install managed PostgreSQL/);
   assert.match(html, /installerAdminConfirmPassword/);
   assert.match(html, /FIRST_RUN_ADMIN_REQUIRED/);
   assert.doesNotMatch(html, /installerPostgresProvisionButton[^>]*disabled/);
+  assert.doesNotMatch(html, /JSON\.stringify/);
   assert.match(html, /managedProvisioningCompleted/);
   assert.match(html, /maybeAutoProvisionManagedPostgres/);
   assert.match(html, /INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED/);

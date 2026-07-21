@@ -70,6 +70,7 @@ test('packaging file globs exclude local artifacts, secrets, maps, logs, and tes
 
   assert.deepEqual(files, [
     'src/**/*',
+    'resources/restore/**/*',
     'package.json',
     '!src/**/*.map',
     '!**/*.log',

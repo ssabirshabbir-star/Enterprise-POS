@@ -11,6 +11,31 @@ function safeError(error) {
   };
 }
 
+function codeError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function assertManagedConfigurationNotReplaced(userDataPath, payload = {}) {
+  const existing = installerConfigStore.loadInstallationConfig(userDataPath);
+  if (
+    !existing.ok ||
+    existing.config?.mode !== installerConfigStore.CONFIG_MODES.INSTALLER_MANAGED
+  ) {
+    return;
+  }
+  const incomingMode =
+    payload.mode || (payload.managed ? installerConfigStore.CONFIG_MODES.INSTALLER_MANAGED : null);
+  const keepsManagedMode = incomingMode === installerConfigStore.CONFIG_MODES.INSTALLER_MANAGED;
+  const hasReplacementSecret = typeof payload.password === 'string' && payload.password.length > 0;
+  if (keepsManagedMode && hasReplacementSecret) return;
+  throw codeError(
+    'INSTALLER_MANAGED_CONFIG_REPLACEMENT_BLOCKED',
+    'The installer-managed database configuration is already present. Enterprise POS will not replace its secure database credential from the setup screen.'
+  );
+}
+
 function registerInstallerRoutes(ipcMain, app) {
   ipcMain.handle('/installer/status', async () => {
     try {
@@ -24,6 +49,7 @@ function registerInstallerRoutes(ipcMain, app) {
 
   ipcMain.handle('/installer/config/save', async (_event, payload = {}) => {
     try {
+      assertManagedConfigurationNotReplaced(app.getPath('userData'), payload);
       const result = installerConfigStore.saveInstallationConfig(app.getPath('userData'), payload);
       installerConfigStore.loadAndApplyInstallationConfig(app.getPath('userData'));
       return result;

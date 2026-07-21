@@ -5,10 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Enterprise POS Setup</title>
     <link rel="stylesheet" href="./styles/output.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      .setup-step[hidden] {
+        display: none !important;
+      }
+      .setup-scroll {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+    </style>
   </head>
-  <body class="min-h-screen bg-zinc-100 text-zinc-950">
-    <main class="grid min-h-screen place-items-center p-6">
-      <section class="w-full max-w-5xl rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+  <body class="bg-zinc-100 text-zinc-950">
+    <main class="grid h-screen overflow-hidden p-3 md:p-4">
+      <section class="mx-auto flex h-full max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">Enterprise POS</p>
         <h1 id="setupTitle" class="mt-2 text-2xl font-semibold">Enterprise POS Installation</h1>
         <p id="setupLead" class="mt-3 text-sm text-zinc-600">
@@ -21,26 +37,30 @@
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Migration Status</p><strong id="setupMigrationStatus">Pending</strong></div>
           <div class="rounded-md border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">Activation Status</p><strong id="setupActivationStatus">Unknown</strong></div>
         </div>
-        <div id="installerWizard" class="mt-5 grid gap-4 lg:grid-cols-[220px_1fr]">
+        <div id="installerWizard" class="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-[220px_1fr]">
           <ol class="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
-            <li class="rounded px-3 py-2 font-semibold text-blue-700">1. Welcome</li>
-            <li class="rounded px-3 py-2">2. Database Detection</li>
-            <li class="rounded px-3 py-2">3. Connect or Install</li>
-            <li class="rounded px-3 py-2">4. Database Validation</li>
-            <li class="rounded px-3 py-2">5. Initialize Schema</li>
-            <li class="rounded px-3 py-2">6. Initial Administrator</li>
-            <li class="rounded px-3 py-2">7. Store Information</li>
-            <li class="rounded px-3 py-2">8. Finish</li>
+            <li data-step-nav="1" class="rounded px-3 py-2 font-semibold text-blue-700">1. Welcome</li>
+            <li data-step-nav="2" class="rounded px-3 py-2">2. Database Detection</li>
+            <li data-step-nav="3" class="rounded px-3 py-2">3. Connect or Install</li>
+            <li data-step-nav="4" class="rounded px-3 py-2">4. Database Validation</li>
+            <li data-step-nav="5" class="rounded px-3 py-2">5. Initialize Schema</li>
+            <li data-step-nav="6" class="rounded px-3 py-2">6. Initial Administrator</li>
+            <li data-step-nav="7" class="rounded px-3 py-2">7. Store Information</li>
+            <li data-step-nav="8" class="rounded px-3 py-2">8. Finish</li>
           </ol>
-          <div class="rounded-md border border-zinc-200 p-4">
+          <div class="flex min-h-0 flex-col rounded-md border border-zinc-200">
+            <div class="setup-scroll p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 class="text-lg font-semibold">Database setup</h2>
-                <p class="mt-1 text-sm text-zinc-600">Use an existing PostgreSQL installation or prepare for guided PostgreSQL installation. Credentials are stored only through the desktop secure storage layer.</p>
+                <h2 id="installerStepTitle" class="text-lg font-semibold">Database setup</h2>
+                <p id="installerStepLead" class="mt-1 text-sm text-zinc-600">Use the bundled PostgreSQL runtime for this terminal. Credentials are stored only through the desktop secure storage layer.</p>
               </div>
-              <button id="installerRefreshButton" class="rounded-md border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700">Refresh diagnostics</button>
+              <button id="installerRefreshButton" data-step-action="2" class="rounded-md border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700">Refresh diagnostics</button>
             </div>
-            <div class="mt-4 grid gap-3 md:grid-cols-2">
+            <div data-step="2" class="setup-step mt-4 rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-blue-950">
+              Enterprise POS will inspect this computer and select the safest available setup route. A new installer-managed PostgreSQL database will be prepared automatically when no valid configuration exists.
+            </div>
+            <div data-step="3" class="setup-step mt-4 grid gap-3 md:grid-cols-2">
               <label class="text-sm font-semibold">Host<input id="installerHost" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="localhost" autocomplete="off" /></label>
               <label class="text-sm font-semibold">Port<input id="installerPort" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="5432" inputmode="numeric" autocomplete="off" /></label>
               <label class="text-sm font-semibold">Database<input id="installerDatabase" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="enterprise_pos" autocomplete="off" /></label>
@@ -48,7 +68,7 @@
               <label class="text-sm font-semibold">Password<input id="installerPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="current-password" /></label>
               <label class="text-sm font-semibold">SSL Mode<select id="installerSslMode" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"><option value="disable">Disable</option><option value="prefer">Prefer</option><option value="require">Require</option></select></label>
             </div>
-            <div class="mt-5 rounded-md border border-sky-200 bg-sky-50 p-3">
+            <div data-step="3" class="setup-step mt-5 rounded-md border border-sky-200 bg-sky-50 p-3">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="text-sm font-semibold text-sky-950">Microsoft Visual C++ Runtime</h3>
@@ -63,7 +83,7 @@
                 <div><span class="text-sky-700">Action</span><strong class="block" id="installerVcRuntimeAction">Check required</strong></div>
               </div>
             </div>
-            <div class="mt-5 rounded-md border border-amber-200 bg-amber-50 p-3">
+            <div data-step="3" class="setup-step mt-5 rounded-md border border-amber-200 bg-amber-50 p-3">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="text-sm font-semibold text-amber-950">Managed PostgreSQL runtime</h3>
@@ -76,7 +96,13 @@
               </div>
               <div id="installerManagedPostgresStatus" class="mt-3 rounded-md bg-white p-3 text-xs text-amber-900">Managed runtime preflight not loaded yet.</div>
             </div>
-            <div class="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+            <div data-step="4" class="setup-step mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+              Enterprise POS will verify the database connection, managed installation identity, and schema readiness before administrator creation is allowed.
+            </div>
+            <div data-step="5" class="setup-step mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+              Schema initialization runs after credentials are durably stored. If setup was interrupted, Enterprise POS resumes from the last verified backend state.
+            </div>
+            <div data-step="6" class="setup-step mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3">
               <h3 class="text-sm font-semibold">Initial administrator</h3>
               <div class="mt-3 grid gap-3 md:grid-cols-2">
                 <label class="text-sm font-semibold">Admin username<input id="installerAdminUsername" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" autocomplete="username" /></label>
@@ -86,21 +112,30 @@
                 <label class="text-sm font-semibold">Confirm password<input id="installerAdminConfirmPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="new-password" /></label>
               </div>
             </div>
-            <div class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+            <div data-step="7" class="setup-step mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
               <h3 class="text-sm font-semibold">Store information</h3>
               <div class="mt-3 grid gap-3 md:grid-cols-2">
                 <label class="text-sm font-semibold">Store ID placeholder<input id="installerStoreId" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" placeholder="Assigned later" autocomplete="off" /></label>
                 <label class="text-sm font-semibold">Installer version<input id="installerVersion" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="1.0.0" autocomplete="off" /></label>
               </div>
             </div>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <button id="installerTestButton" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Test PostgreSQL</button>
-              <button id="installerSaveButton" class="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white">Save configuration</button>
-              <button id="installerCreateButton" class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700">Create database if needed</button>
-              <button id="installerInitializeButton" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">Run initialization</button>
+            <div data-step="8" class="setup-step mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+              Setup is complete. Restart Enterprise POS to open the normal login screen.
             </div>
-            <div id="installerStatus" class="mt-4 rounded-md bg-zinc-50 p-3 text-sm text-zinc-700">Diagnostics not loaded yet.</div>
+            <button id="installerAdvancedToggle" class="mt-4 text-left text-xs font-semibold text-zinc-600 underline">Show technical details</button>
+            <div id="installerStatus" class="mt-2 hidden rounded-md bg-zinc-50 p-3 text-sm text-zinc-700">Diagnostics not loaded yet.</div>
             <p class="mt-3 text-xs text-zinc-500">Licensing and auto-update are intentionally not part of this installer foundation phase.</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 bg-white p-3">
+              <button id="installerBackButton" class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700">Back</button>
+              <div class="flex flex-wrap gap-2">
+                <button id="installerTestButton" data-step-action="4" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Test database</button>
+                <button id="installerSaveButton" data-step-action="3" class="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white">Save manual configuration</button>
+                <button id="installerCreateButton" data-step-action="5" class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700">Create database if needed</button>
+                <button id="installerInitializeButton" data-step-action="6" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">Create administrator</button>
+                <button id="installerNextButton" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white">Continue</button>
+              </div>
+            </div>
           </div>
         </div>
         <div id="restoreRecoveryDetails" class="mt-5 hidden rounded-md border border-red-100 bg-red-50 p-4 text-sm text-red-900">
@@ -119,7 +154,7 @@
           <p id="setupBlockingReasons" class="mt-1">-</p>
           <p class="mt-3 text-xs text-red-700">Normal POS access remains locked. Safe actions are limited to retrying assessment, reading recovery diagnostics, or exiting the application.</p>
         </div>
-        <div id="setupChecklist" class="mt-5 rounded-md bg-zinc-50 p-4 text-sm text-zinc-700">
+        <div id="setupChecklist" class="mt-5 hidden rounded-md bg-zinc-50 p-4 text-sm text-zinc-700">
           <p id="setupChecklistTitle" class="font-semibold text-zinc-950">Checklist</p>
           <ul id="setupChecklistItems" class="mt-2 list-disc space-y-1 pl-5">
             <li>Install and start PostgreSQL.</li>
@@ -128,7 +163,7 @@
             <li>Run the production migration command, then restart the app.</li>
           </ul>
         </div>
-        <p class="mt-4 text-xs text-zinc-500">
+        <p class="mt-4 hidden text-xs text-zinc-500">
           See docs/INSTALLATION.md and docs/DEPLOYMENT.md in the project package for detailed setup.
         </p>
       </section>
@@ -142,10 +177,78 @@
       };
       let managedProvisioningCompleted = false;
       let managedAutoProvisionAttempted = false;
-      document.querySelector('#setupError').textContent = params.get('error') || 'Database connection failed.';
+      let currentStep = 2;
+      const stepCopy = {
+        1: ['Welcome', 'Enterprise POS will prepare the local database required by this terminal.'],
+        2: ['Database Detection', 'Enterprise POS is checking this computer for a safe setup path.'],
+        3: ['Install or Connect PostgreSQL', 'Use the bundled PostgreSQL runtime unless support instructs you to connect an existing server.'],
+        4: ['Database Validation', 'Enterprise POS verifies database connectivity before schema initialization.'],
+        5: ['Initialize Schema', 'Schema initialization runs only after database credentials are securely stored.'],
+        6: ['Create Initial Administrator', 'Create the first non-default administrator account for this installation.'],
+        7: ['Store Information', 'Record store details after the database and administrator account are ready.'],
+        8: ['Finish', 'Setup is complete. Restart Enterprise POS and sign in normally.'],
+      };
+      const userMessageForCode = (value, fallback) => {
+        const key = String(value || '').toUpperCase();
+        const messages = {
+          INSTALLER_CONFIG_MISSING:
+            'No completed local database setup was found. Enterprise POS will prepare the bundled database now.',
+          MANAGED_DATABASE_CREDENTIAL_UNAVAILABLE:
+            'Database credentials could not be retrieved securely. Enterprise POS will attempt controlled recovery and will not create a new database until the existing managed installation is verified.',
+          MANAGED_DATABASE_CREDENTIAL_DECRYPT_FAILED:
+            'Database credentials could not be decrypted for this Windows user. Use the controlled recovery flow so existing business data is not overwritten.',
+          INSTALLER_MANAGED_CONFIG_REPLACEMENT_BLOCKED:
+            'The managed database is already configured. Manual connection details were not saved because they could replace the secure managed credential.',
+          INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED:
+            'Preparing the bundled PostgreSQL database. This can take a few minutes on a clean computer.',
+          INSTALLER_POSTGRES_DEPLOYABLE_PROVISIONING_COMPLETED:
+          INSTALLER_POSTGRES_PROVISIONING_ALREADY_COMPLETED:
+            'Database setup is complete. Create the first administrator account to continue.',
+          INSTALLER_POSTGRES_PREFLIGHT_UNAVAILABLE:
+            'Database setup checks could not be loaded. Retry, or restart Enterprise POS if the problem continues.',
+          VC_RUNTIME_STATUS_UNAVAILABLE:
+            'The Microsoft Visual C++ Runtime check could not be completed. Retry before database setup.',
+        };
+        return messages[key] || fallback || 'Enterprise POS is checking setup status.';
+      };
+      const setStatus = (message, tone = 'info') => {
+        const node = document.querySelector('#installerStatus');
+        if (!node) return;
+        node.textContent = message;
+        node.classList.remove('hidden', 'text-red-700', 'text-emerald-700', 'text-zinc-700');
+        node.classList.add(
+          tone === 'error' ? 'text-red-700' : tone === 'success' ? 'text-emerald-700' : 'text-zinc-700'
+        );
+      };
+      const setWizardStep = (step) => {
+        currentStep = Math.max(1, Math.min(8, Number(step) || 1));
+        const copy = stepCopy[currentStep] || stepCopy[2];
+        text('#installerStepTitle', copy[0]);
+        text('#installerStepLead', copy[1]);
+        document.querySelectorAll('[data-step]').forEach((node) => {
+          const steps = String(node.dataset.step || '').split(/\s+/).map(Number);
+          node.hidden = !steps.includes(currentStep);
+        });
+        document.querySelectorAll('[data-step-nav]').forEach((node) => {
+          const active = Number(node.dataset.stepNav) === currentStep;
+          node.classList.toggle('font-semibold', active);
+          node.classList.toggle('text-blue-700', active);
+          node.classList.toggle('bg-white', active);
+        });
+        document.querySelectorAll('[data-step-action]').forEach((node) => {
+          const steps = String(node.dataset.stepAction || '').split(/\s+/).map(Number);
+          node.hidden = !steps.includes(currentStep);
+        });
+        const back = document.querySelector('#installerBackButton');
+        if (back) back.disabled = currentStep <= 2;
+        const next = document.querySelector('#installerNextButton');
+        if (next) next.hidden = [3, 4, 5, 6, 8].includes(currentStep);
+      };
+      text('#setupError', userMessageForCode(code, params.get('error') || 'Database connection failed.'));
       text('#setupDatabaseStatus', params.get('databaseStatus') || 'Not ready');
       text('#setupMigrationStatus', params.get('migrationStatus') || 'Pending');
       text('#setupActivationStatus', params.get('activationStatus') || 'Unknown');
+      setWizardStep(2);
       if (code === 'RESTORE_MAINTENANCE_LOCKOUT') {
         text('#setupTitle', 'Restore recovery required');
         text(
@@ -174,6 +277,7 @@
         }
       } else if (code === 'FIRST_RUN_ADMIN_REQUIRED') {
         managedProvisioningCompleted = true;
+        setWizardStep(6);
         text('#setupTitle', 'Create first administrator');
         text(
           '#setupLead',
@@ -208,24 +312,23 @@
         confirmPassword: document.querySelector('#installerAdminConfirmPassword')?.value || '',
       });
       const showInstallerStatus = (result) => {
-        const node = document.querySelector('#installerStatus');
-        if (!node) return;
         const safe = result || {};
         if (safe.ok && safe.adminCreated) {
-          node.textContent = `${safe.message || 'Initial administrator created.'} Restarting login...`;
+          setWizardStep(8);
+          setStatus(`${safe.message || 'Initial administrator created.'} Restarting login...`, 'success');
           setTimeout(() => {
             window.location.href = 'index.html';
           }, 1000);
           return;
         }
-        node.textContent = safe.message || JSON.stringify({
-          ok: safe.ok,
-          mode: safe.mode,
-          postgres: safe.postgres?.ok ?? safe.serviceDetected,
-          database: safe.database?.exists ?? safe.exists,
-          supported: safe.postgres?.supported ?? safe.supported,
-          code: safe.code || null,
-        });
+        const ok = safe.ok === true || safe.postgres?.ok === true || safe.database?.exists === true;
+        setStatus(
+          userMessageForCode(
+            safe.code,
+            safe.message || (ok ? 'Database check completed.' : 'Database setup is not complete yet.')
+          ),
+          ok ? 'success' : 'error'
+        );
       };
       const showManagedPostgresStatus = (result) => {
         const node = document.querySelector('#installerManagedPostgresStatus');
@@ -238,18 +341,22 @@
             safe.operation?.state === 'COMPLETED')
         ) {
           managedProvisioningCompleted = true;
+          setWizardStep(6);
+          setStatus(userMessageForCode(safe.code), 'success');
         }
         const payload = safe.payload || safe.preflight?.payload || {};
         const blockers = safe.blockers || safe.preflight?.blockers || [];
-        node.textContent = JSON.stringify({
-          ok: safe.ok,
-          policyVersion: safe.policy?.policyVersion || safe.preflight?.policy?.policyVersion || null,
-          managedVersion: safe.policy?.managedVersion || safe.preflight?.policy?.managedVersion || null,
-          payloadStatus: payload.status || null,
-          payloadCode: payload.code || null,
-          provisioningCode: safe.code || null,
-          blockers,
-        });
+        if (safe.ok === true) {
+          const version = safe.policy?.managedVersion || safe.preflight?.policy?.managedVersion || 'PostgreSQL 17.10';
+          const payloadText = payload.status ? ` Payload: ${payload.status}.` : '';
+          node.textContent = `Managed runtime check passed for ${version}.${payloadText}`;
+          return;
+        }
+        const reason = blockers[0]?.code || safe.code || payload.code;
+        node.textContent = userMessageForCode(
+          reason,
+          'Managed PostgreSQL is not ready yet. Review prerequisites and retry.'
+        );
       };
       const maybeAutoProvisionManagedPostgres = (result) => {
         if (managedAutoProvisionAttempted || managedProvisioningCompleted) return;
@@ -261,7 +368,9 @@
             code: 'INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED',
             blockers: [],
           });
-          callInstaller('provisionManagedPostgres').then(showManagedPostgresStatus);
+          callInstaller('provisionManagedPostgres').then(showManagedPostgresStatus).catch(() =>
+            showManagedPostgresStatus({ ok: false, code: 'INSTALLER_POSTGRES_PREFLIGHT_UNAVAILABLE' })
+          );
         }
       };
       const showVcRuntimeStatus = (result) => {
@@ -278,6 +387,13 @@
         if (!window.posApi?.installer?.[method]) return Promise.resolve({ ok: false, message: 'Installer API unavailable.' });
         return window.posApi.installer[method](payload);
       };
+      document.querySelector('#installerAdvancedToggle')?.addEventListener('click', () => {
+        const node = document.querySelector('#installerStatus');
+        if (!node) return;
+        node.classList.toggle('hidden');
+      });
+      document.querySelector('#installerBackButton')?.addEventListener('click', () => setWizardStep(currentStep - 1));
+      document.querySelector('#installerNextButton')?.addEventListener('click', () => setWizardStep(currentStep + 1));
       document.querySelector('#installerRefreshButton')?.addEventListener('click', () => callInstaller('status').then(showInstallerStatus));
       document.querySelector('#installerVcRuntimeRefreshButton')?.addEventListener('click', () => callInstaller('vcRuntimeStatus').then(showVcRuntimeStatus));
       document.querySelector('#installerPostgresPreflightButton')?.addEventListener('click', () => callInstaller('postgresPreflight').then(showManagedPostgresStatus));

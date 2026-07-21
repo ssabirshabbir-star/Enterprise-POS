@@ -6,6 +6,7 @@ const test = require('node:test');
 
 const env = require('../src/main/config/env');
 const configStore = require('../src/main/installer/installer-config.store');
+const installerController = require('../src/main/installer/installer.controller');
 const diagnostics = require('../src/main/installer/installer-diagnostics.service');
 const managedIdentity = require('../src/main/installer/managed-database-identity.model');
 
@@ -89,6 +90,10 @@ test('managed installer configuration persists lifecycle metadata without plaint
   const raw = fs.readFileSync(configStore.installationConfigPath(dir), 'utf8');
   assert.doesNotMatch(raw, /do-not-store-plain/);
   assert.match(raw, /sha256-config-record-v1/);
+  assert.deepEqual(
+    fs.readdirSync(dir).filter((entry) => entry.endsWith('.tmp')),
+    []
+  );
 
   const loaded = configStore.loadInstallationConfig(dir, {
     includePassword: true,
@@ -102,6 +107,50 @@ test('managed installer configuration persists lifecycle metadata without plaint
   assert.match(loaded.config.managedIdentity.clusterId, /^cluster_[a-f0-9]{36}$/);
   assert.match(loaded.config.managedIdentity.databaseId, /^database_[a-f0-9]{36}$/);
   assert.match(loaded.config.managedIdentity.fingerprint, /^[a-f0-9]{64}$/);
+});
+
+test('setup IPC refuses to replace an installer-managed credential with blank manual config', async () => {
+  const dir = tempDir('epos-managed-db-overwrite-');
+  configStore.saveInstallationConfig(
+    dir,
+    {
+      mode: configStore.CONFIG_MODES.INSTALLER_MANAGED,
+      host: '127.0.0.1',
+      port: 55435,
+      database: 'enterprise_pos_managed',
+      username: 'enterprise_pos_app',
+      password: 'managed-secret',
+      sslMode: 'disable',
+    },
+    { safeStorage: fakeSafeStorage() }
+  );
+
+  const handlers = new Map();
+  installerController.registerInstallerRoutes(
+    { handle: (name, handler) => handlers.set(name, handler) },
+    { getPath: () => dir }
+  );
+
+  const result = await handlers.get('/installer/config/save')(null, {
+    host: 'localhost',
+    port: 5432,
+    database: 'enterprise_pos',
+    username: 'postgres',
+    password: '',
+    sslMode: 'disable',
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'INSTALLER_MANAGED_CONFIG_REPLACEMENT_BLOCKED');
+
+  const loaded = configStore.loadInstallationConfig(dir, {
+    includePassword: true,
+    safeStorage: fakeSafeStorage(),
+  });
+  assert.equal(loaded.ok, true);
+  assert.equal(loaded.config.mode, configStore.CONFIG_MODES.INSTALLER_MANAGED);
+  assert.equal(loaded.config.password, 'managed-secret');
+  assert.equal(loaded.config.database, 'enterprise_pos_managed');
 });
 
 test('packaged startup can resolve database config from managed store with no database env file', async () => {

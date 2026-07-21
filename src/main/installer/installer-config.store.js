@@ -274,7 +274,9 @@ function saveInstallationConfig(userDataPath, payload = {}, options = {}) {
   const target = installationConfigPath(userDataPath);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const record = createInstallationRecord(payload, options);
-  fs.writeFileSync(target, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(temporary, target);
   return { ok: true, path: target, config: redactConfig(record) };
 }
 
