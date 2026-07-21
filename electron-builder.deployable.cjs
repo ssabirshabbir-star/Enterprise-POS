@@ -25,6 +25,8 @@ module.exports = {
   extraResources: deployableResources,
   nsis: {
     ...packageJson.build.nsis,
+    oneClick: true,
     allowElevation: false,
+    allowToChangeInstallationDirectory: false,
   },
 };

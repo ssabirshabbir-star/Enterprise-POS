@@ -28,6 +28,8 @@ module.exports = {
   extraResources: offlineResources,
   nsis: {
     ...packageJson.build.nsis,
+    oneClick: true,
     allowElevation: false,
+    allowToChangeInstallationDirectory: false,
   },
 };
