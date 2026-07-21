@@ -23,4 +23,8 @@ module.exports = {
   ...packageJson.build,
   artifactName: '${productName} Setup ${version} offline.${ext}',
   extraResources: deployableResources,
+  nsis: {
+    ...packageJson.build.nsis,
+    allowElevation: false,
+  },
 };

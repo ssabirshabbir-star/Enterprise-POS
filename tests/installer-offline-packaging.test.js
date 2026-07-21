@@ -283,6 +283,8 @@ test('offline certification builder config includes payload binaries under a non
   assert.ok(postgres.filter.includes('*.zip'));
   assert.ok(prerequisites.filter.includes('**/vc_redist.x64.exe'));
   assert.doesNotMatch(config.artifactName, /production/i);
+  assert.equal(config.nsis.perMachine, false);
+  assert.equal(config.nsis.allowElevation, false);
 });
 
 test('deployable builder config emits a deployable offline artifact and keeps bundled payloads', () => {
@@ -294,4 +296,6 @@ test('deployable builder config emits a deployable offline artifact and keeps bu
   assert.doesNotMatch(config.artifactName, /certification/i);
   assert.ok(postgres.filter.includes('*.zip'));
   assert.ok(prerequisites.filter.includes('**/vc_redist.x64.exe'));
+  assert.equal(config.nsis.perMachine, false);
+  assert.equal(config.nsis.allowElevation, false);
 });

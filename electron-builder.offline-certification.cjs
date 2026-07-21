@@ -26,4 +26,8 @@ module.exports = {
   ...packageJson.build,
   artifactName: '${productName} Setup ${version} offline-certification-unsigned.${ext}',
   extraResources: offlineResources,
+  nsis: {
+    ...packageJson.build.nsis,
+    allowElevation: false,
+  },
 };
