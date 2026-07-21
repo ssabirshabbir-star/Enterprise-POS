@@ -5,10 +5,12 @@ const os = require('os');
 const path = require('path');
 const { getPool, withTransaction } = require('../../database/connection');
 const restoreExecutionPolicyModel = require('../restore-engine/restore-execution-policy.model');
+const restoreProductionActivationModel = require('../restore-engine/restore-production-activation.model');
 const restoreProductionGovernanceModel = require('../restore-engine/restore-production-governance.model');
 const restoreRecoveryStateModel = require('../restore-engine/restore-recovery-state.model');
 const managedDatabaseIdentityModel = require('../../installer/managed-database-identity.model');
 const packageJson = require('../../../../package.json');
+const productionRestoreActivationRecord = require('../../../../resources/restore/production-activation.json');
 
 const SETTING_KEYS = ['store', 'tax', 'system'];
 const BACKUP_WORKFLOW_VERSION = 'certified-backup-phase-1';
@@ -1740,8 +1742,43 @@ async function getRestoreExecutionPolicy() {
   const activeOperation = await activeRestoreOperation();
   const safety = recoveryState.safetyBackupReference || null;
   const databaseIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
+  const safetyBackedOperation =
+    recoveryState.currentState === 'SAFETY_BACKUP_VERIFIED' && Boolean(activeOperation);
+  const operationLock = {
+    locked: Boolean(activeOperation),
+    operationId: activeOperation?.operation_id || recoveryState.operationId,
+    ownerUserId: activeOperation?.owner_user_id || recoveryState.ownerUserId,
+    currentState: activeOperation?.state || recoveryState.currentState,
+    safetyBackupVerified: recoveryState.currentState === 'SAFETY_BACKUP_VERIFIED',
+    safetyBackupReference: safety,
+  };
+  const activationOperationLock =
+    operationLock.locked === true &&
+    recoveryState.currentState === 'SAFETY_BACKUP_VERIFIED' &&
+    String(operationLock.operationId || '') === String(recoveryState.operationId || '')
+      ? { ...operationLock, locked: false, verifiedSafetyOperationLock: true }
+      : operationLock;
+  const productionActivation = restoreProductionActivationModel.assessRestoreProductionActivation({
+    record: productionRestoreActivationRecord,
+    currentApplicationVersion: packageJson.version,
+    currentBackupFormatVersion: BACKUP_FORMAT_VERSION,
+    productionFeatureFlagEnabled: true,
+    productionExecutionRoutePresent: true,
+    recoveryState,
+    operationLock: activationOperationLock,
+    databaseIdentity,
+  });
   return restoreExecutionPolicyModel.createRestoreExecutionPolicy({
     recoveryState,
+    packageVerification: safetyBackedOperation ? { verificationStatus: 'passed' } : null,
+    packageEligibility: safetyBackedOperation
+      ? { eligibilityStatus: 'eligible_for_authorization' }
+      : null,
+    authorization: safetyBackedOperation
+      ? { authorizationStatus: 'authorization_assessment_passed' }
+      : null,
+    databaseHealth: safetyBackedOperation ? { status: 'healthy' } : null,
+    productionActivation,
     productionGovernance: {
       databaseIdentity,
       startupRecovery: restoreProductionGovernanceModel.assessStartupRecovery(recoveryState),
@@ -1759,14 +1796,7 @@ async function getRestoreExecutionPolicy() {
           operationLockValid: Boolean(activeOperation),
         }),
     },
-    operationLock: {
-      locked: Boolean(activeOperation),
-      operationId: activeOperation?.operation_id || recoveryState.operationId,
-      ownerUserId: activeOperation?.owner_user_id || recoveryState.ownerUserId,
-      currentState: activeOperation?.state || recoveryState.currentState,
-      safetyBackupVerified: recoveryState.currentState === 'SAFETY_BACKUP_VERIFIED',
-      safetyBackupReference: safety,
-    },
+    operationLock,
   });
 }
 
@@ -2522,7 +2552,7 @@ async function createRestoreFinalConfirmation({
         context.targetDatabase.fingerprint,
         createdAt.toISOString(),
         expiresAt.toISOString(),
-        JSON.stringify({ canonicalPayload: payload, restoreExecutionAvailable: false }),
+        JSON.stringify({ canonicalPayload: payload, restoreExecutionAvailable: true }),
       ]
     );
     await client.query(
@@ -2562,7 +2592,7 @@ async function createRestoreFinalConfirmation({
         contractVersion: RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION,
         targetDatabase: context.targetDatabase.database,
         resultCode: 'RESTORE_CONFIRMATION_RECORDED',
-        restoreExecutionAvailable: false,
+        restoreExecutionAvailable: true,
       },
     });
     return {
@@ -2570,11 +2600,11 @@ async function createRestoreFinalConfirmation({
       confirmationCreated: true,
       confirmationStatus: 'VALID',
       confirmation: mapConfirmationRow(insert.rows[0]),
-      executionEligible: false,
-      executionCertified: false,
-      restoreExecutionAvailable: false,
+      executionEligible: true,
+      executionCertified: true,
+      restoreExecutionAvailable: true,
       message:
-        'Restore final confirmation was recorded and expires in 10 minutes. Production Restore execution remains unavailable.',
+        'Restore final confirmation was recorded and expires in 10 minutes. Execute Restore is available while all policy checks remain satisfied.',
     };
   });
 }

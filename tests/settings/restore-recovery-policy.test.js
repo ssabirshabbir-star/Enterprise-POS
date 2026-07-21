@@ -83,7 +83,7 @@ test('restore execution policy distinguishes package validity from execution cer
   assert.equal(result.executionCertified, false);
   assert.match(
     result.blockers.map((item) => item.code).join('\n'),
-    /execution\.activation_not_certified/
+    /production_activation\.activation_record\.missing/
   );
 });
 
@@ -154,6 +154,10 @@ test('settings route and renderer contract exposes policy plus guarded execution
   assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
   assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
   assert.match(api, /restoreBackup/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore/);
-  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
+  assert.match(renderer, /function handleExecuteRestore/);
+  assert.match(
+    renderer,
+    /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
+  );
+  assert.match(renderer, /policy\.restoreExecutionAvailable === true/);
 });

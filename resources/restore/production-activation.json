@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "product": "Enterprise POS",
+  "component": "restore",
+  "releaseScope": "enterprise-pos-restore-production",
+  "applicationVersion": "1.0.0",
+  "databaseSchemaVersion": "UNRESOLVED",
+  "backupFormatVersion": "1.0",
+  "activationStatus": "approved",
+  "restoreStrategy": "transactional_in_place_with_verified_safety_backup",
+  "safetyBackupPolicy": "mandatory_verified_pre_restore_backup",
+  "technicalCertification": {
+    "backup_format_compatibility": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/backup-result.json",
+      "evidenceHash": "e5637adb58a78e9a50eeed346930b70bc2e0c026389ada082f3218c9df6d8990"
+    },
+    "package_verification": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/backup-result.json",
+      "evidenceHash": "e5637adb58a78e9a50eeed346930b70bc2e0c026389ada082f3218c9df6d8990"
+    },
+    "authorization_and_confirmation": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/confirmation-replay-matrix.json",
+      "evidenceHash": "74f7d28c82d9028e71430b5e9b1ae7c1bd1cf96d9fff968b5be61f6fdc659642"
+    },
+    "safety_backup": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/safety-backup-failure-result.json",
+      "evidenceHash": "2ce9f4a0711fed33fa78e0ff8f12e4e6d626eb364d51ba5a35b3413f8bb21d50"
+    },
+    "maintenance_mutation_lock": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/mutation-lock-result.json",
+      "evidenceHash": "1ef0dabba442e7e22487b6337e9dcf046c0197cbf9c02714ba665bf2ab1db0ff"
+    },
+    "disposable_database_success": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/successful-restore-result.json",
+      "evidenceHash": "b5f52cf1ff5c840da10cc76a1b53ba0ca551fedaa93e7c3e333915a9a3747348"
+    },
+    "failure_matrix": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/identity-rejection-matrix.json",
+      "evidenceHash": "e59860b7c6e483742e99b4794178c314d7fd6a23d83ef2497fc5b2941b3b5839"
+    },
+    "rollback": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/restore-failure-rollback-result.json",
+      "evidenceHash": "31b84aadb2c0457f84b6fe4577e2ce38e7fbc9ff09fb92c1b2fca2aec4942e1b"
+    },
+    "startup_recovery": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/interruption-recovery-matrix.json",
+      "evidenceHash": "601b891f7c5d67c5b1ca63ca065e971b2c78210777c2f11f8ae2caba25b1fa61"
+    },
+    "post_restore_validation": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/successful-restore-result.json",
+      "evidenceHash": "b5f52cf1ff5c840da10cc76a1b53ba0ca551fedaa93e7c3e333915a9a3747348"
+    },
+    "sequence_identity_recovery": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/managed-identity.json",
+      "evidenceHash": "44ea49514e0335315abc6f738675a9bba6b19ed4b66894da1dffb2f1cdf61169"
+    },
+    "restart_reconnect": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/interruption-recovery-matrix.json",
+      "evidenceHash": "601b891f7c5d67c5b1ca63ca065e971b2c78210777c2f11f8ae2caba25b1fa61"
+    },
+    "native_file_dialog": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/packaged-path-result.json",
+      "evidenceHash": "ed39b4c909c3512a12157c00eb165851985c4c8504f5e98bdb346eaacdfb33e3"
+    },
+    "restore_history_audit": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/successful-restore-result.json",
+      "evidenceHash": "b5f52cf1ff5c840da10cc76a1b53ba0ca551fedaa93e7c3e333915a9a3747348"
+    },
+    "secret_redaction": {
+      "status": "passed",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721-db-backed-pg17-rerun22-final-active17/secret-scan-result.json",
+      "evidenceHash": "f33eff20cc8022ddc33d5e092250ee6e93630077d5214a0cff195d2d018472a6"
+    }
+  },
+  "authorization": {
+    "ownerRestoreScopeApprovalStatus": "approved",
+    "technicalRestoreActivationStatus": "approved",
+    "governanceReviewStatus": "not_claimed",
+    "securityReviewStatus": "not_claimed",
+    "releaseApprovalStatus": "not_claimed",
+    "legalReviewStatus": "not_claimed",
+    "approverIdentity": "owner-directed-installer-managed-restore-activation-2026-07-21",
+    "approvalAuthority": "Enterprise POS owner directive for installer-managed PostgreSQL 17.10 Restore scope",
+    "approvalTimestamp": "2026-07-21T00:00:00.000Z",
+    "expiresAt": "2027-07-21T00:00:00.000Z",
+    "revoked": false,
+    "testOnly": false
+  },
+  "evidenceManifestSha256": "ca39eed60f1971f2105bc0f509e09f1aa05f91741b0a9fb9c54e5eea790d5716",
+  "scopeRestrictions": [
+    "installer-managed PostgreSQL 17.10 only",
+    "same managed installation identity",
+    "same managed cluster identity",
+    "same managed database identity",
+    "verified Enterprise POS backup package only",
+    "authenticated administrator only",
+    "operation-bound final confirmation required",
+    "verified safety backup required before mutation"
+  ],
+  "notes": [
+    "This record authorizes the guarded Restore route only for the narrow installer-managed PostgreSQL 17.10 scope.",
+    "It does not authorize arbitrary PostgreSQL targets, copied identities, foreign backups, modified backups, or bypass of any safety guard.",
+    "It does not claim commercial redistribution, code-signing, or broader production release approval."
+  ]
+}

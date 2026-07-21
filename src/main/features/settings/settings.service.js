@@ -18,7 +18,7 @@ const LOGO_EXTENSIONS = new Map([
 ]);
 const pendingStoreLogos = new Map();
 const RESTORE_AUTHORIZATION_ACKNOWLEDGEMENT =
-  'I understand Restore is not available yet and this is authorization assessment only.';
+  'I understand Restore will replace the current database after final confirmation.';
 
 async function requireSettingsAccess(permissionKey, adminOnly = false) {
   const profileResult = await authService.getProfile();
@@ -786,8 +786,9 @@ async function getRestoreExecutionPolicy() {
     ok: true,
     policy,
     noRestoreExecuted: true,
-    restoreUnavailable: true,
-    restoreEligible: false,
+    restoreUnavailable: policy.restoreExecutionAvailable !== true,
+    restoreEligible: policy.restoreEligible === true,
+    restoreExecutionAvailable: policy.restoreExecutionAvailable === true,
     message: policy.message,
   };
 }
@@ -840,12 +841,12 @@ async function createRestoreFinalConfirmation({
   return {
     ...result,
     noRestoreExecuted: true,
-    restoreUnavailable: true,
-    restoreEligible: false,
-    restoreExecutionAvailable: false,
+    restoreUnavailable: result.restoreExecutionAvailable !== true,
+    restoreEligible: result.restoreExecutionAvailable === true,
+    restoreExecutionAvailable: result.restoreExecutionAvailable === true,
     message:
       result.message ||
-      'Restore final confirmation assessment completed. Production execution remains unavailable.',
+      'Restore final confirmation recorded. Execute Restore is available when all policy checks remain satisfied.',
   };
 }
 
@@ -860,12 +861,12 @@ async function prepareRestoreSafetyBackup(sourcePackagePath, options = {}) {
   return {
     ...result,
     noRestoreExecuted: true,
-    restoreUnavailable: true,
-    restoreEligible: false,
-    restoreExecutionAvailable: false,
+    restoreUnavailable: result.restoreExecutionAvailable !== true,
+    restoreEligible: result.restoreExecutionAvailable === true,
+    restoreExecutionAvailable: result.restoreExecutionAvailable === true,
     message:
       result.message ||
-      'Restore safety preparation completed. Restore execution remains unavailable.',
+      'Restore safety preparation completed. Continue to final confirmation before executing Restore.',
   };
 }
 

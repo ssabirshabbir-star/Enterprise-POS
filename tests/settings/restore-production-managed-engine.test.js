@@ -38,12 +38,14 @@ test('managed production restore engine preserves destination identity and consu
   );
 });
 
-test('production execution service has a real default managed engine while feature flag remains disabled', () => {
+test('production execution service has a real default managed engine with guarded feature activation', () => {
   const service = read('src/main/features/restore-engine/restore-production-execution.service.js');
 
   assert.match(service, /restore-production-managed-engine/);
-  assert.match(service, /PRODUCTION_RESTORE_FEATURE_ENABLED = false/);
+  assert.match(service, /PRODUCTION_RESTORE_FEATURE_ENABLED = true/);
+  assert.match(service, /production-activation\.json/);
   assert.match(service, /validateManagedDatabaseIdentity/);
   assert.match(service, /managed_database_identity/);
-  assert.doesNotMatch(service, /PRODUCTION_RESTORE_FEATURE_ENABLED = true/);
+  assert.match(service, /RESTORE_FINAL_CONFIRMATION_REQUIRED/);
+  assert.match(service, /RESTORE_SAFETY_BACKUP_REQUIRED/);
 });

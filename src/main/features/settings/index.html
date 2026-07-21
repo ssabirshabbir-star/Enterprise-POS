@@ -95,7 +95,7 @@
               <div class="flex flex-wrap gap-2">
                 <button id="assessBackupPreflightButton" type="button" class="epos-btn epos-btn-outline" title="Assess backup destination readiness without creating a backup.">Assess Backup Preflight</button>
                 <button id="createBackupButton" type="button" class="epos-btn epos-btn-primary" title="Create a certified backup with manifest, metadata, verification, integrity evidence, and audit logging.">Create Certified Backup</button>
-                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error" disabled aria-disabled="true" title="Restore requires passing Restore readiness governance. Acknowledgement required.">Execute Restore</button>
+                <button id="restoreBackupButton" type="button" class="epos-btn epos-btn-error" disabled aria-disabled="true" title="Restore requires package verification, eligibility, authorization, safety backup, and final confirmation.">Execute Restore</button>
                 <button id="inspectRestorePackageButton" type="button" class="epos-btn epos-btn-outline" title="Inspect a Certified Backup package without restoring it.">Inspect Package</button>
                 <button id="verifyRestorePackageButton" type="button" class="epos-btn epos-btn-outline" title="Verify a Certified Backup package without restoring it.">Verify Package</button>
                 <button id="assessRestoreEligibilityButton" type="button" class="epos-btn epos-btn-outline" title="Assess governance eligibility without authorizing Restore.">Assess Eligibility</button>
@@ -104,11 +104,11 @@
                 <button id="refreshBackupHistoryButton" type="button" class="epos-btn epos-btn-outline" title="Refresh certified backup history.">Refresh History</button>
                 <button id="refreshDryRunReportHistoryButton" type="button" class="epos-btn epos-btn-outline" title="Refresh saved dry-run certification report audit history.">Refresh Reports</button>
               </div>
-              <div id="restoreResult" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore has not been executed. Acknowledgement and governance readiness are required before Restore can be enabled.</div>
-              <p class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">Restore is blocked until verification, authorization, certification, and recovery-state governance are implemented.</p>
+              <div id="restoreResult" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore has not been executed. Select and verify a backup package, prepare a safety backup, record final confirmation, then execute Restore.</div>
+              <p class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">Restore is available only for verified Enterprise POS backups on this installer-managed PostgreSQL database after all safety checks pass.</p>
               <div id="backupPreflightAssessment" class="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">Backup Preflight Assessment — Select a destination to assess readiness before creating a backup.</div>
               <label class="mt-3 block text-sm font-medium text-zinc-700" for="restoreAuthorizationAcknowledgement">Authorization assessment acknowledgement</label>
-              <input id="restoreAuthorizationAcknowledgement" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="I understand Restore is not available yet and this is authorization assessment only." />
+              <input id="restoreAuthorizationAcknowledgement" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" placeholder="I understand Restore will replace the current database after final confirmation." />
               <div id="restorePackageInspection" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Package Inspection Only — Restore is not available.</div>
               <div id="restorePackageVerification" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Verification Only — Restore is not available.</div>
               <div id="restoreEligibilityAssessment" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Eligibility Assessment Only — Restore is not available.</div>
@@ -141,25 +141,25 @@
                     <p>Read Only Recovery-State and Execution-Policy Assessment — No Restore Executed.</p>
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button id="prepareRestoreSafetyBackupButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Create an application-controlled safety backup before any future Restore execution certification.">Prepare Safety Backup</button>
-                    <button id="cancelRestorePreparationButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Cancel an active Restore safety preparation before Restore execution exists.">Cancel Preparation</button>
+                    <button id="prepareRestoreSafetyBackupButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Create and verify an application-controlled safety backup before Restore execution.">Prepare Safety Backup</button>
+                    <button id="cancelRestorePreparationButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Cancel an active Restore safety preparation before final execution.">Cancel Preparation</button>
                     <button id="refreshRestoreExecutionPolicyButton" type="button" class="epos-btn epos-btn-outline" title="Refresh read-only Restore recovery-state and execution-policy evidence.">Refresh Policy</button>
                   </div>
                 </div>
               </div>
-              <div id="restoreExecutionPolicy" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore execution policy will appear here. Execution remains unavailable.</div>
+              <div id="restoreExecutionPolicy" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Restore execution policy will appear here. Execution is enabled only after all guards pass.</div>
               <div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p class="font-semibold">Final Restore Confirmation Boundary</p>
-                    <p>Typed confirmation records durable evidence only. Production execution remains unavailable.</p>
+                    <p>Typed confirmation is required before destructive Restore execution.</p>
                   </div>
-                  <button id="recordRestoreFinalConfirmationButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Record final confirmation evidence after all governance prerequisites pass.">Record Confirmation</button>
+                  <button id="recordRestoreFinalConfirmationButton" type="button" class="epos-btn epos-btn-outline" disabled aria-disabled="true" title="Record operation-bound final confirmation after safety backup verification.">Record Confirmation</button>
                 </div>
                 <label class="mt-3 block text-sm font-medium" for="restoreFinalConfirmationPhrase">Typed confirmation phrase</label>
                 <input id="restoreFinalConfirmationPhrase" class="mt-1 w-full rounded-md border border-red-200 px-3 py-2 text-sm" placeholder="RESTORE DATABASE" autocomplete="off" />
               </div>
-              <div id="restoreFinalConfirmationStatus" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Final confirmation has not been recorded. Production Restore execution remains unavailable.</div>
+              <div id="restoreFinalConfirmationStatus" class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Final confirmation has not been recorded. Execute Restore remains disabled until confirmation is bound to the active operation.</div>
               <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>

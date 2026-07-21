@@ -7,6 +7,7 @@
   let backupSearchTimer = null;
   let restorePreparationBusy = false;
   let lastRestorePolicy = null;
+  let lastRestoreConfirmation = null;
   const dryRunReportState = {
     search: '',
     status: 'all',
@@ -909,7 +910,7 @@
       policy.productionGovernance?.finalCertificationAssessment ||
       {};
     const lines = [
-      'Restore Execution Policy - Read Only - No Restore Executed',
+      'Restore Execution Policy',
       `Execution Eligible: ${policy.executionEligible === true ? 'Yes' : 'No'}`,
       `Execution Certified: ${policy.executionCertified === true ? 'Yes' : 'No'}`,
       `Package Valid: ${policy.packageValid === true ? 'Yes' : 'No'}`,
@@ -965,6 +966,7 @@
     panel.textContent = lines.join('\n');
     syncRestorePreparationControls(policy);
     syncRestoreFinalConfirmationControls(policy);
+    syncRestoreExecutionControls(policy);
   }
 
   function syncRestorePreparationControls(policy = lastRestorePolicy || {}) {
@@ -992,16 +994,38 @@
     const phrase = $id('restoreFinalConfirmationPhrase');
     const recovery = policy.recoveryState || {};
     const phraseReady = String(phrase?.value || '').trim() === 'RESTORE DATABASE';
-    const canRecord =
+    const canType =
       recovery.currentState === 'SAFETY_BACKUP_VERIFIED' &&
       policy.safetyBackupVerified === true &&
-      policy.restoreExecutionAvailable !== true &&
-      phraseReady;
+      !lastRestoreConfirmation?.confirmationId;
+    const canRecord = canType && phraseReady;
     if (button) {
       button.disabled = restorePreparationBusy || !canRecord;
       button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     }
-    if (phrase) phrase.disabled = restorePreparationBusy || !canRecord;
+    if (phrase) phrase.disabled = restorePreparationBusy || !canType;
+  }
+
+  function syncRestoreExecutionControls(policy = lastRestorePolicy || {}) {
+    const button = $id('restoreBackupButton');
+    if (!button) return;
+    const recovery = policy.recoveryState || {};
+    const confirmation = lastRestoreConfirmation || {};
+    const operationMatches =
+      Boolean(confirmation.confirmationId) &&
+      String(confirmation.operationId || recovery.operationId || '') ===
+        String(recovery.operationId || '');
+    const canExecute =
+      restorePreparationBusy !== true &&
+      policy.restoreExecutionAvailable === true &&
+      recovery.currentState === 'SAFETY_BACKUP_VERIFIED' &&
+      policy.safetyBackupVerified === true &&
+      operationMatches;
+    button.disabled = !canExecute;
+    button.setAttribute('aria-disabled', canExecute ? 'false' : 'true');
+    button.title = canExecute
+      ? 'Execute Restore for the verified package and confirmed safety-backed operation.'
+      : 'Restore requires package verification, eligibility, authorization, safety backup, and final confirmation.';
   }
 
   function renderRestoreStartupRecovery(result = {}) {
@@ -1118,6 +1142,12 @@
     const panel = $id('restoreFinalConfirmationStatus');
     if (!panel) return;
     const confirmation = result.confirmation || {};
+    if (result.confirmationCreated && confirmation.confirmationId) {
+      lastRestoreConfirmation = {
+        confirmationId: confirmation.confirmationId,
+        operationId: confirmation.operationId || lastRestorePolicy?.recoveryState?.operationId,
+      };
+    }
     const blockers = Array.isArray(result.blockers) ? result.blockers : [];
     panel.textContent = [
       'Final Restore Confirmation Evidence',
@@ -1135,6 +1165,8 @@
       `Message: ${text(result.message)}`,
       ...(blockers.length ? ['Blockers:', ...blockers.map((item) => `- ${text(item)}`)] : []),
     ].join('\n');
+    syncRestoreFinalConfirmationControls();
+    syncRestoreExecutionControls();
   }
 
   function renderRestoreEngineFoundationStatus(result = {}) {
@@ -2395,7 +2427,7 @@
       if (policy?.ok) renderRestoreExecutionPolicy(policy);
       showMessage(
         result?.message ||
-          'Restore final confirmation assessment completed. Production execution remains unavailable.',
+          'Restore final confirmation assessment completed. Execute Restore is available when every policy check remains satisfied.',
         result?.ok ? 'success' : 'error'
       );
     } catch {
@@ -2403,6 +2435,61 @@
     } finally {
       restorePreparationBusy = false;
       syncRestoreFinalConfirmationControls();
+      syncRestoreExecutionControls();
+    }
+  }
+
+  async function handleExecuteRestore() {
+    if (restorePreparationBusy) return;
+    const policy = lastRestorePolicy || {};
+    const recovery = policy.recoveryState || {};
+    const confirmation = lastRestoreConfirmation || {};
+    if (
+      policy.restoreExecutionAvailable !== true ||
+      recovery.currentState !== 'SAFETY_BACKUP_VERIFIED' ||
+      !confirmation.confirmationId ||
+      String(confirmation.operationId || '') !== String(recovery.operationId || '')
+    ) {
+      showMessage(
+        'Restore is not ready. Verify the package, prepare a safety backup, and record final confirmation.',
+        'error'
+      );
+      syncRestoreExecutionControls(policy);
+      return;
+    }
+    const btn = $id('restoreBackupButton');
+    restorePreparationBusy = true;
+    syncRestoreExecutionControls(policy);
+    if (btn) btn.textContent = 'Restoring...';
+    try {
+      const result = await A().restoreBackup({
+        operationId: recovery.operationId,
+        confirmationId: confirmation.confirmationId,
+      });
+      renderRestoreResult(result || {});
+      lastRestoreConfirmation = null;
+      const startup = await A()
+        .restoreStartupRecovery()
+        .catch(() => null);
+      if (startup?.ok) renderRestoreStartupRecovery(startup);
+      const refreshedPolicy = await A()
+        .restoreExecutionPolicy()
+        .catch(() => null);
+      if (refreshedPolicy?.ok) renderRestoreExecutionPolicy(refreshedPolicy);
+      showMessage(
+        result?.message || (result?.ok ? 'Restore completed.' : 'Restore did not complete.'),
+        result?.ok ? 'success' : 'error'
+      );
+    } catch {
+      showMessage(
+        'Restore execution failed safely. Review recovery status before retrying.',
+        'error'
+      );
+    } finally {
+      restorePreparationBusy = false;
+      if (btn) btn.textContent = 'Execute Restore';
+      syncRestoreFinalConfirmationControls();
+      syncRestoreExecutionControls();
     }
   }
 
@@ -2621,6 +2708,7 @@
       addListener($id('removeStoreLogoButton'), 'click', handleRemoveStoreLogo);
       addListener($id('assessBackupPreflightButton'), 'click', handleBackupPreflight);
       addListener($id('createBackupButton'), 'click', handleCreateBackup);
+      addListener($id('restoreBackupButton'), 'click', handleExecuteRestore);
       addListener($id('refreshBackupHistoryButton'), 'click', handleRefreshBackups);
       addListener($id('backupHistorySearch'), 'input', scheduleBackupHistorySearch);
       addListener($id('clearBackupHistorySearchButton'), 'click', handleClearBackupHistorySearch);

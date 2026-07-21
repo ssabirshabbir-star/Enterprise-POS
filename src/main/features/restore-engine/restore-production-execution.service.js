@@ -9,7 +9,7 @@ const managedRestoreEngine = require('./restore-production-managed-engine');
 const recoveryModel = require('./restore-recovery-state.model');
 
 const PRODUCTION_RESTORE_ROUTE_PRESENT = true;
-const PRODUCTION_RESTORE_FEATURE_ENABLED = false;
+const PRODUCTION_RESTORE_FEATURE_ENABLED = true;
 const ACTIVATION_RECORD_PATH = path.resolve(
   __dirname,
   '..',
@@ -18,7 +18,7 @@ const ACTIVATION_RECORD_PATH = path.resolve(
   '..',
   'resources',
   'restore',
-  'production-activation.pending.json'
+  'production-activation.json'
 );
 
 function freeze(value) {

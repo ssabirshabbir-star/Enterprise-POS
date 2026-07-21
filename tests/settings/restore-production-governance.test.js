@@ -173,8 +173,15 @@ test('settings UI exposes confirmation evidence and guarded production execution
   assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
   assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
   assert.match(api, /restoreBackup/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore|location\.reload/);
-  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
+  assert.match(renderer, /function handleExecuteRestore/);
+  assert.match(
+    renderer,
+    /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
+  );
+  assert.match(renderer, /lastRestoreConfirmation\?\.confirmationId/);
+  assert.match(renderer, /const canType =/);
+  assert.match(renderer, /if \(phrase\) phrase\.disabled = restorePreparationBusy \|\| !canType/);
+  assert.doesNotMatch(renderer, /location\.reload/);
 });
 
 test('repository final confirmation is journal-backed, digest-bound, and single-use', () => {

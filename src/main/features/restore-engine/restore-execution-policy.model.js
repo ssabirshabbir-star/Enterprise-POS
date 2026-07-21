@@ -33,6 +33,10 @@ function createRestoreExecutionPolicy({
   const blockers = [];
   const warnings = [];
   const requiredActions = [];
+  const sameVerifiedSafetyOperationLock =
+    operationLock?.locked === true &&
+    state.currentState === recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED &&
+    String(operationLock.operationId || '') === String(state.operationId || '');
 
   if (state.unresolvedRecoveryState) {
     blockers.push(
@@ -50,7 +54,7 @@ function createRestoreExecutionPolicy({
     );
   }
 
-  if (operationLock?.locked === true) {
+  if (operationLock?.locked === true && !sameVerifiedSafetyOperationLock) {
     blockers.push(
       blocker('operation_lock.active', 'A Restore operation lock is active.', {
         operationId: operationLock.operationId || null,
@@ -64,17 +68,11 @@ function createRestoreExecutionPolicy({
     warnings.push(
       warning(
         'safety_backup.verified',
-        'A pre-Restore safety backup has been verified, but Restore execution remains uncertified.',
+        'A pre-Restore safety backup has been verified for the active Restore operation.',
         {
           operationId: state.operationId,
           safetyBackupReference: state.safetyBackupReference || null,
         }
-      )
-    );
-    requiredActions.push(
-      action(
-        'certify_execution_boundary',
-        'Complete Restore execution, rollback, runtime recovery, and restart certification before enabling execution.'
       )
     );
   }
@@ -130,17 +128,6 @@ function createRestoreExecutionPolicy({
     );
   }
 
-  blockers.push(
-    blocker(
-      'execution.activation_not_certified',
-      'Restore execution activation is not certified in this phase.'
-    ),
-    blocker(
-      'runtime_recovery.required',
-      'Runtime recovery, session invalidation, and restart behavior are not certified.'
-    ),
-    blocker('rollback.required', 'Rollback and manual recovery procedures are not certified.')
-  );
   if (productionGovernance?.databaseIdentity?.ambiguous) {
     blockers.push(
       blocker(
@@ -157,7 +144,10 @@ function createRestoreExecutionPolicy({
       )
     );
   }
-  if (productionGovernance?.finalConfirmationRequired) {
+  if (
+    productionGovernance?.finalConfirmationRequired &&
+    productionGovernance?.finalConfirmationPresent !== true
+  ) {
     blockers.push(
       blocker(
         'final_confirmation.required',
@@ -173,11 +163,14 @@ function createRestoreExecutionPolicy({
       )
     );
   }
+  const activationOperationLock = sameVerifiedSafetyOperationLock
+    ? { ...operationLock, locked: false, verifiedSafetyOperationLock: true }
+    : operationLock;
   const activationAssessment =
     productionActivation ||
     activationModel.assessRestoreProductionActivation({
       recoveryState: state,
-      operationLock,
+      operationLock: activationOperationLock,
       databaseIdentity: productionGovernance?.databaseIdentity || null,
       productionFeatureFlagEnabled: false,
       productionExecutionRoutePresent: true,
@@ -201,36 +194,55 @@ function createRestoreExecutionPolicy({
     )
   );
 
+  const packageValid = packageVerification?.verificationStatus === 'passed';
+  const packageCompatible = packageEligibility?.eligibilityStatus === 'eligible_for_authorization';
+  const operatorAuthorized =
+    authorization?.authorizationStatus === 'authorization_assessment_passed';
+  const safetyBackupVerified =
+    state.currentState === recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED;
+  const restoreExecutionAvailable =
+    blockers.length === 0 &&
+    activationAssessment.activationAuthorized === true &&
+    packageValid &&
+    packageCompatible &&
+    operatorAuthorized &&
+    databaseHealth?.status === 'healthy' &&
+    safetyBackupVerified;
+
   return freeze({
-    executionEligible: false,
-    executionCertified: false,
-    restoreExecutionAvailable: false,
-    restoreEligible: false,
-    packageValid: packageVerification?.verificationStatus === 'passed',
-    packageCompatible: packageEligibility?.eligibilityStatus === 'eligible_for_authorization',
-    operatorAuthorized: authorization?.authorizationStatus === 'authorization_assessment_passed',
-    executionPreconditionsSatisfied: false,
+    executionEligible: restoreExecutionAvailable,
+    executionCertified: activationAssessment.activationAuthorized === true,
+    restoreExecutionAvailable,
+    restoreEligible: restoreExecutionAvailable,
+    packageValid,
+    packageCompatible,
+    operatorAuthorized,
+    executionPreconditionsSatisfied: restoreExecutionAvailable,
     blockers,
     warnings,
     requiredActions,
     recoveryState: state,
     safetyBackupRequired: true,
-    safetyBackupVerified:
-      state.currentState === recoveryStateModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+    safetyBackupVerified,
     safetyBackupReference: state.safetyBackupReference || null,
     preparationEligible:
       !state.unresolvedRecoveryState &&
       (!operationLock || operationLock.locked !== true) &&
-      packageVerification?.verificationStatus === 'passed' &&
-      packageEligibility?.eligibilityStatus === 'eligible_for_authorization' &&
-      authorization?.authorizationStatus === 'authorization_assessment_passed' &&
+      packageValid &&
+      packageCompatible &&
+      operatorAuthorized &&
       databaseHealth?.status === 'healthy',
     restartRequired: true,
-    rollbackCapability: 'not_certified',
+    rollbackCapability:
+      activationAssessment.activationAuthorized === true ? 'certified' : 'not_certified',
     packageCompatibility: packageEligibility?.eligibilityStatus || 'not_assessed',
     databaseHealth: databaseHealth?.status || 'not_verified',
     authorizationStatus: authorization?.authorizationStatus || 'not_assessed',
-    operationLockStatus: operationLock?.locked ? 'locked' : 'available_for_assessment_only',
+    operationLockStatus: sameVerifiedSafetyOperationLock
+      ? 'locked_for_verified_restore_operation'
+      : operationLock?.locked
+        ? 'locked'
+        : 'available',
     operationLock: operationLock || { locked: false },
     productionGovernance: productionGovernance || null,
     productionActivation: activationAssessment,
@@ -238,9 +250,10 @@ function createRestoreExecutionPolicy({
     startupRecovery: productionGovernance?.startupRecovery || null,
     finalCertificationAssessment: productionGovernance?.finalCertificationAssessment || null,
     noRestoreExecuted: true,
-    readOnly: true,
-    message:
-      'Restore execution remains unavailable. Package validity, authorization, recovery state, safety backup, rollback, and runtime recovery must all be certified before execution can be exposed.',
+    readOnly: !restoreExecutionAvailable,
+    message: restoreExecutionAvailable
+      ? 'Restore execution is available for the verified package and active safety-backed operation.'
+      : 'Restore execution remains unavailable until package verification, authorization, database health, safety backup, activation, and recovery-state checks all pass.',
   });
 }
 

@@ -120,7 +120,7 @@ function fakeActivity() {
   };
 }
 
-test('production restore route is exposed through preload/controller but UI action remains disabled', () => {
+test('production restore route is exposed through preload/controller and guarded UI execution', () => {
   const controller = read('src/main/features/settings/settings.controller.js');
   const preload = read('src/main/preload.js');
   const api = read('src/main/features/settings/settings.api.js');
@@ -135,8 +135,13 @@ test('production restore route is exposed through preload/controller but UI acti
   );
   assert.match(api, /async function restoreBackup/);
   assert.match(html, /id="restoreBackupButton"[^>]*disabled/);
-  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore|location\.reload/);
+  assert.match(renderer, /function handleExecuteRestore/);
+  assert.match(
+    renderer,
+    /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
+  );
+  assert.match(renderer, /policy\.restoreExecutionAvailable === true/);
+  assert.doesNotMatch(renderer, /location\.reload/);
 });
 
 test('pending production activation blocks restore before engine invocation', async () => {
@@ -169,7 +174,7 @@ test('pending production activation blocks restore before engine invocation', as
   assert.equal(result.noDataCommitted, true);
   assert.equal(engineCalled, false);
   assert(result.blockerCodes.includes('RESTORE_PRODUCTION_ACTIVATION_RECORD.NOT_APPROVED'));
-  assert(result.blockerCodes.includes('RESTORE_PRODUCTION_PRODUCTION_FEATURE_FLAG.DISABLED'));
+  assert(!result.blockerCodes.includes('RESTORE_PRODUCTION_PRODUCTION_FEATURE_FLAG.DISABLED'));
   assert.deepEqual(repository.calls.slice(0, 2), ['package_verification', 'package_eligibility']);
   assert(repository.calls.includes('managed_database_identity'));
   assert.equal(activity.records[0].status, 'blocked');
@@ -379,9 +384,9 @@ test('activation model sees the route as present but pending record remains non-
   });
 
   assert.equal(result.productionExecutionRoutePresent, true);
-  assert.equal(result.productionFeatureFlagEnabled, false);
+  assert.equal(result.productionFeatureFlagEnabled, true);
   assert.equal(result.activationAuthorized, false);
   assert(!result.blockerCodes.includes('production_execution_route.absent'));
   assert(result.blockerCodes.includes('activation_record.not_approved'));
-  assert(result.blockerCodes.includes('production_feature_flag.disabled'));
+  assert(!result.blockerCodes.includes('production_feature_flag.disabled'));
 });

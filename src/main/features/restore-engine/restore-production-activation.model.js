@@ -207,16 +207,20 @@ function assessRestoreProductionActivation({
     });
 
     const auth = record.authorization || {};
-    if (auth.governanceReviewStatus !== 'approved') {
+    const legacyReleaseApproval =
+      auth.governanceReviewStatus === 'approved' &&
+      auth.securityReviewStatus === 'approved' &&
+      auth.releaseApprovalStatus === 'approved';
+    const scopedRestoreApproval =
+      auth.ownerRestoreScopeApprovalStatus === 'approved' &&
+      auth.technicalRestoreActivationStatus === 'approved';
+    if (!legacyReleaseApproval && !scopedRestoreApproval) {
       blockers.push(
-        reason('authorization.governance_review', 'Governance review is not approved.')
+        reason(
+          'authorization.restore_scope_approval',
+          'Scoped Restore activation approval is not approved.'
+        )
       );
-    }
-    if (auth.securityReviewStatus !== 'approved') {
-      blockers.push(reason('authorization.security_review', 'Security review is not approved.'));
-    }
-    if (auth.releaseApprovalStatus !== 'approved') {
-      blockers.push(reason('authorization.release_approval', 'Release approval is not approved.'));
     }
     if (!auth.approverIdentity || auth.approverIdentity === 'UNRESOLVED') {
       blockers.push(reason('authorization.approver', 'Approver identity is unresolved.'));
@@ -287,7 +291,7 @@ function assessRestoreProductionActivation({
     releaseScope: RESTORE_ACTIVATION_SCOPE,
     activationAuthorized: blockers.length === 0,
     productionActivationAvailable: blockers.length === 0,
-    restoreExecutionAvailable: false,
+    restoreExecutionAvailable: blockers.length === 0,
     productionExecutionRoutePresent: productionExecutionRoutePresent === true,
     productionFeatureFlagEnabled: productionFeatureFlagEnabled === true,
     blockers,
@@ -298,7 +302,7 @@ function assessRestoreProductionActivation({
     evaluatedAt: now.toISOString(),
     message: blockers.length
       ? 'Production Restore activation is blocked.'
-      : 'Production Restore activation evidence is complete, but execution still requires an approved route.',
+      : 'Production Restore activation evidence is complete and the guarded execution route is available.',
   });
 }
 

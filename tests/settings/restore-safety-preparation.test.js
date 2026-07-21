@@ -170,7 +170,7 @@ test('Settings API exposes preparation wrappers without DOM side effects', () =>
   assert.doesNotMatch(source, /alert\(|document\.|innerHTML/);
 });
 
-test('renderer labels preparation as non-destructive and keeps execute restore disabled', () => {
+test('renderer labels preparation as non-destructive and wires guarded execute restore', () => {
   const html = read('src/main/features/settings/index.html');
   const renderer = read('src/main/features/settings/settings.renderer.js');
 
@@ -181,7 +181,11 @@ test('renderer labels preparation as non-destructive and keeps execute restore d
   assert.match(renderer, /handleCancelRestorePreparation/);
   assert.match(renderer, /A\(\)\.prepareRestoreSafetyBackup/);
   assert.match(renderer, /A\(\)\.cancelRestorePreparation/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore/);
-  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
+  assert.match(renderer, /function handleExecuteRestore/);
+  assert.match(
+    renderer,
+    /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
+  );
+  assert.match(renderer, /policy\.restoreExecutionAvailable === true/);
   assert.doesNotMatch(renderer, /location\.reload/);
 });

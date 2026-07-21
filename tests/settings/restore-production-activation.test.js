@@ -92,7 +92,7 @@ test('restore activation requires complete evidence, live approval, and producti
 
   assert.equal(result.activationAuthorized, true);
   assert.equal(result.productionActivationAvailable, true);
-  assert.equal(result.restoreExecutionAvailable, false);
+  assert.equal(result.restoreExecutionAvailable, true);
   assert.equal(result.blockers.length, 0);
   assert.match(result.recordDigest, /^[a-f0-9]{64}$/);
 });

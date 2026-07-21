@@ -124,8 +124,13 @@ test('main process uses guarded IPC registration and production restore executio
 
   assert.match(controller, /ipcMain\.handle\('\/settings\/backups\/restore'/);
   assert.match(preload, /restoreBackup:\s*\(payload\)\s*=>/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore|location\.reload/);
-  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
+  assert.match(renderer, /function handleExecuteRestore/);
+  assert.match(
+    renderer,
+    /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
+  );
+  assert.match(renderer, /policy\.restoreExecutionAvailable === true/);
+  assert.doesNotMatch(renderer, /location\.reload/);
 });
 
 test('write-like deployment and barcode routes are guarded during recovery mode', async () => {

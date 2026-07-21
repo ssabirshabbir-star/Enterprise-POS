@@ -111,13 +111,17 @@ test('main-process settings route exposes guarded production restore and keeps r
   assert.doesNotMatch(repositoryExports, /executeRestoreBackup/);
 });
 
-test('renderer keeps restore button governance-only and has no execution listener', () => {
+test('renderer wires guarded restore execution and keeps the button initially disabled', () => {
   const html = read('src/main/features/settings/index.html');
   const renderer = read('src/main/features/settings/settings.renderer.js');
 
   assert.match(html, /id="restoreBackupButton"[^>]*disabled/);
-  assert.match(html, /Restore remains unavailable/);
-  assert.doesNotMatch(renderer, /handleExecuteRestore/);
-  assert.doesNotMatch(renderer, /addListener\(\$id\('restoreBackupButton'\), 'click'/);
-  assert.match(renderer, /restoreEligible === true/);
+  assert.match(renderer, /function handleExecuteRestore/);
+  assert.match(
+    renderer,
+    /addListener\(\$id\('restoreBackupButton'\), 'click', handleExecuteRestore\)/
+  );
+  assert.match(renderer, /policy\.restoreExecutionAvailable === true/);
+  assert.match(renderer, /lastRestoreConfirmation\?\.confirmationId/);
+  assert.doesNotMatch(renderer, /location\.reload/);
 });
