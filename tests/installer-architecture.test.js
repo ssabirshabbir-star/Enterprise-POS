@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const configStore = require('../src/main/installer/installer-config.store');
 const diagnostics = require('../src/main/installer/installer-diagnostics.service');
@@ -79,6 +80,7 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.match(html, /Connect or Install/);
   assert.match(html, /Create administrator/);
   assert.match(html, /data-step="6"/);
+  assert.match(html, /data-step="8" hidden/);
   assert.match(html, /id="installerSaveButton" data-step-action="3"/);
   assert.match(html, /id="installerInitializeButton" data-step-action="6"/);
   assert.match(html, /installerAdvancedToggle/);
@@ -100,6 +102,14 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.match(html, /code === 'RESTORE_MAINTENANCE_LOCKOUT'/);
   assert.match(html, /document\.querySelector\('#installerWizard'\)\?\.classList\.add\('hidden'\)/);
   assert.doesNotMatch(html, /activateLicense|checkForUpdates|autoUpdate/);
+});
+
+test('setup page inline script parses so startup status cannot show stale static steps', () => {
+  const html = read('src/renderer/setup.html');
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map((match) => match[1]);
+
+  assert.equal(scripts.length, 1);
+  assert.doesNotThrow(() => new vm.Script(scripts[0], { filename: 'setup-inline.js' }));
 });
 
 test('preload and main expose installer foundation with disabled restore UI', () => {
