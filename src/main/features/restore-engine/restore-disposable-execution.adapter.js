@@ -123,7 +123,7 @@ async function readCertifiedPackage(filePath) {
   return { backup, raw, checksum, verification };
 }
 
-function packageTables(backup, { managedDatabaseIdentity = null } = {}) {
+function packageTables(backup, { managedDatabaseIdentity = null, preservedRows = null } = {}) {
   const included = backup?.manifest?.coverageDeclaration?.includedTables;
   const data = backup?.data;
   if (!Array.isArray(included) || !data || typeof data !== 'object' || Array.isArray(data)) {
@@ -141,6 +141,17 @@ function packageTables(backup, { managedDatabaseIdentity = null } = {}) {
       updated_at: new Date().toISOString(),
     });
     restoredData.app_settings = withoutSourceManagedIdentity;
+  }
+  if (preservedRows && typeof preservedRows === 'object' && !Array.isArray(preservedRows)) {
+    for (const [tableName, rows] of Object.entries(preservedRows)) {
+      if (!Array.isArray(rows) || !Array.isArray(restoredData[tableName])) continue;
+      const keyName = tableName === 'backup_logs' || tableName === 'activity_logs' ? 'id' : null;
+      if (!keyName) continue;
+      const preservedKeys = new Set(rows.map((row) => String(row?.[keyName] || '')));
+      restoredData[tableName] = restoredData[tableName]
+        .filter((row) => !preservedKeys.has(String(row?.[keyName] || '')))
+        .concat(rows);
+    }
   }
   const tableNames = included.map((table) => String(table.name || '').trim());
   const unknownPayloadTables = Object.keys(restoredData).filter(
@@ -163,18 +174,23 @@ function packageTables(backup, { managedDatabaseIdentity = null } = {}) {
 async function deleteAndInsertTables(
   client,
   backup,
-  { failDuringMutation = false, managedDatabaseIdentity = null } = {}
+  {
+    failDuringMutation = false,
+    managedDatabaseIdentity = null,
+    useTruncate = true,
+    preservedRows = null,
+  } = {}
 ) {
-  const { tableNames, data } = packageTables(backup, { managedDatabaseIdentity });
+  const { tableNames, data } = packageTables(backup, { managedDatabaseIdentity, preservedRows });
   const constraintsSuspended = await suspendForeignKeyChecks(client);
   const insertOrder = constraintsSuspended
     ? tableNames
     : await orderedTablesForDatabase(client, tableNames);
-  const deleteOrder = [...insertOrder].reverse();
+  const deleteOrder = constraintsSuspended ? [...tableNames].reverse() : [...insertOrder].reverse();
   let tablesRestored = 0;
   let rowsRestored = 0;
 
-  if (constraintsSuspended) {
+  if (constraintsSuspended && useTruncate) {
     const truncatedTables = tableNames.map(quoteIdentifier).join(', ');
     await client.query(`TRUNCATE ${truncatedTables} RESTART IDENTITY CASCADE`);
   } else {
@@ -295,8 +311,15 @@ async function restoreTableSequence(client, tableName) {
   }
 }
 
-async function verifyAppliedPackage(pool, backup, { managedDatabaseIdentity = null } = {}) {
-  const { tableNames, data, included } = packageTables(backup, { managedDatabaseIdentity });
+async function verifyAppliedPackage(
+  pool,
+  backup,
+  { managedDatabaseIdentity = null, preservedRows = null } = {}
+) {
+  const { tableNames, data, included } = packageTables(backup, {
+    managedDatabaseIdentity,
+    preservedRows,
+  });
   const certificationChecks = [];
   const rowCounts = [];
 
@@ -620,6 +643,9 @@ async function applyPackageToPoolAndVerify({
   backup,
   injectFailureStage = null,
   managedDatabaseIdentity = null,
+  useTruncate = true,
+  preservedRows = null,
+  checkpointAdapter = null,
 } = {}) {
   const client = await pool.connect();
   let application;
@@ -628,8 +654,16 @@ async function applyPackageToPoolAndVerify({
     application = await deleteAndInsertTables(client, backup, {
       failDuringMutation: injectFailureStage === 'during_mutation',
       managedDatabaseIdentity,
+      useTruncate,
+      preservedRows,
     });
     await client.query('COMMIT');
+    if (checkpointAdapter?.reach) {
+      await checkpointAdapter.reach('after_mutation_before_validation', {
+        tablesRestored: application.tablesRestored,
+        rowsRestored: application.rowsRestored,
+      });
+    }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;
@@ -639,9 +673,12 @@ async function applyPackageToPoolAndVerify({
   if (injectFailureStage === 'post_verification' || injectFailureStage === 'rollback_failure') {
     throw new Error('CONTROLLED_POST_RESTORE_VERIFICATION_FAILURE');
   }
-  const verification = await verifyAppliedPackage(pool, backup, { managedDatabaseIdentity });
+  const verification = await verifyAppliedPackage(pool, backup, {
+    managedDatabaseIdentity,
+    preservedRows,
+  });
   if (verification.verificationStatus !== 'passed') {
-    throw new Error('POST_RESTORE_VERIFICATION_FAILED');
+    throw Object.assign(new Error('POST_RESTORE_VERIFICATION_FAILED'), { verification });
   }
   return { application, verification };
 }

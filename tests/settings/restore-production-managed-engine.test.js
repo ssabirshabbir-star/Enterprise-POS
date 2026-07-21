@@ -21,6 +21,7 @@ test('managed production restore engine preserves destination identity and consu
   assert.match(engineBody, /getManagedDatabaseIdentity/);
   assert.match(engineBody, /consumeRestoreFinalConfirmation/);
   assert.match(engineBody, /applyPackageToPoolAndVerify/);
+  assert.match(engineBody, /useTruncate:\s*false/);
   assert(
     engineBody.indexOf('consumeRestoreFinalConfirmation') <
       engineBody.indexOf('applyPackageToPoolAndVerify')

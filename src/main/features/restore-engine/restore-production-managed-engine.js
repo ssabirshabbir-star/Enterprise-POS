@@ -7,6 +7,41 @@ function sanitizeError(error) {
   return recoveryModel.sanitizeFailureSummary(error && error.message ? error.message : error);
 }
 
+function summarizeVerificationError(error) {
+  const verification = error?.verification || error?.result?.verification || null;
+  if (!verification) return null;
+  return {
+    verificationStatus: verification.verificationStatus,
+    failedChecks: (verification.failedChecks || []).map((check) => ({
+      name: check.name,
+      message: recoveryModel.sanitizeFailureSummary(check.message),
+    })),
+  };
+}
+
+async function captureOperationalRows(pool, operationId, safetyBackupLogId = null) {
+  const preservedRows = {};
+  if (safetyBackupLogId) {
+    const backupLogs = await pool.query('SELECT * FROM backup_logs WHERE id = $1', [
+      safetyBackupLogId,
+    ]);
+    if (backupLogs.rows.length) preservedRows.backup_logs = backupLogs.rows;
+  }
+  if (operationId) {
+    const activityLogs = await pool.query(
+      `
+        SELECT *
+        FROM activity_logs
+        WHERE metadata->>'operationId' = $1
+        ORDER BY id ASC
+      `,
+      [String(operationId)]
+    );
+    if (activityLogs.rows.length) preservedRows.activity_logs = activityLogs.rows;
+  }
+  return preservedRows;
+}
+
 async function executeManagedProductionRestore({
   request = {},
   databaseIdentity,
@@ -16,6 +51,7 @@ async function executeManagedProductionRestore({
   restartAdapter = null,
   sessionAdapter = null,
   injectFailureStage = null,
+  checkpointAdapter = null,
 } = {}) {
   const operationId = request.operationId;
   const ownerUserId = recoveryState?.ownerUserId;
@@ -61,13 +97,24 @@ async function executeManagedProductionRestore({
     nextState: recoveryModel.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS,
     targetDatabaseReference,
   });
+  if (checkpointAdapter?.reach) {
+    await checkpointAdapter.reach('after_safety_before_mutation', { operationId });
+  }
 
   try {
+    const preservedRows = await captureOperationalRows(
+      pool,
+      operationId,
+      recoveryState.safetyBackupReference.backupLogId
+    );
     const result = await restoreAdapter.applyPackageToPoolAndVerify({
       pool,
       backup: sourcePackage.backup,
       injectFailureStage,
       managedDatabaseIdentity: databaseManagedIdentity,
+      useTruncate: false,
+      preservedRows,
+      checkpointAdapter,
     });
     await repository.transitionRestoreOperation({
       operationId,
@@ -120,6 +167,7 @@ async function executeManagedProductionRestore({
         restored: false,
         rolledBackByTransaction: true,
         error: sanitizeError(error),
+        verification: summarizeVerificationError(error),
       };
     }
 
@@ -138,6 +186,9 @@ async function executeManagedProductionRestore({
       nextState: recoveryModel.RESTORE_RECOVERY_STATES.ROLLBACK_IN_PROGRESS,
       targetDatabaseReference,
     });
+    if (checkpointAdapter?.reach) {
+      await checkpointAdapter.reach('during_rollback_before_apply', { operationId });
+    }
     try {
       if (injectFailureStage === 'rollback_failure') {
         throw new Error('CONTROLLED_ROLLBACK_FAILURE');
@@ -146,6 +197,13 @@ async function executeManagedProductionRestore({
         pool,
         backup: safetyPackage.backup,
         managedDatabaseIdentity: databaseManagedIdentity,
+        useTruncate: false,
+        preservedRows: await captureOperationalRows(
+          pool,
+          operationId,
+          recoveryState.safetyBackupReference.backupLogId
+        ),
+        checkpointAdapter,
       });
       await repository.transitionRestoreOperation({
         operationId,
@@ -160,6 +218,7 @@ async function executeManagedProductionRestore({
         rollbackApplied: true,
         rollback,
         error: sanitizeError(error),
+        verification: summarizeVerificationError(error),
       };
     } catch (rollbackError) {
       await repository.transitionRestoreOperation({
@@ -176,6 +235,7 @@ async function executeManagedProductionRestore({
         restored: false,
         manualRecoveryRequired: true,
         error: sanitizeError(rollbackError),
+        verification: summarizeVerificationError(error),
       };
     }
   }

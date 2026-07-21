@@ -72,7 +72,7 @@ function fakeRepository(overrides = {}) {
         ownerUserId: 1,
         currentState: recovery.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
         activeOperation: true,
-        unresolvedRecoveryState: false,
+        unresolvedRecoveryState: true,
         safetyBackupReference: {
           safetyBackupId: '00000000-0000-4000-8000-000000000002',
           checksum: 'a'.repeat(64),
@@ -298,6 +298,76 @@ test('approved production route invokes engine after package, identity, safety, 
     result.steps.map((step) => `${step.order}:${step.name}:${step.status}`).join('\n'),
     /package_verification:passed[\s\S]*managed_database_identity:passed[\s\S]*production_activation:passed[\s\S]*safety_backup_verification:passed[\s\S]*restore_engine_invocation:passed[\s\S]*post_restore_validation:passed/
   );
+});
+
+test('production route returns structured safe failure when engine guard rejects execution', async () => {
+  const repository = fakeRepository();
+  const result = await execution.executeProductionRestore(
+    {
+      sourcePackagePath: 'D:\\backups\\certified-backup.json',
+      operationId: '00000000-0000-4000-8000-000000000001',
+      confirmationId: '00000000-0000-4000-8000-000000000003',
+    },
+    {
+      repository,
+      activityRepository: fakeActivity(),
+      readActivationRecord: async () => approvedActivationRecord(),
+      productionFeatureFlagEnabled: true,
+      restoreEngine: async () => {
+        throw new Error('RESTORE_CONFIRMATION_REQUIRED');
+      },
+      now: () => new Date('2026-07-19T00:00:00.000Z'),
+    }
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'RESTORE_EXECUTION_FAILED');
+  assert.equal(result.restoreExecuted, false);
+  assert.equal(result.noDataCommitted, true);
+  assert.match(result.message, /RESTORE_CONFIRMATION_REQUIRED/);
+  assert.doesNotMatch(JSON.stringify(result), /DATABASE_URL|PGPASSWORD|postgres:\/\/[^"]+@/i);
+});
+
+test('approved production route still blocks dangerous unresolved recovery states', async () => {
+  const repository = fakeRepository({
+    getRestoreRecoveryState: async () => ({
+      operationId: '00000000-0000-4000-8000-000000000001',
+      ownerUserId: 1,
+      currentState: recovery.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS,
+      activeOperation: true,
+      unresolvedRecoveryState: true,
+      safetyBackupReference: {
+        safetyBackupId: '00000000-0000-4000-8000-000000000002',
+        checksum: 'a'.repeat(64),
+        backupLogId: 42,
+        filePath: 'D:\\safe\\safety-backup.json',
+      },
+    }),
+  });
+  let engineCalled = false;
+  const result = await execution.executeProductionRestore(
+    {
+      sourcePackagePath: 'D:\\backups\\certified-backup.json',
+      operationId: '00000000-0000-4000-8000-000000000001',
+      confirmationId: '00000000-0000-4000-8000-000000000003',
+    },
+    {
+      repository,
+      activityRepository: fakeActivity(),
+      readActivationRecord: async () => approvedActivationRecord(),
+      productionFeatureFlagEnabled: true,
+      restoreEngine: async () => {
+        engineCalled = true;
+        return { ok: true };
+      },
+      now: () => new Date('2026-07-19T00:00:00.000Z'),
+    }
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(engineCalled, false);
+  assert(result.blockerCodes.includes('RESTORE_PRODUCTION_RECOVERY_STATE.UNRESOLVED'));
+  assert(result.blockerCodes.includes('RESTORE_RECOVERY_STATE_UNRESOLVED'));
 });
 
 test('activation model sees the route as present but pending record remains non-authorizing', () => {

@@ -329,6 +329,7 @@ const BACKUP_TABLES = BACKUP_COVERAGE_POLICY.tables.map((table) => table.name);
 const RESTORE_RECOVERY_ACTIVITY = 'backup.restore.recovery_state';
 const RESTORE_OPERATION_ACTIVITY = 'backup.restore.operation';
 const RESTORE_SAFETY_BACKUP_ACTIVITY = 'backup.restore.safety_backup';
+const RESTORE_MANUAL_RECOVERY_ACTIVITY = 'backup.restore.manual_recovery';
 const RESTORE_FINAL_CONFIRMATION_ACTIVITY = 'backup.restore.final_confirmation';
 const RESTORE_FINAL_CONFIRMATION_CONTRACT_VERSION = 'restore-final-confirmation-v1';
 const RESTORE_FINAL_CONFIRMATION_TTL_MS = 10 * 60 * 1000;
@@ -1127,14 +1128,15 @@ async function restoreOperationEvidence(operationId, client = null) {
     `
       SELECT id, action, status, message, metadata, created_at
       FROM activity_logs
-      WHERE action IN ($1, $2, $3)
-        AND metadata->>'operationId' = $4
+      WHERE action IN ($1, $2, $3, $4)
+        AND metadata->>'operationId' = $5
       ORDER BY created_at ASC, id ASC
     `,
     [
       RESTORE_RECOVERY_ACTIVITY,
       RESTORE_OPERATION_ACTIVITY,
       RESTORE_SAFETY_BACKUP_ACTIVITY,
+      RESTORE_MANUAL_RECOVERY_ACTIVITY,
       String(operationId),
     ]
   );
@@ -1143,6 +1145,7 @@ async function restoreOperationEvidence(operationId, client = null) {
     action: row.action,
     status: row.status,
     message: row.message,
+    metadata: row.metadata || {},
     createdAt: row.created_at,
   }));
 }
@@ -1849,6 +1852,27 @@ function classifyRestoreStartupOperation(
     };
   }
   const targetMatch = restoreOperationTargetsCurrentDatabase(operationRow, currentDatabaseIdentity);
+  const verifiedManualRecovery = evidence.find(
+    (item) =>
+      item.action === RESTORE_MANUAL_RECOVERY_ACTIVITY &&
+      item.status === 'manual_recovery_completed' &&
+      item.metadata?.operationId === operationRow.operation_id &&
+      item.metadata?.targetDatabaseFingerprint === currentDatabaseIdentity.fingerprint &&
+      item.metadata?.verification?.safeOutcome === true
+  );
+  if (
+    operationRow.state ===
+      restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED &&
+    verifiedManualRecovery
+  ) {
+    return {
+      blocksCurrentDatabase: false,
+      reason: 'manual_recovery_verified_completed',
+      targetMatchesCurrentDatabase: true,
+      reconciledAsHistoricalCertification: false,
+      manualRecoveryCompleted: true,
+    };
+  }
   if (targetMatch.known) {
     const disposableOnly = isDisposableCertificationOperation(
       operationRow,
@@ -1876,6 +1900,229 @@ function classifyRestoreStartupOperation(
     targetMatchesCurrentDatabase: null,
     reconciledAsHistoricalCertification: false,
   };
+}
+
+function localManagedIdentityFromEnvironment() {
+  return {
+    installationId: process.env.ENTERPRISE_POS_INSTALLATION_ID || '',
+    clusterId: process.env.ENTERPRISE_POS_MANAGED_CLUSTER_ID || '',
+    databaseId: process.env.ENTERPRISE_POS_MANAGED_DATABASE_ID || '',
+    databaseName: process.env.PGDATABASE || '',
+    source: 'installer-managed-config',
+  };
+}
+
+async function verifyManualRecoveryDatabaseState({
+  expectedOutcome,
+  expectedTargetFingerprint,
+  localManagedIdentity = localManagedIdentityFromEnvironment(),
+} = {}) {
+  const blockers = [];
+  const checks = [];
+  const record = (name, ok, details = {}) => {
+    checks.push({ name, ok: ok === true, ...details });
+    if (ok !== true) blockers.push(name);
+  };
+
+  try {
+    const ping = await getPool().query('SELECT 1 AS ok');
+    record('database_connectivity', ping.rows[0]?.ok === 1);
+  } catch (error) {
+    record('database_connectivity', false, {
+      message: restoreRecoveryStateModel.sanitizeFailureSummary(error.message),
+    });
+  }
+
+  const requiredTables = ['users', 'roles', 'permissions', 'app_settings'];
+  try {
+    const tableResult = await getPool().query(
+      `
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = ANY($1::text[])
+      `,
+      [requiredTables]
+    );
+    const present = new Set(tableResult.rows.map((row) => row.table_name));
+    record(
+      'critical_tables',
+      requiredTables.every((table) => present.has(table)),
+      { present: [...present].sort() }
+    );
+  } catch (error) {
+    record('critical_tables', false, {
+      message: restoreRecoveryStateModel.sanitizeFailureSummary(error.message),
+    });
+  }
+
+  let userSummary = null;
+  try {
+    const userResult = await getPool().query(
+      `
+        SELECT
+          COUNT(*) FILTER (WHERE users.is_active = TRUE AND roles.name = 'Admin')::int AS active_admins,
+          COUNT(*) FILTER (WHERE users.is_active = TRUE)::int AS active_users,
+          COUNT(*) FILTER (WHERE users.password_hash ~ '^\\$2[aby]\\$[0-9]{2}\\$[./A-Za-z0-9]{53}$')::int AS bcrypt_hashes,
+          COUNT(*)::int AS total_users
+        FROM users
+        JOIN roles ON roles.id = users.role_id
+      `
+    );
+    userSummary = userResult.rows[0] || {};
+    record(
+      'critical_users',
+      Number(userSummary.active_admins || 0) > 0 &&
+        Number(userSummary.active_users || 0) > 0 &&
+        Number(userSummary.bcrypt_hashes || 0) === Number(userSummary.total_users || 0),
+      {
+        activeAdmins: Number(userSummary.active_admins || 0),
+        activeUsers: Number(userSummary.active_users || 0),
+        totalUsers: Number(userSummary.total_users || 0),
+      }
+    );
+  } catch (error) {
+    record('critical_users', false, {
+      message: restoreRecoveryStateModel.sanitizeFailureSummary(error.message),
+    });
+  }
+
+  const identityValidation = await validateManagedDatabaseIdentity(localManagedIdentity).catch(
+    (error) => ({
+      ok: false,
+      code: 'MANAGED_DATABASE_IDENTITY_VALIDATION_FAILED',
+      message: restoreRecoveryStateModel.sanitizeFailureSummary(error.message),
+    })
+  );
+  record('managed_identity', identityValidation.ok === true, {
+    code: identityValidation.code || null,
+    databaseIdentity: identityValidation.databaseIdentity || null,
+  });
+
+  const targetIdentity = restoreProductionGovernanceModel.resolveDatabaseIdentity();
+  record('target_fingerprint', targetIdentity.fingerprint === expectedTargetFingerprint, {
+    expected: expectedTargetFingerprint || null,
+    actual: targetIdentity.fingerprint || null,
+  });
+  record(
+    'safe_recovery_outcome',
+    ['rollback_verified', 'restore_verified'].includes(expectedOutcome),
+    { expectedOutcome: expectedOutcome || null }
+  );
+
+  return {
+    ok: blockers.length === 0,
+    safeOutcome: blockers.length === 0,
+    expectedOutcome,
+    targetDatabaseFingerprint: targetIdentity.fingerprint,
+    checks,
+    blockers,
+    userSummary,
+  };
+}
+
+async function completeManualRestoreRecovery({
+  operationId,
+  requestedByUserId,
+  expectedOutcome,
+  expectedTargetFingerprint,
+  localManagedIdentity = localManagedIdentityFromEnvironment(),
+  restoreProcessEvidence = {},
+} = {}) {
+  if (!operationId) {
+    return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_OPERATION_REQUIRED' };
+  }
+  return withTransaction(async (client) => {
+    const result = await client.query(
+      `
+        SELECT *
+        FROM restore_operations
+        WHERE operation_id = $1
+        FOR UPDATE
+      `,
+      [operationId]
+    );
+    const operation = result.rows[0];
+    if (!operation) {
+      return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_OPERATION_MISSING' };
+    }
+    if (String(operation.owner_user_id || '') !== String(requestedByUserId || '')) {
+      return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_OWNER_MISMATCH' };
+    }
+    if (
+      operation.state !== restoreRecoveryStateModel.RESTORE_RECOVERY_STATES.MANUAL_RECOVERY_REQUIRED
+    ) {
+      return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_STATE_REQUIRED' };
+    }
+    if (operation.target_database_fingerprint !== expectedTargetFingerprint) {
+      return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_TARGET_MISMATCH' };
+    }
+    if (restoreProcessEvidence.activeRestoreProcess === true) {
+      return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_PROCESS_ACTIVE' };
+    }
+    const replay = await client.query(
+      `
+        SELECT id
+        FROM activity_logs
+        WHERE action = $1
+          AND metadata->>'operationId' = $2
+          AND status = 'manual_recovery_completed'
+        LIMIT 1
+      `,
+      [RESTORE_MANUAL_RECOVERY_ACTIVITY, String(operationId)]
+    );
+    if (replay.rows[0]) {
+      return { ok: false, code: 'RESTORE_MANUAL_RECOVERY_ALREADY_COMPLETED' };
+    }
+
+    const verification = await verifyManualRecoveryDatabaseState({
+      expectedOutcome,
+      expectedTargetFingerprint,
+      localManagedIdentity,
+    });
+    if (!verification.ok) {
+      await recordRestoreOperationActivity({
+        client,
+        userId: requestedByUserId,
+        operationId,
+        action: RESTORE_MANUAL_RECOVERY_ACTIVITY,
+        status: 'manual_recovery_rejected',
+        message: 'Manual Restore recovery completion was rejected by verification.',
+        metadata: {
+          targetDatabaseFingerprint: expectedTargetFingerprint || null,
+          verification,
+        },
+      });
+      return {
+        ok: false,
+        code: 'RESTORE_MANUAL_RECOVERY_VERIFICATION_FAILED',
+        verification,
+      };
+    }
+
+    await recordRestoreOperationActivity({
+      client,
+      userId: requestedByUserId,
+      operationId,
+      action: RESTORE_MANUAL_RECOVERY_ACTIVITY,
+      status: 'manual_recovery_completed',
+      message: 'Manual Restore recovery was verified and completed.',
+      metadata: {
+        targetDatabaseFingerprint: expectedTargetFingerprint,
+        expectedOutcome,
+        completedByUserId: requestedByUserId || null,
+        completedAt: new Date().toISOString(),
+        verification,
+      },
+    });
+    return {
+      ok: true,
+      code: 'RESTORE_MANUAL_RECOVERY_COMPLETED',
+      operationId,
+      recoveryCompleted: true,
+      verification,
+    };
+  });
 }
 
 async function reconcileRestoreStartupOperation(operationRow) {
@@ -3717,6 +3964,7 @@ module.exports = {
   assessBackupPreflight,
   acquireRestoreOperationLock,
   cancelRestorePreparation,
+  completeManualRestoreRecovery,
   consumeRestoreFinalConfirmation,
   createRestoreFinalConfirmation,
   ensureManagedDatabaseIdentity,

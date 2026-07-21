@@ -144,6 +144,7 @@ async function executeProductionRestore(payload = {}, options = {}) {
           restartAdapter: options.restartAdapter || null,
           sessionAdapter: options.sessionAdapter || null,
           injectFailureStage: options.injectFailureStage || null,
+          checkpointAdapter: options.checkpointAdapter || null,
         })),
     postRestoreValidator:
       options.postRestoreValidator ||
@@ -309,7 +310,10 @@ async function executeProductionRestore(payload = {}, options = {}) {
     record('final_confirmation', 'pending_validation');
   }
 
-  if (recoveryState.unresolvedRecoveryState === true) {
+  if (
+    recoveryState.unresolvedRecoveryState === true &&
+    recoveryState.currentState !== recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED
+  ) {
     blockers.push(
       block(
         'RESTORE_RECOVERY_STATE_UNRESOLVED',
@@ -378,7 +382,22 @@ async function executeProductionRestore(payload = {}, options = {}) {
     });
   }
 
-  const execution = await deps.restoreEngine({ request, databaseIdentity, recoveryState });
+  let execution = null;
+  try {
+    execution = await deps.restoreEngine({ request, databaseIdentity, recoveryState });
+  } catch (error) {
+    record('restore_engine_invocation', 'failed', safeCode(error?.code || error?.message));
+    return freeze({
+      ok: false,
+      code: 'RESTORE_EXECUTION_FAILED',
+      restoreExecuted: false,
+      noDataCommitted:
+        recoveryState.currentState === recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+      restoreExecutionAvailable: false,
+      steps: summarizeSteps(steps),
+      message: safeMessage(error?.message, 'Restore execution failed safely.'),
+    });
+  }
   record('restore_engine_invocation', execution?.ok ? 'passed' : 'failed');
   const validation = execution?.ok
     ? await deps.postRestoreValidator({ request, databaseIdentity, execution })
@@ -393,6 +412,17 @@ async function executeProductionRestore(payload = {}, options = {}) {
     restoreExecuted: execution?.ok === true,
     restartRequired: validation?.ok === true,
     steps: summarizeSteps(steps),
+    engineResult: execution
+      ? {
+          ok: execution.ok === true,
+          restored: execution.restored === true,
+          rollbackApplied: execution.rollbackApplied === true,
+          manualRecoveryRequired: execution.manualRecoveryRequired === true,
+          rolledBackByTransaction: execution.rolledBackByTransaction === true,
+          error: execution.error || null,
+          verification: execution.verification || null,
+        }
+      : null,
     message: validation?.ok
       ? 'Restore completed and application restart is required.'
       : 'Restore execution failed or post-restore validation failed.',

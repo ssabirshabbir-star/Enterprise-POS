@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const recoveryModel = require('./restore-recovery-state.model');
 
 const RESTORE_ACTIVATION_SCHEMA_VERSION = 1;
 const RESTORE_ACTIVATION_SCOPE = 'enterprise-pos-restore-production';
@@ -252,7 +253,9 @@ function assessRestoreProductionActivation({
       reason('production_execution_route.absent', 'Production Restore execution route is absent.')
     );
   }
-  if (recoveryState?.unresolvedRecoveryState === true) {
+  const safetyBackupReadyState =
+    recoveryState?.currentState === recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED;
+  if (recoveryState?.unresolvedRecoveryState === true && !safetyBackupReadyState) {
     blockers.push(
       reason('recovery_state.unresolved', 'Unresolved Restore recovery state blocks activation.')
     );

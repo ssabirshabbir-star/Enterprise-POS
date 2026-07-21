@@ -97,6 +97,47 @@ test('restore activation requires complete evidence, live approval, and producti
   assert.match(result.recordDigest, /^[a-f0-9]{64}$/);
 });
 
+test('restore activation allows safety-verified handoff but blocks dangerous unresolved recovery', () => {
+  const common = {
+    record: approvedRecord(),
+    currentApplicationVersion: '1.0.0',
+    currentSchemaVersion: '1',
+    currentBackupFormatVersion: '1.0',
+    productionFeatureFlagEnabled: true,
+    productionExecutionRoutePresent: true,
+    databaseIdentity: governance.resolveDatabaseIdentity({
+      host: 'localhost',
+      port: 5432,
+      database: 'enterprise_pos',
+    }),
+    operationLock: { locked: false },
+    now: new Date('2026-07-19T00:00:00.000Z'),
+  };
+
+  const safetyReady = activation.assessRestoreProductionActivation({
+    ...common,
+    recoveryState: {
+      currentState: recovery.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED,
+      unresolvedRecoveryState: true,
+      safetyBackupReference: { checksum: validHash, filePath: 'D:\\backups\\safety.json' },
+    },
+  });
+
+  assert.equal(safetyReady.activationAuthorized, true);
+  assert(!safetyReady.blockerCodes.includes('recovery_state.unresolved'));
+
+  const dangerous = activation.assessRestoreProductionActivation({
+    ...common,
+    recoveryState: {
+      currentState: recovery.RESTORE_RECOVERY_STATES.RESTORE_IN_PROGRESS,
+      unresolvedRecoveryState: true,
+    },
+  });
+
+  assert.equal(dangerous.activationAuthorized, false);
+  assert(dangerous.blockerCodes.includes('recovery_state.unresolved'));
+});
+
 test('restore activation rejects mismatched, expired, revoked, and test-only evidence', () => {
   const bad = approvedRecord({
     product: 'Other POS',

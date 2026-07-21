@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "product": "Enterprise POS",
+  "component": "restore",
+  "releaseScope": "enterprise-pos-restore-production",
+  "applicationVersion": "1.0.0",
+  "backupFormatVersion": "1.0",
+  "activationStatus": "pending",
+  "restoreStrategy": "transactional_in_place_with_verified_safety_backup",
+  "safetyBackupPolicy": "mandatory_verified_pre_restore_backup",
+  "technicalCertification": {
+    "backup_format_compatibility": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/backup_format_compatibility.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "package_verification": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/package_verification.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "authorization_and_confirmation": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/authorization_and_confirmation.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "safety_backup": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/safety_backup.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "maintenance_mutation_lock": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/maintenance_mutation_lock.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "disposable_database_success": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/disposable_database_success.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "failure_matrix": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/failure_matrix.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "rollback": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/rollback.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "startup_recovery": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/startup_recovery.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "post_restore_validation": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/post_restore_validation.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "sequence_identity_recovery": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/sequence_identity_recovery.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "restart_reconnect": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/restart_reconnect.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "native_file_dialog": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/native_file_dialog.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "restore_history_audit": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/restore_history_audit.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    },
+    "secret_redaction": {
+      "status": "pending",
+      "evidenceReference": "test-artifacts/production-restore-certification/run-20260721092904/secret_redaction.json",
+      "evidenceHash": "<bind-to-specific-evidence-file-sha256>"
+    }
+  },
+  "authorization": {
+    "governanceReviewStatus": "pending",
+    "securityReviewStatus": "pending",
+    "releaseApprovalStatus": "pending",
+    "approverIdentity": "<human-approver>",
+    "approvalAuthority": "<authority>",
+    "approvalTimestamp": "<approved-at-iso>",
+    "expiresAt": "<expires-at-iso>",
+    "revoked": false,
+    "testOnly": false
+  },
+  "evidenceManifestSha256": "ca39eed60f1971f2105bc0f509e09f1aa05f91741b0a9fb9c54e5eea790d5716",
+  "notes": [
+    "Template is non-authorizing until every placeholder is replaced by authentic approval evidence.",
+    "Do not enable PRODUCTION_RESTORE_FEATURE_ENABLED from this template alone."
+  ]
+}
