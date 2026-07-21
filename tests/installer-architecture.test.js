@@ -147,3 +147,10 @@ test('first-run administrator success enters the login shell', () => {
   assert.match(setup, /window\.location\.href = 'index\.html'/);
   assert.doesNotMatch(setup, /safe\.ok && safe\.adminCreated[\s\S]{0,220}window\.location\.reload/);
 });
+
+test('deployable package includes restore activation resources required by packaged app', () => {
+  const packageJson = JSON.parse(read('package.json'));
+  const files = packageJson.build.files;
+
+  assert(files.includes('resources/restore/**/*'));
+});

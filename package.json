@@ -56,6 +56,7 @@
     },
     "files": [
       "src/**/*",
+      "resources/restore/**/*",
       "package.json",
       "!src/**/*.map",
       "!**/*.log",
