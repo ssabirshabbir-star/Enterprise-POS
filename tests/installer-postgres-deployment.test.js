@@ -260,7 +260,13 @@ test('approved payload manifest alone does not bypass release authorization or p
     payloadRoot,
   });
   assert.equal(preflight.ok, false);
-  assert.ok(preflight.blockers.includes('INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MISSING'));
+  assert.equal(preflight.releaseAuthorization.ok, false);
+  assert.equal(
+    preflight.releaseAuthorization.code,
+    'INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MISSING'
+  );
+  assert.equal(preflight.deployableAuthorization.ok, false);
+  assert.ok(preflight.blockers.includes('INSTALLER_DEPLOYABLE_PACKAGING_EVIDENCE_MISSING'));
 
   const result = await provisioningService.startManagedPostgresProvisioning({
     userDataPath,
@@ -268,7 +274,7 @@ test('approved payload manifest alone does not bypass release authorization or p
   });
   assert.equal(result.ok, false);
   assert.equal(result.operation.state, 'CANCELLED_BEFORE_MUTATION');
-  assert.ok(result.preflight.blockers.includes('INSTALLER_POSTGRES_RELEASE_AUTHORIZATION_MISSING'));
+  assert.ok(result.preflight.blockers.includes('INSTALLER_DEPLOYABLE_PACKAGING_EVIDENCE_MISSING'));
 });
 
 test('payload verifier requires checksum, notices, architecture, and file integrity', () => {
@@ -474,7 +480,7 @@ test('managed provisioning is blocked safely when packaged payload is not certif
   const userDataPath = tempDir('epos-postgres-provision-');
   const result = await provisioningService.startManagedPostgresProvisioning({ userDataPath });
   assert.equal(result.ok, false);
-  assert.equal(result.code, 'INSTALLER_POSTGRES_REDISTRIBUTION_NOT_CERTIFIED');
+  assert.equal(result.code, 'INSTALLER_POSTGRES_PAYLOAD_MISSING');
   assert.equal(result.operation.state, 'CANCELLED_BEFORE_MUTATION');
   assert.equal(result.operation.startedAt, undefined);
 });
@@ -492,8 +498,10 @@ test('setup IPC exposes managed PostgreSQL status without renderer-controlled sy
   assert.match(controller, /\/installer\/prerequisites\/vc-runtime\/status/);
   assert.match(setup, /Microsoft Visual C\+\+ Runtime/);
   assert.match(setup, /Managed PostgreSQL runtime/);
-  assert.match(setup, /blocked until a checksum-pinned, license-audited Windows server payload/);
-  assert.match(setup, /installerPostgresProvisionButton"[^>]*disabled/);
+  assert.match(setup, /Use the bundled PostgreSQL runtime for this terminal/);
+  assert.match(setup, /verifies the pinned payload/);
+  assert.match(setup, /installerPostgresProvisionButton/);
+  assert.doesNotMatch(setup, /installerPostgresProvisionButton"[^>]*disabled/);
   assert.doesNotMatch(controller, /_event,\s*payload[\s\S]*sc\.exe/);
 });
 
