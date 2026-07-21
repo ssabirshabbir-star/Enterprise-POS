@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 
 const { stagePostgresArchive } = require('../src/main/installer/postgres-archive-stager');
 const { sha256File } = require('../src/main/installer/postgres-payload-verifier');
+const vcRuntimePrerequisite = require('../src/main/installer/vc-runtime-prerequisite.service');
 
 const DEFAULT_ARCHIVE =
   'D:\\Enterprise-POS-release-inputs\\postgres\\postgresql-17.10-2-windows-x64-binaries.zip';
@@ -24,6 +25,7 @@ function parseArgs(argv) {
     keepOnSuccess: false,
     cleanEnvironment: false,
     readinessTimeoutMs: 30000,
+    vcRuntimeRoot: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const item = argv[index];
@@ -33,6 +35,7 @@ function parseArgs(argv) {
     else if (item === '--keep-on-success') args.keepOnSuccess = true;
     else if (item === '--clean-environment') args.cleanEnvironment = true;
     else if (item === '--readiness-timeout-ms') args.readinessTimeoutMs = Number(argv[++index]);
+    else if (item === '--vc-runtime-root') args.vcRuntimeRoot = argv[++index];
     else if (item === '--help') args.help = true;
     else throw new Error(`Unknown argument: ${item}`);
   }
@@ -48,6 +51,7 @@ function usage() {
     '  --archive <path>                 External EDB PostgreSQL archive path.',
     '  --output <path>                  Artifact directory for JSON/report/logs.',
     '  --clean-environment              Mark the run as Windows Sandbox/clean VM evidence.',
+    '  --vc-runtime-root <path>         Directory containing the pinned VC Runtime manifest and vc_redist.x64.exe.',
     '  --keep-on-success                Preserve staged runtime/data directories after success.',
     '  --readiness-timeout-ms <number>  Bounded readiness timeout. Default 30000.',
   ].join('\n');
@@ -259,6 +263,13 @@ function initialReport(args) {
     },
     dependencies: {
       visualCppRuntimePreinstalled: 'unknown',
+      prerequisiteRoot: null,
+      checkedBeforePostgresLaunch: false,
+      payloadVerified: false,
+      installAttempted: false,
+      installExitCode: null,
+      restartRequired: false,
+      ready: false,
       missingRuntimeDependencyDetected: false,
       evidence: [],
     },
@@ -270,6 +281,43 @@ function initialReport(args) {
     warnings: [],
     commands: [],
   };
+}
+
+async function ensureVisualCppRuntimeReady(args, report, options = {}) {
+  const prerequisite = options.vcRuntimePrerequisite || vcRuntimePrerequisite;
+  const root = path.resolve(args.vcRuntimeRoot || prerequisite.defaultPrerequisiteRoot());
+  report.dependencies.ready = false;
+  report.dependencies.prerequisiteRoot = normalizeForReport(root);
+  report.dependencies.checkedBeforePostgresLaunch = true;
+
+  const baseline = prerequisite.assessVcRuntimePrerequisite({ root });
+  report.dependencies.visualCppRuntimePreinstalled = baseline.ok ? 'yes' : 'no';
+  report.dependencies.evidence.push({ step: 'vc_runtime_baseline', result: baseline });
+  if (baseline.ok) {
+    report.dependencies.ready = true;
+    return { ok: true, code: 'VC_RUNTIME_ALREADY_AVAILABLE', baseline };
+  }
+
+  const logsDir = path.join(report.outputRoot, 'logs');
+  fs.mkdirSync(logsDir, { recursive: true });
+  const installResult = await prerequisite.installVcRuntimePrerequisite({
+    root,
+    logPath: path.join(logsDir, 'vc-redist-install.log'),
+  });
+  report.dependencies.installAttempted = true;
+  report.dependencies.installExitCode = installResult.install?.exitCode ?? null;
+  report.dependencies.restartRequired = Boolean(installResult.restartRequired);
+  report.dependencies.payloadVerified = Boolean(installResult.payload?.ok);
+  report.dependencies.evidence.push({ step: 'vc_runtime_install', result: installResult });
+  if (!installResult.ok) {
+    throw Object.assign(new Error('Microsoft Visual C++ Runtime prerequisite is not ready.'), {
+      code: installResult.code || 'VC_RUNTIME_PREREQUISITE_NOT_READY',
+      prerequisite: installResult,
+    });
+  }
+
+  report.dependencies.ready = true;
+  return installResult;
 }
 
 async function runCertification(args) {
@@ -289,6 +337,7 @@ async function runCertification(args) {
   }
   const outputRoot = assertSafeOutputPath(args.output);
   const report = initialReport(args);
+  report.outputRoot = outputRoot;
   const runtime = createRuntimeRoot(outputRoot);
   report.staging.stagedRoot = runtime.stagedRoot;
   let serverStarted = false;
@@ -317,6 +366,10 @@ async function runCertification(args) {
     );
     const paths = executablePaths(runtime.stagedRoot);
     report.executables = paths;
+
+    await ensureVisualCppRuntimeReady(args, report, {
+      vcRuntimePrerequisite: args.vcRuntimePrerequisite,
+    });
 
     const versionProbe = await runCommand(paths.postgres, ['--version']);
     report.commands.push({ step: 'postgres_version_probe', result: versionProbe });
@@ -500,6 +553,7 @@ module.exports = {
   buildPgCtlStopArgs,
   buildPsqlArgs,
   executablePaths,
+  ensureVisualCppRuntimeReady,
   getFreeLocalPort,
   parseArgs,
   runCertification,

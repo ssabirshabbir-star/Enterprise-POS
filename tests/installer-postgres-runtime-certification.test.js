@@ -29,6 +29,15 @@ test('runtime certification harness requires an explicit certification flag', as
   assert.equal(parsed.explicit, true);
   assert.equal(parsed.cleanEnvironment, true);
   assert.equal(parsed.archive, 'D:\\payload.zip');
+
+  const withVcRoot = harness.parseArgs([
+    '--certify-managed-postgres-runtime',
+    '--archive',
+    'D:\\payload.zip',
+    '--vc-runtime-root',
+    'D:\\vc-runtime',
+  ]);
+  assert.equal(withVcRoot.vcRuntimeRoot, 'D:\\vc-runtime');
 });
 
 test('runtime certification harness refuses tracked source output directories', () => {
@@ -151,4 +160,205 @@ test('runtime certification harness writes structured failure artifacts', async 
   );
   assert.equal(persisted.status, 'failed');
   assert.equal(persisted.provisioningActivation.certifiedForActivation, false);
+});
+
+function vcReport(output) {
+  return {
+    outputRoot: output,
+    dependencies: {
+      evidence: [],
+    },
+  };
+}
+
+test('runtime certification harness skips VC installer when compatible runtime is present', async () => {
+  const output = tempDir('epos-runtime-vc-present-');
+  let installCalled = false;
+  const report = vcReport(output);
+  const result = await harness.ensureVisualCppRuntimeReady(
+    { vcRuntimeRoot: 'D:\\vc-runtime' },
+    report,
+    {
+      vcRuntimePrerequisite: {
+        defaultPrerequisiteRoot: () => 'D:\\default-vc',
+        assessVcRuntimePrerequisite: () => ({
+          ok: true,
+          code: 'VC_RUNTIME_AVAILABLE',
+          detection: { compatible: true },
+        }),
+        installVcRuntimePrerequisite: async () => {
+          installCalled = true;
+          return { ok: false };
+        },
+      },
+    }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.code, 'VC_RUNTIME_ALREADY_AVAILABLE');
+  assert.equal(installCalled, false);
+  assert.equal(report.dependencies.ready, true);
+  assert.equal(report.dependencies.visualCppRuntimePreinstalled, 'yes');
+});
+
+test('runtime certification harness installs and revalidates pinned VC Runtime before PostgreSQL launch', async () => {
+  const output = tempDir('epos-runtime-vc-install-');
+  const report = vcReport(output);
+  const calls = [];
+  const result = await harness.ensureVisualCppRuntimeReady(
+    { vcRuntimeRoot: 'D:\\vc-runtime' },
+    report,
+    {
+      vcRuntimePrerequisite: {
+        defaultPrerequisiteRoot: () => 'D:\\default-vc',
+        assessVcRuntimePrerequisite: () => {
+          calls.push('assess');
+          return { ok: false, code: 'VC_RUNTIME_NOT_INSTALLED' };
+        },
+        installVcRuntimePrerequisite: async ({ root, logPath }) => {
+          calls.push('install');
+          assert.equal(root, path.resolve('D:\\vc-runtime'));
+          assert.match(logPath, /vc-redist-install\.log$/);
+          return {
+            ok: true,
+            code: 'VC_RUNTIME_INSTALLED',
+            payload: { ok: true, code: 'VC_RUNTIME_PAYLOAD_VERIFIED' },
+            install: { exitCode: 0 },
+            postInstallDetection: { compatible: true },
+            restartRequired: false,
+          };
+        },
+      },
+    }
+  );
+  assert.deepEqual(calls, ['assess', 'install']);
+  assert.equal(result.ok, true);
+  assert.equal(report.dependencies.payloadVerified, true);
+  assert.equal(report.dependencies.installAttempted, true);
+  assert.equal(report.dependencies.installExitCode, 0);
+  assert.equal(report.dependencies.ready, true);
+});
+
+test('runtime certification harness blocks before PostgreSQL launch when VC payload is missing', async () => {
+  const output = tempDir('epos-runtime-vc-missing-');
+  const report = vcReport(output);
+  await assert.rejects(
+    () =>
+      harness.ensureVisualCppRuntimeReady({ vcRuntimeRoot: 'D:\\vc-runtime' }, report, {
+        vcRuntimePrerequisite: {
+          defaultPrerequisiteRoot: () => 'D:\\default-vc',
+          assessVcRuntimePrerequisite: () => ({ ok: false, code: 'VC_RUNTIME_NOT_INSTALLED' }),
+          installVcRuntimePrerequisite: async () => ({
+            ok: false,
+            code: 'VC_RUNTIME_PAYLOAD_MISSING',
+            payload: { ok: false, code: 'VC_RUNTIME_PAYLOAD_MISSING' },
+          }),
+        },
+      }),
+    /Visual C\+\+ Runtime prerequisite is not ready/
+  );
+  assert.equal(report.dependencies.installAttempted, true);
+  assert.equal(report.dependencies.ready, false);
+  assert.equal(report.dependencies.evidence.at(-1).result.code, 'VC_RUNTIME_PAYLOAD_MISSING');
+});
+
+test('runtime certification harness blocks before PostgreSQL launch on VC hash mismatch', async () => {
+  const output = tempDir('epos-runtime-vc-hash-');
+  const report = vcReport(output);
+  await assert.rejects(
+    () =>
+      harness.ensureVisualCppRuntimeReady({ vcRuntimeRoot: 'D:\\vc-runtime' }, report, {
+        vcRuntimePrerequisite: {
+          defaultPrerequisiteRoot: () => 'D:\\default-vc',
+          assessVcRuntimePrerequisite: () => ({ ok: false, code: 'VC_RUNTIME_NOT_INSTALLED' }),
+          installVcRuntimePrerequisite: async () => ({
+            ok: false,
+            code: 'VC_RUNTIME_PAYLOAD_HASH_MISMATCH',
+            payload: { ok: false, code: 'VC_RUNTIME_PAYLOAD_HASH_MISMATCH' },
+          }),
+        },
+      }),
+    (error) => error.code === 'VC_RUNTIME_PAYLOAD_HASH_MISMATCH'
+  );
+  assert.equal(report.dependencies.ready, false);
+});
+
+test('runtime certification harness blocks before PostgreSQL launch on VC installer failure', async () => {
+  const output = tempDir('epos-runtime-vc-fail-');
+  const report = vcReport(output);
+  await assert.rejects(
+    () =>
+      harness.ensureVisualCppRuntimeReady({ vcRuntimeRoot: 'D:\\vc-runtime' }, report, {
+        vcRuntimePrerequisite: {
+          defaultPrerequisiteRoot: () => 'D:\\default-vc',
+          assessVcRuntimePrerequisite: () => ({ ok: false, code: 'VC_RUNTIME_NOT_INSTALLED' }),
+          installVcRuntimePrerequisite: async () => ({
+            ok: false,
+            code: 'VC_RUNTIME_INSTALL_FAILED',
+            payload: { ok: true },
+            install: { exitCode: 1603 },
+          }),
+        },
+      }),
+    (error) => error.code === 'VC_RUNTIME_INSTALL_FAILED'
+  );
+  assert.equal(report.dependencies.installExitCode, 1603);
+  assert.equal(report.dependencies.ready, false);
+});
+
+test('runtime certification harness blocks before PostgreSQL launch on post-install verification failure', async () => {
+  const output = tempDir('epos-runtime-vc-post-verify-');
+  const report = vcReport(output);
+  await assert.rejects(
+    () =>
+      harness.ensureVisualCppRuntimeReady({ vcRuntimeRoot: 'D:\\vc-runtime' }, report, {
+        vcRuntimePrerequisite: {
+          defaultPrerequisiteRoot: () => 'D:\\default-vc',
+          assessVcRuntimePrerequisite: () => ({ ok: false, code: 'VC_RUNTIME_NOT_INSTALLED' }),
+          installVcRuntimePrerequisite: async () => ({
+            ok: false,
+            code: 'VC_RUNTIME_POST_VERIFY_FAILED',
+            payload: { ok: true },
+            install: { exitCode: 0 },
+            postInstallDetection: { compatible: false },
+          }),
+        },
+      }),
+    (error) => error.code === 'VC_RUNTIME_POST_VERIFY_FAILED'
+  );
+  assert.equal(report.dependencies.ready, false);
+});
+
+test('runtime certification harness preserves restart-required VC classification', async () => {
+  const output = tempDir('epos-runtime-vc-restart-');
+  const report = vcReport(output);
+  await assert.rejects(
+    () =>
+      harness.ensureVisualCppRuntimeReady({ vcRuntimeRoot: 'D:\\vc-runtime' }, report, {
+        vcRuntimePrerequisite: {
+          defaultPrerequisiteRoot: () => 'D:\\default-vc',
+          assessVcRuntimePrerequisite: () => ({ ok: false, code: 'VC_RUNTIME_NOT_INSTALLED' }),
+          installVcRuntimePrerequisite: async () => ({
+            ok: false,
+            code: 'VC_RUNTIME_INSTALL_RESTART_REQUIRED',
+            payload: { ok: true },
+            install: { exitCode: 3010 },
+            restartRequired: true,
+          }),
+        },
+      }),
+    (error) => error.code === 'VC_RUNTIME_INSTALL_RESTART_REQUIRED'
+  );
+  assert.equal(report.dependencies.restartRequired, true);
+  assert.equal(report.dependencies.installExitCode, 3010);
+});
+
+test('runtime certification harness checks VC Runtime before PostgreSQL executable launch', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'scripts', 'certify-managed-postgres-runtime.js'),
+    'utf8'
+  );
+  const prerequisiteIndex = source.indexOf('ensureVisualCppRuntimeReady(args, report');
+  const postgresLaunchIndex = source.indexOf("runCommand(paths.postgres, ['--version']");
+  assert.ok(prerequisiteIndex > 0);
+  assert.ok(postgresLaunchIndex > prerequisiteIndex);
 });

@@ -181,6 +181,7 @@ Local diagnostic run:
 node scripts/certify-managed-postgres-runtime.js `
   --certify-managed-postgres-runtime `
   --archive D:\Enterprise-POS-release-inputs\postgres\postgresql-17.10-2-windows-x64-binaries.zip `
+  --vc-runtime-root D:\Enterprise-POS-release-inputs\prerequisites\microsoft-vc-runtime `
   --output test-artifacts\managed-postgres-runtime-certification
 ```
 
@@ -191,6 +192,7 @@ node scripts/certify-managed-postgres-runtime.js `
   --certify-managed-postgres-runtime `
   --clean-environment `
   --archive D:\Enterprise-POS-release-inputs\postgres\postgresql-17.10-2-windows-x64-binaries.zip `
+  --vc-runtime-root D:\Enterprise-POS-release-inputs\prerequisites\microsoft-vc-runtime `
   --output C:\EnterprisePOSPostgresRuntimeCertification
 ```
 
@@ -199,6 +201,12 @@ The harness:
 - verifies filename and SHA-256 through the committed manifest;
 - reuses the production archive stager;
 - extracts runtime files to a disposable directory under the system temp folder;
+- checks the Microsoft Visual C++ Runtime prerequisite before launching PostgreSQL binaries;
+- verifies the pinned `vc_redist.x64.exe` payload before execution when the runtime is absent;
+- installs the pinned runtime with the documented silent arguments when installation is required;
+- records the VC Runtime installer exit code and post-install registry/DLL verification;
+- treats restart-required exit codes as blocked until runtime readiness can be rechecked after
+  restart;
 - creates a disposable PostgreSQL data directory;
 - starts PostgreSQL with `pg_ctl.exe` bound to `127.0.0.1` on a dynamic port;
 - validates `psql.exe`, `createdb.exe`, server version, SQL write/read round trip, and clean
