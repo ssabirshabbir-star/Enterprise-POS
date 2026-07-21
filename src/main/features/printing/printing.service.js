@@ -430,10 +430,10 @@ function buildReceiptHtml(receipt, settings) {
   const logoSrc = safeLogoDataUrl(settings.logoPath);
   const footerHtml = buildReceiptFooterHtml(settings.receiptFooterText);
   const contactRows = [
-    settings.storeAddress ? ['Address', settings.storeAddress] : null,
-    settings.storePhone ? ['Phone', settings.storePhone] : null,
-    settings.storeEmail ? ['Email', settings.storeEmail] : null,
-    settings.storeTaxNumber ? ['Tax No.', settings.storeTaxNumber] : null,
+    settings.storeAddress ? ['ADDRESS', settings.storeAddress] : null,
+    settings.storePhone ? ['PHONE', settings.storePhone] : null,
+    settings.storeEmail ? ['EMAIL', settings.storeEmail] : null,
+    settings.storeTaxNumber ? ['TAX NO.', settings.storeTaxNumber] : null,
   ]
     .filter(Boolean)
     .map(
@@ -487,6 +487,9 @@ function buildReceiptHtml(receipt, settings) {
           }
           .center { text-align: center; }
           .brand {
+            --receipt-brand-name-axis: 21.8mm;
+            --receipt-contact-gap: 2mm;
+            --receipt-contact-label-width: calc(var(--receipt-brand-name-axis) - var(--receipt-contact-gap));
             margin-bottom: 2.6mm;
             padding-bottom: 1.8mm;
             border-bottom: 2px solid #111;
@@ -546,17 +549,23 @@ function buildReceiptHtml(receipt, settings) {
           }
           .brand-contact-row {
             display: grid;
-            grid-template-columns: 13mm minmax(0, 1fr);
-            gap: 2mm;
+            grid-template-columns: var(--receipt-contact-label-width) minmax(0, 1fr);
+            gap: var(--receipt-contact-gap);
             font-size: 10.5px;
             line-height: 1.25;
           }
           .brand-contact-row span {
+            min-width: 0;
             font-weight: 800;
+            letter-spacing: .01em;
             text-transform: uppercase;
+            white-space: nowrap;
+            overflow-wrap: normal;
+            word-break: normal;
           }
           .brand-contact-row strong {
             display: block;
+            min-width: 0;
             font-size: 10.5px;
             font-weight: 700;
             letter-spacing: 0;
@@ -593,21 +602,39 @@ function buildReceiptHtml(receipt, settings) {
           .items-head,
           .item-line {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 7mm 13mm 15mm;
-            gap: 1.5mm;
-            align-items: baseline;
+            grid-template-columns: minmax(0, 1fr) 5.5mm 18mm 15mm;
+            gap: .9mm;
+            align-items: center;
           }
           .items-head {
             margin-bottom: .4mm;
             border-top: 1px solid #111;
             border-bottom: 1px solid #111;
-            padding: 1mm 0;
-            font-size: 10px;
+            min-height: 22px;
+            padding: 0;
+            font-size: 9.4px;
             font-weight: 800;
-            letter-spacing: .03em;
+            letter-spacing: .01em;
+            line-height: 12px;
             text-transform: uppercase;
           }
-          .items-head span:not(:first-child),
+          .items-head span {
+            display: flex;
+            align-items: center;
+            min-height: 12px;
+            padding: 0;
+            line-height: 12px;
+            white-space: nowrap;
+          }
+          .items-head span:nth-child(2),
+          .items-head span:nth-child(3) {
+            justify-content: center;
+            text-align: center;
+          }
+          .items-head span:nth-child(4) {
+            justify-content: flex-end;
+            text-align: right;
+          }
           .item-line span {
             text-align: right;
           }

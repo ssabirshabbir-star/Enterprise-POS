@@ -325,10 +325,7 @@ test('Billing receipt HTML uses safe 58mm paper profile geometry', () => {
   assert.match(css, /\.receipt\s*\{[^}]*width:\s*52mm;/);
   assert.match(css, /\.receipt\s*\{[^}]*max-width:\s*52mm;/);
   assert.match(css, /\.receipt\s*\{[^}]*margin:\s*0 0 0 3mm;/);
-  assert.doesNotMatch(
-    css,
-    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|translate\(/
-  );
+  assert.doesNotMatch(css, /margin-left:\s*auto|margin-right:\s*auto|translate\(/);
   assert.doesNotMatch(css, /width:\s*220px/);
 });
 
@@ -346,10 +343,7 @@ test('Billing receipt HTML uses safe 80mm paper profile geometry', () => {
   assert.match(css, /\.receipt\s*\{[^}]*width:\s*69mm;/);
   assert.match(css, /\.receipt\s*\{[^}]*max-width:\s*69mm;/);
   assert.match(css, /\.receipt\s*\{[^}]*margin:\s*0 0 0 4mm;/);
-  assert.doesNotMatch(
-    css,
-    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|translate\(/
-  );
+  assert.doesNotMatch(css, /margin-left:\s*auto|margin-right:\s*auto|translate\(/);
   assert.doesNotMatch(css, /width:\s*302px/);
 });
 
@@ -390,6 +384,95 @@ test('Billing receipt HTML contains professional item columns and dynamic rows',
   assert.match(html, /<span>12\.50<\/span>/);
   assert.match(html, /<span>24\.00<\/span>/);
   assert.match(html, /Discount 1\.00/);
+});
+
+test('Billing receipt contact section uses a stable two-column thermal layout', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    businessName: 'Fresh Mart',
+    storeAddress: 'Haveli Lakha',
+    storePhone: '03001234567',
+    storeEmail: 'suppose@gmail.com',
+    storeTaxNumber: 'NTN/optional',
+    receiptFooterText: 'Thanks',
+  });
+  const css = receiptCss(html);
+  const brandBlock = css.match(/\.brand\s*\{[\s\S]*?}/)?.[0] || '';
+  const rowBlock = css.match(/\.brand-contact-row\s*\{[\s\S]*?}/)?.[0] || '';
+
+  assert.match(brandBlock, /--receipt-brand-name-axis:\s*21\.8mm;/);
+  assert.match(brandBlock, /--receipt-contact-gap:\s*2mm;/);
+  assert.match(
+    brandBlock,
+    /--receipt-contact-label-width:\s*calc\(var\(--receipt-brand-name-axis\) - var\(--receipt-contact-gap\)\);/
+  );
+  assert.match(html, /<span>ADDRESS<\/span>/);
+  assert.match(html, /<span>PHONE<\/span>/);
+  assert.match(html, /<span>EMAIL<\/span>/);
+  assert.match(html, /<span>TAX NO\.<\/span>/);
+  assert.match(
+    rowBlock,
+    /grid-template-columns:\s*var\(--receipt-contact-label-width\) minmax\(0, 1fr\);/
+  );
+  assert.match(rowBlock, /gap:\s*var\(--receipt-contact-gap\);/);
+  assert.match(css, /\.brand-contact-row span\s*\{[\s\S]*?white-space:\s*nowrap;/);
+  assert.match(css, /\.brand-contact-row span\s*\{[\s\S]*?overflow-wrap:\s*normal;/);
+  assert.match(css, /\.brand-contact-row span\s*\{[\s\S]*?word-break:\s*normal;/);
+  assert.match(css, /\.brand-contact-row strong\s*\{[\s\S]*?min-width:\s*0;/);
+  assert.match(css, /\.brand-contact-row strong\s*\{[\s\S]*?word-break:\s*break-word;/);
+  assert.doesNotMatch(html, /[📍☎✉]/);
+  assert.doesNotMatch(rowBlock, /margin-left|padding-left|position:\s*absolute|transform:/);
+});
+
+test('Billing receipt item header keeps Unit Price on one thermal row', () => {
+  const { service } = loadPrintingService({
+    settingsRow: {},
+    printCallback: () => {},
+  });
+
+  const html = service.buildReceiptHtml(receipt, {
+    paperWidth: '80mm',
+    receiptFooterText: 'Thanks',
+  });
+  const css = receiptCss(html);
+  const headerBlock = css.match(/\.items-head\s*\{[\s\S]*?}/)?.[0] || '';
+  const headerCellBlock = css.match(/\.items-head span\s*\{[\s\S]*?}/)?.[0] || '';
+
+  assert.match(html, /<span>Unit Price<\/span>/);
+  assert.match(
+    css,
+    /\.items-head,\s*\.item-line\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 5\.5mm 18mm 15mm;[\s\S]*?gap:\s*\.9mm;[\s\S]*?align-items:\s*center;/
+  );
+  assert.match(headerBlock, /min-height:\s*22px;/);
+  assert.match(headerBlock, /padding:\s*0;/);
+  assert.match(headerBlock, /font-size:\s*9\.4px;/);
+  assert.match(headerBlock, /letter-spacing:\s*\.01em;/);
+  assert.match(headerBlock, /line-height:\s*12px;/);
+  assert.match(headerCellBlock, /display:\s*flex;/);
+  assert.match(headerCellBlock, /align-items:\s*center;/);
+  assert.match(headerCellBlock, /min-height:\s*12px;/);
+  assert.match(headerCellBlock, /padding:\s*0;/);
+  assert.match(headerCellBlock, /line-height:\s*12px;/);
+  assert.match(headerCellBlock, /white-space:\s*nowrap;/);
+  assert.match(
+    css,
+    /\.items-head span:nth-child\(2\),\s*\.items-head span:nth-child\(3\)\s*\{[\s\S]*?justify-content:\s*center;[\s\S]*?text-align:\s*center;/
+  );
+  assert.match(
+    css,
+    /\.items-head span:nth-child\(4\)\s*\{[\s\S]*?justify-content:\s*flex-end;[\s\S]*?text-align:\s*right;/
+  );
+  assert.match(css, /\.item-line span\s*\{[\s\S]*?text-align:\s*right;/);
+  assert.match(css, /\.item-line\s*\{[\s\S]*?font-family:\s*Consolas, 'Courier New', monospace;/);
+  assert.doesNotMatch(
+    headerBlock + headerCellBlock,
+    /translateY|(?:^|[;{]\s*)top\s*:|(?:^|[;{]\s*)bottom\s*:|position:\s*relative/
+  );
 });
 
 test('Billing receipt HTML keeps the refined professional thermal section structure', () => {
@@ -966,10 +1049,7 @@ test('Billing receipt heading fix preserves accepted 80mm geometry', () => {
   assert.match(css, /\.receipt\s*\{[^}]*padding:\s*2mm 0;/);
   assert.doesNotMatch(css, /@page/);
   assert.doesNotMatch(css, /html,\s*body\s*\{[^}]*width:/);
-  assert.doesNotMatch(
-    css,
-    /margin-left:\s*auto|margin-right:\s*auto|justify-content:\s*center|translate\(/
-  );
+  assert.doesNotMatch(css, /margin-left:\s*auto|margin-right:\s*auto|translate\(/);
 });
 
 test('Billing receipt print CSS keeps the business logo visible and bounded for 80mm paper', () => {
