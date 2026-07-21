@@ -150,6 +150,7 @@ async function initializeConfiguredDatabase({ userDataPath, config, admin = null
   await initializeDatabase();
   if (admin) {
     const adminResult = await createInitialAdministrator(admin);
+    if (!adminResult.ok) return adminResult;
     return {
       ok: true,
       createdDatabase: created.created,
@@ -158,6 +159,25 @@ async function initializeConfiguredDatabase({ userDataPath, config, admin = null
     };
   }
   return { ok: true, createdDatabase: created.created, message: 'Database initialized.' };
+}
+
+async function hasUsableUserAccounts() {
+  const result = await getPool().query(
+    `
+      SELECT COUNT(*)::int AS count
+      FROM users
+      INNER JOIN roles ON roles.id = users.role_id
+      WHERE users.is_active = TRUE
+        AND roles.is_active = TRUE
+        AND users.password_hash IS NOT NULL
+        AND users.password_hash <> ''
+    `
+  );
+  return {
+    ok: true,
+    hasUsers: Number(result.rows[0]?.count || 0) > 0,
+    count: Number(result.rows[0]?.count || 0),
+  };
 }
 
 async function createInitialAdministrator(admin = {}) {
@@ -169,6 +189,7 @@ async function createInitialAdministrator(admin = {}) {
     .toLowerCase();
   const fullName = String(admin.fullName || 'System Administrator').trim();
   const password = String(admin.password || '');
+  const confirmPassword = String(admin.confirmPassword || '');
   if (!username || !email || password.length < 8) {
     return {
       ok: false,
@@ -176,18 +197,27 @@ async function createInitialAdministrator(admin = {}) {
       message: 'Initial administrator requires username, email, and an 8-character password.',
     };
   }
-  const current = await getPool().query('SELECT COUNT(*)::int AS count FROM users');
-  if (current.rows[0]?.count > 0) {
-    return { ok: true, created: false, message: 'Database initialized; users already exist.' };
+  if (!confirmPassword || password !== confirmPassword) {
+    return {
+      ok: false,
+      created: false,
+      message: 'Initial administrator password confirmation does not match.',
+    };
   }
   const passwordHash = await bcrypt.hash(password, 12);
-  await withTransaction(async (client) => {
+  const createdUser = await withTransaction(async (client) => {
+    await client.query('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+    const current = await client.query('SELECT COUNT(*)::int AS count FROM users');
+    if (current.rows[0]?.count > 0) {
+      return null;
+    }
     const role = await client.query("SELECT id FROM roles WHERE name = 'Admin' LIMIT 1");
     if (!role.rows[0]) throw new Error('Admin role is missing.');
-    await client.query(
+    const inserted = await client.query(
       `
         INSERT INTO users (username, email, full_name, password_hash, role_id, is_active)
         VALUES ($1, $2, $3, $4, $5, TRUE)
+        RETURNING id, username, email
       `,
       [username, email, fullName, passwordHash, role.rows[0].id]
     );
@@ -195,7 +225,11 @@ async function createInitialAdministrator(admin = {}) {
       "INSERT INTO activity_logs (action, status, message, metadata) VALUES ('installer.first_admin', 'success', 'Initial administrator created by setup wizard', $1::jsonb)",
       [JSON.stringify({ username, email })]
     );
+    return inserted.rows[0];
   });
+  if (!createdUser) {
+    return { ok: true, created: false, message: 'Database initialized; users already exist.' };
+  }
   return {
     ok: true,
     created: true,
@@ -209,6 +243,7 @@ module.exports = {
   createInitialAdministrator,
   databaseExists,
   detectPostgres,
+  hasUsableUserAccounts,
   initializeConfiguredDatabase,
   parsePostgresMajor,
   pathWritable,

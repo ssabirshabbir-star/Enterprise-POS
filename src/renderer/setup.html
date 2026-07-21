@@ -83,6 +83,7 @@
                 <label class="text-sm font-semibold">Admin email<input id="installerAdminEmail" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="email" autocomplete="email" /></label>
                 <label class="text-sm font-semibold">Full name<input id="installerAdminName" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="System Administrator" autocomplete="name" /></label>
                 <label class="text-sm font-semibold">Admin password<input id="installerAdminPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="new-password" /></label>
+                <label class="text-sm font-semibold">Confirm password<input id="installerAdminConfirmPassword" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" type="password" autocomplete="new-password" /></label>
               </div>
             </div>
             <div class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -171,6 +172,23 @@
             <li>Exit the application until recovery is certified.</li>
           `;
         }
+      } else if (code === 'FIRST_RUN_ADMIN_REQUIRED') {
+        managedProvisioningCompleted = true;
+        text('#setupTitle', 'Create first administrator');
+        text(
+          '#setupLead',
+          'The application database is ready. Create the first administrator account to start using Enterprise POS.'
+        );
+        text('#setupError', 'No application users exist yet. Choose non-default credentials for the first administrator.');
+        text('#setupDatabaseStatus', 'Connected');
+        text('#setupMigrationStatus', 'Current');
+        text('#setupActivationStatus', 'Initial administrator required');
+        document.querySelector('#installerHost')?.closest('label')?.classList.add('hidden');
+        document.querySelector('#installerPort')?.closest('label')?.classList.add('hidden');
+        document.querySelector('#installerDatabase')?.closest('label')?.classList.add('hidden');
+        document.querySelector('#installerUsername')?.closest('label')?.classList.add('hidden');
+        document.querySelector('#installerPassword')?.closest('label')?.classList.add('hidden');
+        document.querySelector('#installerSslMode')?.closest('label')?.classList.add('hidden');
       }
       const installerPayload = () => ({
         host: document.querySelector('#installerHost')?.value || 'localhost',
@@ -187,11 +205,17 @@
         email: document.querySelector('#installerAdminEmail')?.value || '',
         fullName: document.querySelector('#installerAdminName')?.value || 'System Administrator',
         password: document.querySelector('#installerAdminPassword')?.value || '',
+        confirmPassword: document.querySelector('#installerAdminConfirmPassword')?.value || '',
       });
       const showInstallerStatus = (result) => {
         const node = document.querySelector('#installerStatus');
         if (!node) return;
         const safe = result || {};
+        if (safe.ok && safe.adminCreated) {
+          node.textContent = `${safe.message || 'Initial administrator created.'} Restarting login...`;
+          setTimeout(() => window.location.reload(), 1000);
+          return;
+        }
         node.textContent = safe.message || JSON.stringify({
           ok: safe.ok,
           mode: safe.mode,

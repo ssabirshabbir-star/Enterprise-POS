@@ -33,6 +33,7 @@ const { registerInstallerRoutes } = require('./installer/installer.controller');
 const {
   ensureManagedPostgresRuntimeStarted,
 } = require('./installer/postgres-provisioning.service');
+const installerDiagnostics = require('./installer/installer-diagnostics.service');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -207,6 +208,18 @@ app.whenReady().then(async () => {
           'Restore recovery maintenance mode is active. Resolve recovery state before normal POS startup.',
         recoverySnapshot: recoveryAssessment.startupRecoverySnapshot,
       };
+    } else {
+      const usableUsers = await installerDiagnostics.hasUsableUserAccounts();
+      if (!usableUsers.hasUsers) {
+        startupStatus = {
+          ok: false,
+          code: 'FIRST_RUN_ADMIN_REQUIRED',
+          databaseStatus: 'Connected',
+          migrationStatus: 'Current',
+          activationStatus: 'Unavailable until initial administrator is created',
+          message: 'Create the first administrator account for this Enterprise POS installation.',
+        };
+      }
     }
   } catch (error) {
     logError('Database initialization failed:', error);

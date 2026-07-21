@@ -77,6 +77,8 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.match(html, /Connect or Install/);
   assert.match(html, /Run initialization/);
   assert.match(html, /Install managed PostgreSQL/);
+  assert.match(html, /installerAdminConfirmPassword/);
+  assert.match(html, /FIRST_RUN_ADMIN_REQUIRED/);
   assert.doesNotMatch(html, /installerPostgresProvisionButton[^>]*disabled/);
   assert.match(html, /managedProvisioningCompleted/);
   assert.match(html, /maybeAutoProvisionManagedPostgres/);
@@ -101,6 +103,8 @@ test('preload and main expose installer foundation with disabled restore UI', ()
   assert.match(main, /registerInstallerRoutes\(ipcMain, app\)/);
   assert.match(main, /loadAndApplyInstallationConfig/);
   assert.match(main, /createConfigFromEnvironment/);
+  assert.match(main, /hasUsableUserAccounts/);
+  assert.match(main, /FIRST_RUN_ADMIN_REQUIRED/);
   assert.match(main, /ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE/);
   assert.match(settingsHtml, /id="restoreBackupButton"[^>]*disabled/);
   assert.match(
@@ -117,4 +121,19 @@ test('installer controller provides setup-only IPC routes', () => {
   assert.match(controller, /\/installer\/database\/create/);
   assert.match(controller, /\/installer\/database\/initialize/);
   assert.doesNotMatch(controller, /license|update|restoreBackup/);
+});
+
+test('first-run administrator creation is validated and transactionally replay-safe', () => {
+  const diagnostics = read('src/main/installer/installer-diagnostics.service.js');
+
+  assert.match(diagnostics, /confirmPassword/);
+  assert.match(diagnostics, /password confirmation does not match/);
+  assert.match(diagnostics, /LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE/);
+  assert.match(diagnostics, /SELECT COUNT\(\*\)::int AS count FROM users/);
+  assert.match(diagnostics, /bcrypt\.hash\(password, 12\)/);
+  assert.match(
+    diagnostics,
+    /INSERT INTO users \(username, email, full_name, password_hash, role_id, is_active\)/
+  );
+  assert.match(diagnostics, /\[username, email, fullName, passwordHash, role\.rows\[0\]\.id\]/);
 });
