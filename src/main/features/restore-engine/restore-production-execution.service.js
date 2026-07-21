@@ -5,6 +5,7 @@ const settingsRepository = require('../settings/settings.repository');
 const activityRepository = require('../activity/activity.repository');
 const activationModel = require('./restore-production-activation.model');
 const governanceModel = require('./restore-production-governance.model');
+const managedRestoreEngine = require('./restore-production-managed-engine');
 const recoveryModel = require('./restore-recovery-state.model');
 
 const PRODUCTION_RESTORE_ROUTE_PRESENT = true;
@@ -110,6 +111,16 @@ function classifyDatabaseIdentity(databaseIdentity = {}) {
   return blockers;
 }
 
+function localManagedIdentityFromEnvironment() {
+  return {
+    installationId: process.env.ENTERPRISE_POS_INSTALLATION_ID || '',
+    clusterId: process.env.ENTERPRISE_POS_MANAGED_CLUSTER_ID || '',
+    databaseId: process.env.ENTERPRISE_POS_MANAGED_DATABASE_ID || '',
+    databaseName: process.env.PGDATABASE || '',
+    source: 'installer-managed-config',
+  };
+}
+
 function summarizeSteps(steps) {
   return steps.map((step, index) => ({
     order: index + 1,
@@ -124,8 +135,25 @@ async function executeProductionRestore(payload = {}, options = {}) {
     repository: options.repository || settingsRepository,
     activityRepository: options.activityRepository || activityRepository,
     readActivationRecord: options.readActivationRecord || readActivationRecord,
-    restoreEngine: options.restoreEngine || null,
-    postRestoreValidator: options.postRestoreValidator || null,
+    restoreEngine:
+      options.restoreEngine ||
+      ((context) =>
+        managedRestoreEngine.executeManagedProductionRestore({
+          ...context,
+          repository: options.repository || settingsRepository,
+          restartAdapter: options.restartAdapter || null,
+          sessionAdapter: options.sessionAdapter || null,
+          injectFailureStage: options.injectFailureStage || null,
+        })),
+    postRestoreValidator:
+      options.postRestoreValidator ||
+      (async ({ execution }) => ({
+        ok: execution?.ok === true,
+        code:
+          execution?.ok === true
+            ? 'POST_RESTORE_VALIDATION_PASSED'
+            : 'POST_RESTORE_VALIDATION_FAILED',
+      })),
     restartAdapter: options.restartAdapter || null,
     now: options.now || (() => new Date()),
   };
@@ -198,16 +226,44 @@ async function executeProductionRestore(payload = {}, options = {}) {
   const recoveryState = await deps.repository.getRestoreRecoveryState();
   const policy = await deps.repository.getRestoreExecutionPolicy();
   const operationLock = policy.operationLock || { locked: recoveryState.activeOperation === true };
+  const activationOperationLock =
+    operationLock?.locked === true &&
+    recoveryState.currentState === recoveryModel.RESTORE_RECOVERY_STATES.SAFETY_BACKUP_VERIFIED &&
+    String(operationLock.operationId || '') === String(recoveryState.operationId || '')
+      ? { ...operationLock, locked: false, verifiedSafetyOperationLock: true }
+      : operationLock;
   const databaseIdentity = governanceModel.resolveDatabaseIdentity();
+  const managedIdentityValidation = await deps.repository.validateManagedDatabaseIdentity(
+    localManagedIdentityFromEnvironment()
+  );
+  record(
+    'managed_database_identity',
+    managedIdentityValidation.ok ? 'passed' : 'blocked',
+    managedIdentityValidation.ok ? null : managedIdentityValidation.code
+  );
+  if (!managedIdentityValidation.ok) {
+    blockers.push(
+      block(
+        managedIdentityValidation.code || 'MANAGED_DATABASE_IDENTITY_INVALID',
+        managedIdentityValidation.message || 'Managed database identity could not be verified.',
+        {
+          blockers: managedIdentityValidation.blockers || [],
+          localIdentity: managedIdentityValidation.localIdentity || null,
+          databaseIdentity: managedIdentityValidation.databaseIdentity || null,
+        }
+      )
+    );
+  }
   const activationRecord = await deps.readActivationRecord();
   const activation = activationModel.assessRestoreProductionActivation({
     record: activationRecord,
     currentApplicationVersion: packageJson.version,
     currentBackupFormatVersion: activationModel.REQUIRED_BACKUP_FORMAT_VERSION,
-    productionFeatureFlagEnabled: PRODUCTION_RESTORE_FEATURE_ENABLED,
+    productionFeatureFlagEnabled:
+      options.productionFeatureFlagEnabled ?? PRODUCTION_RESTORE_FEATURE_ENABLED,
     productionExecutionRoutePresent: PRODUCTION_RESTORE_ROUTE_PRESENT,
     recoveryState,
-    operationLock,
+    operationLock: activationOperationLock,
     databaseIdentity,
     now: deps.now(),
   });
@@ -275,7 +331,8 @@ async function executeProductionRestore(payload = {}, options = {}) {
       restoreExecuted: false,
       noDataCommitted: true,
       productionRestoreRoutePresent: true,
-      productionFeatureFlagEnabled: PRODUCTION_RESTORE_FEATURE_ENABLED,
+      productionFeatureFlagEnabled:
+        options.productionFeatureFlagEnabled ?? PRODUCTION_RESTORE_FEATURE_ENABLED,
       productionActivationAvailable: activation.productionActivationAvailable,
       restoreExecutionAvailable: false,
       auditCorrelationId,
@@ -299,7 +356,8 @@ async function executeProductionRestore(payload = {}, options = {}) {
           blockerCodes: result.blockerCodes,
           restoreExecuted: false,
           noDataCommitted: true,
-          productionFeatureFlagEnabled: PRODUCTION_RESTORE_FEATURE_ENABLED,
+          productionFeatureFlagEnabled:
+            options.productionFeatureFlagEnabled ?? PRODUCTION_RESTORE_FEATURE_ENABLED,
         },
       })
       .catch(() => {});

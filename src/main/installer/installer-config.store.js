@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const managedIdentity = require('./managed-database-identity.model');
 
 const CONFIG_VERSION = 2;
 const CONFIG_FILE = 'enterprise-pos-installation.json';
@@ -173,6 +174,9 @@ function redactConfig(record = {}) {
     sslMode: record.sslMode,
     installationId: record.installationId,
     managedPostgres: record.managedPostgres || null,
+    managedIdentity: record.managedIdentity
+      ? managedIdentity.redactedIdentity(record.managedIdentity)
+      : null,
     storeId: record.storeId || null,
     installerVersion: record.installerVersion,
     legacyMigratedAt: record.legacyMigratedAt || null,
@@ -200,6 +204,7 @@ function integrityPayload(record = {}) {
     sslMode: record.sslMode,
     installationId: record.installationId,
     managedPostgres: record.managedPostgres || null,
+    managedIdentity: record.managedIdentity || null,
     storeId: record.storeId || null,
     installerVersion: record.installerVersion,
     legacyMigratedAt: record.legacyMigratedAt || null,
@@ -237,12 +242,25 @@ function verifyIntegrity(record = {}) {
 function createInstallationRecord(payload = {}, options = {}) {
   const databaseConfig = normalizeDatabaseConfig(payload);
   const now = options.now || new Date().toISOString();
+  const installationId = payload.installationId || crypto.randomUUID();
+  const localManagedIdentity =
+    payload.managedIdentity ||
+    (databaseConfig.mode === CONFIG_MODES.INSTALLER_MANAGED
+      ? managedIdentity.createLocalManagedIdentity({
+          installationId,
+          clusterId: payload.managedPostgres?.clusterId,
+          databaseId: payload.managedPostgres?.databaseId,
+          databaseName: databaseConfig.database,
+          createdAt: now,
+        })
+      : null);
   return attachIntegrity({
     version: CONFIG_VERSION,
     ...databaseConfig,
     encryptedPassword: encryptPassword(payload.password, options.safeStorage),
-    installationId: payload.installationId || crypto.randomUUID(),
+    installationId,
     managedPostgres: payload.managedPostgres || null,
+    managedIdentity: localManagedIdentity,
     storeId: payload.storeId || null,
     installerVersion: payload.installerVersion || '1.0.0',
     legacyMigratedAt: payload.legacyMigratedAt || null,
@@ -309,6 +327,7 @@ function loadInstallationConfig(userDataPath, options = {}) {
     config: {
       ...redactConfig(record),
       ...normalized,
+      managedIdentity: record.managedIdentity || null,
       password,
     },
   };
@@ -321,6 +340,17 @@ function applyInstallationConfigToEnv(config = {}) {
   );
   if (config.installationId) {
     process.env.ENTERPRISE_POS_INSTALLATION_ID = String(config.installationId);
+  }
+  if (config.managedIdentity?.clusterId) {
+    process.env.ENTERPRISE_POS_MANAGED_CLUSTER_ID = String(config.managedIdentity.clusterId);
+  }
+  if (config.managedIdentity?.databaseId) {
+    process.env.ENTERPRISE_POS_MANAGED_DATABASE_ID = String(config.managedIdentity.databaseId);
+  }
+  if (config.managedIdentity?.fingerprint) {
+    process.env.ENTERPRISE_POS_MANAGED_IDENTITY_FINGERPRINT = String(
+      config.managedIdentity.fingerprint
+    );
   }
   process.env.PGHOST = String(config.host || 'localhost');
   process.env.PGPORT = String(config.port || 5432);

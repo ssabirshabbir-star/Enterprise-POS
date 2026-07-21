@@ -7,6 +7,7 @@ const test = require('node:test');
 const env = require('../src/main/config/env');
 const configStore = require('../src/main/installer/installer-config.store');
 const diagnostics = require('../src/main/installer/installer-diagnostics.service');
+const managedIdentity = require('../src/main/installer/managed-database-identity.model');
 
 function tempDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -35,6 +36,9 @@ function withCleanDatabaseEnv(callback, production = false) {
     'ENTERPRISE_POS_DB_CONFIG_SOURCE',
     'ENTERPRISE_POS_DB_CONFIG_MODE',
     'ENTERPRISE_POS_INSTALLATION_ID',
+    'ENTERPRISE_POS_MANAGED_CLUSTER_ID',
+    'ENTERPRISE_POS_MANAGED_DATABASE_ID',
+    'ENTERPRISE_POS_MANAGED_IDENTITY_FINGERPRINT',
     'ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE',
   ];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
@@ -93,6 +97,11 @@ test('managed installer configuration persists lifecycle metadata without plaint
   assert.equal(loaded.ok, true);
   assert.equal(loaded.config.password, 'do-not-store-plain');
   assert.equal(loaded.config.managedPostgres.port, 55432);
+  assert.equal(loaded.config.managedIdentity.installationId, 'installation-001');
+  assert.equal(loaded.config.managedIdentity.databaseName, 'enterprise_pos_shop');
+  assert.match(loaded.config.managedIdentity.clusterId, /^cluster_[a-f0-9]{36}$/);
+  assert.match(loaded.config.managedIdentity.databaseId, /^database_[a-f0-9]{36}$/);
+  assert.match(loaded.config.managedIdentity.fingerprint, /^[a-f0-9]{64}$/);
 });
 
 test('packaged startup can resolve database config from managed store with no database env file', async () => {
@@ -117,6 +126,19 @@ test('packaged startup can resolve database config from managed store with no da
     });
     assert.equal(applied.ok, true);
     assert.equal(process.env.DATABASE_URL, undefined);
+    const loaded = configStore.loadInstallationConfig(dir, {
+      safeStorage: fakeSafeStorage(),
+    });
+    assert.equal(loaded.ok, true);
+    assert.equal(process.env.ENTERPRISE_POS_INSTALLATION_ID, applied.config.installationId);
+    assert.equal(
+      process.env.ENTERPRISE_POS_MANAGED_CLUSTER_ID,
+      loaded.config.managedIdentity.clusterId
+    );
+    assert.equal(
+      process.env.ENTERPRISE_POS_MANAGED_DATABASE_ID,
+      loaded.config.managedIdentity.databaseId
+    );
 
     const resolved = env.getDatabaseConfig();
     assert.equal(resolved.host, '127.0.0.1');
@@ -127,6 +149,32 @@ test('packaged startup can resolve database config from managed store with no da
     assert.equal(resolved.source, 'installer-config');
     assert.equal(resolved.mode, configStore.CONFIG_MODES.INSTALLER_MANAGED);
   }, true);
+});
+
+test('managed database identity rejects copied configuration targeting another database marker', () => {
+  const local = managedIdentity.createLocalManagedIdentity({
+    installationId: 'installation-current',
+    clusterId: 'cluster-current',
+    databaseId: 'database-current',
+    databaseName: 'enterprise_pos',
+    createdAt: '2026-07-21T00:00:00.000Z',
+  });
+  const copied = managedIdentity.createLocalManagedIdentity({
+    installationId: 'installation-other',
+    clusterId: local.clusterId,
+    databaseId: local.databaseId,
+    databaseName: 'enterprise_pos',
+    createdAt: '2026-07-21T00:00:00.000Z',
+  });
+
+  const accepted = managedIdentity.validateIdentityPair(local, local);
+  assert.equal(accepted.ok, true);
+
+  const rejected = managedIdentity.validateIdentityPair(local, copied);
+  assert.equal(rejected.ok, false);
+  assert(rejected.blockers.includes('identity.installationId.mismatch'));
+  assert(rejected.blockers.includes('identity.fingerprint.mismatch'));
+  assert.doesNotMatch(JSON.stringify(rejected), /password|secret|postgres:\/\//i);
 });
 
 test('packaged startup without managed config fails with a guided setup code, not .env instructions', async () => {

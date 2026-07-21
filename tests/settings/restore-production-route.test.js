@@ -17,6 +17,42 @@ function pendingActivationRecord() {
   return JSON.parse(read('resources/restore/production-activation.pending.json'));
 }
 
+function approvedActivationRecord() {
+  const technicalCertification = Object.fromEntries(
+    activation.REQUIRED_CERTIFICATION_EVIDENCE.map((key) => [
+      key,
+      {
+        status: 'passed',
+        evidenceReference: `test-evidence/${key}.json`,
+        evidenceHash: 'a'.repeat(64),
+      },
+    ])
+  );
+  return {
+    schemaVersion: activation.RESTORE_ACTIVATION_SCHEMA_VERSION,
+    product: activation.RESTORE_PRODUCT,
+    component: activation.RESTORE_COMPONENT,
+    releaseScope: activation.RESTORE_ACTIVATION_SCOPE,
+    applicationVersion: '1.0.0',
+    backupFormatVersion: activation.REQUIRED_BACKUP_FORMAT_VERSION,
+    activationStatus: 'approved',
+    restoreStrategy: activation.APPROVED_RESTORE_STRATEGIES[0],
+    safetyBackupPolicy: activation.REQUIRED_SAFETY_BACKUP_POLICY,
+    technicalCertification,
+    authorization: {
+      governanceReviewStatus: 'approved',
+      securityReviewStatus: 'approved',
+      releaseApprovalStatus: 'approved',
+      approverIdentity: 'owner-approved-test-scope',
+      approvalAuthority: 'Enterprise POS Release Authority',
+      approvalTimestamp: '2026-07-19T00:00:00.000Z',
+      expiresAt: '2026-12-31T00:00:00.000Z',
+      revoked: false,
+      testOnly: false,
+    },
+  };
+}
+
 function fakeRepository(overrides = {}) {
   const calls = [];
   return {
@@ -55,6 +91,20 @@ function fakeRepository(overrides = {}) {
         },
       };
     },
+    validateManagedDatabaseIdentity: async () => {
+      calls.push('managed_database_identity');
+      return { ok: true, identityVerified: true, code: 'MANAGED_DATABASE_IDENTITY_VERIFIED' };
+    },
+    getManagedDatabaseIdentity: async () => ({
+      schemaVersion: 1,
+      product: 'Enterprise POS',
+      component: 'installer-managed-postgres',
+      installationId: 'installation-1',
+      clusterId: 'cluster-1',
+      databaseId: 'database-1',
+      databaseName: 'enterprise_pos',
+      fingerprint: 'b'.repeat(64),
+    }),
     ...overrides,
   };
 }
@@ -121,6 +171,7 @@ test('pending production activation blocks restore before engine invocation', as
   assert(result.blockerCodes.includes('RESTORE_PRODUCTION_ACTIVATION_RECORD.NOT_APPROVED'));
   assert(result.blockerCodes.includes('RESTORE_PRODUCTION_PRODUCTION_FEATURE_FLAG.DISABLED'));
   assert.deepEqual(repository.calls.slice(0, 2), ['package_verification', 'package_eligibility']);
+  assert(repository.calls.includes('managed_database_identity'));
   assert.equal(activity.records[0].status, 'blocked');
   assert.doesNotMatch(JSON.stringify(result), /DATABASE_URL|PGPASSWORD|postgres:\/\/[^"]+@/i);
 });
@@ -168,6 +219,84 @@ test('production route rejects unsafe database identity and missing safety confi
   assert.match(
     result.steps.map((step) => `${step.order}:${step.name}:${step.status}`).join('\n'),
     /restore_engine_invocation:not_started/
+  );
+});
+
+test('production route rejects managed database identity mismatch before engine invocation', async () => {
+  const repository = fakeRepository({
+    validateManagedDatabaseIdentity: async () => {
+      repository.calls.push('managed_database_identity');
+      return {
+        ok: false,
+        code: 'MANAGED_DATABASE_IDENTITY_MISMATCH',
+        identityVerified: false,
+        blockers: ['identity.databaseId.mismatch'],
+        message: 'Managed database identity mismatch. Restore remains blocked.',
+      };
+    },
+  });
+  let engineCalled = false;
+  const result = await execution.executeProductionRestore(
+    {
+      sourcePackagePath: 'D:\\backups\\certified-backup.json',
+      operationId: '00000000-0000-4000-8000-000000000001',
+      confirmationId: '00000000-0000-4000-8000-000000000003',
+    },
+    {
+      repository,
+      activityRepository: fakeActivity(),
+      readActivationRecord: async () => approvedActivationRecord(),
+      productionFeatureFlagEnabled: true,
+      restoreEngine: async () => {
+        engineCalled = true;
+        return { ok: true };
+      },
+      now: () => new Date('2026-07-19T00:00:00.000Z'),
+    }
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(engineCalled, false);
+  assert(result.blockerCodes.includes('MANAGED_DATABASE_IDENTITY_MISMATCH'));
+});
+
+test('approved production route invokes engine after package, identity, safety, and confirmation gates', async () => {
+  const repository = fakeRepository();
+  const calls = [];
+  const result = await execution.executeProductionRestore(
+    {
+      sourcePackagePath: 'D:\\backups\\certified-backup.json',
+      operationId: '00000000-0000-4000-8000-000000000001',
+      confirmationId: '00000000-0000-4000-8000-000000000003',
+      preflightDigest: 'b'.repeat(64),
+      executionPolicyDigest: 'c'.repeat(64),
+    },
+    {
+      repository,
+      activityRepository: fakeActivity(),
+      readActivationRecord: async () => approvedActivationRecord(),
+      productionFeatureFlagEnabled: true,
+      restoreEngine: async () => {
+        calls.push('restore_engine');
+        return { ok: true, tablesRestored: 4, rowsRestored: 10 };
+      },
+      postRestoreValidator: async () => {
+        calls.push('post_restore_validation');
+        return { ok: true };
+      },
+      restartAdapter: {
+        requestRestart: async () => calls.push('restart_requested'),
+      },
+      now: () => new Date('2026-07-19T00:00:00.000Z'),
+    }
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.restoreExecuted, true);
+  assert.deepEqual(calls, ['restore_engine', 'post_restore_validation', 'restart_requested']);
+  assert.match(
+    result.steps.map((step) => `${step.order}:${step.name}:${step.status}`).join('\n'),
+    /package_verification:passed[\s\S]*managed_database_identity:passed[\s\S]*production_activation:passed[\s\S]*safety_backup_verification:passed[\s\S]*restore_engine_invocation:passed[\s\S]*post_restore_validation:passed/
   );
 });
 

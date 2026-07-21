@@ -20,6 +20,7 @@ const {
 } = require('./postgres-provisioning.model');
 const repository = require('./postgres-provisioning.repository');
 const configStore = require('./installer-config.store');
+const settingsRepository = require('../features/settings/settings.repository');
 const { closeDatabase } = require('../database/connection');
 const { initializeDatabase } = require('../database/schema');
 const { stagePostgresArchive } = require('./postgres-archive-stager');
@@ -1294,11 +1295,30 @@ async function executeInstallerDeploymentProvisioning(options = {}) {
     });
     await closeDatabase();
     await initializeDatabase();
+    const managedIdentityConfig = configStore.loadInstallationConfig(userDataPath);
+    if (!managedIdentityConfig.ok || !managedIdentityConfig.config?.managedIdentity) {
+      throw codeError(
+        'INSTALLER_POSTGRES_MANAGED_IDENTITY_MISSING',
+        'Managed database identity was not persisted.'
+      );
+    }
+    const identity = await settingsRepository.ensureManagedDatabaseIdentity(
+      managedIdentityConfig.config.managedIdentity
+    );
+    if (!identity.ok) {
+      throw codeError(
+        identity.code || 'INSTALLER_POSTGRES_MANAGED_IDENTITY_FAILED',
+        identity.message || 'Managed database identity could not be verified.'
+      );
+    }
     operation = await transitionAndSave(
       userDataPath,
       operation,
       PROVISIONING_STATES.APPLICATION_SCHEMA_READY,
-      { reason: 'application_schema_initialized_and_verified' }
+      {
+        reason: 'application_schema_initialized_and_verified',
+        managedDatabaseIdentity: identity.identity,
+      }
     );
     operation = await transitionAndSave(userDataPath, operation, PROVISIONING_STATES.COMPLETED, {
       reason: 'deployable_installer_provisioning_completed',

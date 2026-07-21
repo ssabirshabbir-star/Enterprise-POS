@@ -123,14 +123,29 @@ async function readCertifiedPackage(filePath) {
   return { backup, raw, checksum, verification };
 }
 
-function packageTables(backup) {
+function packageTables(backup, { managedDatabaseIdentity = null } = {}) {
   const included = backup?.manifest?.coverageDeclaration?.includedTables;
   const data = backup?.data;
   if (!Array.isArray(included) || !data || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error('Restore package table inventory is invalid.');
   }
+  const restoredData = { ...data };
+  if (managedDatabaseIdentity && Array.isArray(restoredData.app_settings)) {
+    const withoutSourceManagedIdentity = restoredData.app_settings.filter(
+      (row) => String(row?.key || '') !== 'managed_database_identity'
+    );
+    withoutSourceManagedIdentity.push({
+      key: 'managed_database_identity',
+      value: managedDatabaseIdentity,
+      updated_by: null,
+      updated_at: new Date().toISOString(),
+    });
+    restoredData.app_settings = withoutSourceManagedIdentity;
+  }
   const tableNames = included.map((table) => String(table.name || '').trim());
-  const unknownPayloadTables = Object.keys(data).filter((name) => !tableNames.includes(name));
+  const unknownPayloadTables = Object.keys(restoredData).filter(
+    (name) => !tableNames.includes(name)
+  );
   if (unknownPayloadTables.length) {
     throw new Error(
       `Restore package contains unknown table(s): ${unknownPayloadTables.join(', ')}.`
@@ -138,15 +153,19 @@ function packageTables(backup) {
   }
   for (const name of tableNames) {
     quoteIdentifier(name);
-    if (!Array.isArray(data[name])) {
+    if (!Array.isArray(restoredData[name])) {
       throw new Error(`Restore package table ${name} is missing data rows.`);
     }
   }
-  return { tableNames, data, included };
+  return { tableNames, data: restoredData, included };
 }
 
-async function deleteAndInsertTables(client, backup, { failDuringMutation = false } = {}) {
-  const { tableNames, data } = packageTables(backup);
+async function deleteAndInsertTables(
+  client,
+  backup,
+  { failDuringMutation = false, managedDatabaseIdentity = null } = {}
+) {
+  const { tableNames, data } = packageTables(backup, { managedDatabaseIdentity });
   const constraintsSuspended = await suspendForeignKeyChecks(client);
   const insertOrder = constraintsSuspended
     ? tableNames
@@ -276,8 +295,8 @@ async function restoreTableSequence(client, tableName) {
   }
 }
 
-async function verifyAppliedPackage(pool, backup) {
-  const { tableNames, data, included } = packageTables(backup);
+async function verifyAppliedPackage(pool, backup, { managedDatabaseIdentity = null } = {}) {
+  const { tableNames, data, included } = packageTables(backup, { managedDatabaseIdentity });
   const certificationChecks = [];
   const rowCounts = [];
 
@@ -596,6 +615,37 @@ async function applyPackageToDisposableDatabase({
   }
 }
 
+async function applyPackageToPoolAndVerify({
+  pool,
+  backup,
+  injectFailureStage = null,
+  managedDatabaseIdentity = null,
+} = {}) {
+  const client = await pool.connect();
+  let application;
+  try {
+    await client.query('BEGIN');
+    application = await deleteAndInsertTables(client, backup, {
+      failDuringMutation: injectFailureStage === 'during_mutation',
+      managedDatabaseIdentity,
+    });
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+  if (injectFailureStage === 'post_verification' || injectFailureStage === 'rollback_failure') {
+    throw new Error('CONTROLLED_POST_RESTORE_VERIFICATION_FAILURE');
+  }
+  const verification = await verifyAppliedPackage(pool, backup, { managedDatabaseIdentity });
+  if (verification.verificationStatus !== 'passed') {
+    throw new Error('POST_RESTORE_VERIFICATION_FAILED');
+  }
+  return { application, verification };
+}
+
 async function applyPackageAndVerify({ databaseName, backup, injectFailureStage = null } = {}) {
   const application = await applyPackageToDisposableDatabase({
     databaseName,
@@ -892,6 +942,7 @@ async function executeDisposableRestore({
 
 module.exports = {
   assertDisposableDatabaseName,
+  applyPackageToPoolAndVerify,
   applyPackageAndVerify,
   consumeExecutionToken,
   disposableTargetIdentity,

@@ -7,6 +7,7 @@ const { getPool, withTransaction } = require('../../database/connection');
 const restoreExecutionPolicyModel = require('../restore-engine/restore-execution-policy.model');
 const restoreProductionGovernanceModel = require('../restore-engine/restore-production-governance.model');
 const restoreRecoveryStateModel = require('../restore-engine/restore-recovery-state.model');
+const managedDatabaseIdentityModel = require('../../installer/managed-database-identity.model');
 const packageJson = require('../../../../package.json');
 
 const SETTING_KEYS = ['store', 'tax', 'system'];
@@ -711,6 +712,115 @@ async function saveStoreSettings(store, userId) {
     );
   });
   return getSettings();
+}
+
+async function getManagedDatabaseIdentity(client = null) {
+  const db = client || getPool();
+  const result = await db.query(
+    `
+      SELECT value
+      FROM app_settings
+      WHERE key = $1
+      LIMIT 1
+    `,
+    [managedDatabaseIdentityModel.IDENTITY_APP_SETTINGS_KEY]
+  );
+  return result.rows[0]?.value || null;
+}
+
+async function ensureManagedDatabaseIdentity(localIdentity = {}) {
+  const normalized = managedDatabaseIdentityModel.normalizeIdentity(localIdentity);
+  const required = ['installationId', 'clusterId', 'databaseId', 'databaseName'];
+  const missing = required.filter((key) => !normalized[key]);
+  if (missing.length) {
+    return {
+      ok: false,
+      code: 'MANAGED_DATABASE_IDENTITY_LOCAL_INCOMPLETE',
+      identityVerified: false,
+      blockers: missing.map((key) => `local_identity.${key}.missing`),
+      localIdentity: managedDatabaseIdentityModel.redactedIdentity(normalized),
+      message: 'Managed database identity is incomplete.',
+    };
+  }
+  return withTransaction(async (client) => {
+    const existing = await getManagedDatabaseIdentity(client);
+    if (existing) {
+      const validation = managedDatabaseIdentityModel.validateIdentityPair(normalized, existing);
+      if (!validation.ok) {
+        return {
+          ok: false,
+          code: 'MANAGED_DATABASE_IDENTITY_MISMATCH',
+          identityVerified: false,
+          blockers: validation.blockers,
+          localIdentity: managedDatabaseIdentityModel.redactedIdentity(validation.local),
+          databaseIdentity: managedDatabaseIdentityModel.redactedIdentity(validation.database),
+          message:
+            'Managed database identity mismatch. This database is not authorized for this installation.',
+        };
+      }
+      return {
+        ok: true,
+        code: 'MANAGED_DATABASE_IDENTITY_VERIFIED',
+        identityVerified: true,
+        created: false,
+        identity: managedDatabaseIdentityModel.redactedIdentity(validation.database),
+        message: 'Managed database identity is verified.',
+      };
+    }
+
+    const databaseRecord = {
+      ...normalized,
+      fingerprint: managedDatabaseIdentityModel.identityDigest(normalized),
+      storedAt: new Date().toISOString(),
+    };
+    await client.query(
+      `
+        INSERT INTO app_settings (key, value, updated_by, updated_at)
+        VALUES ($1, $2::jsonb, NULL, NOW())
+      `,
+      [managedDatabaseIdentityModel.IDENTITY_APP_SETTINGS_KEY, JSON.stringify(databaseRecord)]
+    );
+    return {
+      ok: true,
+      code: 'MANAGED_DATABASE_IDENTITY_CREATED',
+      identityVerified: true,
+      created: true,
+      identity: managedDatabaseIdentityModel.redactedIdentity(databaseRecord),
+      message: 'Managed database identity marker was created.',
+    };
+  });
+}
+
+async function validateManagedDatabaseIdentity(localIdentity = {}) {
+  const existing = await getManagedDatabaseIdentity();
+  if (!existing) {
+    return {
+      ok: false,
+      code: 'MANAGED_DATABASE_IDENTITY_MISSING',
+      identityVerified: false,
+      blockers: ['database_identity.missing'],
+      localIdentity: managedDatabaseIdentityModel.redactedIdentity(localIdentity),
+      databaseIdentity: null,
+      message: 'Managed database identity marker is missing.',
+    };
+  }
+  const validation = managedDatabaseIdentityModel.validateIdentityPair(
+    managedDatabaseIdentityModel.normalizeIdentity(localIdentity),
+    existing
+  );
+  return {
+    ok: validation.ok,
+    code: validation.ok
+      ? 'MANAGED_DATABASE_IDENTITY_VERIFIED'
+      : 'MANAGED_DATABASE_IDENTITY_MISMATCH',
+    identityVerified: validation.ok,
+    blockers: validation.blockers,
+    localIdentity: managedDatabaseIdentityModel.redactedIdentity(validation.local),
+    databaseIdentity: managedDatabaseIdentityModel.redactedIdentity(validation.database),
+    message: validation.ok
+      ? 'Managed database identity is verified.'
+      : 'Managed database identity mismatch. Restore remains blocked.',
+  };
 }
 
 async function exportBackup(filePath, userId, options = {}) {
@@ -3609,12 +3719,15 @@ module.exports = {
   cancelRestorePreparation,
   consumeRestoreFinalConfirmation,
   createRestoreFinalConfirmation,
+  ensureManagedDatabaseIdentity,
   exportBackup,
   getSettings,
+  getManagedDatabaseIdentity,
   getRestoreExecutionPolicy,
   getRestoreRecoveryState,
   getRestoreRetentionAssessment,
   getRestoreStartupRecoveryAssessment,
+  validateManagedDatabaseIdentity,
   latestRestoreFinalConfirmation,
   inspectRestorePackage,
   getRestoreDryRunReport,

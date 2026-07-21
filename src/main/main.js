@@ -50,6 +50,22 @@ function applyE2eUserDataOverride() {
 
 applyE2eUserDataOverride();
 
+async function ensureStartupManagedDatabaseIdentity() {
+  if (process.env.ENTERPRISE_POS_DB_CONFIG_MODE !== 'installer-managed-postgres') return;
+  const result = await settingsRepository.ensureManagedDatabaseIdentity({
+    installationId: process.env.ENTERPRISE_POS_INSTALLATION_ID,
+    clusterId: process.env.ENTERPRISE_POS_MANAGED_CLUSTER_ID,
+    databaseId: process.env.ENTERPRISE_POS_MANAGED_DATABASE_ID,
+    databaseName: process.env.PGDATABASE,
+    source: 'packaged-startup-managed-config',
+  });
+  if (!result.ok) {
+    const error = new Error(result.message || 'Managed database identity could not be verified.');
+    error.code = result.code || 'MANAGED_DATABASE_IDENTITY_MISMATCH';
+    throw error;
+  }
+}
+
 function setupUrl() {
   const params = new URLSearchParams({
     error: startupStatus.message || 'Startup failed.',
@@ -195,6 +211,7 @@ app.whenReady().then(async () => {
 
   try {
     await initializeDatabase();
+    await ensureStartupManagedDatabaseIdentity();
     const recoveryAssessment = await settingsRepository.getRestoreStartupRecoveryAssessment();
     if (recoveryAssessment.startupRecovery?.maintenanceModeRequired) {
       startupStatus = {
@@ -326,7 +343,14 @@ function userFriendlyStartupError(error) {
   ) {
     return 'The local Enterprise POS database configuration needs controlled recovery. Use the guided database recovery flow; do not create a new blank database.';
   }
-  if (error?.code === 'MANAGED_DATABASE_IDENTITY_UNSAFE') {
+  if (
+    [
+      'MANAGED_DATABASE_IDENTITY_UNSAFE',
+      'MANAGED_DATABASE_IDENTITY_LOCAL_INCOMPLETE',
+      'MANAGED_DATABASE_IDENTITY_MISSING',
+      'MANAGED_DATABASE_IDENTITY_MISMATCH',
+    ].includes(error?.code)
+  ) {
     return 'The configured database identity is not safe for normal Enterprise POS startup. Use a valid managed application database.';
   }
   if (error?.code === 'ECONNREFUSED')
