@@ -97,6 +97,50 @@ test('default production managed PostgreSQL execution remains blocked', async ()
   assert.notEqual(result.code, 'INSTALLER_POSTGRES_CERTIFICATION_PROVISIONING_COMPLETED');
 });
 
+test('deployable provisioning authorization requires exact packaging evidence and payload hash', () => {
+  const payload = { ok: true, digest: 'abc123' };
+  assert.equal(
+    provisioningService.assessDeployableProvisioningAuthorization({
+      payload,
+      options: {
+        deploymentEvidence: {
+          classification: 'offline-certification-unsigned',
+          productionProvisioningEnabled: false,
+          postgresql: { sha256: 'abc123' },
+        },
+      },
+    }).ok,
+    false
+  );
+
+  assert.equal(
+    provisioningService.assessDeployableProvisioningAuthorization({
+      payload,
+      options: {
+        deploymentEvidence: {
+          classification: 'deployable-offline-installer',
+          productionProvisioningEnabled: true,
+          postgresql: { sha256: 'different' },
+        },
+      },
+    }).code,
+    'INSTALLER_DEPLOYABLE_POSTGRES_EVIDENCE_HASH_MISMATCH'
+  );
+
+  const authorized = provisioningService.assessDeployableProvisioningAuthorization({
+    payload,
+    options: {
+      deploymentEvidence: {
+        classification: 'deployable-offline-installer',
+        productionProvisioningEnabled: true,
+        postgresql: { sha256: 'abc123' },
+      },
+    },
+  });
+  assert.equal(authorized.ok, true);
+  assert.equal(authorized.code, 'INSTALLER_DEPLOYABLE_PROVISIONING_AUTHORIZED');
+});
+
 test('certification gate requires environment flag, token, explicit option, safe root, and disposable database', () => {
   assert.throws(
     () => provisioningService.assertCertificationExecutionGate({}),

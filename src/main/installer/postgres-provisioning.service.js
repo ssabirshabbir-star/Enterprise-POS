@@ -38,6 +38,7 @@ const CERTIFICATION_TOKEN_ENV = 'ENTERPRISE_POS_MANAGED_POSTGRES_CERTIFICATION_T
 const CERTIFICATION_TOKEN = 'managed-postgres-certification';
 const CERTIFICATION_DB_PREFIX = 'epos_cert_';
 const CERTIFICATION_ROOT_FRAGMENT = 'managed-postgres-cert';
+const DEPLOYABLE_PACKAGING_CLASSIFICATION = 'deployable-offline-installer';
 const SERVER_READY_TIMEOUT_MS = 30000;
 const COMMAND_TIMEOUT_MS = 60000;
 const INITDB_COMMAND_TIMEOUT_MS = 180000;
@@ -124,6 +125,83 @@ function assertCertificationExecutionGate(options = {}) {
     database,
     port: certification.port || 0,
     safeStorage: certification.safeStorage,
+  };
+}
+
+function defaultReleaseGovernanceRoot({ resourcesPath = process.resourcesPath } = {}) {
+  if (resourcesPath && fs.existsSync(path.join(resourcesPath, 'release-governance'))) {
+    return path.join(resourcesPath, 'release-governance');
+  }
+  if (process.execPath) {
+    const executableResources = path.join(
+      path.dirname(process.execPath),
+      'resources',
+      'release-governance'
+    );
+    if (fs.existsSync(executableResources)) return executableResources;
+  }
+  return path.join(process.cwd(), 'resources', 'release');
+}
+
+function readDeployablePackagingEvidence(options = {}) {
+  if (options.deploymentEvidence) return { ok: true, evidence: options.deploymentEvidence };
+  const evidencePath =
+    options.deploymentEvidencePath ||
+    path.join(defaultReleaseGovernanceRoot(options), 'offline-packaging-evidence.generated.json');
+  if (!fs.existsSync(evidencePath)) {
+    return {
+      ok: false,
+      code: 'INSTALLER_DEPLOYABLE_PACKAGING_EVIDENCE_MISSING',
+      evidencePath,
+    };
+  }
+  try {
+    return {
+      ok: true,
+      evidencePath,
+      evidence: JSON.parse(fs.readFileSync(evidencePath, 'utf8')),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'INSTALLER_DEPLOYABLE_PACKAGING_EVIDENCE_INVALID',
+      evidencePath,
+      message: error.message,
+    };
+  }
+}
+
+function assessDeployableProvisioningAuthorization({ payload, options = {} } = {}) {
+  const evidenceResult = readDeployablePackagingEvidence(options);
+  if (!evidenceResult.ok) return { ok: false, ...evidenceResult };
+  const evidence = evidenceResult.evidence || {};
+  if (
+    evidence.classification !== DEPLOYABLE_PACKAGING_CLASSIFICATION ||
+    evidence.productionProvisioningEnabled !== true
+  ) {
+    return {
+      ok: false,
+      code: 'INSTALLER_DEPLOYABLE_PROVISIONING_NOT_ENABLED',
+      evidencePath: evidenceResult.evidencePath,
+      classification: evidence.classification,
+      productionProvisioningEnabled: evidence.productionProvisioningEnabled,
+    };
+  }
+  if (payload?.ok && evidence.postgresql?.sha256 !== payload.digest) {
+    return {
+      ok: false,
+      code: 'INSTALLER_DEPLOYABLE_POSTGRES_EVIDENCE_HASH_MISMATCH',
+      evidencePath: evidenceResult.evidencePath,
+      expected: evidence.postgresql?.sha256,
+      actual: payload.digest,
+    };
+  }
+  return {
+    ok: true,
+    code: 'INSTALLER_DEPLOYABLE_PROVISIONING_AUTHORIZED',
+    evidencePath: evidenceResult.evidencePath,
+    classification: evidence.classification,
+    releaseAuthorizationStatus: evidence.releaseAuthorizationStatus,
   };
 }
 
@@ -379,6 +457,36 @@ async function stopServer(paths, dataDir, logCommand) {
   );
   await logCommand('STOP_SERVER', result, commandOk(result) ? 'success' : 'failed');
   return result;
+}
+
+async function waitForApplicationDatabase(config, timeoutMs = SERVER_READY_TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    try {
+      const result = await queryPostgres(
+        {
+          port: config.port,
+          user: config.username || config.user,
+          password: config.password,
+        },
+        'SELECT 1',
+        config.database
+      );
+      if (String(result.rows?.[0]?.['?column?'] || result.rows?.[0]?.['1'] || '1') === '1') {
+        return { ok: true };
+      }
+      return { ok: true };
+    } catch (error) {
+      last = error;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+  throw codeError(
+    last?.code || 'INSTALLER_POSTGRES_APPLICATION_DATABASE_TIMEOUT',
+    'Managed PostgreSQL application database did not become ready.',
+    { lastCode: last?.code }
+  );
 }
 
 function writePostgresConfig(dataDir, port) {
@@ -896,9 +1004,342 @@ async function executeCertificationProvisioning(options = {}) {
   }
 }
 
+async function executeInstallerDeploymentProvisioning(options = {}) {
+  const { userDataPath, payloadRoot = null } = options;
+  if (!userDataPath) {
+    throw codeError('INSTALLER_POSTGRES_USER_DATA_REQUIRED', 'User data path is required.');
+  }
+
+  const existingConfig = configStore.loadInstallationConfig(userDataPath);
+  const existingOperation = assertNoActiveProvisioningOperation(userDataPath);
+  if (existingConfig.ok && existingOperation?.state === PROVISIONING_STATES.COMPLETED) {
+    return {
+      ok: true,
+      code: 'INSTALLER_POSTGRES_PROVISIONING_ALREADY_COMPLETED',
+      operation: redactProvisioningOperation(existingOperation),
+      resumed: true,
+      config: existingConfig.config,
+    };
+  }
+
+  const policy = getManagedPostgresPolicy();
+  const root = ensureDirectory(managedInstallRoot(userDataPath));
+  const pendingRoot = path.join(root, 'pending');
+  const runtimeRoot = path.join(root, policy.installDirectoryName);
+  const dataDir = path.join(root, policy.dataDirectoryName);
+  const logsDir = ensureDirectory(path.join(root, 'logs'));
+  assertManagedCertificationPaths(root, { pendingRoot, runtimeRoot, dataDir, logsDir });
+  if (fs.existsSync(dataDir) && fs.readdirSync(dataDir).length > 0) {
+    throw codeError(
+      'INSTALLER_POSTGRES_EXISTING_DATA_WITHOUT_COMPLETED_CONFIG',
+      'Managed PostgreSQL data already exists but no completed reusable configuration was found.'
+    );
+  }
+
+  const payloadStatus = payloadVerifier.verifyBundledPayload({
+    payloadRoot,
+    allowRedistributionNotCertified: true,
+  });
+  if (!payloadStatus.ok) {
+    throw codeError(
+      payloadStatus.code || 'INSTALLER_POSTGRES_PAYLOAD_NOT_READY',
+      'PostgreSQL payload is not ready for managed provisioning.',
+      { payload: payloadStatus }
+    );
+  }
+  const deployment = assessDeployableProvisioningAuthorization({
+    payload: payloadStatus,
+    options,
+  });
+  if (!deployment.ok) {
+    throw codeError(
+      deployment.code || 'INSTALLER_DEPLOYABLE_PROVISIONING_NOT_AUTHORIZED',
+      'This installer is not authorized to run managed PostgreSQL provisioning.',
+      { deployment }
+    );
+  }
+
+  const port = options.port || policy.defaultPort;
+  const target = {
+    host: '127.0.0.1',
+    port,
+    database: 'enterprise_pos',
+    username: 'enterprise_pos_app',
+    managed: true,
+  };
+  let operation = createProvisioningOperation({
+    target,
+    port,
+    dataDirectory: dataDir,
+    service: { runtimeModel: 'managed-local-process', serviceName: null },
+    payload: {
+      version: payloadStatus.manifest.version,
+      fileName: payloadStatus.manifest.fileName,
+      digest: payloadStatus.digest,
+    },
+  });
+  repository.saveProvisioningOperation(userDataPath, operation);
+
+  const logCommand = async (step, result, status = null) => {
+    recordInstallerLog(userDataPath, {
+      operationId: operation.operationId,
+      step,
+      status: status || (commandOk(result) ? 'success' : 'failed'),
+      durationMs: result?.elapsedMs,
+      exitCode: result?.exitCode,
+      command: result ? { executable: result.command, args: result.args } : null,
+      message: `${step} ${commandOk(result) ? 'completed' : 'did not complete successfully'}.`,
+      error: result?.error?.message || result?.stderr || null,
+    });
+  };
+
+  let paths = null;
+  try {
+    const prerequisiteRoot = vcRuntimePrerequisite.defaultPrerequisiteRoot();
+    const prerequisite = await vcRuntimePrerequisite.installVcRuntimePrerequisite({
+      root: prerequisiteRoot,
+      logPath: path.join(logsDir, 'vc-runtime-install.log'),
+    });
+    recordInstallerLog(userDataPath, {
+      operationId: operation.operationId,
+      step: 'VC_RUNTIME_PREREQUISITE',
+      status: prerequisite.ok ? 'success' : 'failed',
+      message: prerequisite.ok
+        ? 'Microsoft Visual C++ Runtime prerequisite is ready.'
+        : 'Microsoft Visual C++ Runtime prerequisite failed before PostgreSQL initialization.',
+      error: prerequisite.ok ? null : prerequisite.code,
+    });
+    if (!prerequisite.ok) {
+      throw codeError(
+        prerequisite.code || 'VC_RUNTIME_INSTALL_FAILED',
+        'Microsoft Visual C++ Runtime prerequisite is required before PostgreSQL initialization.',
+        { prerequisite }
+      );
+    }
+
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.ARCHIVE_VERIFIED,
+      {
+        archivePath: payloadStatus.payloadPath,
+        payloadRoot: path.dirname(payloadStatus.manifestPath),
+        payloadDigest: payloadStatus.digest,
+        deploymentEvidencePath: deployment.evidencePath,
+      }
+    );
+
+    const staged = await stagePostgresArchive({
+      archivePath: payloadStatus.payloadPath,
+      stagingRoot: pendingRoot,
+      manifestRoot: path.dirname(payloadStatus.manifestPath),
+    });
+    fs.rmSync(runtimeRoot, { recursive: true, force: true });
+    fs.renameSync(pendingRoot, runtimeRoot);
+    paths = executablePaths(runtimeRoot);
+    for (const exe of Object.values(paths)) {
+      if (!fs.existsSync(exe)) {
+        throw codeError(
+          'INSTALLER_POSTGRES_STAGED_EXECUTABLE_MISSING',
+          'Staged executable is missing.',
+          {
+            executable: exe,
+          }
+        );
+      }
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.PAYLOAD_STAGED,
+      { reason: 'payload_promoted_to_managed_runtime' }
+    );
+
+    const adminPassword = generateManagedPostgresPassword();
+    const appPassword = generateManagedPostgresPassword();
+    const passwordFile = createPasswordFile(root, adminPassword);
+    ensureDirectory(dataDir);
+    const initdbArgs = [
+      '-D',
+      dataDir,
+      '-U',
+      'postgres',
+      '-A',
+      'scram-sha-256',
+      '--pwfile',
+      passwordFile,
+      '-E',
+      'UTF8',
+    ];
+    const initdb = await runCommand(paths.initdb, initdbArgs, {
+      ...postgresCommandOptions(paths.initdb),
+      timeoutMs: INITDB_COMMAND_TIMEOUT_MS,
+    });
+    await logCommand('INITDB', initdb);
+    fs.rmSync(passwordFile, { force: true });
+    if (!commandOk(initdb)) {
+      throw codeError('INSTALLER_POSTGRES_INITDB_FAILED', 'initdb failed.', {
+        exitCode: initdb.exitCode,
+      });
+    }
+    writePostgresConfig(dataDir, port);
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.DATA_DIRECTORY_INITIALIZED,
+      { reason: 'cluster_initialized_and_verified' }
+    );
+
+    const serverLog = path.join(logsDir, 'postgres-server.log');
+    const start = await startServerProcess(paths.pgCtl, [
+      '-D',
+      dataDir,
+      '-l',
+      serverLog,
+      '-o',
+      `-h 127.0.0.1 -p ${port}`,
+      '-w',
+      '-t',
+      '30',
+      'start',
+    ]);
+    await logCommand('START_SERVER', start);
+    if (!commandOk(start)) {
+      throw codeError(
+        'INSTALLER_POSTGRES_SERVER_START_FAILED',
+        'Managed PostgreSQL server failed to start.',
+        {
+          exitCode: start.exitCode,
+        }
+      );
+    }
+    await waitForServer(paths, port, adminPassword, SERVER_READY_TIMEOUT_MS, logCommand);
+    const serverVersion = await queryPostgres(
+      { port, user: 'postgres', password: adminPassword },
+      'SELECT version() AS version'
+    );
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.SERVER_STARTED,
+      { reason: 'server_started_and_version_verified' }
+    );
+
+    await queryPostgres(
+      { port, user: 'postgres', password: adminPassword },
+      `DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'enterprise_pos_app') THEN
+          CREATE ROLE enterprise_pos_app LOGIN PASSWORD '${appPassword.replace(/'/g, "''")}';
+        ELSE
+          ALTER ROLE enterprise_pos_app WITH LOGIN PASSWORD '${appPassword.replace(/'/g, "''")}';
+        END IF;
+      END $$;`
+    );
+    const exists = await queryPostgres(
+      { port, user: 'postgres', password: adminPassword },
+      "SELECT 1 FROM pg_database WHERE datname = 'enterprise_pos' LIMIT 1"
+    );
+    if (exists.rowCount === 0) {
+      await queryPostgres(
+        { port, user: 'postgres', password: adminPassword },
+        'CREATE DATABASE "enterprise_pos" OWNER enterprise_pos_app ENCODING \'UTF8\' TEMPLATE template0'
+      );
+    }
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.DATABASE_CREATED,
+      { reason: 'application_database_and_role_verified' }
+    );
+
+    const saved = configStore.saveInstallationConfig(userDataPath, {
+      host: '127.0.0.1',
+      port,
+      database: 'enterprise_pos',
+      username: 'enterprise_pos_app',
+      password: appPassword,
+      sslMode: 'disable',
+      managed: true,
+      mode: configStore.CONFIG_MODES.INSTALLER_MANAGED,
+      installerVersion: '1.0.0',
+      managedPostgres: {
+        runtimeRoot,
+        dataDir,
+        port,
+        operationId: operation.operationId,
+        payloadFileName: policy.payloadFileName,
+        payloadDigest: staged.digest,
+        runtimeModel: 'managed-local-process',
+      },
+    });
+    if (!saved.ok) {
+      throw codeError(
+        'INSTALLER_POSTGRES_CONFIG_SAVE_FAILED',
+        'Managed database configuration was not saved.'
+      );
+    }
+    const applied = configStore.loadAndApplyInstallationConfig(userDataPath);
+    if (!applied.ok) {
+      throw codeError(
+        applied.code || 'INSTALLER_POSTGRES_CONFIG_READBACK_FAILED',
+        'Managed database configuration could not be read back after it was saved.'
+      );
+    }
+    await waitForApplicationDatabase({
+      port,
+      database: 'enterprise_pos',
+      username: 'enterprise_pos_app',
+      password: appPassword,
+    });
+    await closeDatabase();
+    await initializeDatabase();
+    operation = await transitionAndSave(
+      userDataPath,
+      operation,
+      PROVISIONING_STATES.APPLICATION_SCHEMA_READY,
+      { reason: 'application_schema_initialized_and_verified' }
+    );
+    operation = await transitionAndSave(userDataPath, operation, PROVISIONING_STATES.COMPLETED, {
+      reason: 'deployable_installer_provisioning_completed',
+    });
+    await closeDatabase();
+    return {
+      ok: true,
+      code: 'INSTALLER_POSTGRES_DEPLOYABLE_PROVISIONING_COMPLETED',
+      operation: redactProvisioningOperation(operation),
+      runtime: { runtimeRoot, dataDir, logsDir, port, database: 'enterprise_pos' },
+      serverVersion: serverVersion.rows[0]?.version,
+    };
+  } catch (error) {
+    await closeDatabase().catch(() => {});
+    if (paths && fs.existsSync(dataDir)) {
+      await stopServer(paths, dataDir, logCommand).catch(() => {});
+    }
+    let failed = operation;
+    if (operation && operation.state !== PROVISIONING_STATES.COMPLETED) {
+      failed = transitionProvisioningOperation(operation, PROVISIONING_STATES.FAILED, {
+        reason: 'deployable_installer_provisioning_failed',
+        failureCode: error.code || 'INSTALLER_POSTGRES_DEPLOYABLE_FAILED',
+        failureStage: operation.state,
+      });
+      repository.saveProvisioningOperation(userDataPath, failed);
+    }
+    return {
+      ok: false,
+      code: error.code || 'INSTALLER_POSTGRES_DEPLOYABLE_FAILED',
+      message: error.message,
+      operation: redactProvisioningOperation(failed),
+    };
+  }
+}
+
 async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null } = {}) {
   const policy = getManagedPostgresPolicy();
-  const payload = payloadVerifier.verifyBundledPayload({ payloadRoot });
+  const payload = payloadVerifier.verifyBundledPayload({
+    payloadRoot,
+    allowRedistributionNotCertified: true,
+  });
   const vcRuntime = vcRuntimePrerequisite.assessVcRuntimePrerequisite();
   const resolvedPayloadRoot =
     payloadRoot || (payload.manifestPath ? path.dirname(payload.manifestPath) : null);
@@ -907,6 +1348,7 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     postgresManifest: payload.manifest,
     vcRuntimeManifest: vcRuntime.manifest,
   });
+  const deployableAuthorization = assessDeployableProvisioningAuthorization({ payload });
   const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
   const pendingRecovery = latest ? requiresProvisioningRecovery(latest.state) : false;
   const recovery = classifyProvisioningRecovery(latest);
@@ -915,7 +1357,7 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     : null;
 
   return {
-    ok: payload.ok && authorization.ok && !pendingRecovery,
+    ok: payload.ok && (authorization.ok || deployableAuthorization.ok) && !pendingRecovery,
     policy,
     payload,
     releaseAuthorization: authorization.ok
@@ -931,6 +1373,7 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
           field: authorization.field,
           missing: authorization.missing,
         },
+    deployableAuthorization,
     prerequisites: {
       visualCppRuntime: vcRuntime,
     },
@@ -957,7 +1400,9 @@ async function assessManagedPostgresPreflight({ userDataPath, payloadRoot = null
     blockers: [
       ...(vcRuntime.ok ? [] : [vcRuntime.code || 'VC_RUNTIME_NOT_INSTALLED']),
       ...(payload.ok ? [] : [payload.code]),
-      ...(authorization.ok ? [] : [authorization.code]),
+      ...(authorization.ok || deployableAuthorization.ok
+        ? []
+        : [deployableAuthorization.code || authorization.code]),
       ...(pendingRecovery ? ['INSTALLER_POSTGRES_PROVISIONING_RECOVERY_REQUIRED'] : []),
     ],
   };
@@ -984,6 +1429,9 @@ async function startManagedPostgresProvisioning(options = {}) {
   }
 
   const preflight = await assessManagedPostgresPreflight({ userDataPath, payloadRoot });
+  if (preflight.ok && preflight.deployableAuthorization?.ok) {
+    return executeInstallerDeploymentProvisioning(options);
+  }
   const policy = getManagedPostgresPolicy();
   const target = {
     host: 'localhost',
@@ -1073,6 +1521,56 @@ async function startManagedPostgresProvisioning(options = {}) {
   };
 }
 
+async function ensureManagedPostgresRuntimeStarted({ userDataPath } = {}) {
+  if (!userDataPath) return { ok: false, code: 'INSTALLER_POSTGRES_USER_DATA_REQUIRED' };
+  const loaded = configStore.loadInstallationConfig(userDataPath, { includePassword: true });
+  if (!loaded.ok) return loaded;
+  const config = loaded.config;
+  if (config.mode !== configStore.CONFIG_MODES.INSTALLER_MANAGED) {
+    return { ok: true, code: 'INSTALLER_POSTGRES_RUNTIME_NOT_MANAGED', skipped: true };
+  }
+  const managed = config.managedPostgres || {};
+  const runtimeRoot = managed.runtimeRoot;
+  const dataDir = managed.dataDir;
+  if (!runtimeRoot || !dataDir) {
+    return {
+      ok: false,
+      code: 'MANAGED_DATABASE_PROVISIONING_INCOMPLETE',
+      message: 'Managed PostgreSQL runtime paths are missing from installer configuration.',
+    };
+  }
+  try {
+    await waitForApplicationDatabase(config, 3000);
+    return { ok: true, code: 'INSTALLER_POSTGRES_RUNTIME_ALREADY_RUNNING' };
+  } catch (_error) {
+    // Start the managed runtime below.
+  }
+  const paths = executablePaths(runtimeRoot);
+  const logsDir = ensureDirectory(path.join(path.dirname(dataDir), 'logs'));
+  const start = await startServerProcess(paths.pgCtl, [
+    '-D',
+    dataDir,
+    '-l',
+    path.join(logsDir, 'postgres-server.log'),
+    '-o',
+    `-h 127.0.0.1 -p ${config.port}`,
+    '-w',
+    '-t',
+    '30',
+    'start',
+  ]);
+  if (!commandOk(start)) {
+    return {
+      ok: false,
+      code: 'INSTALLER_POSTGRES_SERVER_START_FAILED',
+      exitCode: start.exitCode,
+      message: 'Managed PostgreSQL server failed to start.',
+    };
+  }
+  await waitForApplicationDatabase(config, SERVER_READY_TIMEOUT_MS);
+  return { ok: true, code: 'INSTALLER_POSTGRES_RUNTIME_STARTED' };
+}
+
 function getManagedPostgresProvisioningStatus({ userDataPath } = {}) {
   const latest = userDataPath ? repository.getLatestProvisioningOperation(userDataPath) : null;
   const vcRuntime = vcRuntimePrerequisite.assessVcRuntimePrerequisite();
@@ -1105,7 +1603,10 @@ module.exports = {
   CERTIFICATION_TOKEN_ENV,
   assessManagedPostgresPreflight,
   assertCertificationExecutionGate,
+  assessDeployableProvisioningAuthorization,
   executeCertificationProvisioning,
+  executeInstallerDeploymentProvisioning,
+  ensureManagedPostgresRuntimeStarted,
   getManagedPostgresProvisioningStatus,
   getFreeLocalPort,
   managedInstallRoot,

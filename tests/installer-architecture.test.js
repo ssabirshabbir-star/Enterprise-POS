@@ -76,6 +76,12 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.match(html, /Database Detection/);
   assert.match(html, /Connect or Install/);
   assert.match(html, /Run initialization/);
+  assert.match(html, /Install managed PostgreSQL/);
+  assert.doesNotMatch(html, /installerPostgresProvisionButton[^>]*disabled/);
+  assert.match(html, /managedProvisioningCompleted/);
+  assert.match(html, /maybeAutoProvisionManagedPostgres/);
+  assert.match(html, /INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED/);
+  assert.match(html, /\? \{ admin: adminPayload\(\) \}/);
   assert.match(html, /installerAdminUsername/);
   assert.match(html, /installerAdminPassword/);
   assert.match(html, /installerStoreId/);

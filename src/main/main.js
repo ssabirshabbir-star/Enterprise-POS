@@ -30,6 +30,9 @@ const settingsRepository = require('./features/settings/settings.repository');
 const { createGuardedIpcMain } = require('./features/restore-engine/restore-maintenance-guard');
 const installerConfigStore = require('./installer/installer-config.store');
 const { registerInstallerRoutes } = require('./installer/installer.controller');
+const {
+  ensureManagedPostgresRuntimeStarted,
+} = require('./installer/postgres-provisioning.service');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -170,6 +173,14 @@ app.whenReady().then(async () => {
       );
     }
     if (installationConfig.ok) {
+      const runtime = await ensureManagedPostgresRuntimeStarted({
+        userDataPath: app.getPath('userData'),
+      });
+      if (!runtime.ok) {
+        const error = new Error(runtime.message || 'Managed PostgreSQL runtime is not ready.');
+        error.code = runtime.code || 'MANAGED_DATABASE_CONNECTION_FAILED';
+        throw error;
+      }
       delete process.env.ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE;
     } else {
       process.env.ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE = installationConfig.code;

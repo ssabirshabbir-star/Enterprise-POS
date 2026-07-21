@@ -12,7 +12,7 @@ const DEFAULT_POSTGRES_INPUT =
   'D:\\Enterprise-POS-release-inputs\\postgres\\postgresql-17.10-2-windows-x64-binaries.zip';
 const DEFAULT_VC_INPUT =
   'D:\\Enterprise-POS-release-inputs\\prerequisites\\microsoft-vc-runtime\\vc_redist.x64.exe';
-const ALLOWED_MODES = new Set(['offline-certification', 'production']);
+const ALLOWED_MODES = new Set(['offline-certification', 'deployable', 'production']);
 const DETERMINISTIC_PACKAGING_EVIDENCE_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -88,11 +88,11 @@ function assertMode(mode) {
 
 function assertOfflineModeAllowed({ mode, postgresManifest, vcManifest, releaseAuth }) {
   assertMode(mode);
-  if (mode === 'offline-certification') {
+  if (mode === 'offline-certification' || mode === 'deployable') {
     if (releaseAuth.record?.authorizationStatus === 'approved') {
       throw codeError(
         'OFFLINE_INSTALLER_CERTIFICATION_MODE_AUTHORIZATION_UNEXPECTED',
-        'Certification builds must not consume production release authorization.'
+        `${mode} builds must not consume production release authorization.`
       );
     }
     return;
@@ -171,7 +171,7 @@ async function prepareOfflineInstallerPayloads(options = {}) {
     postgresManifest,
     {
       archivePath: postgresArchive,
-      allowRedistributionNotCertified: mode === 'offline-certification',
+      allowRedistributionNotCertified: mode === 'offline-certification' || mode === 'deployable',
     }
   );
   if (!postgresVerification.ok) {
@@ -234,9 +234,13 @@ async function prepareOfflineInstallerPayloads(options = {}) {
     generatedAt: DETERMINISTIC_PACKAGING_EVIDENCE_TIMESTAMP,
     buildMode: mode,
     classification:
-      mode === 'offline-certification' ? 'offline-certification-unsigned' : 'production',
+      mode === 'offline-certification'
+        ? 'offline-certification-unsigned'
+        : mode === 'deployable'
+          ? 'deployable-offline-installer'
+          : 'production',
     networkDownloadPermitted: false,
-    productionProvisioningEnabled: false,
+    productionProvisioningEnabled: mode === 'deployable' || mode === 'production',
     redistributionStatus: postgresManifest.redistributionStatus,
     releaseAuthorizationStatus: releaseAuth.record.authorizationStatus,
     postgresql: {

@@ -67,11 +67,11 @@
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 class="text-sm font-semibold text-amber-950">Managed PostgreSQL runtime</h3>
-                  <p class="mt-1 text-xs text-amber-800">Bundled PostgreSQL provisioning is prepared for the installer, but it remains blocked until a checksum-pinned, license-audited Windows server payload is packaged and certified.</p>
+                  <p class="mt-1 text-xs text-amber-800">Use the bundled PostgreSQL runtime for this terminal. Enterprise POS verifies the pinned payload, installs required runtime prerequisites, and stores the database credential through the desktop secure storage layer.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <button id="installerPostgresPreflightButton" class="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800">Check managed runtime</button>
-                  <button id="installerPostgresProvisionButton" class="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-500" disabled title="Managed runtime provisioning is blocked until the packaged PostgreSQL payload is certified.">Install managed PostgreSQL</button>
+                  <button id="installerPostgresProvisionButton" class="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-800">Install managed PostgreSQL</button>
                 </div>
               </div>
               <div id="installerManagedPostgresStatus" class="mt-3 rounded-md bg-white p-3 text-xs text-amber-900">Managed runtime preflight not loaded yet.</div>
@@ -139,6 +139,8 @@
         const node = document.querySelector(id);
         if (node) node.textContent = value || '-';
       };
+      let managedProvisioningCompleted = false;
+      let managedAutoProvisionAttempted = false;
       document.querySelector('#setupError').textContent = params.get('error') || 'Database connection failed.';
       text('#setupDatabaseStatus', params.get('databaseStatus') || 'Not ready');
       text('#setupMigrationStatus', params.get('migrationStatus') || 'Pending');
@@ -203,6 +205,14 @@
         const node = document.querySelector('#installerManagedPostgresStatus');
         if (!node) return;
         const safe = result || {};
+        if (
+          safe.ok === true &&
+          (safe.code === 'INSTALLER_POSTGRES_DEPLOYABLE_PROVISIONING_COMPLETED' ||
+            safe.code === 'INSTALLER_POSTGRES_PROVISIONING_ALREADY_COMPLETED' ||
+            safe.operation?.state === 'COMPLETED')
+        ) {
+          managedProvisioningCompleted = true;
+        }
         const payload = safe.payload || safe.preflight?.payload || {};
         const blockers = safe.blockers || safe.preflight?.blockers || [];
         node.textContent = JSON.stringify({
@@ -214,6 +224,19 @@
           provisioningCode: safe.code || null,
           blockers,
         });
+      };
+      const maybeAutoProvisionManagedPostgres = (result) => {
+        if (managedAutoProvisionAttempted || managedProvisioningCompleted) return;
+        const deployable = result?.deployableAuthorization || result?.preflight?.deployableAuthorization;
+        if (result?.ok === true && deployable?.ok === true) {
+          managedAutoProvisionAttempted = true;
+          showManagedPostgresStatus({
+            ...result,
+            code: 'INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED',
+            blockers: [],
+          });
+          callInstaller('provisionManagedPostgres').then(showManagedPostgresStatus);
+        }
       };
       const showVcRuntimeStatus = (result) => {
         const safe = result || {};
@@ -236,11 +259,19 @@
       document.querySelector('#installerTestButton')?.addEventListener('click', () => callInstaller('testDatabase', installerPayload()).then(showInstallerStatus));
       document.querySelector('#installerSaveButton')?.addEventListener('click', () => callInstaller('saveConfiguration', installerPayload()).then(showInstallerStatus));
       document.querySelector('#installerCreateButton')?.addEventListener('click', () => callInstaller('createDatabase', installerPayload()).then(showInstallerStatus));
-      document.querySelector('#installerInitializeButton')?.addEventListener('click', () => callInstaller('initializeDatabase', { config: installerPayload(), admin: adminPayload() }).then(showInstallerStatus));
+      document.querySelector('#installerInitializeButton')?.addEventListener('click', () => {
+        const payload = managedProvisioningCompleted
+          ? { admin: adminPayload() }
+          : { config: installerPayload(), admin: adminPayload() };
+        callInstaller('initializeDatabase', payload).then(showInstallerStatus);
+      });
       if (code !== 'RESTORE_MAINTENANCE_LOCKOUT') {
         callInstaller('status').then(showInstallerStatus).catch(() => showInstallerStatus({ ok: false, message: 'Installer diagnostics could not be loaded.' }));
         callInstaller('vcRuntimeStatus').then(showVcRuntimeStatus).catch(() => showVcRuntimeStatus({ ok: false, code: 'VC_RUNTIME_STATUS_UNAVAILABLE' }));
-        callInstaller('postgresPreflight').then(showManagedPostgresStatus).catch(() => showManagedPostgresStatus({ ok: false, code: 'INSTALLER_POSTGRES_PREFLIGHT_UNAVAILABLE' }));
+        callInstaller('postgresPreflight').then((result) => {
+          showManagedPostgresStatus(result);
+          maybeAutoProvisionManagedPostgres(result);
+        }).catch(() => showManagedPostgresStatus({ ok: false, code: 'INSTALLER_POSTGRES_PREFLIGHT_UNAVAILABLE' }));
       }
       if (window.posApi?.app?.info) {
         window.posApi.app.info().then((result) => {

@@ -209,6 +209,33 @@ test('offline certification packaging copies exact verified payloads into determ
   }
 });
 
+test('deployable offline packaging enables only the installer milestone provisioning gate', async () => {
+  const fixture = await createFixture();
+  const originalVerifier = vcRuntime.verifyVcRuntimePayload;
+  vcRuntime.verifyVcRuntimePayload = ({ root }) => ({
+    ok: true,
+    digest: sha256File(path.join(root, 'vc_redist.x64.exe')),
+    size: fs.statSync(path.join(root, 'vc_redist.x64.exe')).size,
+    fileVersion: '14.51.36247.0',
+    signature: { status: 'Valid', signer: 'CN=Microsoft Corporation' },
+  });
+  try {
+    const result = await offlinePackaging.prepareOfflineInstallerPayloads({
+      mode: 'deployable',
+      sourceRoot: fixture.sourceRoot,
+      postgresArchive: fixture.postgresInput,
+      vcRuntimeExe: fixture.vcInput,
+    });
+
+    assert.equal(result.classification, 'deployable-offline-installer');
+    assert.equal(result.productionProvisioningEnabled, true);
+    assert.equal(result.redistributionStatus, 'not-certified');
+    assert.equal(result.releaseAuthorizationStatus, 'pending');
+  } finally {
+    vcRuntime.verifyVcRuntimePayload = originalVerifier;
+  }
+});
+
 test('offline packaging fails closed for missing notices, wrong payload hashes, and production authorization gaps', async () => {
   const missingNotice = await createFixture();
   fs.rmSync(path.join(missingNotice.postgresRoot, 'THIRD-PARTY-NOTICES.md'));
@@ -256,4 +283,15 @@ test('offline certification builder config includes payload binaries under a non
   assert.ok(postgres.filter.includes('*.zip'));
   assert.ok(prerequisites.filter.includes('**/vc_redist.x64.exe'));
   assert.doesNotMatch(config.artifactName, /production/i);
+});
+
+test('deployable builder config emits a deployable offline artifact and keeps bundled payloads', () => {
+  const config = require('../electron-builder.deployable.cjs');
+  const postgres = config.extraResources.find((entry) => entry.to === 'postgres');
+  const prerequisites = config.extraResources.find((entry) => entry.to === 'prerequisites');
+
+  assert.match(config.artifactName, /offline\.\$\{ext\}/);
+  assert.doesNotMatch(config.artifactName, /certification/i);
+  assert.ok(postgres.filter.includes('*.zip'));
+  assert.ok(prerequisites.filter.includes('**/vc_redist.x64.exe'));
 });
