@@ -86,10 +86,11 @@ async function cleanupStaleRefreshTokensSafely() {
 }
 
 async function persistFreshSession(user, oldRefreshTokenId = null) {
+  let tokenId = null;
   try {
     const accessToken = createAccessToken(user);
     const expiresAt = getRefreshTokenExpiry();
-    const tokenId = cryptoRandomId();
+    tokenId = cryptoRandomId();
 
     const refreshToken = createRefreshToken({ user, tokenId });
     const tokenHash = hashToken(refreshToken);
@@ -111,11 +112,23 @@ async function persistFreshSession(user, oldRefreshTokenId = null) {
       });
     }
 
-    sessionStore.setAccessToken(accessToken);
     sessionStore.persistRefreshToken(refreshToken);
+    sessionStore.setAccessToken(accessToken);
 
     return { accessToken, refreshToken };
   } catch (err) {
+    if (tokenId) {
+      try {
+        await authRepository.revokeRefreshToken(tokenId);
+      } catch (revokeError) {
+        logError('Session token cleanup failed:', revokeError);
+      }
+    }
+    try {
+      sessionStore.clearSession();
+    } catch (clearError) {
+      logError('Session cleanup failed:', clearError);
+    }
     logError('Session persist failed:', err);
     return null;
   }
@@ -174,9 +187,24 @@ async function login({ username, password }) {
       return { ok: false, message: 'Invalid username or password.' };
     }
 
-    await authRepository.markLoginSuccess(user.id);
+    const session = await persistFreshSession(user);
+    if (!session) {
+      await auditAuthEvent({
+        userId: user.id,
+        action: 'auth.login',
+        status: 'failed',
+        message: 'Login session could not be established',
+        metadata: { username: user.username, reason: 'session_persist_failed' },
+      });
+      return {
+        ok: false,
+        code: 'AUTH_SESSION_UNAVAILABLE',
+        message:
+          'Secure login session could not be established. Close and reopen Enterprise POS, then sign in again.',
+      };
+    }
 
-    await persistFreshSession(user);
+    await authRepository.markLoginSuccess(user.id);
 
     user.permissions = await authRepository.getUserPermissions(user.id);
     await auditAuthEvent({
