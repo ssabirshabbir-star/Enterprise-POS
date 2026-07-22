@@ -284,7 +284,21 @@ async function refreshSession() {
       return { ok: false, message: 'User inactive.' };
     }
 
-    await persistFreshSession(user, payload.jti);
+    const session = await persistFreshSession(user, payload.jti);
+    if (!session) {
+      await auditAuthEvent({
+        userId: user.id,
+        action: 'auth.refresh',
+        status: 'failed',
+        message: 'Session refresh could not be persisted',
+        metadata: { username: user.username, reason: 'session_persist_failed' },
+      });
+      return {
+        ok: false,
+        code: 'AUTH_SESSION_UNAVAILABLE',
+        message: 'Secure login session could not be restored. Please sign in again.',
+      };
+    }
 
     user.permissions = await authRepository.getUserPermissions(user.id);
     await auditAuthEvent({
