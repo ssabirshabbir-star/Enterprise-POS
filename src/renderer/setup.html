@@ -176,6 +176,7 @@
         if (node) node.textContent = value || '-';
       };
       let managedProvisioningCompleted = false;
+      let managedProvisioningInProgress = false;
       let managedAutoProvisionAttempted = false;
       let currentStep = 2;
       const stepCopy = {
@@ -199,6 +200,8 @@
             'Database credentials could not be decrypted for this Windows user. Use the controlled recovery flow so existing business data is not overwritten.',
           INSTALLER_MANAGED_CONFIG_REPLACEMENT_BLOCKED:
             'The managed database is already configured. Manual connection details were not saved because they could replace the secure managed credential.',
+          INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS:
+            'The bundled PostgreSQL setup is still running. Enterprise POS will not save manual database settings or create a separate database while managed setup is active.',
           INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED:
             'Preparing the bundled PostgreSQL database. This can take a few minutes on a clean computer.',
           INSTALLER_POSTGRES_DEPLOYABLE_PROVISIONING_COMPLETED:
@@ -245,6 +248,32 @@
         const next = document.querySelector('#installerNextButton');
         if (next) next.hidden = [3, 4, 5, 6, 8].includes(currentStep);
       };
+      const setManualConfigurationEnabled = (enabled) => {
+        ['#installerHost', '#installerPort', '#installerDatabase', '#installerUsername', '#installerPassword', '#installerSslMode'].forEach((selector) => {
+          const node = document.querySelector(selector);
+          if (node) node.disabled = !enabled;
+        });
+        ['#installerSaveButton', '#installerCreateButton', '#installerTestButton'].forEach((selector) => {
+          const node = document.querySelector(selector);
+          if (node) node.disabled = !enabled;
+        });
+      };
+      const managedProvisioningTerminalStates = new Set([
+        'COMPLETED',
+        'FAILED',
+        'ROLLED_BACK',
+        'MANUAL_RECOVERY_REQUIRED',
+        'CANCELLED_BEFORE_MUTATION',
+      ]);
+      const managedProvisioningStateFrom = (result) => result?.operation?.state || result?.latest?.state || result?.state || null;
+      const updateManagedProvisioningProgress = (result) => {
+        const state = managedProvisioningStateFrom(result);
+        managedProvisioningInProgress =
+          !managedProvisioningCompleted &&
+          Boolean(state) &&
+          !managedProvisioningTerminalStates.has(String(state));
+        setManualConfigurationEnabled(!managedProvisioningInProgress && !managedProvisioningCompleted);
+      };
       text('#setupError', userMessageForCode(code, params.get('error') || 'Database connection failed.'));
       text('#setupDatabaseStatus', params.get('databaseStatus') || 'Not ready');
       text('#setupMigrationStatus', params.get('migrationStatus') || 'Pending');
@@ -278,6 +307,8 @@
         }
       } else if (code === 'FIRST_RUN_ADMIN_REQUIRED') {
         managedProvisioningCompleted = true;
+        managedProvisioningInProgress = false;
+        setManualConfigurationEnabled(false);
         setWizardStep(6);
         text('#setupTitle', 'Create first administrator');
         text(
@@ -342,8 +373,12 @@
             safe.operation?.state === 'COMPLETED')
         ) {
           managedProvisioningCompleted = true;
+          managedProvisioningInProgress = false;
+          setManualConfigurationEnabled(false);
           setWizardStep(6);
           setStatus(userMessageForCode(safe.code), 'success');
+        } else {
+          updateManagedProvisioningProgress(safe);
         }
         const payload = safe.payload || safe.preflight?.payload || {};
         const blockers = safe.blockers || safe.preflight?.blockers || [];
@@ -364,6 +399,8 @@
         const deployable = result?.deployableAuthorization || result?.preflight?.deployableAuthorization;
         if (result?.ok === true && deployable?.ok === true) {
           managedAutoProvisionAttempted = true;
+          managedProvisioningInProgress = true;
+          setManualConfigurationEnabled(false);
           showManagedPostgresStatus({
             ...result,
             code: 'INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED',
@@ -400,9 +437,25 @@
       document.querySelector('#installerPostgresPreflightButton')?.addEventListener('click', () => callInstaller('postgresPreflight').then(showManagedPostgresStatus));
       document.querySelector('#installerPostgresProvisionButton')?.addEventListener('click', () => callInstaller('provisionManagedPostgres').then(showManagedPostgresStatus));
       document.querySelector('#installerTestButton')?.addEventListener('click', () => callInstaller('testDatabase', installerPayload()).then(showInstallerStatus));
-      document.querySelector('#installerSaveButton')?.addEventListener('click', () => callInstaller('saveConfiguration', installerPayload()).then(showInstallerStatus));
-      document.querySelector('#installerCreateButton')?.addEventListener('click', () => callInstaller('createDatabase', installerPayload()).then(showInstallerStatus));
+      document.querySelector('#installerSaveButton')?.addEventListener('click', () => {
+        if (managedProvisioningInProgress) {
+          showInstallerStatus({ ok: false, code: 'INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS' });
+          return;
+        }
+        callInstaller('saveConfiguration', installerPayload()).then(showInstallerStatus);
+      });
+      document.querySelector('#installerCreateButton')?.addEventListener('click', () => {
+        if (managedProvisioningInProgress) {
+          showInstallerStatus({ ok: false, code: 'INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS' });
+          return;
+        }
+        callInstaller('createDatabase', installerPayload()).then(showInstallerStatus);
+      });
       document.querySelector('#installerInitializeButton')?.addEventListener('click', () => {
+        if (managedProvisioningInProgress && !managedProvisioningCompleted) {
+          showInstallerStatus({ ok: false, code: 'INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS' });
+          return;
+        }
         const payload = managedProvisioningCompleted
           ? { admin: adminPayload() }
           : { config: installerPayload(), admin: adminPayload() };

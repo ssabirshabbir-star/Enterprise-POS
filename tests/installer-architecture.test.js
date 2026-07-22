@@ -7,6 +7,8 @@ const vm = require('node:vm');
 
 const configStore = require('../src/main/installer/installer-config.store');
 const diagnostics = require('../src/main/installer/installer-diagnostics.service');
+const { registerInstallerRoutes } = require('../src/main/installer/installer.controller');
+const provisioningRepository = require('../src/main/installer/postgres-provisioning.repository');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
@@ -87,14 +89,18 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.match(html, /userMessageForCode/);
   assert.match(html, /MANAGED_DATABASE_CREDENTIAL_UNAVAILABLE/);
   assert.match(html, /INSTALLER_MANAGED_CONFIG_REPLACEMENT_BLOCKED/);
+  assert.match(html, /INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS/);
   assert.match(html, /Install managed PostgreSQL/);
   assert.match(html, /installerAdminConfirmPassword/);
   assert.match(html, /FIRST_RUN_ADMIN_REQUIRED/);
   assert.doesNotMatch(html, /installerPostgresProvisionButton[^>]*disabled/);
   assert.doesNotMatch(html, /JSON\.stringify/);
   assert.match(html, /managedProvisioningCompleted/);
+  assert.match(html, /managedProvisioningInProgress/);
+  assert.match(html, /setManualConfigurationEnabled/);
   assert.match(html, /maybeAutoProvisionManagedPostgres/);
   assert.match(html, /INSTALLER_POSTGRES_AUTO_PROVISIONING_STARTED/);
+  assert.match(html, /if \(managedProvisioningInProgress && !managedProvisioningCompleted\)/);
   assert.match(html, /\? \{ admin: adminPayload\(\) \}/);
   assert.match(html, /installerAdminUsername/);
   assert.match(html, /installerAdminPassword/);
@@ -140,7 +146,56 @@ test('installer controller provides setup-only IPC routes', () => {
   assert.match(controller, /\/installer\/database\/test/);
   assert.match(controller, /\/installer\/database\/create/);
   assert.match(controller, /\/installer\/database\/initialize/);
+  assert.match(controller, /INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS/);
+  assert.match(controller, /getLatestProvisioningOperation/);
+  assert.match(controller, /isProvisioningTerminal/);
+  assert.match(
+    controller,
+    /assertNoActiveManagedProvisioningOverride\(app\.getPath\('userData'\)\)/
+  );
   assert.doesNotMatch(controller, /license|update|restoreBackup/);
+});
+
+test('setup IPC rejects manual configuration while managed provisioning is active', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'epos-active-provisioning-'));
+  provisioningRepository.saveProvisioningOperation(dir, {
+    operationId: 'active-managed-provisioning',
+    type: 'MANAGED_POSTGRES_PROVISIONING',
+    state: 'ARCHIVE_VERIFIED',
+    updatedAt: '2026-07-22T00:00:00.000Z',
+  });
+  const handlers = new Map();
+  registerInstallerRoutes(
+    {
+      handle(name, handler) {
+        handlers.set(name, handler);
+      },
+    },
+    {
+      getPath(name) {
+        assert.equal(name, 'userData');
+        return dir;
+      },
+    }
+  );
+
+  const manualConfig = {
+    host: 'localhost',
+    port: 5432,
+    database: 'enterprise_pos',
+    username: 'postgres',
+    password: '',
+    sslMode: 'disable',
+  };
+  for (const [route, payload] of [
+    ['/installer/config/save', manualConfig],
+    ['/installer/database/create', manualConfig],
+    ['/installer/database/initialize', { config: manualConfig, admin: { username: 'admin' } }],
+  ]) {
+    const result = await handlers.get(route)(null, payload);
+    assert.equal(result.ok, false, route);
+    assert.equal(result.code, 'INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS', route);
+  }
 });
 
 test('first-run administrator creation is validated and transactionally replay-safe', () => {

@@ -1,6 +1,8 @@
 const installerConfigStore = require('./installer-config.store');
 const installerDiagnostics = require('./installer-diagnostics.service');
 const postgresProvisioning = require('./postgres-provisioning.service');
+const postgresProvisioningRepository = require('./postgres-provisioning.repository');
+const { isProvisioningTerminal } = require('./postgres-provisioning.model');
 const vcRuntimePrerequisite = require('./vc-runtime-prerequisite.service');
 
 function safeError(error) {
@@ -36,6 +38,26 @@ function assertManagedConfigurationNotReplaced(userDataPath, payload = {}) {
   );
 }
 
+function getActiveManagedProvisioningOperation(userDataPath) {
+  if (!userDataPath) return null;
+  try {
+    const latest = postgresProvisioningRepository.getLatestProvisioningOperation(userDataPath);
+    if (!latest || isProvisioningTerminal(latest.state)) return null;
+    return latest;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function assertNoActiveManagedProvisioningOverride(userDataPath) {
+  const active = getActiveManagedProvisioningOperation(userDataPath);
+  if (!active) return;
+  throw codeError(
+    'INSTALLER_MANAGED_PROVISIONING_IN_PROGRESS',
+    'The installer-managed database setup is still running. Enterprise POS will not save manual database settings or create a separate database until managed setup has completed or entered recovery.'
+  );
+}
+
 function registerInstallerRoutes(ipcMain, app) {
   ipcMain.handle('/installer/status', async () => {
     try {
@@ -49,6 +71,7 @@ function registerInstallerRoutes(ipcMain, app) {
 
   ipcMain.handle('/installer/config/save', async (_event, payload = {}) => {
     try {
+      assertNoActiveManagedProvisioningOverride(app.getPath('userData'));
       assertManagedConfigurationNotReplaced(app.getPath('userData'), payload);
       const result = installerConfigStore.saveInstallationConfig(app.getPath('userData'), payload);
       installerConfigStore.loadAndApplyInstallationConfig(app.getPath('userData'));
@@ -68,6 +91,7 @@ function registerInstallerRoutes(ipcMain, app) {
 
   ipcMain.handle('/installer/database/create', async (_event, payload = {}) => {
     try {
+      assertNoActiveManagedProvisioningOverride(app.getPath('userData'));
       return await installerDiagnostics.createDatabaseIfMissing(payload || {});
     } catch (error) {
       return safeError(error);
@@ -76,6 +100,9 @@ function registerInstallerRoutes(ipcMain, app) {
 
   ipcMain.handle('/installer/database/initialize', async (_event, payload = {}) => {
     try {
+      if (payload?.config || payload?.host || payload?.database || payload?.username) {
+        assertNoActiveManagedProvisioningOverride(app.getPath('userData'));
+      }
       return await installerDiagnostics.initializeConfiguredDatabase({
         userDataPath: app.getPath('userData'),
         config: payload.config || payload,
