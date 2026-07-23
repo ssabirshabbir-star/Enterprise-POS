@@ -25,6 +25,7 @@ const { registerAccessControlRoutes } = require('./features/access-control/acces
 const { registerDeploymentRoutes } = require('./features/deployment/deployment.controller');
 const { registerLuckyDrawV2Routes } = require('./features/luckydraw_v2');
 const { initializeSessionStore } = require('./security/session-store');
+const { ensureAuthSecrets } = require('./security/auth-secret-store');
 const { logError } = require('./utils/safe-logger');
 const settingsRepository = require('./features/settings/settings.repository');
 const { createGuardedIpcMain } = require('./features/restore-engine/restore-maintenance-guard');
@@ -169,6 +170,13 @@ app.whenReady().then(async () => {
     process.env.ELECTRON_IS_PACKAGED = 'true';
   }
   loadEnvironment(app);
+  try {
+    ensureAuthSecrets(app);
+  } catch (error) {
+    process.env.ENTERPRISE_POS_AUTH_SECRET_ERROR_CODE =
+      error.code || 'AUTH_SECRET_STORAGE_UNAVAILABLE';
+    logError('Auth secret initialization failed:', error);
+  }
   try {
     let installationConfig = installerConfigStore.loadAndApplyInstallationConfig(
       app.getPath('userData')

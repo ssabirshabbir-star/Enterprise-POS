@@ -127,6 +127,8 @@ test('preload and main expose installer foundation with disabled restore UI', ()
   assert.match(preload, /\/installer\/status/);
   assert.match(preload, /\/installer\/database\/initialize/);
   assert.match(main, /registerInstallerRoutes\(ipcMain, app\)/);
+  assert.match(main, /ensureAuthSecrets\(app\)/);
+  assert.match(main, /ENTERPRISE_POS_AUTH_SECRET_ERROR_CODE/);
   assert.match(main, /loadAndApplyInstallationConfig/);
   assert.match(main, /createConfigFromEnvironment/);
   assert.match(main, /hasUsableUserAccounts/);
