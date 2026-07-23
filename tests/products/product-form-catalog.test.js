@@ -192,6 +192,52 @@ test('Product renderer preserves form state while catalog dialog is used', () =>
   assert.doesNotMatch(saveCatalogBlock, /\$id\('form'\)\?\.reset\(\)/);
 });
 
+test('Product Form restores keyboard focus after adding catalog entries', () => {
+  const renderer = read(productsRendererPath);
+  const html = read(indexHtmlPath);
+  const css = read(compactCssPath);
+
+  assert.match(renderer, /let _catalogReturnFocusType = null;/);
+  assert.match(renderer, /function restoreCatalogFocus\(type\)/);
+  assert.match(renderer, /catalogTargetSelect\(type \|\| _catalogReturnFocusType\)/);
+  assert.match(
+    renderer,
+    /closeCatalogDialog\(\{ restoreFocus: false \}\);[\s\S]*restoreCatalogFocus\(type\)/
+  );
+  assert.match(
+    renderer,
+    /showFormMsg\(`\$\{config\.label\} "\$\{payload\.name\}" added and selected\.`\)/
+  );
+
+  for (const type of ['categories', 'brands', 'units', 'variants']) {
+    const match = html.match(new RegExp(`<button[^>]+data-catalog-open="${type}"[^>]*>`));
+    assert.ok(match, `${type} add button should exist`);
+    assert.match(match[0], /aria-label="Add or manage/);
+    assert.match(match[0], /title="Add or manage/);
+  }
+
+  assert.match(css, /#productFormPanel button:focus-visible/);
+  assert.match(css, /#productFormPanel \.pf-control-with-add:focus-within/);
+});
+
+test('Product Form supports keyboard-first high-volume entry', () => {
+  const renderer = read(productsRendererPath);
+  const html = read(indexHtmlPath);
+
+  assert.match(html, /id="productFormPanel"[^>]+aria-hidden="true"/);
+  assert.match(renderer, /const PRODUCT_FORM_FOCUS_SELECTOR = \[/);
+  assert.match(renderer, /function focusNextProductField\(current, direction = 1\)/);
+  assert.match(renderer, /function handleProductFormKeydown\(e\)/);
+  assert.match(
+    renderer,
+    /\$id\('form'\)\?\.addEventListener\('keydown', handleProductFormKeydown\)/
+  );
+  assert.match(renderer, /e\.key === 'Enter' && \(e\.ctrlKey \|\| e\.metaKey\)/);
+  assert.match(renderer, /focusNextProductField\(target, e\.shiftKey \? -1 : 1\)/);
+  assert.match(renderer, /handleCatalogDialogKeydown/);
+  assert.match(renderer, /requestSubmit\?\.\(\)/);
+});
+
 test('Product renderer keeps contextual labels for category, brand, and unit filters', () => {
   const renderer = read(productsRendererPath);
   const html = read(path.join(root, 'src', 'main', 'features', 'products', 'index.html'));

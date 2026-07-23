@@ -852,6 +852,14 @@
     box-shadow: 0 0 0 3px rgb(56 104 255 / 0.14);
   }
 
+  #productFormPanel button:focus-visible,
+  #productFormPanel select:focus-visible,
+  #productFormPanel input:focus-visible,
+  #productFormPanel textarea:focus-visible {
+    outline: 3px solid #f59e0b;
+    outline-offset: 2px;
+  }
+
   #productFormPanel .pf-input:disabled {
     cursor: not-allowed;
     background: #f7f9fc;
@@ -868,6 +876,11 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
+  }
+
+  #productFormPanel .pf-control-with-add:focus-within {
+    border-radius: 9px;
+    box-shadow: 0 0 0 3px rgb(245 158 11 / 0.12);
   }
 
   #productFormPanel .pf-add-related {

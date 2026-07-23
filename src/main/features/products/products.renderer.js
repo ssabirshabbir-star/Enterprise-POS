@@ -79,6 +79,7 @@
   let _searchTimer = null; // debounce handle for search input
   let _productRefreshSeq = 0; // prevents stale async list responses from repainting the table
   let _activeCatalogType = null;
+  let _catalogReturnFocusType = null;
   let _productSaveInFlight = false;
   let _catalogSaveInFlight = false;
   const _catalogCache = {
@@ -161,6 +162,74 @@
   }
   function fmt(v) {
     return Number(v || 0).toFixed(2);
+  }
+
+  const PRODUCT_FORM_FOCUS_SELECTOR = [
+    'input:not([type="hidden"]):not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    'button:not([disabled])',
+  ].join(',');
+
+  function isVisibleElement(el) {
+    if (!el || el.closest('.hidden')) return false;
+    return Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects?.().length);
+  }
+
+  function focusElement(el, options = {}) {
+    if (!el) return false;
+    const applyFocus = () => {
+      el.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+      try {
+        el.focus({ preventScroll: true });
+      } catch {
+        el.focus();
+      }
+      if (options.select && typeof el.select === 'function') el.select();
+    };
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(applyFocus);
+    } else {
+      setTimeout(applyFocus, 0);
+    }
+    return true;
+  }
+
+  function focusProductField(id, options = {}) {
+    return focusElement($id(id), options);
+  }
+
+  function catalogTargetSelect(type) {
+    const selectId = CATALOG_CONFIG[type]?.formSelect;
+    return selectId ? $id(selectId) : null;
+  }
+
+  function restoreCatalogFocus(type) {
+    const target = catalogTargetSelect(type || _catalogReturnFocusType);
+    if (target) return focusElement(target);
+    return false;
+  }
+
+  function getProductFormFocusable() {
+    const form = $id('form');
+    if (!form) return [];
+    return Array.from(form.querySelectorAll(PRODUCT_FORM_FOCUS_SELECTOR)).filter(
+      (el) => !el.closest(`#${UI.ids.catalogPanel}`) && isVisibleElement(el)
+    );
+  }
+
+  function focusNextProductField(current, direction = 1) {
+    const focusable = getProductFormFocusable();
+    if (!focusable.length) return false;
+    const index = focusable.indexOf(current);
+    const nextIndex =
+      index >= 0
+        ? (index + direction + focusable.length) % focusable.length
+        : direction > 0
+          ? 0
+          : focusable.length - 1;
+    const next = focusable[nextIndex];
+    return focusElement(next, { select: next?.matches('input:not([type="checkbox"]), textarea') });
   }
 
   // ── Feedback display ──────────────────────────────────────────────────────
@@ -426,7 +495,8 @@
     if (msgEl) msgEl.textContent = '';
     panel.style.display = 'flex';
     panel.classList.remove('hidden');
-    setTimeout(() => $id('productName')?.focus(), 40);
+    panel.setAttribute('aria-hidden', 'false');
+    setTimeout(() => focusProductField('productName', { select: true }), 40);
   }
 
   function closeProductForm() {
@@ -434,10 +504,11 @@
     if (!panel) return;
     panel.style.display = 'none';
     panel.classList.add('hidden');
+    panel.setAttribute('aria-hidden', 'true');
     $id('form')?.reset();
     const idEl = $id('productId');
     if (idEl) idEl.value = '';
-    closeCatalogDialog();
+    closeCatalogDialog({ restoreFocus: false });
   }
 
   // ── Tab state ─────────────────────────────────────────────────────────────
@@ -540,12 +611,15 @@
     return res;
   }
 
-  function closeCatalogDialog() {
+  function closeCatalogDialog(options = {}) {
+    const type = _activeCatalogType;
     const panel = $id('catalogPanel');
     if (!panel) return;
     panel.classList.add('hidden');
     panel.querySelector(UI.selectors.catalogForm)?.reset();
     _activeCatalogType = null;
+    if (options.restoreFocus !== false) restoreCatalogFocus(type);
+    _catalogReturnFocusType = null;
   }
 
   function showCatalogMessage(text, isError) {
@@ -567,6 +641,7 @@
     }
 
     _activeCatalogType = type;
+    _catalogReturnFocusType = type;
     form.reset();
     form.dataset.type = type;
     const title = $id('pfCatalogTitle');
@@ -585,7 +660,7 @@
     showCatalogMessage('');
     panel.classList.remove('hidden');
     await refreshCatalogType(type);
-    name?.focus();
+    focusElement(name, { select: true });
   }
 
   async function saveProductFromForm(e) {
@@ -687,7 +762,9 @@
         showCatalogMessage(refreshRes?.message || `Unable to refresh ${type}.`, true);
         return;
       }
-      closeCatalogDialog();
+      closeCatalogDialog({ restoreFocus: false });
+      showFormMsg(`${config.label} "${payload.name}" added and selected.`);
+      restoreCatalogFocus(type);
     } finally {
       _catalogSaveInFlight = false;
       if (submitBtn) submitBtn.disabled = false;
@@ -705,6 +782,35 @@
     }
     showCatalogMessage(res.message || `${type} deleted.`);
     await refreshCatalogType(type);
+  }
+
+  function handleProductFormKeydown(e) {
+    const target = e.target;
+    if (!target || target.closest(`#${UI.ids.catalogPanel}`)) return;
+
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      $id('saveProductButton')?.click();
+      return;
+    }
+
+    if (e.key !== 'Enter' || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (!target.matches('input:not([type="checkbox"]), select')) return;
+    e.preventDefault();
+    focusNextProductField(target, e.shiftKey ? -1 : 1);
+  }
+
+  function handleCatalogDialogKeydown(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCatalogDialog();
+      return;
+    }
+
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      e.currentTarget.querySelector(UI.selectors.catalogForm)?.requestSubmit?.();
+    }
   }
 
   function renderUI(state) {
@@ -785,6 +891,7 @@
 
     // ── Product form save (inside shell modal) ────────────────────────────────
     $id('form')?.addEventListener('submit', saveProductFromForm);
+    $id('form')?.addEventListener('keydown', handleProductFormKeydown);
     $id('trackExpiry')?.addEventListener('change', syncExpiryPolicyState);
 
     // ── Close product form ────────────────────────────────────────────────────
@@ -804,6 +911,8 @@
     document
       .querySelectorAll(UI.selectors.catalogClose)
       .forEach((button) => button.addEventListener('click', closeCatalogDialog));
+
+    $id('catalogPanel')?.addEventListener('keydown', handleCatalogDialogKeydown);
 
     // ── Catalog form — add item ───────────────────────────────────────────────
     document
