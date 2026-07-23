@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { Pool } = require('pg');
 
+const { getPackageVersion } = require('../app-version');
 const { generateManagedPostgresPassword } = require('./postgres-credential.service');
 const {
   PROVISIONING_STATES,
@@ -891,7 +892,7 @@ async function executeCertificationProvisioning(options = {}) {
         sslMode: 'disable',
         mode: 'certification-managed-postgres',
         certificationOnly: true,
-        installerVersion: '1.0.0',
+        installerVersion: getPackageVersion(),
         managedPostgres: {
           runtimeRoot,
           dataDir,
@@ -1263,7 +1264,7 @@ async function executeInstallerDeploymentProvisioning(options = {}) {
       sslMode: 'disable',
       managed: true,
       mode: configStore.CONFIG_MODES.INSTALLER_MANAGED,
-      installerVersion: '1.0.0',
+      installerVersion: getPackageVersion(),
       managedPostgres: {
         runtimeRoot,
         dataDir,

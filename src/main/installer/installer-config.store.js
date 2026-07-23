@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { getPackageVersion } = require('../app-version');
 const managedIdentity = require('./managed-database-identity.model');
 
 const CONFIG_VERSION = 2;
@@ -262,7 +263,7 @@ function createInstallationRecord(payload = {}, options = {}) {
     managedPostgres: payload.managedPostgres || null,
     managedIdentity: localManagedIdentity,
     storeId: payload.storeId || null,
-    installerVersion: payload.installerVersion || '1.0.0',
+    installerVersion: payload.installerVersion || getPackageVersion(),
     legacyMigratedAt: payload.legacyMigratedAt || null,
     createdAt: payload.createdAt || now,
     updatedAt: now,
@@ -278,6 +279,46 @@ function saveInstallationConfig(userDataPath, payload = {}, options = {}) {
   fs.writeFileSync(temporary, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
   fs.renameSync(temporary, target);
   return { ok: true, path: target, config: redactConfig(record) };
+}
+
+function writeInstallationRecord(userDataPath, record) {
+  const target = installationConfigPath(userDataPath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const withIntegrity = attachIntegrity(record);
+  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(withIntegrity, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(temporary, target);
+  return { ok: true, path: target, config: redactConfig(withIntegrity) };
+}
+
+function updateInstallationMetadata(userDataPath, metadata = {}, options = {}) {
+  const target = installationConfigPath(userDataPath);
+  if (!fs.existsSync(target)) return { ok: false, code: 'INSTALLER_CONFIG_MISSING', path: target };
+  let record;
+  try {
+    record = JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch {
+    return { ok: false, code: 'MANAGED_DATABASE_CONFIG_CORRUPT', path: target };
+  }
+  if (!SUPPORTED_CONFIG_VERSIONS.has(Number(record.version))) {
+    return { ok: false, code: 'MANAGED_DATABASE_CONFIG_VERSION_UNSUPPORTED', path: target };
+  }
+  const integrity = verifyIntegrity(record);
+  if (!integrity.ok) return { ok: false, code: integrity.code, path: target };
+  const allowed = new Set([
+    'installerVersion',
+    'lastSuccessfulConnectionAt',
+    'legacyMigratedAt',
+    'storeId',
+  ]);
+  const next = {
+    ...record,
+    updatedAt: options.now || new Date().toISOString(),
+  };
+  for (const [key, value] of Object.entries(metadata || {})) {
+    if (allowed.has(key)) next[key] = value;
+  }
+  return writeInstallationRecord(userDataPath, next);
 }
 
 function loadInstallationConfig(userDataPath, options = {}) {
@@ -389,4 +430,5 @@ module.exports = {
   normalizeDatabaseConfig,
   redactConfig,
   saveInstallationConfig,
+  updateInstallationMetadata,
 };

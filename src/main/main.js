@@ -27,6 +27,7 @@ const { registerLuckyDrawV2Routes } = require('./features/luckydraw_v2');
 const { initializeSessionStore } = require('./security/session-store');
 const { ensureAuthSecrets } = require('./security/auth-secret-store');
 const { logError } = require('./utils/safe-logger');
+const { resolveAppVersion } = require('./app-version');
 const settingsRepository = require('./features/settings/settings.repository');
 const { createGuardedIpcMain } = require('./features/restore-engine/restore-maintenance-guard');
 const installerConfigStore = require('./installer/installer-config.store');
@@ -35,6 +36,7 @@ const {
   ensureManagedPostgresRuntimeStarted,
 } = require('./installer/postgres-provisioning.service');
 const installerDiagnostics = require('./installer/installer-diagnostics.service');
+const upgradeService = require('./upgrade/upgrade.service');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
@@ -170,6 +172,8 @@ app.whenReady().then(async () => {
     process.env.ELECTRON_IS_PACKAGED = 'true';
   }
   loadEnvironment(app);
+  const appVersion = resolveAppVersion(app);
+  process.env.ENTERPRISE_POS_APP_VERSION = appVersion;
   try {
     ensureAuthSecrets(app);
   } catch (error) {
@@ -189,7 +193,7 @@ app.whenReady().then(async () => {
       installerConfigStore.saveInstallationConfig(
         app.getPath('userData'),
         installerConfigStore.createConfigFromEnvironment(process.env, {
-          installerVersion: app.getVersion(),
+          installerVersion: appVersion,
           legacyMigratedAt: new Date().toISOString(),
         })
       );
@@ -218,6 +222,10 @@ app.whenReady().then(async () => {
   initializeSessionStore(app);
 
   try {
+    await upgradeService.performStartupUpgrade({
+      userDataPath: app.getPath('userData'),
+      targetVersion: appVersion,
+    });
     await initializeDatabase();
     await ensureStartupManagedDatabaseIdentity();
     const recoveryAssessment = await settingsRepository.getRestoreStartupRecoveryAssessment();
@@ -250,6 +258,7 @@ app.whenReady().then(async () => {
     logError('Database initialization failed:', error);
     startupStatus = {
       ok: false,
+      code: error.code || 'DATABASE_STARTUP_FAILED',
       message: userFriendlyStartupError(error),
     };
   }
@@ -347,9 +356,14 @@ function userFriendlyStartupError(error) {
       'MANAGED_DATABASE_CREDENTIAL_UNAVAILABLE',
       'MANAGED_DATABASE_CREDENTIAL_DECRYPT_FAILED',
       'MANAGED_DATABASE_CREDENTIAL_UNSUPPORTED',
+      'UPGRADE_ACTIVE_JOURNAL_REQUIRES_RECOVERY',
+      'UPGRADE_JOURNAL_CORRUPT',
+      'UPGRADE_JOURNAL_VERSION_UNSUPPORTED',
+      'UPGRADE_MANAGED_IDENTITY_MISSING',
+      'PRE_UPGRADE_BACKUP_VERIFICATION_FAILED',
     ].includes(error?.code)
   ) {
-    return 'The local Enterprise POS database configuration needs controlled recovery. Use the guided database recovery flow; do not create a new blank database.';
+    return 'The local Enterprise POS installation needs controlled upgrade recovery. Existing data is preserved; do not create a new blank database.';
   }
   if (
     [

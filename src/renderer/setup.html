@@ -116,7 +116,7 @@
               <h3 class="text-sm font-semibold">Store information</h3>
               <div class="mt-3 grid gap-3 md:grid-cols-2">
                 <label class="text-sm font-semibold">Store ID placeholder<input id="installerStoreId" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" placeholder="Assigned later" autocomplete="off" /></label>
-                <label class="text-sm font-semibold">Installer version<input id="installerVersion" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="1.0.0" autocomplete="off" /></label>
+                <label class="text-sm font-semibold">Installer version<input id="installerVersion" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" value="1.1.0" autocomplete="off" /></label>
               </div>
             </div>
             <div data-step="8" hidden class="setup-step mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
@@ -334,7 +334,7 @@
         password: document.querySelector('#installerPassword')?.value || '',
         sslMode: document.querySelector('#installerSslMode')?.value || 'disable',
         storeId: document.querySelector('#installerStoreId')?.value || null,
-        installerVersion: document.querySelector('#installerVersion')?.value || '1.0.0',
+        installerVersion: document.querySelector('#installerVersion')?.value || '1.1.0',
       });
       const adminPayload = () => ({
         username: document.querySelector('#installerAdminUsername')?.value || '',
