@@ -106,7 +106,12 @@ test('setup page is a guided first-run wizard and keeps restore recovery separat
   assert.match(html, /installerAdminPassword/);
   assert.match(html, /installerStoreId/);
   assert.match(html, /code === 'RESTORE_MAINTENANCE_LOCKOUT'/);
+  assert.match(html, /upgradeRecoveryDetails/);
+  assert.match(html, /isUpgradeRecoveryMode/);
+  assert.match(html, /startupMode === 'upgrade-recovery'/);
+  assert.match(html, /Do not create a new administrator or new blank database/);
   assert.match(html, /document\.querySelector\('#installerWizard'\)\?\.classList\.add\('hidden'\)/);
+  assert.match(html, /code !== 'RESTORE_MAINTENANCE_LOCKOUT' && !isUpgradeRecoveryMode/);
   assert.doesNotMatch(html, /activateLicense|checkForUpdates|autoUpdate/);
 });
 
@@ -133,6 +138,9 @@ test('preload and main expose installer foundation with disabled restore UI', ()
   assert.match(main, /createConfigFromEnvironment/);
   assert.match(main, /hasUsableUserAccounts/);
   assert.match(main, /FIRST_RUN_ADMIN_REQUIRED/);
+  assert.match(main, /isUpgradeRecoveryCode/);
+  assert.match(main, /upgradeRecoverySnapshot/);
+  assert.match(main, /classifyUpgradeStartup/);
   assert.match(main, /ENTERPRISE_POS_INSTALLER_CONFIG_ERROR_CODE/);
   assert.match(settingsHtml, /id="restoreBackupButton"[^>]*disabled/);
   assert.match(

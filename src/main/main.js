@@ -40,6 +40,11 @@ const upgradeService = require('./upgrade/upgrade.service');
 
 let startupStatus = { ok: true, message: 'Ready' };
 
+function isUpgradeRecoveryCode(code) {
+  const normalized = String(code || '');
+  return normalized.startsWith('UPGRADE_') || normalized.startsWith('PRE_UPGRADE_');
+}
+
 function applyE2eUserDataOverride() {
   const requestedPath = process.env.ENTERPRISE_POS_E2E_USER_DATA_DIR;
   if (process.env.NODE_ENV !== 'test' || !requestedPath || app.isPackaged) return;
@@ -78,6 +83,7 @@ function setupUrl() {
     activationStatus: startupStatus.activationStatus || 'Unknown',
   });
   const recovery = startupStatus.recoverySnapshot || null;
+  const upgradeRecovery = startupStatus.upgradeRecoverySnapshot || null;
   if (recovery) {
     params.set('startupMode', recovery.startupMode || '');
     params.set('currentState', recovery.recoveryState?.currentState || '');
@@ -102,6 +108,17 @@ function setupUrl() {
     );
     params.set('blockingReasons', (recovery.blockingReasons || []).join(' | '));
     params.set('assessedAt', recovery.assessedAt || '');
+  }
+  if (upgradeRecovery) {
+    params.set('startupMode', 'upgrade-recovery');
+    params.set('upgradeState', upgradeRecovery.state || '');
+    params.set('upgradeCode', upgradeRecovery.code || '');
+    params.set('upgradeOperationId', upgradeRecovery.operationId || '');
+    params.set('upgradeSourceVersion', upgradeRecovery.sourceVersion || '');
+    params.set('upgradeTargetVersion', upgradeRecovery.targetVersion || '');
+    params.set('upgradeFailureCode', upgradeRecovery.failureCode || '');
+    params.set('upgradeFailureMessage', upgradeRecovery.failureMessage || '');
+    params.set('upgradeUpdatedAt', upgradeRecovery.updatedAt || '');
   }
   return `file://${path.join(__dirname, '..', 'renderer', 'setup.html').replace(/\\/g, '/')}?${params.toString()}`;
 }
@@ -256,10 +273,42 @@ app.whenReady().then(async () => {
     }
   } catch (error) {
     logError('Database initialization failed:', error);
+    const code = error.code || 'DATABASE_STARTUP_FAILED';
+    let upgradeRecoverySnapshot = null;
+    if (isUpgradeRecoveryCode(code)) {
+      try {
+        const classification = upgradeService.classifyUpgradeStartup({
+          userDataPath: app.getPath('userData'),
+          targetVersion: appVersion,
+        });
+        const journal = classification.journal || null;
+        upgradeRecoverySnapshot = {
+          state: classification.state || '',
+          code: classification.code || code,
+          operationId: journal?.operationId || '',
+          sourceVersion: journal?.sourceVersion || classification.sourceVersion || '',
+          targetVersion: journal?.targetVersion || classification.targetVersion || appVersion,
+          failureCode: journal?.failure?.code || code,
+          failureMessage: journal?.failure?.message || '',
+          updatedAt: journal?.updatedAt || '',
+        };
+      } catch (snapshotError) {
+        upgradeRecoverySnapshot = {
+          state: 'RECOVERY_REQUIRED',
+          code,
+          failureCode: code,
+          failureMessage: 'Upgrade recovery state could not be inspected safely.',
+        };
+      }
+    }
     startupStatus = {
       ok: false,
-      code: error.code || 'DATABASE_STARTUP_FAILED',
+      code,
       message: userFriendlyStartupError(error),
+      databaseStatus: isUpgradeRecoveryCode(code) ? 'Recovery required' : 'Not ready',
+      migrationStatus: isUpgradeRecoveryCode(code) ? 'Blocked' : 'Pending',
+      activationStatus: isUpgradeRecoveryCode(code) ? 'Upgrade recovery required' : 'Unknown',
+      upgradeRecoverySnapshot,
     };
   }
 
@@ -339,6 +388,9 @@ app.whenReady().then(async () => {
 function userFriendlyStartupError(error) {
   const message = String(error?.message || '');
   if (message.includes('Database is not configured')) return message;
+  if (isUpgradeRecoveryCode(error?.code)) {
+    return 'The local Enterprise POS installation needs controlled upgrade recovery. Existing data is preserved; do not create a new blank database.';
+  }
   if (
     [
       'MANAGED_DATABASE_CONFIG_MISSING',

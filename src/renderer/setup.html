@@ -154,6 +154,24 @@
           <p id="setupBlockingReasons" class="mt-1">-</p>
           <p class="mt-3 text-xs text-red-700">Normal POS access remains locked. Safe actions are limited to retrying assessment, reading recovery diagnostics, or exiting the application.</p>
         </div>
+        <div id="upgradeRecoveryDetails" class="mt-5 hidden rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p class="font-semibold text-amber-950">Upgrade Recovery Required</p>
+          <p class="mt-2 text-amber-900">
+            Enterprise POS detected an interrupted or failed in-place upgrade. Existing shop data is preserved, and fresh setup is disabled until the upgrade state is safely resolved.
+          </p>
+          <dl class="mt-3 grid gap-2 md:grid-cols-2">
+            <div><dt class="text-xs uppercase tracking-wide text-amber-700">Upgrade State</dt><dd id="setupUpgradeState" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-amber-700">Reason Code</dt><dd id="setupUpgradeCode" class="break-all font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-amber-700">Operation ID</dt><dd id="setupUpgradeOperationId" class="break-all font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-amber-700">Version</dt><dd id="setupUpgradeVersion" class="font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-amber-700">Failure Code</dt><dd id="setupUpgradeFailureCode" class="break-all font-semibold">-</dd></div>
+            <div><dt class="text-xs uppercase tracking-wide text-amber-700">Last Updated</dt><dd id="setupUpgradeUpdatedAt" class="font-semibold">-</dd></div>
+          </dl>
+          <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-amber-700">Safe Action</p>
+          <p id="setupUpgradeFailureMessage" class="mt-1">
+            Close Enterprise POS and preserve the upgrade evidence. Do not create a new administrator or new blank database for this installation.
+          </p>
+        </div>
         <div id="setupChecklist" class="mt-5 hidden rounded-md bg-zinc-50 p-4 text-sm text-zinc-700">
           <p id="setupChecklistTitle" class="font-semibold text-zinc-950">Checklist</p>
           <ul id="setupChecklistItems" class="mt-2 list-disc space-y-1 pl-5">
@@ -171,6 +189,11 @@
     <script>
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code') || 'DATABASE_STARTUP_FAILED';
+      const startupMode = params.get('startupMode');
+      const isUpgradeRecoveryMode =
+        startupMode === 'upgrade-recovery' ||
+        String(code || '').startsWith('UPGRADE_') ||
+        String(code || '').startsWith('PRE_UPGRADE_');
       const text = (id, value) => {
         const node = document.querySelector(id);
         if (node) node.textContent = value || '-';
@@ -305,6 +328,34 @@
             <li>Exit the application until recovery is certified.</li>
           `;
         }
+      } else if (isUpgradeRecoveryMode) {
+        managedProvisioningCompleted = false;
+        managedProvisioningInProgress = false;
+        setManualConfigurationEnabled(false);
+        text('#setupTitle', 'Upgrade recovery required');
+        text(
+          '#setupLead',
+          'Enterprise POS detected a preserved installation that cannot continue normal startup until the in-place upgrade state is resolved.'
+        );
+        text('#setupError', userMessageForCode(code, params.get('error')));
+        text('#setupDatabaseStatus', params.get('databaseStatus') || 'Recovery required');
+        text('#setupMigrationStatus', params.get('migrationStatus') || 'Blocked');
+        text('#setupActivationStatus', params.get('activationStatus') || 'Upgrade recovery required');
+        document.querySelector('#installerWizard')?.classList.add('hidden');
+        document.querySelector('#upgradeRecoveryDetails')?.classList.remove('hidden');
+        text('#setupUpgradeState', params.get('upgradeState') || 'RECOVERY_REQUIRED');
+        text('#setupUpgradeCode', params.get('upgradeCode') || code);
+        text('#setupUpgradeOperationId', params.get('upgradeOperationId') || '-');
+        const sourceVersion = params.get('upgradeSourceVersion') || '-';
+        const targetVersion = params.get('upgradeTargetVersion') || '-';
+        text('#setupUpgradeVersion', `${sourceVersion} to ${targetVersion}`);
+        text('#setupUpgradeFailureCode', params.get('upgradeFailureCode') || code);
+        text('#setupUpgradeUpdatedAt', params.get('upgradeUpdatedAt') || '-');
+        text(
+          '#setupUpgradeFailureMessage',
+          params.get('upgradeFailureMessage') ||
+            'Close Enterprise POS and preserve upgrade evidence. Do not create a new administrator or new blank database for this installation.'
+        );
       } else if (code === 'FIRST_RUN_ADMIN_REQUIRED') {
         managedProvisioningCompleted = true;
         managedProvisioningInProgress = false;
@@ -461,7 +512,7 @@
           : { config: installerPayload(), admin: adminPayload() };
         callInstaller('initializeDatabase', payload).then(showInstallerStatus);
       });
-      if (code !== 'RESTORE_MAINTENANCE_LOCKOUT') {
+      if (code !== 'RESTORE_MAINTENANCE_LOCKOUT' && !isUpgradeRecoveryMode) {
         callInstaller('status').then(showInstallerStatus).catch(() => showInstallerStatus({ ok: false, message: 'Installer diagnostics could not be loaded.' }));
         callInstaller('vcRuntimeStatus').then(showVcRuntimeStatus).catch(() => showVcRuntimeStatus({ ok: false, code: 'VC_RUNTIME_STATUS_UNAVAILABLE' }));
         callInstaller('postgresPreflight').then((result) => {
