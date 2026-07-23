@@ -54,6 +54,48 @@ test('upgrade journal writes atomically with integrity and redacted identity', (
   assert.equal(journalStore.bindMatches(loaded.journal, identity), true);
 });
 
+test('completed upgrade journal survives JSON round trip with optional fields', () => {
+  const dir = tempDir();
+  const journal = journalStore.createJournal({
+    installationIdentity: identity,
+    databaseIdentity: identity,
+    sourceVersion: '1.0.0',
+    targetVersion: '1.1.0',
+    postgresMajor: 17,
+  });
+  const completed = {
+    ...journal,
+    state: UPGRADE_STATES.UPGRADE_COMPLETED,
+    backup: {
+      backupId: 'backup-a',
+      fileName: 'enterprise-pos-pre-upgrade-1.0.0-to-1.1.0.json',
+      sha256: 'a'.repeat(64),
+      manifestHash: 'b'.repeat(64),
+      verificationStatus: undefined,
+    },
+    migrationLedger: {
+      pending: [],
+      applied: [],
+      validation: {
+        counts: {
+          users: 1,
+          products: 1,
+          invoices: null,
+        },
+      },
+    },
+    completedAt: '2026-07-23T15:00:00.000Z',
+    updatedAt: '2026-07-23T15:00:00.000Z',
+  };
+
+  journalStore.writeJournal(dir, completed);
+  const loaded = journalStore.readJournal(dir);
+
+  assert.equal(loaded.ok, true);
+  assert.equal(loaded.journal.state, UPGRADE_STATES.UPGRADE_COMPLETED);
+  assert.equal(loaded.journal.backup.verificationStatus, undefined);
+});
+
 test('upgrade journal corruption fails closed', () => {
   const dir = tempDir();
   const journal = journalStore.createJournal({

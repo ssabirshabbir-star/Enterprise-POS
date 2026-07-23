@@ -166,7 +166,7 @@ async function createVerifiedPreUpgradeBackup({
     pathCategory: redactedPathCategory(backupPath, userDataPath),
     sha256,
     manifestHash: backupManifestHash(backup, verification) || sha256,
-    verificationStatus: verification.status,
+    verificationStatus: verification.verificationStatus || verification.status || null,
     createdAt: new Date().toISOString(),
   };
 }
