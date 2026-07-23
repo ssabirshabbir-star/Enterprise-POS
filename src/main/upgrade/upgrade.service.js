@@ -133,6 +133,91 @@ function backupVerificationPassed(verification = {}) {
   return (verification.verificationStatus || verification.status) === 'passed';
 }
 
+function isResumableJournalState(state) {
+  return [
+    UPGRADE_STATES.PRE_UPGRADE_BACKUP_REQUIRED,
+    UPGRADE_STATES.PRE_UPGRADE_BACKUP_VERIFIED,
+    UPGRADE_STATES.MIGRATION_REQUIRED,
+    UPGRADE_STATES.MIGRATION_IN_PROGRESS,
+    UPGRADE_STATES.MIGRATION_COMPLETED,
+    UPGRADE_STATES.UPGRADE_VALIDATION_REQUIRED,
+  ].includes(state);
+}
+
+function resolveJournalBackupPath(backup = {}, userDataPath) {
+  if (backup.path && path.isAbsolute(backup.path)) return backup.path;
+  if (backup.pathCategory && String(backup.pathCategory).startsWith('%USER_DATA%\\')) {
+    return path.join(userDataPath, String(backup.pathCategory).slice('%USER_DATA%\\'.length));
+  }
+  return backup.path || null;
+}
+
+function assertVerifiedJournalBackup(journal = {}, userDataPath) {
+  const backup = journal.backup || {};
+  if (!backup.backupId || !backup.sha256 || backup.verificationStatus !== 'passed') {
+    throw codeError(
+      'PRE_UPGRADE_BACKUP_VERIFICATION_REQUIRED',
+      'Interrupted upgrade cannot resume without a verified pre-upgrade backup.'
+    );
+  }
+  const backupPath = resolveJournalBackupPath(backup, userDataPath);
+  if (!backupPath || !fs.existsSync(backupPath)) {
+    throw codeError(
+      'PRE_UPGRADE_BACKUP_REFERENCE_MISSING',
+      'Interrupted upgrade backup reference is not available.'
+    );
+  }
+  const actualSha256 = fileSha256(backupPath);
+  if (actualSha256 !== backup.sha256) {
+    throw codeError(
+      'PRE_UPGRADE_BACKUP_REFERENCE_MISMATCH',
+      'Interrupted upgrade backup reference failed SHA-256 verification.'
+    );
+  }
+  return { ...backup, path: backupPath };
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForCertificationCheckpoint(checkpoint, { userDataPath } = {}) {
+  if (process.env.ENTERPRISE_POS_CERT_UPGRADE_CHECKPOINT !== checkpoint) return { ok: true };
+
+  const markerPath =
+    process.env.ENTERPRISE_POS_CERT_UPGRADE_CHECKPOINT_FILE ||
+    path.join(userDataPath, `enterprise-pos-upgrade-checkpoint-${checkpoint}.json`);
+  const releasePath = process.env.ENTERPRISE_POS_CERT_UPGRADE_CHECKPOINT_RELEASE_FILE || null;
+  const maxWaitMs = Number(process.env.ENTERPRISE_POS_CERT_UPGRADE_CHECKPOINT_MAX_WAIT_MS || 0);
+  const startedAt = Date.now();
+  fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+  fs.writeFileSync(
+    markerPath,
+    `${JSON.stringify(
+      {
+        checkpoint,
+        pid: process.pid,
+        reachedAt: new Date().toISOString(),
+        releaseRequired: Boolean(releasePath),
+      },
+      null,
+      2
+    )}\n`,
+    { mode: 0o600 }
+  );
+
+  while (releasePath && !fs.existsSync(releasePath)) {
+    if (maxWaitMs > 0 && Date.now() - startedAt > maxWaitMs) {
+      throw codeError(
+        'UPGRADE_CERTIFICATION_CHECKPOINT_TIMEOUT',
+        'Certification upgrade checkpoint timed out before release.'
+      );
+    }
+    await delay(250);
+  }
+  return { ok: true, markerPath };
+}
+
 async function createVerifiedPreUpgradeBackup({
   userDataPath,
   sourceVersion,
@@ -233,11 +318,65 @@ async function validatePostUpgrade({
 }
 
 async function performStartupUpgrade({ userDataPath, targetVersion, dependencies = {} } = {}) {
-  const classification = classifyUpgradeStartup({
-    userDataPath,
-    targetVersion,
-    loadConfig: dependencies.loadInstallationConfig,
-  });
+  const loadInstallationConfig =
+    dependencies.loadInstallationConfig || configStore.loadInstallationConfig;
+  const existingJournal = journalStore.readJournal(userDataPath);
+  let resumeJournal = null;
+  let resumeConfig = null;
+
+  if (existingJournal.ok && !isTerminalState(existingJournal.journal.state)) {
+    const loaded = loadInstallationConfig(userDataPath, { includePassword: false });
+    if (!loaded.ok) {
+      throw codeError(
+        loaded.code || 'UPGRADE_INSTALLER_CONFIG_UNREADABLE',
+        'Enterprise POS upgrade cannot resume without readable installer configuration.'
+      );
+    }
+    if (!loaded.config.managedIdentity) {
+      throw codeError(
+        'UPGRADE_MANAGED_IDENTITY_MISSING',
+        'Installer-managed identity is required before upgrade.'
+      );
+    }
+    if (!journalStore.bindMatches(existingJournal.journal, loaded.config.managedIdentity)) {
+      throw codeError(
+        'UPGRADE_JOURNAL_IDENTITY_MISMATCH',
+        'Interrupted upgrade journal does not match this managed installation.'
+      );
+    }
+    if (
+      existingJournal.journal.targetVersion &&
+      existingJournal.journal.targetVersion !== targetVersion
+    ) {
+      throw codeError(
+        'UPGRADE_JOURNAL_TARGET_VERSION_MISMATCH',
+        'Interrupted upgrade journal targets a different application version.'
+      );
+    }
+    if (!isResumableJournalState(existingJournal.journal.state)) {
+      throw codeError(
+        'UPGRADE_ACTIVE_JOURNAL_REQUIRES_RECOVERY',
+        'Enterprise POS upgrade requires controlled recovery.'
+      );
+    }
+    resumeJournal = existingJournal.journal;
+    resumeConfig = loaded.config;
+  }
+
+  const classification = resumeJournal
+    ? {
+        ok: true,
+        state: resumeJournal.state,
+        code: 'UPGRADE_RESUME_REQUIRED',
+        sourceVersion: resumeJournal.sourceVersion,
+        targetVersion: resumeJournal.targetVersion || targetVersion,
+        config: resumeConfig,
+      }
+    : classifyUpgradeStartup({
+        userDataPath,
+        targetVersion,
+        loadConfig: dependencies.loadInstallationConfig,
+      });
   if (classification.state === UPGRADE_STATES.FRESH_INSTALL) return classification;
   if (classification.state === UPGRADE_STATES.EXISTING_INSTALL_READY) return classification;
   if (
@@ -253,55 +392,69 @@ async function performStartupUpgrade({ userDataPath, targetVersion, dependencies
       'Installer-managed identity is required before upgrade.'
     );
   }
-  const existingJournal = journalStore.readJournal(userDataPath);
-  let journal =
-    existingJournal.ok &&
-    !isTerminalState(existingJournal.journal.state) &&
-    journalStore.bindMatches(existingJournal.journal, config.managedIdentity)
-      ? existingJournal.journal
-      : journalStore.createJournal({
-          installationIdentity: config.managedIdentity,
-          databaseIdentity: config.managedIdentity,
-          sourceVersion: classification.sourceVersion,
-          targetVersion,
-          postgresMajor: MANAGED_POSTGRES_MAJOR,
-        });
+  let journal = resumeJournal
+    ? resumeJournal
+    : journalStore.createJournal({
+        installationIdentity: config.managedIdentity,
+        databaseIdentity: config.managedIdentity,
+        sourceVersion: classification.sourceVersion,
+        targetVersion,
+        postgresMajor: MANAGED_POSTGRES_MAJOR,
+      });
   journalStore.writeJournal(userDataPath, journal);
 
   try {
-    journal = journalStore.transitionJournal(
-      journal,
-      UPGRADE_STATES.PRE_UPGRADE_BACKUP_IN_PROGRESS,
-      {
-        reason: 'pre_upgrade_backup_started',
-      }
-    );
-    journalStore.writeJournal(userDataPath, journal);
+    let backup = journal.backup;
+    if (journal.state === UPGRADE_STATES.PRE_UPGRADE_BACKUP_REQUIRED) {
+      journal = journalStore.transitionJournal(
+        journal,
+        UPGRADE_STATES.PRE_UPGRADE_BACKUP_IN_PROGRESS,
+        {
+          reason: 'pre_upgrade_backup_started',
+        }
+      );
+      journalStore.writeJournal(userDataPath, journal);
 
-    const backup = await createVerifiedPreUpgradeBackup({
-      userDataPath,
-      sourceVersion: classification.sourceVersion,
-      targetVersion,
-      exportBackup: dependencies.exportBackup,
-      verifyRestorePackage: dependencies.verifyRestorePackage,
-    });
-    journal = journalStore.transitionJournal(journal, UPGRADE_STATES.PRE_UPGRADE_BACKUP_VERIFIED, {
-      reason: 'pre_upgrade_backup_verified',
-      backup,
-    });
-    journalStore.writeJournal(userDataPath, journal);
+      backup = await createVerifiedPreUpgradeBackup({
+        userDataPath,
+        sourceVersion: classification.sourceVersion,
+        targetVersion,
+        exportBackup: dependencies.exportBackup,
+        verifyRestorePackage: dependencies.verifyRestorePackage,
+      });
+      journal = journalStore.transitionJournal(
+        journal,
+        UPGRADE_STATES.PRE_UPGRADE_BACKUP_VERIFIED,
+        {
+          reason: 'pre_upgrade_backup_verified',
+          backup,
+        }
+      );
+      journalStore.writeJournal(userDataPath, journal);
+      await waitForCertificationCheckpoint('after-pre-upgrade-backup-verified', { userDataPath });
+    } else {
+      backup = assertVerifiedJournalBackup(journal, userDataPath);
+    }
 
-    journal = journalStore.transitionJournal(journal, UPGRADE_STATES.MIGRATION_REQUIRED, {
-      reason: 'migration_required',
-    });
-    journalStore.writeJournal(userDataPath, journal);
-    journal = journalStore.transitionJournal(journal, UPGRADE_STATES.MIGRATION_IN_PROGRESS, {
-      reason: 'migration_started',
-    });
-    journalStore.writeJournal(userDataPath, journal);
+    if (journal.state === UPGRADE_STATES.PRE_UPGRADE_BACKUP_VERIFIED) {
+      journal = journalStore.transitionJournal(journal, UPGRADE_STATES.MIGRATION_REQUIRED, {
+        reason: 'migration_required',
+      });
+      journalStore.writeJournal(userDataPath, journal);
+    }
+    if (journal.state === UPGRADE_STATES.MIGRATION_REQUIRED) {
+      journal = journalStore.transitionJournal(journal, UPGRADE_STATES.MIGRATION_IN_PROGRESS, {
+        reason: 'migration_started',
+      });
+      journalStore.writeJournal(userDataPath, journal);
+    }
 
-    const migrationResult = await withTransaction((client) =>
-      migrationLedger.runDatabaseMigrations(client, {
+    if (journal.state === UPGRADE_STATES.MIGRATION_IN_PROGRESS) {
+      const runMigrations =
+        dependencies.runDatabaseMigrationsInTransaction ||
+        ((options) =>
+          withTransaction((client) => migrationLedger.runDatabaseMigrations(client, options)));
+      const migrationResult = await runMigrations({
         sourceVersion: classification.sourceVersion,
         targetVersion,
         requireVerifiedBackupForSchemaChange: true,
@@ -309,22 +462,29 @@ async function performStartupUpgrade({ userDataPath, targetVersion, dependencies
         backup,
         upgradeOperationId: journal.operationId,
         migrations: dependencies.migrations,
-      })
-    );
-    journal = journalStore.transitionJournal(journal, UPGRADE_STATES.MIGRATION_COMPLETED, {
-      reason: 'migration_completed',
-      migrationLedger: {
-        pending: [],
-        applied: migrationResult.executed || [],
-      },
-    });
-    journalStore.writeJournal(userDataPath, journal);
+      });
+      journal = journalStore.transitionJournal(journal, UPGRADE_STATES.MIGRATION_COMPLETED, {
+        reason: 'migration_completed',
+        migrationLedger: {
+          pending: [],
+          applied: migrationResult.executed || [],
+        },
+      });
+      journalStore.writeJournal(userDataPath, journal);
+    }
 
-    journal = journalStore.transitionJournal(journal, UPGRADE_STATES.UPGRADE_VALIDATION_REQUIRED, {
-      reason: 'post_upgrade_validation_required',
-    });
-    journalStore.writeJournal(userDataPath, journal);
-    const validation = await validatePostUpgrade({
+    if (journal.state === UPGRADE_STATES.MIGRATION_COMPLETED) {
+      journal = journalStore.transitionJournal(
+        journal,
+        UPGRADE_STATES.UPGRADE_VALIDATION_REQUIRED,
+        {
+          reason: 'post_upgrade_validation_required',
+        }
+      );
+      journalStore.writeJournal(userDataPath, journal);
+    }
+    const validateUpgrade = dependencies.validatePostUpgrade || validatePostUpgrade;
+    const validation = await validateUpgrade({
       config,
       sourceVersion: classification.sourceVersion,
       targetVersion,
@@ -369,6 +529,9 @@ module.exports = {
   classifyUpgradeStartup,
   compareVersions,
   createVerifiedPreUpgradeBackup,
+  isResumableJournalState,
   performStartupUpgrade,
+  assertVerifiedJournalBackup,
   validatePostUpgrade,
+  waitForCertificationCheckpoint,
 };
