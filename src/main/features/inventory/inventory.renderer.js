@@ -69,6 +69,14 @@
     return el;
   }
 
+  function markCsvToolHandled(event) {
+    if (!event) return false;
+    if (event.__inventoryCsvToolHandled) return true;
+    event.__inventoryCsvToolHandled = true;
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    return false;
+  }
+
   // ── Feedback ─────────────────────────────────────────────────────────────
 
   function showMsg(text, isError) {
@@ -303,6 +311,30 @@
       button.removeAttribute('aria-busy');
       button.textContent = originalText;
     }
+  }
+
+  async function handleInventoryCsvToolClick(event, button) {
+    const targetButton =
+      button ||
+      event?.target?.closest?.('#inventoryImportPreviewButton, #inventoryExportCsvButton') ||
+      null;
+    if (!targetButton) return false;
+    const action = targetButton.dataset?.toolAction || '';
+    if (
+      targetButton.id !== 'inventoryImportPreviewButton' &&
+      targetButton.id !== 'inventoryExportCsvButton' &&
+      action !== 'import-preview' &&
+      action !== 'export-csv'
+    ) {
+      return false;
+    }
+    if (markCsvToolHandled(event)) return true;
+    if (action === 'import-preview' || targetButton.id === 'inventoryImportPreviewButton') {
+      await startImportPreviewWorkflow(event);
+      return true;
+    }
+    await exportInventoryCsv(targetButton);
+    return true;
   }
 
   function importStatusText(row) {
@@ -1143,9 +1175,13 @@
       .forEach((el) => el.addEventListener('click', () => closeAdjustModal()));
     $id('stockAdjustmentForm')?.addEventListener('submit', (e) => saveAdjustment(e));
 
-    // Read-only CSV import matched preview
+    // CSV import/export use native file dialogs through the main process. Keep both
+    // direct and delegated bindings so packaged retained fragments cannot go inert.
     $id('inventoryImportPreviewButton')?.addEventListener('click', (event) =>
-      startImportPreviewWorkflow(event)
+      handleInventoryCsvToolClick(event, event.currentTarget)
+    );
+    $id('inventoryExportCsvButton')?.addEventListener('click', (event) =>
+      handleInventoryCsvToolClick(event, event.currentTarget)
     );
     $id('restartImportPreviewButton')?.addEventListener('click', (event) =>
       restartImportPreviewWorkflow(event)
@@ -1219,17 +1255,13 @@
         : { ok: false, message: 'Barcode designer is unavailable.' };
       showMsg(result.message || 'Unable to open barcode designer.', !result.ok);
     });
-    document.querySelectorAll('[data-page-tool="inventory"]').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        if (btn.dataset.toolAction === 'import-preview') return;
-        if (btn.dataset.toolAction === 'export-csv') {
-          exportInventoryCsv(btn);
-          return;
-        }
-        const action = btn.dataset.toolAction === 'import' ? 'import' : 'export';
-        showMsg(api().placeholder(action).message, true);
-      })
-    );
+    document.addEventListener('click', async (event) => {
+      if (await handleInventoryCsvToolClick(event)) return;
+      const btn = event.target?.closest?.('[data-page-tool="inventory"]');
+      if (!btn) return;
+      const action = btn.dataset.toolAction === 'import' ? 'import' : 'export';
+      showMsg(api().placeholder(action).message, true);
+    });
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────

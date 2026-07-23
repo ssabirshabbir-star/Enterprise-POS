@@ -144,6 +144,15 @@ class FakeElement {
 
   closest(selector) {
     if (selector === '[data-adjust-product]' && this.dataset.adjustProduct) return this;
+    if (
+      selector === '#inventoryImportPreviewButton, #inventoryExportCsvButton' &&
+      (this.id === 'inventoryImportPreviewButton' || this.id === 'inventoryExportCsvButton')
+    ) {
+      return this;
+    }
+    if (selector === '[data-page-tool="inventory"]' && this.dataset.pageTool === 'inventory') {
+      return this;
+    }
     return null;
   }
 }
@@ -728,6 +737,38 @@ test('toolbar Export CSV duplicate clicks are guarded and cancel is non-error', 
     'Inventory CSV export cancelled.'
   );
   assert.doesNotMatch(document.getElementById('inventoryMessage').style.cssText, /#fef2f2|#b91c1c/);
+});
+
+test('toolbar CSV actions remain reachable through delegated packaged click handling', async () => {
+  const exportCalls = [];
+  let previewCalls = 0;
+  const { document } = await loadRenderer({
+    exportCsv: async (filters) => {
+      exportCalls.push(filters);
+      return { ok: true, canceled: false, rowCount: 1 };
+    },
+    requestImportPreview: async () => {
+      previewCalls += 1;
+      return { ok: false, canceled: true, status: 'canceled' };
+    },
+  });
+
+  await document.dispatchEvent({
+    type: 'click',
+    target: document.getElementById('inventoryExportCsvButton'),
+    preventDefault() {},
+  });
+  await flushAsyncHandlers();
+  assert.equal(exportCalls.length, 1);
+
+  await document.dispatchEvent({
+    type: 'click',
+    target: document.getElementById('inventoryImportPreviewButton'),
+    preventDefault() {},
+  });
+  await flushAsyncHandlers();
+  assert.equal(previewCalls, 1);
+  assert.match(document.getElementById('inventoryImportPreviewStatus').textContent, /cancelled/i);
 });
 
 test('matched preview workflow selects CSV then analyzes only backend session id', async () => {
