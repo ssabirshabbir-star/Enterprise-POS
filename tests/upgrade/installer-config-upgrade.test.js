@@ -97,3 +97,14 @@ test('missing config with managed artifacts fails closed instead of fresh provis
 
   assert.equal(result.state, UPGRADE_STATES.FAILED_CLOSED);
 });
+
+test('pre-upgrade backup gate accepts repository verificationStatus contract', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'src', 'main', 'upgrade', 'upgrade.service.js'),
+    'utf8'
+  );
+
+  assert.match(source, /function backupVerificationPassed/);
+  assert.match(source, /verification\.verificationStatus \|\| verification\.status/);
+  assert.doesNotMatch(source, /verification\.status !== 'passed'/);
+});

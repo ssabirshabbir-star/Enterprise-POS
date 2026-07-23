@@ -129,6 +129,10 @@ function backupManifestHash(backupResult = {}, verification = {}) {
   );
 }
 
+function backupVerificationPassed(verification = {}) {
+  return (verification.verificationStatus || verification.status) === 'passed';
+}
+
 async function createVerifiedPreUpgradeBackup({
   userDataPath,
   sourceVersion,
@@ -147,7 +151,7 @@ async function createVerifiedPreUpgradeBackup({
   );
   const backup = await exportBackup(backupPath, null, { reason: 'pre-upgrade' });
   const verification = await verifyRestorePackage(backupPath);
-  if (!backup?.filePath || !fs.existsSync(backupPath) || verification.status !== 'passed') {
+  if (!backup?.filePath || !fs.existsSync(backupPath) || !backupVerificationPassed(verification)) {
     throw codeError(
       'PRE_UPGRADE_BACKUP_VERIFICATION_FAILED',
       'Pre-upgrade backup could not be verified.'
